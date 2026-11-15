@@ -6,19 +6,174 @@ Desc: 接口检索层，提供接口发现与元数据查询能力
 """
 
 import copy
+import difflib
 import json
 import re
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from akshare.datasets import get_registry_json
+from akshare.datasets import get_data_file, get_registry_json
 from akshare.exceptions import DataParsingError, InvalidParameterError
 from akshare.utils.params import to_bool, to_int
 
 _REGISTRY: Optional[Dict] = None
+_RENAMES: Optional[Dict] = None
+RENAME_TABLE_URL = "https://akshare.akfamily.xyz/changelog.html#changelog-rename"
+
+
+def _load_renames() -> Dict:
+    """
+    懒加载改名对照 akshare/data/renames.json，读取失败时视为没有记录。
+
+    :return: 含 renamed（旧名 -> [新名，版本]）与 removed（旧名 -> 版本）的字典
+    :rtype: dict
+    """
+    global _RENAMES
+    if _RENAMES is None:
+        try:
+            path = get_data_file("renames.json")
+            _RENAMES = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _RENAMES = {"renamed": {}, "removed": {}}
+    return _RENAMES
+
+
+def renamed_info(name: str) -> Optional[Dict]:
+    """
+    旧接口名的去向，以数据的形式返回，供 AKTools 等上层按自己的场景组织提示。
+
+    数据由 scripts/build_registry.py 根据更新日志的接口更名一览表与
+    scripts/registry_removed.json 生成；多次改名的旧名称直接指向现在的名称。
+
+    :param name: 接口名
+    :type name: str
+    :return: 不是已知的旧接口名时返回 None；否则返回字典：name 为传入的名称，
+        status 为 "renamed" 或 "removed"，version 为更名或移除的版本，
+        url 为接口更名一览表或该版本更新日志的地址，更名时另有 new_name
+    :rtype: dict or None
+    """
+    renames = _load_renames()
+    if name in renames["renamed"]:
+        new_name, version = renames["renamed"][name]
+        return {
+            "name": name,
+            "status": "renamed",
+            "new_name": new_name,
+            "version": version,
+            "url": RENAME_TABLE_URL,
+        }
+    if name in renames["removed"]:
+        version = renames["removed"][name]
+        anchor = "v" + version.replace(".", "-")
+        return {
+            "name": name,
+            "status": "removed",
+            "version": version,
+            "url": f"https://akshare.akfamily.xyz/changelog.html#{anchor}",
+        }
+    return None
+
+
+def renamed_hint(name: str) -> Optional[str]:
+    """
+    旧接口名的去向说明：已更名的给出新名称，已移除的给出移除的版本。
+
+    :param name: 接口名
+    :type name: str
+    :return: 说明文字；不是已知的旧接口名时返回 None
+    :rtype: str or None
+    """
+    info = renamed_info(name)
+    if info is None:
+        return None
+    if info["status"] == "renamed":
+        new_name = info["new_name"]
+        return (
+            f"{name} 已在 {info['version']} 更名为 {new_name}，请改用 ak.{new_name}；"
+            f'参数与返回的列也可能有调整，用 ak.interface_info("{new_name}") 查看。'
+            f"完整对照见 {info['url']}"
+        )
+    return f"{name} 已在 {info['version']} 移除，原因与替代接口见更新日志 {info['url']}"
+
+
+def missing_attribute_message(name: str) -> str:
+    """
+    访问 akshare 中不存在的名称时的报错信息：已知的旧接口名给出去向，否则给出相近的接口名。
+
+    :param name: 被访问的名称
+    :type name: str
+    :return: 报错信息
+    :rtype: str
+    """
+    hint = renamed_hint(name)
+    if hint:
+        return hint
+    message = f"module 'akshare' has no attribute '{name}'"
+    try:
+        names = [item["name"] for item in _load()["interfaces"]]
+    except DataParsingError:
+        return message
+    close = difflib.get_close_matches(name, names, n=3, cutoff=0.8)
+    if close:
+        message += "；相近的接口：" + "、".join(close)
+    return message + '。可用 ak.search("关键词") 查找接口'
+
 
 _TOKEN_SPLIT_RE = re.compile(r"[\s,，、;；/|]+")
+
+# 证券代码不是接口的属性：整个查询词是 5 位以上的数字（可带市场前缀）时不参与匹配，
+# 否则它的数字片段会命中描述里的年份、日期，带出上百个无关接口
+_SECURITY_CODE_RE = re.compile(r"(?:sh|sz|bj|hk)?\d{5,}(?:\.(?:sh|sz|bj|hk))?", re.I)
+# 连续字符片段只是没有按词命中时的兜底，分数打折，不让它盖过按词（含同义词）的命中
+FALLBACK_DISCOUNT = 0.5
+# 分数相同时的先后：先看类目，再看市场，再取名称更短（更通用）的接口
+_CATEGORY_ORDER = (
+    "stock",
+    "index",
+    "fund",
+    "futures",
+    "option",
+    "bond",
+    "fx",
+    "macro",
+    "interest_rate",
+    "spot",
+    "energy",
+    "crypto",
+    "calendar",
+    "research",
+    "alternative",
+)
+_HOME_SEGMENTS = frozenset({"zh", "china", "a"})
+_ABROAD_SEGMENTS = frozenset(
+    "hk us usa uk euro japan germany swiss canada australia global foreign".split()
+)
+
+
+def _tie_break(record: Dict) -> Tuple[int, int, int, str]:
+    """
+    分数相同时的排序依据：用户没有说明市场时，多数是在找股票与境内市场的数据。
+
+    :param record: registry 中的一条接口记录
+    :return: （类目先后，市场先后，名称长度，名称）
+    """
+    name = record["name"]
+    category = record.get("category") or ""
+    if category in _CATEGORY_ORDER:
+        category_rank = _CATEGORY_ORDER.index(category)
+    else:
+        category_rank = len(_CATEGORY_ORDER)
+    segments = set(name.split("_"))
+    # 先判断境外：macro_china_hk_gdp 这样的名称同时带有 china 与 hk
+    if segments & _ABROAD_SEGMENTS:
+        market_rank = 2
+    elif segments & _HOME_SEGMENTS:
+        market_rank = 0
+    else:
+        market_rank = 1
+    return category_rank, market_rank, len(name), name
+
 
 WEIGHT_NAME_EXACT = 100.0
 WEIGHT_NAME = 10.0
@@ -26,12 +181,13 @@ WEIGHT_DESC = 5.0
 WEIGHT_CATEGORY = 3.0
 WEIGHT_OUTPUT = 2.0
 BONUS_ALL_TOKENS = 1.5
+WEIGHT_LATER_TOKEN = 0.8
 PENALTY_UNDOCUMENTED = 0.5
 
 # 同义词组：查询词命中组内任意一个词时，按整组去匹配。接口描述沿用数据源网站的
 # 栏目名，与用户的说法常常对不上——描述里写的是「日频率」「历史行情」，用户搜的是
 # 「日线」；只做字面匹配时，「期货 日线」的前几名里没有一个是日线行情。
-# 组内的英文词是接口名中以下划线分隔的片段，按整段匹配：us 只命中 stock_us_daily_sina
+# 组内的英文词是接口名中以下划线分隔的片段，按整段匹配：us 只命中 stock_us_hist_sina
 # 这样的名字，不会命中 industry。含下划线的词（如 fund_flow）要求各段连续出现。
 SYNONYM_GROUPS: Tuple[Tuple[str, ...], ...] = (
     ("日线", "日k", "日k线", "日频", "历史行情", "daily", "hist"),
@@ -59,6 +215,12 @@ SYNONYM_GROUPS: Tuple[Tuple[str, ...], ...] = (
     ("概念板块", "board_concept"),
     ("涨停", "涨停板", "zt_pool"),
     ("分红", "派息", "分红派息", "dividend", "fh", "fhps", "fhpx"),
+    ("cpi", "居民消费价格指数", "消费者物价指数"),
+    ("ppi", "工业品出厂价格指数", "生产者物价指数"),
+    ("gdp", "国内生产总值"),
+    ("pmi", "采购经理人指数", "采购经理指数"),
+    ("股票列表", "股票代码", "代码表", "代码和简称", "code_name", "name_code"),
+    ("成分股", "成份股", "成份", "成分", "cons"),
 )
 
 _ASCII_WORD_RE = re.compile(r"[a-z0-9_]+")
@@ -193,7 +355,7 @@ def _score(
     lower_desc = norm_desc.lower()
     total = 0.0
     hit_count = 0
-    for token in tokens:
+    for position, token in enumerate(tokens):
         norm_token = _normalize(token)
         # 同义词只用于接口名、描述与类目；输出列名是数据字段，不是对接口的描述，
         # 用同义词去匹配会把含「日线」类列名的无关接口带进来
@@ -219,7 +381,9 @@ def _score(
             subtotal += WEIGHT_OUTPUT
         if subtotal:
             hit_count += 1
-        total += subtotal
+        # 第一个词多是品种（可转债、A股），后面的词多是数据类型（实时行情、日线）：
+        # 只命中其一时，命中品种的接口更可能是用户要找的
+        total += subtotal if position == 0 else subtotal * WEIGHT_LATER_TOKEN
     if total and hit_count == len(tokens):
         total *= BONUS_ALL_TOKENS
     if not record.get("documented", False):
@@ -246,36 +410,52 @@ def _rank(query: str, records: List[Dict]) -> List[Dict]:
     对候选记录打分排序。
 
     每条记录取「按空白/标点切分的主分」与「连续字符 2-gram 的降级分」两者中
-    的较大值，作为召回与常规排序依据。但排序优先级不完全依赖分数大小：
+    的较大值（降级分打折），作为召回与常规排序依据。但排序优先级不完全依赖分数大小：
     接口名与查询原文完全相等的记录一律置顶，不论其分数是否被 2-gram 降级
     分反超——因为 2-gram 分是按字符子串累加的，接口名越长该分数越容易超过
     精确命中的加成分，单纯比较数值大小无法保证精确匹配永远排第一。其余
-    记录按分数降序，同分再按接口名字典序排列。
+    记录按分数降序，同分时股票与境内市场在前、名称较短的在前（见 _tie_break）。
+    查询词是证券代码时不参与匹配，整个查询只有证券代码时没有结果。
 
     :param query: 查询字符串
     :param records: 候选记录
     :return: 含 _score 键并按「精确名置顶、分数降序、名字典序」排列的记录列表
     """
-    tokens = _tokenize(query)
-    fallback_tokens = _bigrams(query)
     stripped = query.strip()
+    words = _tokenize(query)
+    tokens = [word for word in words if not _SECURITY_CODE_RE.fullmatch(word)]
+    # 片段兜底只为没有打空格的中文查询准备；纯英文、数字的词按整词匹配即可，
+    # 拆成片段后 "CPI" 会按 "CP" 与 "PI" 各算一次分
+    fallback_tokens = _bigrams(
+        "".join(word for word in tokens if not _ASCII_WORD_RE.fullmatch(word.lower()))
+    )
+    # 查询里出现已更名的旧接口名时，它现在的名称与精确名一样置顶：按片段打分时
+    # 新名称往往排在名称更短的其他数据源之后
+    renamed = _load_renames()["renamed"]
+    pinned = {renamed[word][0] for word in [stripped, *words] if word in renamed}
     scored = []
     for record in records:
         # 主分与降级分共用同一份归一化字段，每条记录只归一化一次。
         fields = _prepare(record)
         score = _score(tokens, record, fields)
         if fallback_tokens:
-            score = max(score, _score(fallback_tokens, record, fields))
+            score = max(
+                score, FALLBACK_DISCOUNT * _score(fallback_tokens, record, fields)
+            )
+        if record["name"] in pinned:
+            score = max(score, 1.0)
         if score > 0:
             # 与 _score 的精确名捷径判定保持一致：tokenize 会剥掉
             # ",，、;；/|" 等标点，若这里仍用未剥标点的原始 stripped 比较，
             # 带尾随标点的精确名查询（如 "stock_zh_a_hist_em,"）会被判定为
             # 非精确，从而失去置顶保证。
-            is_exact = (len(tokens) == 1 and tokens[0] == record["name"]) or (
-                record["name"] == stripped
+            is_exact = (
+                (len(tokens) == 1 and tokens[0] == record["name"])
+                or record["name"] == stripped
+                or record["name"] in pinned
             )
             scored.append((record, score, is_exact))
-    scored.sort(key=lambda item: (not item[2], -item[1], item[0]["name"]))
+    scored.sort(key=lambda item: (not item[2], -item[1], _tie_break(item[0])))
     return [dict(record, _score=score) for record, score, _ in scored]
 
 
@@ -333,7 +513,13 @@ def interface_info(name: str) -> Dict:
     for record in records:
         if record["name"] == name:
             return copy.deepcopy(record)
-    candidates = [item["name"] for item in _rank(name, records)[:3]]
+    hint = renamed_hint(name)
+    if hint:
+        raise InvalidParameterError(hint)
+    # 接口名写错多是个别字符之差，按字符相似度找；找不到再按检索结果给候选
+    candidates = difflib.get_close_matches(
+        name, [item["name"] for item in records], n=3, cutoff=0.6
+    ) or [item["name"] for item in _rank(name, records)[:3]]
     hint = "、".join(candidates) if candidates else "无"
     raise InvalidParameterError(f"未知接口 {name}，最接近的候选: {hint}")
 

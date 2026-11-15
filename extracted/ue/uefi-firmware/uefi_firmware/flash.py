@@ -3,7 +3,7 @@
 import os
 import struct
 
-from .base import FirmwareObject, BaseObject, StructuredObject
+from .base import FirmwareObject, BaseObject, StructuredObject, PaddingObject
 from .me import MeContainer
 from .utils import *
 from .structs.flash_structs import *
@@ -46,17 +46,30 @@ class FlashRegion(FirmwareObject, BaseObject):
         from .uefi import FirmwareVolume
 
         if self.name == "bios":
-            data = self.data
+            # Offsets are relative to the region. Bytes between volumes are
+            # kept as padding so the sections cover the whole region.
+            view = memoryview(self.data)
+            search_offset = 0
+            padding_offset = 0
             while True:
-                volume_index = search_firmware_volumes(data, limit=1)
+                volume_index = search_firmware_volumes(
+                    self.data, limit=1, start=search_offset)
                 if len(volume_index) == 0:
                     break
-                fv = FirmwareVolume(data[volume_index[0] - 40:])
-                if fv.valid_header:
-                    self.sections.append(fv)
-                    data = data[volume_index[0] - 40 + fv.size:]
-                else:
-                    data = data[volume_index[0] + 8:]
+                volume_offset = volume_index[0] - 40
+                fv = None
+                if volume_offset >= padding_offset:
+                    fv = FirmwareVolume(
+                        view[volume_offset:], hex(volume_offset))
+                if fv is None or not fv.valid_header or \
+                        fv.size < FirmwareVolume._HEADER_SIZE:
+                    search_offset = volume_index[0] + 8
+                    continue
+                self._add_padding(padding_offset, volume_offset)
+                self.sections.append(fv)
+                padding_offset = volume_offset + fv.size
+                search_offset = padding_offset
+            self._add_padding(padding_offset, len(self.data))
         if self.name == "me":
             data = self.data
             me = MeContainer(data)
@@ -65,6 +78,10 @@ class FlashRegion(FirmwareObject, BaseObject):
         for section in self.sections:
             section.process()
         return True
+
+    def _add_padding(self, start, end):
+        if end > start:
+            self.sections.append(PaddingObject(self.data[start:end], start))
 
     def showinfo(self, ts='', index=None):
         print("%s%s type= %s, size= 0x%x (%d bytes) details[ %s ]" % (
@@ -76,10 +93,10 @@ class FlashRegion(FirmwareObject, BaseObject):
             section.showinfo(ts="%s  " % ts)
         pass
 
-    def dump(self, parent=""):
-        dump_data(os.path.join(parent, "region-%s.fd" % self.name), self.data)
+    def dump(self, parent="", index=None):
+        dump_data(safe_path(parent, "region-%s.fd" % self.name), self.data)
 
-        parent = os.path.join(parent, "region-%s" % self.name)
+        parent = safe_path(parent, "region-%s" % self.name)
         for section in self.sections:
             section.dump(parent)
         pass
@@ -202,6 +219,8 @@ class FlashDescriptor(FirmwareObject):
             if region.name == "bios":
                 fvs = []
                 for s in region.sections:
+                    if isinstance(s, PaddingObject):
+                        continue
                     fvs.append(s.to_dict())
                 res.append({
                     'type': region.name,

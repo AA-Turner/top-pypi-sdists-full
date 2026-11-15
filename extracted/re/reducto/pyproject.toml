@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reducto"
-version = "0.26.0"
+version = "0.27.0"
 description = "Alias package — installs the official reductoai SDK. Prefer `pip install reductoai`."
 readme = "README.md"
 authors = [
   { name = "Reducto", email = "dev-feedback@reductoai.com" },
 ]
 requires-python = ">= 3.9"
-dependencies = ["reductoai==0.26.0"]
+dependencies = ["reductoai==0.27.0"]
 classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
@@ -27,8 +27,8 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-sagemaker = ["reductoai[sagemaker]==0.26.0"]
-heic = ["reductoai[heic]==0.26.0"]
+sagemaker = ["reductoai[sagemaker]==0.27.0"]
+heic = ["reductoai[heic]==0.27.0"]
 
 [project.urls]
 Homepage = "https://github.com/reductoai/reducto-python-sdk"

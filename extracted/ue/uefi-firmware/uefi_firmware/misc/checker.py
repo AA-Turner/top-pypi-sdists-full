@@ -4,11 +4,8 @@ The TypeTester may be useful if parsing a large number of UEFI-related binaries.
 """
 
 
-from builtins import bytes
-import re
-
 from ..uefi import FirmwareVolume, FirmwareCapsule, FirmwareFile
-from ..pfs import PFSFile, PFHeader
+from ..pfs import PFSFile, PFHeader, DellUpdateBinary
 from ..flash import FlashDescriptor
 from ..me import MeContainer, MeManifestHeader
 
@@ -16,6 +13,8 @@ from ..me import MeContainer, MeManifestHeader
 class TypeTester(object):
     parser = None
     static = b"MZ"
+    # How much of the input match() needs; None means all of it.
+    header_size = 200
 
     def match(self, data):
         if data[:self.size] == self.static:
@@ -59,6 +58,18 @@ class UEFICapsuleTester(TypeTester):
     parser = FirmwareCapsule
 
 
+class AptioSignedCapsuleTester(TypeTester):
+    static = bytes.fromhex("".join(
+        "8B A6 3C 4A 23 77 FB 48 80 3D 57 8C C1 FE C4 4D".split()))
+    parser = FirmwareCapsule
+
+
+class AptioUnsignedCapsuleTester(TypeTester):
+    static = bytes.fromhex("".join(
+        "90 BB EE 14 0A 89 DB 43 AE D1 5D 3C 45 88 A4 18".split()))
+    parser = FirmwareCapsule
+
+
 class IntelMEPartitionManifestTester(TypeTester):
     static = bytes.fromhex("".join("04 00 00 00 A1 00 00 00".split()))
     parser = MeManifestHeader
@@ -86,20 +97,19 @@ class DellPFSTester(TypeTester):
 
 
 class DellUpdateBinaryTester(TypeTester):
-    hdr_pattern = re.compile(
-        b'.{4}\xAA\xEE\xAA\x76\x1B\xEC\xBB\x20\xF1\xE6\x51.{1}\x78\x9C')
-    static = b"\x00" * 100
+    parser = DellUpdateBinary
+    # The compressed PFS can be anywhere in the program, not just its header.
+    header_size = None
 
     def match(self, data):
-        hdr_match = self.hdr_pattern.search(data)
-        if hdr_match is None:
-            return False
-        return True
+        return DellUpdateBinary(data).valid_header
 
 TESTERS = [
     FlashDescriptorTester,
     UEFICapsuleTester,
     EFICapsuleTester,
+    AptioSignedCapsuleTester,
+    AptioUnsignedCapsuleTester,
     IntelMEPartitionManifestTester,
     IntelMETester,
     DellPFSTester,

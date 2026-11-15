@@ -1,0 +1,58 @@
+"""The raw span shape each trace source accepts: `GenericTraceSpan` and the Mastra fields read."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from .traces import TraceSpanStatus, TraceSpanType
+
+#: Longest trace or span id a client may send (an OTel trace id is 32 hex characters).
+MAX_TRACE_ID_CHARS = 128
+#: Longest span name kept; a longer one is clipped.
+MAX_TRACE_NAME_CHARS = 512
+
+
+class GenericTraceSpan(BaseModel):
+    """A span a client already shaped as rollout / turn / tool_call. One rollout per trace."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    trace_id: str = Field(min_length=1, max_length=MAX_TRACE_ID_CHARS)
+    span_id: str = Field(min_length=1, max_length=MAX_TRACE_ID_CHARS)
+    #: The parent's `span_id` in the same trace; omitted on the rollout.
+    parent_span_id: str | None = Field(default=None, max_length=MAX_TRACE_ID_CHARS)
+    span_type: TraceSpanType
+    name: str | None = Field(default=None, max_length=MAX_TRACE_NAME_CHARS)
+    status: TraceSpanStatus = TraceSpanStatus.COMPLETED
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    #: Turn: message, reasoning, prompt_tokens, completion_tokens. Tool call: function_name,
+    #: arguments, result. Either: outcome (succeeded / failed).
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class MastraSpan(BaseModel):
+    """The fields of a Mastra exported span (`ExportedSpan`, `@mastra/core` 1.x) the server reads."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    span_id: str = Field(alias="id", min_length=1, max_length=MAX_TRACE_ID_CHARS)
+    trace_id: str = Field(alias="traceId", min_length=1, max_length=MAX_TRACE_ID_CHARS)
+    parent_span_id: str | None = Field(
+        default=None, alias="parentSpanId", max_length=MAX_TRACE_ID_CHARS
+    )
+    #: `agent_run`, `model_step`, `model_chunk`, `tool_call`, ... (Mastra's `SpanType`).
+    span_type: str = Field(alias="type")
+    name: str | None = None
+    entity_name: str | None = Field(default=None, alias="entityName")
+    started_at: datetime | None = Field(default=None, alias="startTime")
+    ended_at: datetime | None = Field(default=None, alias="endTime")
+    input: Any = None
+    output: Any = None
+    attributes: dict[str, Any] | None = None
+    error_info: dict[str, Any] | None = Field(default=None, alias="errorInfo")
+    #: `success`, `error`, `abort`, ... (Mastra's `SPAN_OUTCOMES`) once the span ended.
+    outcome: str | None = None

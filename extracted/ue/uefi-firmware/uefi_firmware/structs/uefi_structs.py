@@ -21,11 +21,16 @@ FIRMWARE_VOLUME_GUIDS = {
     #'08758b38-458d-50e8-56e8-3bffffff83c4'
 }
 
+# AMI Aptio extended capsule GUIDs.
+APTIO_SIGNED_CAPSULE_GUID = '4a3ca68b-7723-48fb-803d-578cc1fec44d'
+APTIO_UNSIGNED_CAPSULE_GUID = '14eebb90-890a-43db-aed1-5d3c4588a418'
+
 FIRMWARE_CAPSULE_GUIDS = [
-    '3b6686bd-0d76-4030-b70e-b5519e2fc5a0',  # EFI Capsule
-    '4a3ca68b-7723-48fb-3d80-578cc1fec44d',  # EFI Capsule v2
-    '539182b9-abb5-4391-b69a-e3a943f72fcc',  # UEFI Capsule
-    '6dcbd5ed-e82d-4c44-bda1-7194199ad92a',  # Firmware Management Capsule
+    '3b6686bd-0d76-4030-b70e-b5519e2fc5a0',  # [0] EFI Capsule
+    APTIO_SIGNED_CAPSULE_GUID,               # [1] AMI Aptio signed capsule
+    '539182b9-abb5-4391-b69a-e3a943f72fcc',  # [2] UEFI / Intel Capsule
+    '6dcbd5ed-e82d-4c44-bda1-7194199ad92a',  # [3] Firmware Management Capsule
+    APTIO_UNSIGNED_CAPSULE_GUID,             # [4] AMI Aptio unsigned capsule
 ]
 
 FIRMWARE_GUIDED_GUIDS = {
@@ -59,6 +64,8 @@ EFI_FILE_TYPES = {
     0x0b: ("firmware volume image",      "vol",         "FV_IMAGE"),
     0x0c: ("combined smm/driver",        "smm.dxe",     "COMBO_SMM_DRIVER"),
     0x0d: ("smm core",                   "smm.core",    "SMM_CORE"),
+    0x0e: ("mm standalone",              "mm",          "MM_STANDALONE"),
+    0x0f: ("mm core standalone",         "mm.core",     "MM_CORE_STANDALONE"),
     # 0xc0: ("oem min"),
     # 0xdf: ("oem max"),
     0xf0: ("ffs padding",                "pad",         "0xf0")
@@ -86,7 +93,7 @@ EFI_SECTION_TYPES = {
 }
 
 EFI_COMPRESSION_TYPES = {
-    0x00: "",
+    0x00: "PI_NONE",
     # 0x01: "EFI_STANDARD_COMPRESSION",
     0x01: "PI_STD",
     # 0x02: "EFI_CUSTOMIZED_COMPRESSION"

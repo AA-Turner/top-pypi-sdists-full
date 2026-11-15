@@ -11,18 +11,23 @@ from .adapters.apyformat import AsyncPyFormatAdapter
 from .adapters.sqlite3 import SQLite3Adapter
 from .adapters.pg8000 import Pg8000Adapter
 from .adapters.duckdb import DuckDBAdapter
+from .adapters.aiopg import AioPgAdapter
 from .utils import SQLLoadException, log
 from .queries import Queries
 from .query_loader import QueryLoader
 from .types import DriverAdapterProtocol
 
+# NOTE see _ADAPTERS/_DRIVERS in tests
+# Map adapter names to their adapter class
 _ADAPTERS: dict[str, Callable[..., DriverAdapterProtocol]] = {
+    "aiopg": AioPgAdapter,
     "aiosqlite": AioSQLiteAdapter,  # type: ignore
     "apsw": GenericAdapter,
     "apsycopg": AsyncPyFormatAdapter,  # type: ignore
     "asyncpg": AsyncPGAdapter,  # type: ignore
     "duckdb": DuckDBAdapter,
     "mariadb": BrokenMySQLAdapter,
+    "mssql-python": PyFormatAdapter,
     "mysqldb": BrokenMySQLAdapter,
     "mysql-connector": PyFormatAdapter,
     "pg8000": Pg8000Adapter,
@@ -33,8 +38,16 @@ _ADAPTERS: dict[str, Callable[..., DriverAdapterProtocol]] = {
     "pymysql": BrokenMySQLAdapter,
     "sqlite3": SQLite3Adapter,
 }
-"""Map adapter names to their adapter class."""
 
+# Database drivers
+_DRIVERS: dict[str, list[str]] = {
+    "postgres": ["aiopg", "apsycopg", "asyncpg", "pg8000", "psycopg", "psycopg2", "pygresql"],
+    "sqlite": ["sqlite3", "aiosqlite", "apsw"],
+    "duckdb": ["duckdb"],
+    "mysql": ["mysqldb", "mysql-connector", "pymysql"],
+    "mariadb": ["mariadb"],
+    "mssql": ["pymssql", "mssql-python"],
+}
 
 def register_adapter(name: str, adapter: Callable[..., DriverAdapterProtocol]):
     """Register or override an adapter."""

@@ -1403,7 +1403,26 @@ def hamming(x):
             f"Hamming operation does not support symbolic tensors. "
             f"Received input x = {x} of type {type(x)}"
         )
-    return backend.ops.numpy.hamming(x)
+    return _hamming(x)
+
+
+def _hamming(x):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "hamming"
+    ):
+        return backend.ops.numpy.hamming(x)
+    dtype = config.floatx()
+    compute_dtype = result_type(dtype, "float32")
+    x = backend.ops.cast(x, "int32")
+    n = backend.ops.numpy.arange(x, dtype=compute_dtype)
+    x_minus_1 = backend.ops.cast(x - 1, compute_dtype)
+    phase = (
+        python_math.pi
+        * (2 * n - x_minus_1)
+        / backend.ops.numpy.maximum(x_minus_1, 1.0)
+    )
+    window = 0.54 + 0.46 * backend.ops.numpy.cos(phase)
+    return backend.ops.cast(window, dtype)
 
 
 @keras_export(["keras.ops.hanning", "keras.ops.numpy.hanning"])
@@ -1429,7 +1448,26 @@ def hanning(x):
             f"Hanning operation does not support symbolic tensors. "
             f"Received input x = {x} of type {type(x)}"
         )
-    return backend.ops.numpy.hanning(x)
+    return _hanning(x)
+
+
+def _hanning(x):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "hanning"
+    ):
+        return backend.ops.numpy.hanning(x)
+    dtype = config.floatx()
+    compute_dtype = result_type(dtype, "float32")
+    x = backend.ops.cast(x, "int32")
+    n = backend.ops.numpy.arange(x, dtype=compute_dtype)
+    x_minus_1 = backend.ops.cast(x - 1, compute_dtype)
+    phase = (
+        python_math.pi
+        * (2 * n - x_minus_1)
+        / backend.ops.numpy.maximum(x_minus_1, 1.0)
+    )
+    window = 0.5 + 0.5 * backend.ops.numpy.cos(phase)
+    return backend.ops.cast(window, dtype)
 
 
 class Heaviside(Operation):
@@ -3974,7 +4012,7 @@ class Geomspace(Operation):
         self.axis = axis
 
     def call(self, start, stop):
-        return backend.ops.numpy.geomspace(
+        return _geomspace(
             start,
             stop,
             num=self.num,
@@ -4029,7 +4067,7 @@ def geomspace(start, stop, num=50, endpoint=True, dtype=None, axis=0):
     dtype = None if dtype is None else standardize_dtype(dtype)
     if any_symbolic_tensors((start, stop)):
         return Geomspace(num, endpoint, dtype, axis)(start, stop)
-    return backend.ops.numpy.geomspace(
+    return _geomspace(
         start,
         stop,
         num=num,
@@ -4037,6 +4075,41 @@ def geomspace(start, stop, num=50, endpoint=True, dtype=None, axis=0):
         dtype=dtype,
         axis=axis,
     )
+
+
+def _geomspace(start, stop, num=50, endpoint=True, dtype=None, axis=0):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "geomspace"
+    ):
+        return backend.ops.numpy.geomspace(
+            start,
+            stop,
+            num=num,
+            endpoint=endpoint,
+            dtype=dtype,
+            axis=axis,
+        )
+    start = backend.ops.convert_to_tensor(start)
+    stop = backend.ops.convert_to_tensor(stop)
+    if dtype is None:
+        dtype = standardize_dtype(start.dtype)
+    dtype = result_type(dtype, float)
+    start = backend.ops.cast(start, dtype)
+    stop = backend.ops.cast(stop, dtype)
+    sign = backend.ops.numpy.sign(start)
+    result = backend.ops.numpy.logspace(
+        backend.ops.numpy.log10(backend.ops.numpy.divide(start, sign)),
+        backend.ops.numpy.log10(backend.ops.numpy.divide(stop, sign)),
+        num=num,
+        endpoint=endpoint,
+        base=10,
+        dtype=dtype,
+        axis=0,
+    )
+    result = backend.ops.numpy.multiply(sign, result)
+    if axis != 0:
+        result = backend.ops.numpy.moveaxis(result, 0, axis)
+    return result
 
 
 class Greater(Operation):

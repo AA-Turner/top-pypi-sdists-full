@@ -716,6 +716,145 @@ def test_rds_create_subnet_group_rejects_invalid_subnets(rds, ec2, failure):
     )
 
 
+_AURORA_MEMBER_ABSENT_LISTS = (
+    "EnabledCloudwatchLogsExports",
+    "ProcessorFeatures",
+    "ReadReplicaDBClusterIdentifiers",
+    "StatusInfos",
+)
+
+
+def test_rds_aurora_member_lifecycle_response_shapes(rds, ec2):
+    """As captured on AWS (us-east-1, Aurora MySQL): the cluster carries
+    ReadReplicaIdentifiers and DomainMemberships as empty lists; a member instance
+    reports the cluster's DB subnet group and VPC security groups, leaves out four
+    empty lists, CreateDBInstance has no Endpoint yet, and DeleteDBInstance (deleting) carries no CertificateDetails."""
+    suffix = uuid.uuid4().hex[:8]
+    vpc_id = ec2.create_vpc(CidrBlock="10.75.0.0/16")["Vpc"]["VpcId"]
+    subnets = [
+        ec2.create_subnet(VpcId=vpc_id, CidrBlock=f"10.75.{i}.0/24",
+                          AvailabilityZone=f"us-east-1{az}")["Subnet"]["SubnetId"]
+        for i, az in ((1, "a"), (2, "c"))
+    ]
+    sg_id = ec2.create_security_group(GroupName=f"shape-{suffix}", Description="shape",
+                                      VpcId=vpc_id)["GroupId"]
+    subnet_group = f"shape-sng-{suffix}"
+    rds.create_db_subnet_group(DBSubnetGroupName=subnet_group, DBSubnetGroupDescription="shape",
+                               SubnetIds=subnets)
+    cluster_id, instance_id = f"shape-cl-{suffix}", f"shape-in-{suffix}"
+    try:
+        responses = [rds.create_db_cluster(
+            DBClusterIdentifier=cluster_id, Engine="aurora-mysql", MasterUsername="admin",
+            MasterUserPassword="password123", DBSubnetGroupName=subnet_group,
+            VpcSecurityGroupIds=[sg_id],
+        )["DBCluster"]]
+        responses.append(rds.describe_db_clusters(DBClusterIdentifier=cluster_id)["DBClusters"][0])
+        responses.append(rds.modify_db_cluster(DBClusterIdentifier=cluster_id, BackupRetentionPeriod=2,
+                                               ApplyImmediately=True)["DBCluster"])
+        for cluster in responses:
+            assert cluster["ReadReplicaIdentifiers"] == []
+            assert cluster["DomainMemberships"] == []
+
+        instances = [rds.create_db_instance(
+            DBInstanceIdentifier=instance_id, DBClusterIdentifier=cluster_id,
+            Engine="aurora-mysql", DBInstanceClass="db.r6g.large",
+        )["DBInstance"]]
+        assert "Endpoint" not in instances[0]
+        instances.append(rds.describe_db_instances(DBInstanceIdentifier=instance_id)["DBInstances"][0])
+        instances.append(rds.modify_db_instance(DBInstanceIdentifier=instance_id,
+                                                AutoMinorVersionUpgrade=False)["DBInstance"])
+        deleted = rds.delete_db_instance(DBInstanceIdentifier=instance_id, SkipFinalSnapshot=True)["DBInstance"]
+        instances.append(deleted)
+        for inst in instances:
+            for field in _AURORA_MEMBER_ABSENT_LISTS:
+                assert field not in inst, field
+            group = inst["DBSubnetGroup"]
+            assert group["DBSubnetGroupName"] == subnet_group
+            assert group["VpcId"] == vpc_id
+            assert sorted(sn["SubnetIdentifier"] for sn in group["Subnets"]) == sorted(subnets)
+            assert all(sn["SubnetStatus"] == "Active" and sn["SubnetAvailabilityZone"]["Name"]
+                       for sn in group["Subnets"])
+            assert inst["VpcSecurityGroups"] == [{"VpcSecurityGroupId": sg_id, "Status": "active"}]
+        assert deleted["DBInstanceStatus"] == "deleting"
+        assert "CertificateDetails" not in deleted
+    finally:
+        _delete_instance(rds, instance_id)
+        _delete_cluster(rds, cluster_id)
+
+
+def test_rds_instance_xml_aurora_member_create_response_has_no_endpoint():
+    """As captured on AWS: the CreateDBInstance response for an Aurora member (creating)
+    has no Endpoint yet. This holds when MiniStack already reports the member available
+    (no Docker). Describe calls and standalone instances keep their rendering."""
+    from ministack.services import rds as rds_service
+
+    base = {
+        "DBInstanceIdentifier": "unit", "DBInstanceClass": "db.r6g.large", "EngineVersion": "8.0",
+        "MasterUsername": "admin", "AllocatedStorage": 1, "DBInstanceArn": "arn",
+        "Endpoint": {"Address": "unit.example", "Port": 3306},
+    }
+    creating_member = {**base, "Engine": "aurora-mysql", "DBClusterIdentifier": "c",
+                       "DBInstanceStatus": "creating"}
+    assert "<Endpoint>" not in rds_service._instance_xml(creating_member, create_response=True)
+    assert "<Endpoint>" in rds_service._instance_xml(creating_member)
+    assert "<Endpoint>" not in rds_service._instance_xml(
+        {**creating_member, "DBInstanceStatus": "available"}, create_response=True)
+    standalone = {**base, "Engine": "mysql", "DBInstanceStatus": "creating"}
+    xml = rds_service._instance_xml(standalone, create_response=True)
+    assert "<Endpoint>" in xml
+    assert "<StatusInfos/>" in xml
+    assert "<ProcessorFeatures></ProcessorFeatures>" in xml
+def test_rds_create_db_cluster_rejects_missing_subnet_group(rds):
+    """As captured on AWS (us-east-1): CreateDBCluster with a DB subnet group that
+    does not exist answers 404 DBSubnetGroupNotFoundFault and creates nothing."""
+    cluster_id = f"missing-sng-{uuid.uuid4().hex[:8]}"
+    subnet_group = f"missing-sng-{uuid.uuid4().hex[:8]}"
+    with pytest.raises(ClientError) as exc:
+        rds.create_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            Engine="aurora-mysql",
+            MasterUsername="admin",
+            MasterUserPassword="password123",
+            DBSubnetGroupName=subnet_group,
+        )
+    assert exc.value.response["Error"]["Code"] == "DBSubnetGroupNotFoundFault"
+    assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 404
+    assert exc.value.response["Error"]["Message"] == (
+        f"DB subnet group '{subnet_group}' does not exist."
+    )
+    with pytest.raises(ClientError) as described:
+        rds.describe_db_clusters(DBClusterIdentifier=cluster_id)
+    assert described.value.response["Error"]["Code"] == "DBClusterNotFoundFault"
+
+
+def test_rds_create_db_cluster_accepts_existing_subnet_group(rds, ec2):
+    vpc_id = ec2.create_vpc(CidrBlock="10.74.0.0/16")["Vpc"]["VpcId"]
+    subnets = [
+        ec2.create_subnet(VpcId=vpc_id, CidrBlock=f"10.74.{i}.0/24",
+                          AvailabilityZone=f"us-east-1{az}")["Subnet"]["SubnetId"]
+        for i, az in ((1, "a"), (2, "b"))
+    ]
+    subnet_group = f"present-sng-{uuid.uuid4().hex[:8]}"
+    rds.create_db_subnet_group(
+        DBSubnetGroupName=subnet_group,
+        DBSubnetGroupDescription="present",
+        SubnetIds=subnets,
+    )
+    cluster_id = f"present-sng-{uuid.uuid4().hex[:8]}"
+    try:
+        cluster = rds.create_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            Engine="aurora-mysql",
+            MasterUsername="admin",
+            MasterUserPassword="password123",
+            DBSubnetGroupName=subnet_group,
+        )["DBCluster"]
+        assert cluster["DBSubnetGroup"] == subnet_group
+    finally:
+        _delete_cluster(rds, cluster_id)
+        rds.delete_db_subnet_group(DBSubnetGroupName=subnet_group)
+
+
 def test_rds_modify_subnet_group(rds, ec2):
     vpc_id = ec2.create_vpc(CidrBlock="10.73.0.0/16")["Vpc"]["VpcId"]
     subnets = [
@@ -1252,6 +1391,22 @@ def test_rds_default_cluster_parameter_groups_exist_for_aurora_families(rds):
     with pytest.raises(ClientError) as exc:
         rds.describe_db_cluster_parameter_groups(DBClusterParameterGroupName="default.not-a-family")
     assert exc.value.response["Error"]["Code"] == "DBParameterGroupNotFound"
+
+def test_rds_default_aurora_db_parameter_group_parameters_readable(rds):
+    """As captured on AWS (us-east-1): DescribeDBParameters on the default DB
+    parameter group of an Aurora family, here default.aurora-mysql8.0, with
+    Source=user answers an empty list. Nobody can modify a default group."""
+    response = rds.describe_db_parameters(
+        DBParameterGroupName="default.aurora-mysql8.0", Source="user", MaxRecords=100,
+    )
+    assert response["Parameters"] == []
+    with pytest.raises(ClientError) as exc:
+        rds.describe_db_parameters(DBParameterGroupName="default.not-a-family")
+    assert exc.value.response["Error"]["Code"] == "DBParameterGroupNotFound"
+    # The group is answered, not stored: listings stay as before.
+    names = {g["DBParameterGroupName"] for g in rds.describe_db_parameter_groups()["DBParameterGroups"]}
+    assert "default.aurora-mysql8.0" not in names
+
 
 def _settled_cluster(client, cid):
     """Describe a cluster until its major upgrade has finished (it takes two describes)."""
@@ -7937,7 +8092,7 @@ def test_rds_regional_cluster_apis_reject_foreign_region_arns():
                 DBInstanceClass="db.t3.micro",
                 Engine="aurora-mysql",
             )
-        assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+        assert exc.value.response["Error"]["Code"] == "DBClusterNotFoundFault"
 
         with pytest.raises(ClientError) as exc:
             east.create_global_cluster(
@@ -8411,8 +8566,14 @@ def test_failover_global_cluster_allows_data_loss_promotes_target():
                 AllowDataLoss=True,
                 Switchover=True,
             )
-        assert exc.value.response["Error"]["Code"] == "InvalidParameterCombination"
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+        assert exc.value.response["Error"]["Message"] == (
+            "Parameter combination isn't valid. For a global switchover, specify "
+            "Switchover. For a global failover, specify AllowDataLoss."
+        )
 
+        # As captured on AWS (us-east-1): a flag set to false counts as absent, so
+        # this is a plain switchover and not the parameter-combination error.
         with pytest.raises(ClientError) as exc:
             east.failover_global_cluster(
                 GlobalClusterIdentifier=global_id,
@@ -8420,7 +8581,7 @@ def test_failover_global_cluster_allows_data_loss_promotes_target():
                 AllowDataLoss=False,
                 Switchover=True,
             )
-        assert exc.value.response["Error"]["Code"] == "InvalidParameterCombination"
+        assert exc.value.response["Error"]["Code"] != "InvalidParameterValue"
     finally:
         _cleanup_two_member_global(east, global_id, primary_arn, secondary_arn)
         _delete_cluster(west, secondary_id)
@@ -8435,6 +8596,117 @@ def test_failover_global_cluster_missing_global_validated_before_parameter_combo
             TargetDbClusterIdentifier="arn:aws:rds:us-east-1:000000000000:cluster:missing-secondary",
             AllowDataLoss=True,
             Switchover=True,
+        )
+    assert exc.value.response["Error"]["Code"] == "GlobalClusterNotFoundFault"
+
+
+def test_failover_global_cluster_parameter_combo_checked_before_target():
+    """As captured on AWS (us-east-1): an existing, empty global cluster and a
+    target that does not exist answer InvalidParameterValue for the parameter
+    combination, not a not-found fault for the target."""
+    east = _regional_rds("us-east-1")
+    global_id = f"failover-combo-{uuid.uuid4().hex[:8]}"
+    east.create_global_cluster(GlobalClusterIdentifier=global_id, Engine="aurora-mysql")
+    try:
+        with pytest.raises(ClientError) as exc:
+            east.failover_global_cluster(
+                GlobalClusterIdentifier=global_id,
+                TargetDbClusterIdentifier=(
+                    f"arn:aws:rds:us-east-1:000000000000:cluster:{global_id}-missing-cluster"
+                ),
+                AllowDataLoss=True,
+                Switchover=True,
+            )
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+        assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 400
+        assert exc.value.response["Error"]["Message"] == (
+            "Parameter combination isn't valid. For a global switchover, specify "
+            "Switchover. For a global failover, specify AllowDataLoss."
+        )
+    finally:
+        _delete_global_cluster(east, global_id)
+
+
+@pytest.mark.parametrize("allow_data_loss, switchover", [(False, True), (True, False)],
+                         ids=["switchover", "failover"])
+def test_failover_global_cluster_flag_set_false_counts_as_absent(allow_data_loss, switchover):
+    """As captured on AWS (us-east-1): with one flag true and the other explicitly
+    false, the call is a plain switchover or failover, so a target that does not
+    exist answers 404 DBClusterNotFoundFault, not the parameter-combination error."""
+    east = _regional_rds("us-east-1")
+    global_id = f"failover-flag-{uuid.uuid4().hex[:8]}"
+    east.create_global_cluster(GlobalClusterIdentifier=global_id, Engine="aurora-mysql")
+    try:
+        with pytest.raises(ClientError) as exc:
+            east.failover_global_cluster(
+                GlobalClusterIdentifier=global_id,
+                TargetDbClusterIdentifier=f"arn:aws:rds:us-east-1:000000000000:cluster:{global_id}-missing",
+                AllowDataLoss=allow_data_loss,
+                Switchover=switchover,
+            )
+        assert exc.value.response["Error"]["Code"] == "DBClusterNotFoundFault"
+        assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 404
+    finally:
+        _delete_global_cluster(east, global_id)
+
+
+def test_remove_from_global_cluster_missing_member_arn_is_invalid_parameter():
+    """As captured on AWS (us-east-1): RemoveFromGlobalCluster with a well-formed
+    ARN of a cluster that does not exist, against an existing global cluster,
+    answers 400 InvalidParameterValue. The global cluster is unchanged."""
+    east = _regional_rds("us-east-1")
+    global_id = f"remove-missing-{uuid.uuid4().hex[:8]}"
+    east.create_global_cluster(GlobalClusterIdentifier=global_id, Engine="aurora-mysql")
+    missing_arn = f"arn:aws:rds:us-east-1:000000000000:cluster:{global_id}-missing-cluster"
+    try:
+        with pytest.raises(ClientError) as exc:
+            east.remove_from_global_cluster(
+                GlobalClusterIdentifier=global_id,
+                DbClusterIdentifier=missing_arn,
+            )
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+        assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 400
+        assert exc.value.response["Error"]["Message"] == (
+            f"Cluster {missing_arn} is not found in global cluster {global_id}"
+        )
+        described = east.describe_global_clusters(GlobalClusterIdentifier=global_id)
+        assert described["GlobalClusters"][0]["GlobalClusterMembers"] == []
+    finally:
+        _delete_global_cluster(east, global_id)
+
+
+@pytest.mark.parametrize("global_exists", [False, True], ids=["missing-global", "existing-global"])
+def test_remove_from_global_cluster_rejects_overlong_member_identifier(global_exists):
+    """As captured on AWS (us-east-1): a member ARN whose cluster identifier is
+    longer than 63 characters answers 400 InvalidParameterValue, checked before
+    the global cluster is looked up."""
+    east = _regional_rds("us-east-1")
+    global_id = f"remove-long-{uuid.uuid4().hex[:8]}"
+    if global_exists:
+        east.create_global_cluster(GlobalClusterIdentifier=global_id, Engine="aurora-mysql")
+    member_arn = f"arn:aws:rds:us-east-1:000000000000:cluster:{'m' * 64}"
+    try:
+        with pytest.raises(ClientError) as exc:
+            east.remove_from_global_cluster(
+                GlobalClusterIdentifier=global_id,
+                DbClusterIdentifier=member_arn,
+            )
+        assert exc.value.response["Error"]["Code"] == "InvalidParameterValue"
+        assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 400
+        assert exc.value.response["Error"]["Message"] == (
+            f"Invalid database cluster identifier:  {member_arn}"
+        )
+    finally:
+        if global_exists:
+            _delete_global_cluster(east, global_id)
+
+
+def test_remove_from_global_cluster_63_character_member_identifier_reaches_lookup():
+    east = _regional_rds("us-east-1")
+    with pytest.raises(ClientError) as exc:
+        east.remove_from_global_cluster(
+            GlobalClusterIdentifier=f"remove-long-{uuid.uuid4().hex[:8]}",
+            DbClusterIdentifier=f"arn:aws:rds:us-east-1:000000000000:cluster:{'m' * 63}",
         )
     assert exc.value.response["Error"]["Code"] == "GlobalClusterNotFoundFault"
 
@@ -8615,7 +8887,26 @@ def test_rds_db_snapshot_filter_by_instance_arn_survives_source_deletion():
         _delete_instance(east, instance_id)
 
 
-def test_rds_create_instance_with_cluster_arn_stores_canonical_cluster_id():
+def _assert_create_instance_cluster_not_found(client, instance_id, cluster_value):
+    # AWS answer captured in us-east-2 (ministackorg/ministack#2633).
+    with pytest.raises(ClientError) as exc:
+        client.create_db_instance(
+            DBInstanceIdentifier=instance_id,
+            DBClusterIdentifier=cluster_value,
+            DBInstanceClass="db.t3.micro",
+            Engine="aurora-mysql",
+        )
+    assert exc.value.response["ResponseMetadata"]["HTTPStatusCode"] == 404
+    assert exc.value.response["Error"]["Code"] == "DBClusterNotFoundFault"
+    assert exc.value.response["Error"]["Message"] == (
+        f"The source cluster could not be found or cannot be accessed: {cluster_value}"
+    )
+    with pytest.raises(ClientError) as exc:
+        client.describe_db_instances(DBInstanceIdentifier=instance_id)
+    assert exc.value.response["Error"]["Code"] == "DBInstanceNotFound"
+
+
+def test_rds_create_instance_with_cluster_arn_is_rejected():
     east = _regional_rds("us-east-1")
     suffix = uuid.uuid4().hex[:8]
     cluster_id = f"rds-inst-cluster-arn-{suffix}"
@@ -8628,22 +8919,28 @@ def test_rds_create_instance_with_cluster_arn_stores_canonical_cluster_id():
             MasterUsername="admin",
             MasterUserPassword="password123",
         )["DBCluster"]
-        east.create_db_instance(
-            DBInstanceIdentifier=instance_id,
-            DBClusterIdentifier=cluster["DBClusterArn"],
-            DBInstanceClass="db.t3.micro",
-            Engine="aurora-mysql",
+        _assert_create_instance_cluster_not_found(east, instance_id, cluster["DBClusterArn"])
+        _assert_create_instance_cluster_not_found(
+            east, instance_id, cluster["DBClusterArn"].replace(cluster_id, f"{cluster_id}-never")
         )
 
-        instance = east.describe_db_instances(DBInstanceIdentifier=instance_id)["DBInstances"][0]
-        assert instance["DBClusterIdentifier"] == cluster_id
-
         cluster = east.describe_db_clusters(DBClusterIdentifier=cluster_id)["DBClusters"][0]
-        members = cluster["DBClusterMembers"]
-        assert any(member["DBInstanceIdentifier"] == instance_id for member in members)
+        assert cluster["DBClusterMembers"] == []
     finally:
         _delete_instance(east, instance_id)
         _delete_cluster(east, cluster_id)
+
+
+def test_rds_create_instance_with_unknown_cluster_id_is_rejected():
+    east = _regional_rds("us-east-1")
+    suffix = uuid.uuid4().hex[:8]
+    instance_id = f"rds-inst-missing-cluster-{suffix}"
+    try:
+        _assert_create_instance_cluster_not_found(
+            east, instance_id, f"rds-missing-cluster-{suffix}"
+        )
+    finally:
+        _delete_instance(east, instance_id)
 
 
 def test_rds_protected_cluster_member_delete_preserves_membership():
@@ -8661,7 +8958,7 @@ def test_rds_protected_cluster_member_delete_preserves_membership():
         )["DBCluster"]
         instance = east.create_db_instance(
             DBInstanceIdentifier=instance_id,
-            DBClusterIdentifier=cluster["DBClusterArn"],
+            DBClusterIdentifier=cluster_id,
             DBInstanceClass="db.t3.micro",
             Engine="aurora-mysql",
             DeletionProtection=True,

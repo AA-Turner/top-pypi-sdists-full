@@ -615,7 +615,7 @@ function getChromeSessionOptionsFromConfig(hookConfig = {}) {
     CHROME_IS_LOCAL: CHROME_CDP_URL
       ? false
       : hookConfig.CHROME_IS_LOCAL !== false,
-    cookiesFile: hookConfig.AUTH_STORAGE_FILE || hookConfig.COOKIES_FILE || "",
+    cookiesFile: hookConfig.COOKIES_FILE || "",
     personaConfig: hookConfig,
     timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
   };
@@ -1663,10 +1663,28 @@ async function launchChromium(options = {}) {
 function isProcessAlive(pid) {
   try {
     process.kill(pid, 0); // Signal 0 checks existence without killing
-    return true;
   } catch (e) {
     return false;
   }
+  // An exited child keeps its PID until its parent reaps it. It cannot run or
+  // write capture files, and sending more signals cannot make it exit again.
+  try {
+    let state = "";
+    if (process.platform === "linux") {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+      state = stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3);
+    } else if (process.platform === "darwin") {
+      state = execFileSync("ps", ["-o", "stat=", "-p", String(pid)], {
+        encoding: "utf8",
+        timeout: 500,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim()[0];
+    }
+    if (state === "Z" || state === "X") return false;
+  } catch (e) {
+    // A failed status lookup is not proof of death; keep the signal-0 result.
+  }
+  return true;
 }
 
 function signalChromeProcessGroup(pid, signalName) {
@@ -3420,7 +3438,7 @@ async function withConnectedBrowser(options, operation) {
  * directory untouched and handles cross-origin export redirects inside Chrome.
  * The caller owns outputPath (normally a temporary file) and validates its type.
  */
-async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs }) {
+async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs, maxBytes = Infinity }) {
   const deadline = Date.now() + timeoutMs;
   const send = (method, params = {}) => {
     const timeout = deadline - Date.now();
@@ -3439,10 +3457,14 @@ async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs 
     }
     const file = await fs.promises.open(outputPath, "w");
     try {
+      let size = 0;
       let eof = false;
       while (!eof) {
         const chunk = await send("IO.read", { handle: resource.stream, size: 256 * 1024 });
-        await file.writeFile(Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8"));
+        const bytes = Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8");
+        size += bytes.length;
+        if (size > maxBytes) throw new Error(`Browser resource exceeds ${maxBytes} bytes`);
+        await file.writeFile(bytes);
         eof = chunk.eof;
       }
     } finally {
@@ -3511,6 +3533,7 @@ async function captureBrowserDownloads({
   timeoutMs,
   trigger,
   expectedDownloads = 1,
+  maxBytes = Infinity,
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
   if (!Number.isInteger(expectedDownloads) || expectedDownloads < 1)
@@ -3569,6 +3592,8 @@ async function captureBrowserDownloads({
     const item = downloads.get(event.guid);
     if (!item) return;
     Object.assign(item, event);
+    if (event.receivedBytes > maxBytes || event.totalBytes > maxBytes)
+      reject(new Error(`Browser download exceeds ${maxBytes} bytes`));
     if (["canceled", "interrupted"].includes(event.state))
       reject(new Error(`Browser download ${event.state}`));
     check();
@@ -5001,7 +5026,7 @@ function parseCookiesTxt(contents) {
   return { cookies, skipped };
 }
 
-async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
+function readCookiesFromFile(cookiesFile) {
   if (!cookiesFile) return;
 
   if (!fs.existsSync(cookiesFile)) {
@@ -5027,12 +5052,15 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       const reason = contents.trim() ? "invalid JSON" : "file is empty";
       throw new Error(`Invalid JSON cookie export: ${cookiesFile}; ${reason}; expected a JSON object containing a cookies array`);
     }
+    if (!auth || typeof auth !== "object" || Array.isArray(auth)) {
+      throw new Error("Cookie export must be a JSON object");
+    }
   }
   let { cookies, skipped } = auth
-    ? { cookies: auth.cookies, skipped: 0 }
+    ? { cookies: Object.hasOwn(auth, "cookies") ? auth.cookies : [], skipped: 0 }
     : parseCookiesTxt(contents);
   if (!Array.isArray(cookies)) throw new Error("Cookie export must contain a cookies array");
-  const extensionSync = auth?.SOURCE === "archivebox-browser-extension";
+  const extensionSync = auth?.SOURCE === "archivebox-browser-extension" && Object.hasOwn(auth, "cookies");
   if (extensionSync) {
     // WebExtensions cookies use different field names / enum values than CDP.
     cookies = cookies.map(cookie => {
@@ -5061,13 +5089,32 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       return imported;
     });
   }
+  return { cookies, skipped, extensionSync };
+}
+
+async function importCookiesFromFile(browser, cookiesFile, userDataDir, {reconcileExtension = true} = {}) {
+  const files = [...new Set((Array.isArray(cookiesFile) ? cookiesFile : [cookiesFile]).filter(Boolean))];
+  if (!files.length) return 0;
+  // Parse every artifact before changing the browser. Rich auth.json cookies
+  // come last and replace Netscape duplicates without losing SameSite/expiry.
+  const sources = files.map(readCookiesFromFile).filter(Boolean);
+  const cookieKey = cookie => JSON.stringify([
+    cookie.domain || new URL(cookie.url).hostname,
+    cookie.path || "/",
+    cookie.name,
+    cookie.partitionKey ? [cookie.partitionKey.topLevelSite, cookie.partitionKey.hasCrossSiteAncestor] : null,
+  ]);
+  const cookies = [...new Map(sources.flatMap(source => source.cookies).map(cookie => [cookieKey(cookie), cookie])).values()];
+  const extensionSources = sources.filter(source => source.extensionSync);
+  const extensionSync = reconcileExtension && extensionSources.length > 0;
+  const skipped = sources.reduce((total, source) => total + source.skipped, 0);
   if (cookies.length === 0 && !extensionSync) {
     console.error("[!] No cookies found to import");
-    return;
+    return 0;
   }
 
   console.error(
-    `[*] Importing ${cookies.length} cookies from ${cookiesFile}...`
+    `[*] Importing ${cookies.length} cookies from ${files.join(", ")}...`
   );
   if (skipped) {
     console.error(`[*] Skipped ${skipped} malformed cookie line(s)`);
@@ -5093,13 +5140,12 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       ? JSON.parse(fs.readFileSync(syncStateFile, "utf8"))
       : [];
     const syncedDomains = extensionSync
-      ? [...new Set(cookies.map(cookie => cookie.domain.replace(/^\./, "")))]
+      ? [...new Set(extensionSources.flatMap(source => source.cookies).map(cookie => cookie.domain.replace(/^\./, "")))]
       : [];
     if (!Array.isArray(previousDomains) || previousDomains.some(domain => typeof domain !== "string")) {
       throw new Error("Invalid extension cookie domain state");
     }
     const managedDomains = new Set([...previousDomains, ...syncedDomains]);
-    const cookieKey = cookie => JSON.stringify([cookie.domain, cookie.path || "/", cookie.name]);
     const incomingKeys = new Set(cookies.map(cookieKey));
     const staleCookies = extensionSync
       ? (await client.send("Network.getAllCookies")).cookies.filter(cookie =>
@@ -5132,6 +5178,7 @@ async function importCookiesFromFile(browser, cookiesFile, userDataDir) {
       writeFileAtomic(syncStateFile, JSON.stringify(syncedDomains));
     }
     console.error(`[+] Imported ${imported}/${cookies.length} cookies`);
+    return imported;
   } finally {
     await page.close();
   }
@@ -5192,6 +5239,7 @@ async function closeBrowserInChromeSession(options = {}) {
     Date.now() + Math.max(1, Math.floor(forceKillTimeoutMs / 2));
   const remainingCdpMs = () => Math.max(0, cdpDeadline - Date.now());
   let browserEndpoint = cdpUrl;
+  let closeRequested = false;
 
   if (cdpUrl) {
     let browser = null;
@@ -5210,6 +5258,7 @@ async function closeBrowserInChromeSession(options = {}) {
         async () => {
           browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
+          closeRequested = true;
         },
         Math.max(1, remainingCdpMs()),
         `Timed out closing browser at ${cdpUrl}`
@@ -5232,7 +5281,16 @@ async function closeBrowserInChromeSession(options = {}) {
   const debugPort = cdpUrl ? getChromeDebugPortFromCdpUrl(cdpUrl) : null;
   let closed = false;
   if (processIsLocal && pid) {
-    closed = await killChrome(pid, outputDir, remainingCleanupMs());
+    // Browser.close acknowledges shutdown before profile writers finish. Sending
+    // SIGTERM to the group immediately can kill the network service before it
+    // flushes persistent cookies. Let native shutdown drain first, reserving
+    // half of the existing cleanup budget for escalation if it gets stuck.
+    if (closeRequested) {
+      closed = await waitForChromeProcessTreeExit(
+        pid, debugPort, Math.floor(remainingCleanupMs() / 2)
+      );
+    }
+    if (!closed) closed = await killChrome(pid, outputDir, remainingCleanupMs());
   } else if (cdpUrl) {
     closed = await waitForBrowserEndpointGone(
       cdpUrl,
@@ -5275,10 +5333,10 @@ async function closeBrowserInChromeSession(options = {}) {
   return closed;
 }
 
-function personaImportState(outputDir, cdpUrl, cookiesFile, config) {
+function personaImportState(outputDir, cdpUrl, cookieFiles) {
   const filename = path.join(outputDir, "persona_state.json");
   const hash = crypto.createHash("sha256").update(cdpUrl);
-  for (const file of new Set([cookiesFile, config?.AUTH_STORAGE_FILE].filter(Boolean))) {
+  for (const file of cookieFiles) {
     hash.update(file);
     if (fs.existsSync(file)) hash.update(fs.readFileSync(file));
   }
@@ -5428,19 +5486,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     ...(navigatorPlatform ? { platform: navigatorPlatform } : {}),
   } : null;
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
-  const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
+  const { origins } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [] };
   // Import persistent storage once, before publishing readiness. All clients
   // subsequently observe the same live databases, not a replay on navigation.
   await restoreOriginStorage(browser, origins);
-  const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
-    origin: entry.origin, sessionStorage: entry.sessionStorage,
-  })), ...tabs];
-  const sessionOrigins = new Map();
-  for (const state of sessionStates) {
-    const origin = state.origin || new URL(state.url).origin;
-    if (!sessionOrigins.has(origin)) sessionOrigins.set(origin, []);
-    sessionOrigins.get(origin).push(state);
-  }
   const pending = new Set();
   let startup = true;
   let failure = null;
@@ -5480,6 +5529,19 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     if (config.BROWSER_COLOR_SCHEME) await session.send("Emulation.setEmulatedMedia", {
       features: [{ name: "prefers-color-scheme", value: config.BROWSER_COLOR_SCHEME }],
     });
+    // Admin edits change the saved artifact while this daemon keeps running.
+    // Each new target must use its current session state, including removals;
+    // existing tabs retain their own sessionStorage.
+    const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
+    const sessionStates = [...origins.filter(entry => entry.sessionStorage).map(entry => ({
+      origin: entry.origin, sessionStorage: entry.sessionStorage,
+    })), ...tabs];
+    const sessionOrigins = new Map();
+    for (const state of sessionStates) {
+      const origin = state.origin || new URL(state.url).origin;
+      if (!sessionOrigins.has(origin)) sessionOrigins.set(origin, []);
+      sessionOrigins.get(origin).push(state);
+    }
     if (sessionStates.length) {
       await session.send("Page.enable");
       await session.send("Runtime.enable");
@@ -5565,6 +5627,94 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   }
 }
 
+function readInstalledProfileExtensionIds(userDataDir, chromeArgs = []) {
+  if (!userDataDir) return null;
+  if (chromeArgs.some(arg => typeof arg !== "string" || arg !== arg.trim() || arg === "--")) return null;
+  let profileDirectory = "Default";
+  try {
+    const localState = JSON.parse(fs.readFileSync(path.join(userDataDir, "Local State"), "utf8"));
+    profileDirectory = localState?.profile?.last_used || profileDirectory;
+  } catch (error) {
+    if (error.code !== "ENOENT") return null;
+  }
+  for (const arg of chromeArgs) {
+    // Do not classify a different or off-the-record profile's registrations.
+    if (arg.startsWith("--profile-directory=")) profileDirectory = arg.slice("--profile-directory=".length);
+    else if (/^[/-]+(?:profile-directory|user-data-dir|guest|incognito)(?:=|$)/i.test(arg)) return null;
+  }
+  if (typeof profileDirectory !== "string" || !profileDirectory || profileDirectory.startsWith("--") ||
+      profileDirectory === "." || profileDirectory === ".." || /[/\\]/.test(profileDirectory)) return null;
+  let found = false;
+  const ids = new Set();
+  for (const filename of ["Preferences", "Secure Preferences"]) {
+    try {
+      const preferences = JSON.parse(fs.readFileSync(path.join(userDataDir, profileDirectory, filename), "utf8"));
+      const settings = preferences?.extensions?.settings;
+      if (settings && typeof settings === "object" && !Array.isArray(settings)) {
+        found = true;
+        for (const [id, extension] of Object.entries(settings)) {
+          if (typeof extension?.path === "string") ids.add(id);
+        }
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") return null;
+    }
+  }
+  try {
+    // Managed on-demand extensions keep their identities outside disposable
+    // install paths. Chrome may retire those paths before the next hook loads.
+    const keysDir = path.join(userDataDir, "archivebox-extension-keys");
+    for (const filename of fs.readdirSync(keysDir)) {
+      if (!filename.endsWith(".pub")) continue;
+      const key = Buffer.from(fs.readFileSync(path.join(keysDir, filename), "utf8").trim(), "base64");
+      crypto.createPublicKey({key, type: "spki", format: "der"});
+      ids.add(crypto.createHash("sha256").update(key).digest("hex").slice(0, 32)
+        .replace(/[0-9a-f]/g, digit => String.fromCharCode(97 + parseInt(digit, 16))));
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") return null;
+  }
+  return found ? ids : null;
+}
+
+async function removeOrphanExtensionServiceWorkers(browser, installedIds, timeoutMs) {
+  // Preferences preserve disabled extensions too. Missing or malformed inventory
+  // cannot establish that an extension was uninstalled.
+  if (!installedIds) return 0;
+  const protectedIds = new Set(installedIds);
+  try {
+    // Includes disabled unpacked extensions and newly loaded identities that
+    // Chrome has not persisted to preferences yet.
+    for (const id of (await browser.extensions()).keys()) protectedIds.add(id);
+  } catch (error) {
+    console.error(`[*] Skipping orphan service worker cleanup: extension inventory unavailable (${error.message})`);
+    return 0;
+  }
+  const page = (await browser.pages())[0];
+  if (!page) return 0;
+  const session = await page.createCDPSession();
+  const initial = new Promise(resolve => session.once("ServiceWorker.workerRegistrationUpdated", resolve));
+  try {
+    await session.send("ServiceWorker.enable");
+    const { registrations } = await withTimeout(() => initial, timeoutMs, "Timed out reading service worker registrations");
+    const origins = new Set();
+    for (const registration of registrations) {
+      const id = getExtensionIdFromUrl(registration.scopeURL);
+      if (id && !registration.isDeleted && !protectedIds.has(id)) {
+        origins.add(`chrome-extension://${id}`);
+      }
+    }
+    for (const origin of origins) {
+      // Chrome removes registrations and their script resources together. Never
+      // delete ScriptCache files behind its database or clear website storage.
+      await session.send("Storage.clearDataForOrigin", {origin, storageTypes: "service_workers"});
+    }
+    return origins.size;
+  } finally {
+    await session.detach();
+  }
+}
+
 async function ensureChromeSession(options = {}) {
   const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const {
@@ -5583,10 +5733,19 @@ async function ensureChromeSession(options = {}) {
     onSpawn = null,
     onCdpReady = null,
     personaConfig = null,
+    hydrateReusedSession = true,
   } = options;
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
   const userDataDir = chromeLaunchOptions.CHROME_USER_DATA_DIR;
+  // A restart may remove stale unpacked paths from preferences before their
+  // replacements load. Preserve those installed identities across startup.
+  const profileExtensionIds = processIsLocal
+    ? readInstalledProfileExtensionIds(userDataDir, [
+      ...(Array.isArray(chromeLaunchOptions.CHROME_ARGS) ? chromeLaunchOptions.CHROME_ARGS : getEnvArray("CHROME_ARGS", [])),
+      ...(Array.isArray(chromeLaunchOptions.CHROME_ARGS_EXTRA) ? chromeLaunchOptions.CHROME_ARGS_EXTRA : getEnvArray("CHROME_ARGS_EXTRA", [])),
+    ])
+    : null;
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -5716,10 +5875,11 @@ async function ensureChromeSession(options = {}) {
   // cleanup. Each connectToBrowserEndpoint call costs ~150-200ms (it
   // enumerates all targets), so reusing one browser saves multiple seconds
   // across the full setup path.
-  const importState = personaImportState(outputDir, resolvedCdpUrl, cookiesFile, personaConfig);
+  const cookieFiles = [...new Set([cookiesFile, personaConfig?.AUTH_STORAGE_FILE].filter(Boolean))];
+  const importState = personaImportState(outputDir, resolvedCdpUrl, cookieFiles);
   const needsPostLaunchBrowser =
     downloadsDir ||
-    cookiesFile ||
+    cookieFiles.length > 0 ||
     installedExtensions.length > 0 ||
     launchedNewBrowser;
   if (needsPostLaunchBrowser) {
@@ -5751,8 +5911,13 @@ async function ensureChromeSession(options = {}) {
         );
       }
 
-      if (cookiesFile && !importState.imported) {
-        await importCookiesFromFile(browser, cookiesFile, resolvedUserDataDir);
+      if (launchedNewBrowser && profileExtensionIds) {
+        const removed = await removeOrphanExtensionServiceWorkers(browser, profileExtensionIds, timeoutMs);
+        if (removed) console.error(`[*] Removed ${removed} uninstalled extension service worker origins`);
+      }
+
+      if (cookieFiles.length > 0 && !importState.imported) {
+        await importCookiesFromFile(browser, cookieFiles, resolvedUserDataDir);
       }
 
       if (launchedNewBrowser) {
@@ -5779,7 +5944,7 @@ async function ensureChromeSession(options = {}) {
   // Cookie-only callers borrow an existing session: attaching another owner
   // leaks a connection and its later disconnect resets the daemon's download
   // policy. A derived downloadsDir alone must not transfer lifecycle ownership.
-  const personaHydration = personaConfig
+  const personaHydration = personaConfig && (!reusingSession || hydrateReusedSession)
     ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir })
     : null;
   importState.save();
@@ -5817,7 +5982,7 @@ async function ensureChromeSession(options = {}) {
  * @param {number} [timeoutMs=120000] - Timeout in milliseconds
  * @param {number} [postLoadDelayMs=0] - Additional delay after successful navigation
  * @returns {Promise<Object>} - Parsed navigation state
- * @throws {Error} - If timeout waiting for navigation or navigation.json reports an error
+ * @throws {Error} - If timeout waiting for navigation or no document was loaded
  */
 async function waitForNavigationComplete(
   chromeSessionDir,
@@ -5841,7 +6006,10 @@ async function waitForNavigationComplete(
         throw new SyntaxError("navigation.json is empty");
       }
       const navigationState = JSON.parse(rawNavigationState);
-      if (navigationState?.error) {
+      // HTTP error documents still contain real titles, headers and bodies to
+      // preserve. Navigation reports the HTTP failure; dependent extractors
+      // may use a fully settled document, never a timeout's leftover page.
+      if (navigationState?.error && !(navigationState.finalUrl && navigationState.status >= 400)) {
         throw new Error(navigationState.error);
       }
 
@@ -6084,6 +6252,8 @@ module.exports = {
   isTargetExtension,
   loadExtensionFromTarget,
   loadUnpackedExtensionsIntoBrowser,
+  readInstalledProfileExtensionIds,
+  removeOrphanExtensionServiceWorkers,
   waitForExtensionTargetHandle,
   openExtensionPage,
   // New puppeteer best-practices helpers
@@ -6148,6 +6318,7 @@ if (require.main === module) {
     );
     console.log("  killChrome <pid>          Kill Chrome process by PID");
     console.log("  killZombieChrome          Clean up zombie Chrome processes");
+    console.log("  recover <root>...         Recover abandoned browser sessions");
     console.log("");
     console.log("  getExtensionsDir          Get Chrome extensions directory");
     console.log("");
@@ -6263,6 +6434,15 @@ if (require.main === module) {
           const [snapDir] = commandArgs;
           const killed = await killZombieChrome(snapDir);
           console.log(killed);
+          break;
+        }
+
+        case "recover": {
+          let processes_orphaned = 0;
+          for (const root of commandArgs) {
+            processes_orphaned += await killZombieChrome(root);
+          }
+          console.log(JSON.stringify({ processes_orphaned }));
           break;
         }
 

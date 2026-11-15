@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import weakref
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, TypeVar, cast
+from typing import TypeVar, cast
 
 # See https://mypy.readthedocs.io/en/stable/generics.html#declaring-decorators
 TCallable = TypeVar("TCallable", bound=Callable)
@@ -40,8 +41,9 @@ class Callables:
         """
         try:
             # methods
-            callback_ref = weakref.ref(callback.__func__), weakref.ref(
-                callback.__self__
+            callback_ref = (
+                weakref.ref(callback.__func__),
+                weakref.ref(callback.__self__),
             )
         except AttributeError:
             callback_ref = weakref.ref(callback), None
@@ -123,7 +125,7 @@ def subscribe(event: str):
         __events.setdefault(event, Callables()).append(func)
         return func
 
-    return cast(TCallable, __decorator)
+    return cast("TCallable", __decorator)
 
 
 def register(event: str) -> Callable[[TCallable], TCallable]:
@@ -164,7 +166,7 @@ def register(event: str) -> Callable[[TCallable], TCallable]:
 
     def _register(func: TCallable) -> TCallable:
         @wraps(func)
-        def register_wrapper(*args, **kwargs):  # type: ignore
+        def register_wrapper(*args, **kwargs):
             trigger(f"{event:s}::before")()
             result = func(*args, **kwargs)
             trigger(f"{event:s}::after")()
@@ -172,7 +174,7 @@ def register(event: str) -> Callable[[TCallable], TCallable]:
 
         return register_wrapper
 
-    return cast(TCallable, _register)
+    return cast("TCallable", _register)
 
 
 def trigger(event: str) -> Callables:

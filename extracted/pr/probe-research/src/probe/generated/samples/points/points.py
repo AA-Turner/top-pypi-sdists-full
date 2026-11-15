@@ -34,6 +34,21 @@ class Dtype(StrEnum):
 
 
 TOLERANCES = {Dtype.FP32: LOSS_TOLERANCE, Dtype.BF16: 2.0**-8, Dtype.FP16: 2.0**-10}
+#: Each dtype's unit roundoff: one round-to-nearest moves a value by at most this, relative.
+UNIT_ROUNDOFFS = {Dtype.FP32: 2.0**-24, Dtype.BF16: 2.0**-8, Dtype.FP16: 2.0**-11}
+#: The widest bound a rounded series declares (`Rollup.tolerance`): past it, a 1.03x scale bug would pass.
+MAX_ROUNDED_TOLERANCE = 2.0**-5
+
+
+def get_rounding_tolerance(dtype: Dtype, roundings: int) -> float:
+    """The trainer check's bound for a non-negative series the framework rounds ``roundings`` (k) times at ``dtype``
+    per call, then adds up in fp32 (TRL's bf16 SFT loss). Each rounding scales a term by (1 + d), |d| <= u, so the sum
+    of the calls sits within k u / (1 - k u) of the exact one and k u / (1 - k u)^2 of the logged one, whatever the
+    token or call count; `LOSS_TOLERANCE` covers the fp32 sums on both sides."""
+    shift = roundings * UNIT_ROUNDOFFS[dtype]
+    if roundings < 0 or shift >= 1.0:
+        raise ValueError(f"{roundings} roundings at {dtype} bound nothing")
+    return shift / (1.0 - shift) ** 2 + LOSS_TOLERANCE
 
 
 def is_within_tolerance(rebuilt: float, reported: float, tolerance: float = LOSS_TOLERANCE) -> bool:

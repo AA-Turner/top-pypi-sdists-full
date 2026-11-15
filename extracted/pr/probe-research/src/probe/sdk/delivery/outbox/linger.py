@@ -64,10 +64,12 @@ def _linger_polls() -> int:
 def _linger(journal, *, waiting: bool) -> LingerEnd | None:
     """Stay a while with the queue empty, looking for new work (`_work_arrived`) or, as
     ``waiting``, an upload in the waiting room, a stop file or a pause: what ended it, or
-    None. Counted looks, not a deadline: the same stay however the wall clock jumps."""
+    None. Counted looks, not a deadline; a look that finds a close announced (`_is_close_announced`:
+    a fresh marker, by its wall-clock mtime) is not counted."""
     from ..journal.journal import Journal
 
-    for _ in range(_linger_polls()):
+    looks = _linger_polls()
+    while looks > 0:
         time.sleep(_LINGER_POLL_SECONDS)
         fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
         if _work_arrived(journal, fresh):
@@ -76,7 +78,23 @@ def _linger(journal, *, waiting: bool) -> LingerEnd | None:
             return LingerEnd.WAITING
         if _stop_path(journal).exists() or journal.paused:
             return LingerEnd.ASKED
+        if not _is_close_announced(journal):
+            looks -= 1
     return None
+
+
+def _is_close_announced(journal) -> bool:
+    """Any fresh want marker under the outbox root: a `finish()` waits on its run, or a SIGTERM's
+    close of it is seconds away (`Run._start_delivery_for_close`). A worker leaving now makes that
+    close wait for the next one's start, ~1 s of imports before its first send (T16j). A marker
+    goes stale `MARK_STALE_SECONDS` after its last touch (a SIGTERM's, when its grace ends), which
+    bounds the stay."""
+    from .waiter.marks import waited_runs
+
+    try:
+        return bool(waited_runs(journal.outbox_root))
+    except Exception:  # noqa: BLE001 -- unreadable: linger as before
+        return False
 
 
 def _has_queued_op(journal) -> bool:

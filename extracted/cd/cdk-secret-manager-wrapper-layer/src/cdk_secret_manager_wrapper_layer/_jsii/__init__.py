@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-secret-manager-wrapper-layer",
-    "2.1.323",
+    "2.1.324",
     __name__[0:-6],
-    "cdk-secret-manager-wrapper-layer@2.1.323.jsii.tgz",
+    "cdk-secret-manager-wrapper-layer@2.1.324.jsii.tgz",
 )
 
 __all__ = [

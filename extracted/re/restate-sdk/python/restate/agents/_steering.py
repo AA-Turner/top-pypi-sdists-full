@@ -13,10 +13,11 @@
 A client sends the message to the agent's ``steer`` view. The companion
 queues it at once as a turn of its own (the agent's private ``steered``), in
 order with the messages sent after it, and, if the turn being answered takes
-steered messages, holds it for that turn too (see ``_signals.steer``).
+steered messages, holds it for that turn too (see the companion's ``steer``, in ``_signals.py``).
 
-The turn learns of it from its next ``publish``, which it makes at each tool
-call's start and end anyway. At its next step, once the model's reply has a
+The turn learns of it from its next ``publish``, which it makes anyway as it
+starts and after each write of steps that commits (a reply with tool calls,
+the tools' results), and waits for. At its next step, once the model's reply has a
 result for each of its tool calls and before the next model request, the
 framework integration calls ``take_steers``: the turn stores each message
 once, as a message of the user that is a step of the turn, and the
@@ -65,10 +66,10 @@ async def take_steers(ctx: SessionContext, conversation: Conversation) -> list[I
     turn = conversation.running()
     if not going() or turn is None or turn.open_calls():
         return []
-    companion = _signals.signals_of(ctx)
+    companion = _signals.companion_in(ctx)
 
     def taken(tx: Transaction, ids: list[str]) -> None:
         # With the transaction that stores them: so they are marked taken once stored, and once.
-        tx.send(_signals.taken, ids, key=companion, idempotency_key=f"taken:{ids[0]}")
+        tx.send(companion.taken, ids, key=ctx.key, idempotency_key=f"taken:{ids[0]}", name=_signals.ENTRY_NAME)
 
     return await turn.steer(inbox.messages, taken, going)

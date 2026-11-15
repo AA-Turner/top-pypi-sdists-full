@@ -39,6 +39,7 @@ def validate_mode(mode, strategy):
         or strategy.smoothing_new_weight is not None
         or strategy.smoothing_correction_steps is not None
         or strategy.smoothing_reference_speed is not None
+        or strategy.smoothing_time_scale is not None
     ):
         raise ValueError("Sync executes raw chunks; smoothing options require --mode async.")
 

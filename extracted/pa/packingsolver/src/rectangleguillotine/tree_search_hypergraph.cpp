@@ -916,6 +916,9 @@ bool merge(
     if (label_set_1.size() == 0 || label_set_2.size() == 0)
         return true;
     Profit profit_2_max = label_set_2.profits[0];
+    // Number of pairs enumerated since the last timer check: the timer is
+    // checked inside the inner loop, since a single label set can be large
+    // enough for one inner loop to last seconds.
     Counter number_of_pairs = 0;
     for (Counter pos_1 = 0; pos_1 < label_set_1.size(); ++pos_1) {
         Profit profit_1 = label_set_1.profits[pos_1];
@@ -928,16 +931,16 @@ bool merge(
                 break;
             if (encoder.add(label_1, label_set_2.label(pos_2), out))
                 function(pos_1, pos_2, profit);
+            ++number_of_pairs;
+            if (number_of_pairs >= (1 << 16)) {
+                if (timer.needs_to_end())
+                    return false;
+                number_of_pairs = 0;
+            }
         }
-        number_of_pairs += label_set_2.size();
         work.number_of_operations += label_set_2.size();
         if (work.exceeded())
             return false;
-        if (number_of_pairs > (1 << 22)) {
-            if (timer.needs_to_end())
-                return false;
-            number_of_pairs = 0;
-        }
     }
     return true;
 }
@@ -2317,6 +2320,13 @@ const TreeSearchHypergraphOutput packingsolver::rectangleguillotine::tree_search
         total_profit - lagrangian_constant:
         data.dp[hypergraph.goal()];
     Profit step = 1e-3 * std::max((Profit)1, std::abs(bound));
+    // The patterns below the knapsack cutoff are not useful (see
+    // 'Instance::knapsack_cutoff'): the thresholds don't decrease below it.
+    // The last one is slightly below it, so that the bound of its search
+    // proves that no pattern reaches it.
+    Profit threshold_minimum = -std::numeric_limits<Profit>::infinity();
+    if (!feasibility && std::isfinite(instance.knapsack_cutoff()))
+        threshold_minimum = instance.knapsack_cutoff() - lagrangian_constant - tolerance;
     for (;;) {
         // The best solution known, possibly found by other algorithms.
         Profit best_profit = std::max(
@@ -2326,6 +2336,7 @@ const TreeSearchHypergraphOutput packingsolver::rectangleguillotine::tree_search
                 0);
         if (!feasibility)
             threshold = std::max(threshold, best_profit - lagrangian_constant);
+        threshold = std::max(threshold, threshold_minimum);
 
         SearchOutput result = search(data, threshold - tolerance, parameters.timer);
         if (result.interrupted)
@@ -2370,6 +2381,9 @@ const TreeSearchHypergraphOutput packingsolver::rectangleguillotine::tree_search
             break;
         // The thresholds can't decrease below the best solution known.
         if (threshold + lagrangian_constant <= best_profit + tolerance)
+            break;
+        // The thresholds can't decrease below the knapsack cutoff.
+        if (threshold <= threshold_minimum)
             break;
         if (algorithm_formatter.end_boolean())
             break;

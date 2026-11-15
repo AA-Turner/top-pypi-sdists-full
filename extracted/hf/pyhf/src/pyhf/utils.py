@@ -1,22 +1,23 @@
-import json
-import yaml
-import click
 import hashlib
-from gettext import gettext
-
+import importlib.metadata
+import json
+import platform
 import sys
+from gettext import gettext
+from importlib import resources
 
-# importlib.resources.as_file wasn't added until Python 3.9
-# c.f. https://docs.python.org/3.9/library/importlib.html#importlib.resources.as_file
-if sys.version_info >= (3, 9):
-    from importlib import resources
-else:
-    import importlib_resources as resources
+import click
+import yaml
+
+# Import from pyhf._version instead of pyhf to avoid a circular import, as
+# pyhf.utils is imported while pyhf.__init__ is still executing
+from pyhf._version import version as __version__
 
 __all__ = [
     "EqDelimStringParamType",
     "citation",
     "digest",
+    "environment_info",
     "options_from_eqdelimstring",
 ]
 
@@ -26,30 +27,30 @@ def __dir__():
 
 
 def options_from_eqdelimstring(opts):
-    document = '\n'.join(
+    document = "\n".join(
         f"{opt.split('=', 1)[0]}: {opt.split('=', 1)[1]}" for opt in opts
     )
     return yaml.safe_load(document)
 
 
 class EqDelimStringParamType(click.ParamType):
-    name = 'equal-delimited option'
+    name = "equal-delimited option"
 
     def convert(self, value, param, ctx):
         try:
             return options_from_eqdelimstring([value])
         except IndexError:
-            self.fail(f'{value:s} is not a valid equal-delimited string', param, ctx)
+            self.fail(f"{value:s} is not a valid equal-delimited string", param, ctx)
 
 
 class VolumeMountPath(click.Path):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = f'{self.name}:{gettext("path")}'
+        self.name = f"{self.name}:{gettext('path')}"
 
     def convert(self, value, param, ctx):
         try:
-            path_host, path_mount = value.split(':')
+            path_host, path_mount = value.split(":")
         except ValueError:
             # too many values to unpack / not enough values to unpack
             self.fail(f"{value!r} is not a valid colon-separated option", param, ctx)
@@ -60,7 +61,7 @@ class VolumeMountPath(click.Path):
         )
 
 
-def digest(obj, algorithm='sha256'):
+def digest(obj, algorithm="sha256"):
     """
     Get the digest for the provided object. Note: object must be JSON-serializable.
 
@@ -89,17 +90,15 @@ def digest(obj, algorithm='sha256'):
     """
 
     try:
-        stringified = json.dumps(obj, sort_keys=True, ensure_ascii=False).encode('utf8')
-    except TypeError:
-        raise ValueError(
-            "The supplied object is not JSON-serializable for calculating a hash."
-        )
+        stringified = json.dumps(obj, sort_keys=True, ensure_ascii=False).encode("utf8")
+    except TypeError as exc:
+        msg = "The supplied object is not JSON-serializable for calculating a hash."
+        raise ValueError(msg) from exc
     try:
         hash_alg = getattr(hashlib, algorithm)
-    except AttributeError:
-        raise ValueError(
-            f"{algorithm} is not an algorithm provided by Python's hashlib library."
-        )
+    except AttributeError as exc:
+        msg = f"{algorithm} is not an algorithm provided by Python's hashlib library."
+        raise ValueError(msg) from exc
     return hash_alg(stringified).hexdigest()
 
 
@@ -111,7 +110,7 @@ def citation(oneline=False):
 
         >>> import pyhf
         >>> pyhf.utils.citation(oneline=True)
-        '@software{pyhf,  author = {Lukas Heinrich and Matthew Feickert and Giordon Stark},  title = "{pyhf: v0.7.6}",  version = {0.7.6},  doi = {10.5281/zenodo.1169739},  url = {https://doi.org/10.5281/zenodo.1169739},  note = {https://github.com/scikit-hep/pyhf/releases/tag/v0.7.6}}@article{pyhf_joss,  doi = {10.21105/joss.02823},  url = {https://doi.org/10.21105/joss.02823},  year = {2021},  publisher = {The Open Journal},  volume = {6},  number = {58},  pages = {2823},  author = {Lukas Heinrich and Matthew Feickert and Giordon Stark and Kyle Cranmer},  title = {pyhf: pure-Python implementation of HistFactory statistical models},  journal = {Journal of Open Source Software}}'
+        '@software{pyhf,  author = {Lukas Heinrich and Matthew Feickert and Giordon Stark},  title = "{pyhf: v0.8.0}",  version = {0.8.0},  doi = {10.5281/zenodo.1169739},  url = {https://doi.org/10.5281/zenodo.1169739},  note = {https://github.com/scikit-hep/pyhf/releases/tag/v0.8.0}}@article{pyhf_joss,  doi = {10.21105/joss.02823},  url = {https://doi.org/10.21105/joss.02823},  year = {2021},  publisher = {The Open Journal},  volume = {6},  number = {58},  pages = {2823},  author = {Lukas Heinrich and Matthew Feickert and Giordon Stark and Kyle Cranmer},  title = {pyhf: pure-Python implementation of HistFactory statistical models},  journal = {Journal of Open Source Software}}'
 
     Keyword Args:
         oneline (:obj:`bool`): Whether to provide citation with new lines (default) or as a one-liner.
@@ -119,10 +118,76 @@ def citation(oneline=False):
     Returns:
         citation (:obj:`str`): The citation for this software
     """
-    ref = resources.files('pyhf') / 'data' / 'citation.bib'
+    ref = resources.files("pyhf") / "data" / "citation.bib"
     with resources.as_file(ref) as path:
         data = path.read_text().strip()
 
     if oneline:
-        data = ''.join(data.splitlines())
+        data = "".join(data.splitlines())
     return data
+
+
+def environment_info():
+    """
+    Produce OS / environment information useful for filing a bug report.
+
+    The output is formatted as a Markdown bullet list for easy copy-paste
+    into GitHub issues.
+
+    Example:
+
+        >>> import pyhf
+        >>> print(pyhf.utils.environment_info())  # doctest: +ELLIPSIS
+        * os version: ...
+        * kernel version: ...
+        * python version: ...
+        * pyhf version: ...
+        * numpy version: ...
+        * scipy version: ...
+        * iminuit version: ...
+        * jax version: ...
+        * jaxlib version: ...
+
+    Returns:
+        :obj:`str`: The operating system and environment information
+        for the host machine.
+    """
+
+    os_version = "Cannot be determined"
+    if sys.platform == "linux":
+        try:
+            os_release = platform.freedesktop_os_release()
+        # ValueError covers UnicodeDecodeError from a non-UTF-8 os-release file
+        except (OSError, ValueError):
+            pass
+        else:
+            # VERSION is optional in the os-release spec (e.g. rolling releases)
+            os_version = " ".join(
+                part
+                for part in (
+                    os_release.get("NAME"),
+                    os_release.get("VERSION", os_release.get("VERSION_ID")),
+                )
+                if part
+            ) or os_release.get("PRETTY_NAME", "Cannot be determined")
+    elif sys.platform == "darwin":
+        os_version = f"macOS {platform.mac_ver()[0]}"
+
+    lines = [
+        f"* os version: {os_version}",
+        f"* kernel version: {platform.system()} {platform.release()} {platform.machine()}",
+        f"* python version: {platform.python_implementation()} {platform.python_version()} [{platform.python_compiler().strip()}]",
+        f"* pyhf version: {__version__}",
+    ]
+
+    # Guard all lookups as optional backends may be absent and even core
+    # dependencies could be installed in a strange way that they are importable
+    # without dist-info metadata. Show "not installed" instead of raising.
+    for package in ("numpy", "scipy", "iminuit", "jax", "jaxlib"):
+        try:
+            version = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            version = "not installed"
+        lines.append(f"* {package} version: {version}")
+
+    return "\n".join(lines) + "\n"

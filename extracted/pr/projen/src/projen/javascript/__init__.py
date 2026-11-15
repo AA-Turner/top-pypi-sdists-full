@@ -3006,6 +3006,7 @@ class Jest(
         *,
         config_file_path: typing.Optional[builtins.str] = None,
         coverage_text: typing.Optional[builtins.bool] = None,
+        experimental_vm_modules: typing.Optional[builtins.bool] = None,
         extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest_config: typing.Optional[typing.Union["JestConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         jest_version: typing.Optional[builtins.str] = None,
@@ -3018,6 +3019,7 @@ class Jest(
         :param scope: -
         :param config_file_path: (experimental) Path to JSON config file for Jest. Default: - No separate config file, jest settings are stored in package.json
         :param coverage_text: (experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution. Default: true
+        :param experimental_vm_modules: (experimental) Run Jest with Node's ``--experimental-vm-modules`` flag, set through the ``NODE_OPTIONS`` environment variable of the Jest task steps. Jest needs it to load ES modules, including ESM-only dependencies required from CommonJS code. The flag replaces any ``NODE_OPTIONS`` set outside the task. Default: false
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Each element is passed to jest as a single argument, exactly as given: no shell parses these, so a flag and its value need separate elements (``["--reporters", "jest-junit"]``, not ``["--reporters jest-junit"]``) and values must not be quoted (``["--testPathIgnorePatterns=/node_modules/"]``, not ``["--testPathIgnorePatterns='/node_modules/'"]``). Default: - no extra options
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
         :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
@@ -3034,6 +3036,7 @@ class Jest(
         options = JestOptions(
             config_file_path=config_file_path,
             coverage_text=coverage_text,
+            experimental_vm_modules=experimental_vm_modules,
             extra_cli_options=extra_cli_options,
             jest_config=jest_config,
             jest_version=jest_version,
@@ -4834,6 +4837,7 @@ class JestDiscoverTestMatchPatternsForDirsOptions:
     name_mapping={
         "config_file_path": "configFilePath",
         "coverage_text": "coverageText",
+        "experimental_vm_modules": "experimentalVmModules",
         "extra_cli_options": "extraCliOptions",
         "jest_config": "jestConfig",
         "jest_version": "jestVersion",
@@ -4849,6 +4853,7 @@ class JestOptions:
         *,
         config_file_path: typing.Optional[builtins.str] = None,
         coverage_text: typing.Optional[builtins.bool] = None,
+        experimental_vm_modules: typing.Optional[builtins.bool] = None,
         extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest_config: typing.Optional[typing.Union["JestConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         jest_version: typing.Optional[builtins.str] = None,
@@ -4860,6 +4865,7 @@ class JestOptions:
         '''
         :param config_file_path: (experimental) Path to JSON config file for Jest. Default: - No separate config file, jest settings are stored in package.json
         :param coverage_text: (experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution. Default: true
+        :param experimental_vm_modules: (experimental) Run Jest with Node's ``--experimental-vm-modules`` flag, set through the ``NODE_OPTIONS`` environment variable of the Jest task steps. Jest needs it to load ES modules, including ESM-only dependencies required from CommonJS code. The flag replaces any ``NODE_OPTIONS`` set outside the task. Default: false
         :param extra_cli_options: (experimental) Additional options to pass to the Jest CLI invocation. Each element is passed to jest as a single argument, exactly as given: no shell parses these, so a flag and its value need separate elements (``["--reporters", "jest-junit"]``, not ``["--reporters jest-junit"]``) and values must not be quoted (``["--testPathIgnorePatterns=/node_modules/"]``, not ``["--testPathIgnorePatterns='/node_modules/'"]``). Default: - no extra options
         :param jest_config: (experimental) Jest configuration. Default: - default jest configuration
         :param jest_version: (experimental) The version of jest to use. Note that same version is used as version of ``@types/jest`` and ``ts-jest`` (if Typescript in use), so given version should work also for those. With Jest 30 ts-jest version 29 is used (if Typescript in use) Default: - installs the latest jest version
@@ -4876,6 +4882,7 @@ class JestOptions:
             type_hints = cached_type_hints(_typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51bd1b0872)
             check_type(argname="argument config_file_path", value=config_file_path, expected_type=type_hints["config_file_path"])
             check_type(argname="argument coverage_text", value=coverage_text, expected_type=type_hints["coverage_text"])
+            check_type(argname="argument experimental_vm_modules", value=experimental_vm_modules, expected_type=type_hints["experimental_vm_modules"])
             check_type(argname="argument extra_cli_options", value=extra_cli_options, expected_type=type_hints["extra_cli_options"])
             check_type(argname="argument jest_config", value=jest_config, expected_type=type_hints["jest_config"])
             check_type(argname="argument jest_version", value=jest_version, expected_type=type_hints["jest_version"])
@@ -4888,6 +4895,8 @@ class JestOptions:
             self._values["config_file_path"] = config_file_path
         if coverage_text is not None:
             self._values["coverage_text"] = coverage_text
+        if experimental_vm_modules is not None:
+            self._values["experimental_vm_modules"] = experimental_vm_modules
         if extra_cli_options is not None:
             self._values["extra_cli_options"] = extra_cli_options
         if jest_config is not None:
@@ -4923,6 +4932,21 @@ class JestOptions:
         :stability: experimental
         '''
         result = self._values.get("coverage_text")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def experimental_vm_modules(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run Jest with Node's ``--experimental-vm-modules`` flag, set through the ``NODE_OPTIONS`` environment variable of the Jest task steps.
+
+        Jest needs it to load ES modules, including ESM-only dependencies required
+        from CommonJS code. The flag replaces any ``NODE_OPTIONS`` set outside the task.
+
+        :default: false
+
+        :see: https://jestjs.io/docs/ecmascript-modules
+        :stability: experimental
+        '''
+        result = self._values.get("experimental_vm_modules")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -5268,6 +5292,7 @@ class NodeConfigFile(
         project: "_projen_04054675.Project",
         *,
         file_path: typing.Optional[builtins.str] = None,
+        bench: typing.Optional[typing.Union["NodeConfigSchemaBench", typing.Dict[builtins.str, typing.Any]]] = None,
         node_options: typing.Optional[typing.Union["NodeConfigSchemaNodeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         node_version: typing.Optional[jsii.Number] = None,
         permission: typing.Optional[typing.Union["NodeConfigSchemaPermission", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5278,6 +5303,7 @@ class NodeConfigFile(
         '''
         :param project: -
         :param file_path: (experimental) The path of the generated Node.js configuration file. Default: "node.config.json"
+        :param bench: 
         :param node_options: 
         :param node_version: 
         :param permission: 
@@ -5292,6 +5318,7 @@ class NodeConfigFile(
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = NodeConfigFileOptions(
             file_path=file_path,
+            bench=bench,
             node_options=node_options,
             node_version=node_version,
             permission=permission,
@@ -5342,6 +5369,7 @@ class NodeConfigFile(
     jsii_type="projen.javascript.NodeConfigSchema",
     jsii_struct_bases=[],
     name_mapping={
+        "bench": "bench",
         "node_options": "nodeOptions",
         "node_version": "nodeVersion",
         "permission": "permission",
@@ -5354,6 +5382,7 @@ class NodeConfigSchema:
     def __init__(
         self,
         *,
+        bench: typing.Optional[typing.Union["NodeConfigSchemaBench", typing.Dict[builtins.str, typing.Any]]] = None,
         node_options: typing.Optional[typing.Union["NodeConfigSchemaNodeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         node_version: typing.Optional[jsii.Number] = None,
         permission: typing.Optional[typing.Union["NodeConfigSchemaPermission", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5362,6 +5391,7 @@ class NodeConfigSchema:
         watch: typing.Optional[typing.Union["NodeConfigSchemaWatch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
+        :param bench: 
         :param node_options: 
         :param node_version: 
         :param permission: 
@@ -5372,6 +5402,8 @@ class NodeConfigSchema:
         :stability: experimental
         :schema: NodeConfigSchema
         '''
+        if isinstance(bench, dict):
+            bench = NodeConfigSchemaBench(**bench)
         if isinstance(node_options, dict):
             node_options = NodeConfigSchemaNodeOptions(**node_options)
         if isinstance(permission, dict):
@@ -5382,6 +5414,7 @@ class NodeConfigSchema:
             watch = NodeConfigSchemaWatch(**watch)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ca84812eab2d171af75911099e4a9c96964b168c0a4080177f501d7b536ea96)
+            check_type(argname="argument bench", value=bench, expected_type=type_hints["bench"])
             check_type(argname="argument node_options", value=node_options, expected_type=type_hints["node_options"])
             check_type(argname="argument node_version", value=node_version, expected_type=type_hints["node_version"])
             check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
@@ -5389,6 +5422,8 @@ class NodeConfigSchema:
             check_type(argname="argument test", value=test, expected_type=type_hints["test"])
             check_type(argname="argument watch", value=watch, expected_type=type_hints["watch"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bench is not None:
+            self._values["bench"] = bench
         if node_options is not None:
             self._values["node_options"] = node_options
         if node_version is not None:
@@ -5401,6 +5436,15 @@ class NodeConfigSchema:
             self._values["test"] = test
         if watch is not None:
             self._values["watch"] = watch
+
+    @builtins.property
+    def bench(self) -> typing.Optional["NodeConfigSchemaBench"]:
+        '''
+        :stability: experimental
+        :schema: NodeConfigSchema#bench
+        '''
+        result = self._values.get("bench")
+        return typing.cast(typing.Optional["NodeConfigSchemaBench"], result)
 
     @builtins.property
     def node_options(self) -> typing.Optional["NodeConfigSchemaNodeOptions"]:
@@ -5469,6 +5513,150 @@ class NodeConfigSchema:
 
 
 @jsii.data_type(
+    jsii_type="projen.javascript.NodeConfigSchemaBench",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bench": "bench",
+        "bench_isolation": "benchIsolation",
+        "bench_name_pattern": "benchNamePattern",
+        "bench_reporter": "benchReporter",
+        "bench_reporter_destination": "benchReporterDestination",
+        "bench_samples": "benchSamples",
+        "bench_warmup": "benchWarmup",
+    },
+)
+class NodeConfigSchemaBench:
+    def __init__(
+        self,
+        *,
+        bench: typing.Optional[builtins.bool] = None,
+        bench_isolation: typing.Optional[builtins.str] = None,
+        bench_name_pattern: typing.Optional[builtins.str] = None,
+        bench_reporter: typing.Optional[typing.Sequence[builtins.str]] = None,
+        bench_reporter_destination: typing.Optional[typing.Sequence[builtins.str]] = None,
+        bench_samples: typing.Optional[jsii.Number] = None,
+        bench_warmup: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param bench: (experimental) launch benchmark runner on startup.
+        :param bench_isolation: (experimental) configures the type of benchmark isolation used in the benchmark runner.
+        :param bench_name_pattern: (experimental) run benchmarks whose name matches this regular expression.
+        :param bench_reporter: (experimental) report benchmark output using the given reporter.
+        :param bench_reporter_destination: (experimental) report the given benchmark reporter to the given destination.
+        :param bench_samples: (experimental) specify the number of measured benchmark samples.
+        :param bench_warmup: (experimental) specify the number of unreported benchmark warmup samples.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5ac95ae972e516320b1c244c40dfed107b81a812689d39186c76ba6df527482)
+            check_type(argname="argument bench", value=bench, expected_type=type_hints["bench"])
+            check_type(argname="argument bench_isolation", value=bench_isolation, expected_type=type_hints["bench_isolation"])
+            check_type(argname="argument bench_name_pattern", value=bench_name_pattern, expected_type=type_hints["bench_name_pattern"])
+            check_type(argname="argument bench_reporter", value=bench_reporter, expected_type=type_hints["bench_reporter"])
+            check_type(argname="argument bench_reporter_destination", value=bench_reporter_destination, expected_type=type_hints["bench_reporter_destination"])
+            check_type(argname="argument bench_samples", value=bench_samples, expected_type=type_hints["bench_samples"])
+            check_type(argname="argument bench_warmup", value=bench_warmup, expected_type=type_hints["bench_warmup"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bench is not None:
+            self._values["bench"] = bench
+        if bench_isolation is not None:
+            self._values["bench_isolation"] = bench_isolation
+        if bench_name_pattern is not None:
+            self._values["bench_name_pattern"] = bench_name_pattern
+        if bench_reporter is not None:
+            self._values["bench_reporter"] = bench_reporter
+        if bench_reporter_destination is not None:
+            self._values["bench_reporter_destination"] = bench_reporter_destination
+        if bench_samples is not None:
+            self._values["bench_samples"] = bench_samples
+        if bench_warmup is not None:
+            self._values["bench_warmup"] = bench_warmup
+
+    @builtins.property
+    def bench(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) launch benchmark runner on startup.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench
+        '''
+        result = self._values.get("bench")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def bench_isolation(self) -> typing.Optional[builtins.str]:
+        '''(experimental) configures the type of benchmark isolation used in the benchmark runner.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-isolation
+        '''
+        result = self._values.get("bench_isolation")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bench_name_pattern(self) -> typing.Optional[builtins.str]:
+        '''(experimental) run benchmarks whose name matches this regular expression.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-name-pattern
+        '''
+        result = self._values.get("bench_name_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bench_reporter(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) report benchmark output using the given reporter.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-reporter
+        '''
+        result = self._values.get("bench_reporter")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def bench_reporter_destination(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) report the given benchmark reporter to the given destination.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-reporter-destination
+        '''
+        result = self._values.get("bench_reporter_destination")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def bench_samples(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) specify the number of measured benchmark samples.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-samples
+        '''
+        result = self._values.get("bench_samples")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def bench_warmup(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) specify the number of unreported benchmark warmup samples.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaBench#bench-warmup
+        '''
+        result = self._values.get("bench_warmup")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeConfigSchemaBench(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="projen.javascript.NodeConfigSchemaNodeOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -5484,6 +5672,12 @@ class NodeConfigSchema:
         "allow_wasi": "allowWasi",
         "allow_worker": "allowWorker",
         "async_context_frame": "asyncContextFrame",
+        "bench_isolation": "benchIsolation",
+        "bench_name_pattern": "benchNamePattern",
+        "bench_reporter": "benchReporter",
+        "bench_reporter_destination": "benchReporterDestination",
+        "bench_samples": "benchSamples",
+        "bench_warmup": "benchWarmup",
         "conditions": "conditions",
         "cpu_prof": "cpuProf",
         "cpu_prof_dir": "cpuProfDir",
@@ -5501,6 +5695,7 @@ class NodeConfigSchema:
         "enable_source_maps": "enableSourceMaps",
         "entry_url": "entryUrl",
         "experimental_addon_modules": "experimentalAddonModules",
+        "experimental_bench": "experimentalBench",
         "experimental_detect_module": "experimentalDetectModule",
         "experimental_eventsource": "experimentalEventsource",
         "experimental_ffi": "experimentalFfi",
@@ -5642,6 +5837,12 @@ class NodeConfigSchemaNodeOptions:
         allow_wasi: typing.Optional[builtins.bool] = None,
         allow_worker: typing.Optional[builtins.bool] = None,
         async_context_frame: typing.Optional[builtins.bool] = None,
+        bench_isolation: typing.Optional[builtins.str] = None,
+        bench_name_pattern: typing.Optional[builtins.str] = None,
+        bench_reporter: typing.Optional[typing.Sequence[builtins.str]] = None,
+        bench_reporter_destination: typing.Optional[typing.Sequence[builtins.str]] = None,
+        bench_samples: typing.Optional[jsii.Number] = None,
+        bench_warmup: typing.Optional[jsii.Number] = None,
         conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
         cpu_prof: typing.Optional[builtins.bool] = None,
         cpu_prof_dir: typing.Optional[builtins.str] = None,
@@ -5659,6 +5860,7 @@ class NodeConfigSchemaNodeOptions:
         enable_source_maps: typing.Optional[builtins.bool] = None,
         entry_url: typing.Optional[builtins.bool] = None,
         experimental_addon_modules: typing.Optional[builtins.bool] = None,
+        experimental_bench: typing.Optional[builtins.bool] = None,
         experimental_detect_module: typing.Optional[builtins.bool] = None,
         experimental_eventsource: typing.Optional[builtins.bool] = None,
         experimental_ffi: typing.Optional[builtins.bool] = None,
@@ -5796,6 +5998,12 @@ class NodeConfigSchemaNodeOptions:
         :param allow_wasi: (experimental) allow wasi when any permissions are set.
         :param allow_worker: (experimental) allow worker threads when any permissions are set.
         :param async_context_frame: (experimental) Improve AsyncLocalStorage performance with AsyncContextFrame.
+        :param bench_isolation: (experimental) configures the type of benchmark isolation used in the benchmark runner.
+        :param bench_name_pattern: (experimental) run benchmarks whose name matches this regular expression.
+        :param bench_reporter: (experimental) report benchmark output using the given reporter.
+        :param bench_reporter_destination: (experimental) report the given benchmark reporter to the given destination.
+        :param bench_samples: (experimental) specify the number of measured benchmark samples.
+        :param bench_warmup: (experimental) specify the number of unreported benchmark warmup samples.
         :param conditions: (experimental) additional user conditions for conditional exports and imports.
         :param cpu_prof: (experimental) Start the V8 CPU profiler on start up, and write the CPU profile to disk before exit. If --cpu-prof-dir is not specified, write the profile to the current working directory.
         :param cpu_prof_dir: (experimental) Directory where the V8 profiles generated by --cpu-prof will be placed. Does not affect --prof.
@@ -5813,6 +6021,7 @@ class NodeConfigSchemaNodeOptions:
         :param enable_source_maps: (experimental) Source Map V3 support for stack traces.
         :param entry_url: (experimental) Treat the entrypoint as a URL.
         :param experimental_addon_modules: (experimental) experimental import support for addons.
+        :param experimental_bench: (experimental) experimental node:bench module and benchmark runner.
         :param experimental_detect_module: (experimental) when ambiguous modules fail to evaluate because they contain ES module syntax, try again to evaluate them as ES modules.
         :param experimental_eventsource: (experimental) experimental EventSource API.
         :param experimental_ffi: (experimental) experimental node:ffi module.
@@ -5925,7 +6134,7 @@ class NodeConfigSchemaNodeOptions:
         :param unhandled_rejections: (experimental) define unhandled rejections behavior. Options are 'strict' (always raise an error), 'throw' (raise an error unless 'unhandledRejection' hook is set), 'warn' (log a warning), 'none' (silence warnings), 'warn-with-error-code' (log a warning and set exit code 1 unless 'unhandledRejection' hook is set). (default: throw)
         :param use_bundled_ca: (experimental) use bundled CA store (default).
         :param use_env_proxy: (experimental) parse proxy settings from HTTP_PROXY/HTTPS_PROXY/NO_PROXYenvironment variables and apply the setting in global HTTP/HTTPS clients.
-        :param use_largepages: (experimental) Map the Node.js static code to large pages. Options are 'off' (the default value, meaning do not map), 'on' (map and ignore failure, reporting it to stderr), or 'silent' (map and silently ignore failure).
+        :param use_largepages: (experimental) This option is no longer supported and a no-op. Options are 'off' (default), 'on' (report a warning to stderr), or 'silent' (same as 'off').
         :param use_openssl_ca: (experimental) use OpenSSL's default CA store.
         :param use_system_ca: (experimental) use system's CA store.
         :param v8_pool_size: (experimental) set V8's thread pool size.
@@ -5954,6 +6163,12 @@ class NodeConfigSchemaNodeOptions:
             check_type(argname="argument allow_wasi", value=allow_wasi, expected_type=type_hints["allow_wasi"])
             check_type(argname="argument allow_worker", value=allow_worker, expected_type=type_hints["allow_worker"])
             check_type(argname="argument async_context_frame", value=async_context_frame, expected_type=type_hints["async_context_frame"])
+            check_type(argname="argument bench_isolation", value=bench_isolation, expected_type=type_hints["bench_isolation"])
+            check_type(argname="argument bench_name_pattern", value=bench_name_pattern, expected_type=type_hints["bench_name_pattern"])
+            check_type(argname="argument bench_reporter", value=bench_reporter, expected_type=type_hints["bench_reporter"])
+            check_type(argname="argument bench_reporter_destination", value=bench_reporter_destination, expected_type=type_hints["bench_reporter_destination"])
+            check_type(argname="argument bench_samples", value=bench_samples, expected_type=type_hints["bench_samples"])
+            check_type(argname="argument bench_warmup", value=bench_warmup, expected_type=type_hints["bench_warmup"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument cpu_prof", value=cpu_prof, expected_type=type_hints["cpu_prof"])
             check_type(argname="argument cpu_prof_dir", value=cpu_prof_dir, expected_type=type_hints["cpu_prof_dir"])
@@ -5971,6 +6186,7 @@ class NodeConfigSchemaNodeOptions:
             check_type(argname="argument enable_source_maps", value=enable_source_maps, expected_type=type_hints["enable_source_maps"])
             check_type(argname="argument entry_url", value=entry_url, expected_type=type_hints["entry_url"])
             check_type(argname="argument experimental_addon_modules", value=experimental_addon_modules, expected_type=type_hints["experimental_addon_modules"])
+            check_type(argname="argument experimental_bench", value=experimental_bench, expected_type=type_hints["experimental_bench"])
             check_type(argname="argument experimental_detect_module", value=experimental_detect_module, expected_type=type_hints["experimental_detect_module"])
             check_type(argname="argument experimental_eventsource", value=experimental_eventsource, expected_type=type_hints["experimental_eventsource"])
             check_type(argname="argument experimental_ffi", value=experimental_ffi, expected_type=type_hints["experimental_ffi"])
@@ -6119,6 +6335,18 @@ class NodeConfigSchemaNodeOptions:
             self._values["allow_worker"] = allow_worker
         if async_context_frame is not None:
             self._values["async_context_frame"] = async_context_frame
+        if bench_isolation is not None:
+            self._values["bench_isolation"] = bench_isolation
+        if bench_name_pattern is not None:
+            self._values["bench_name_pattern"] = bench_name_pattern
+        if bench_reporter is not None:
+            self._values["bench_reporter"] = bench_reporter
+        if bench_reporter_destination is not None:
+            self._values["bench_reporter_destination"] = bench_reporter_destination
+        if bench_samples is not None:
+            self._values["bench_samples"] = bench_samples
+        if bench_warmup is not None:
+            self._values["bench_warmup"] = bench_warmup
         if conditions is not None:
             self._values["conditions"] = conditions
         if cpu_prof is not None:
@@ -6153,6 +6381,8 @@ class NodeConfigSchemaNodeOptions:
             self._values["entry_url"] = entry_url
         if experimental_addon_modules is not None:
             self._values["experimental_addon_modules"] = experimental_addon_modules
+        if experimental_bench is not None:
+            self._values["experimental_bench"] = experimental_bench
         if experimental_detect_module is not None:
             self._values["experimental_detect_module"] = experimental_detect_module
         if experimental_eventsource is not None:
@@ -6521,6 +6751,66 @@ class NodeConfigSchemaNodeOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def bench_isolation(self) -> typing.Optional[builtins.str]:
+        '''(experimental) configures the type of benchmark isolation used in the benchmark runner.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-isolation
+        '''
+        result = self._values.get("bench_isolation")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bench_name_pattern(self) -> typing.Optional[builtins.str]:
+        '''(experimental) run benchmarks whose name matches this regular expression.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-name-pattern
+        '''
+        result = self._values.get("bench_name_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bench_reporter(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) report benchmark output using the given reporter.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-reporter
+        '''
+        result = self._values.get("bench_reporter")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def bench_reporter_destination(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) report the given benchmark reporter to the given destination.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-reporter-destination
+        '''
+        result = self._values.get("bench_reporter_destination")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def bench_samples(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) specify the number of measured benchmark samples.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-samples
+        '''
+        result = self._values.get("bench_samples")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def bench_warmup(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) specify the number of unreported benchmark warmup samples.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#bench-warmup
+        '''
+        result = self._values.get("bench_warmup")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def conditions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) additional user conditions for conditional exports and imports.
 
@@ -6695,6 +6985,16 @@ class NodeConfigSchemaNodeOptions:
         :schema: NodeConfigSchemaNodeOptions#experimental-addon-modules
         '''
         result = self._values.get("experimental_addon_modules")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def experimental_bench(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) experimental node:bench module and benchmark runner.
+
+        :stability: experimental
+        :schema: NodeConfigSchemaNodeOptions#experimental-bench
+        '''
+        result = self._values.get("experimental_bench")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -7840,7 +8140,9 @@ class NodeConfigSchemaNodeOptions:
 
     @builtins.property
     def use_largepages(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Map the Node.js static code to large pages. Options are 'off' (the default value, meaning do not map), 'on' (map and ignore failure, reporting it to stderr), or 'silent' (map and silently ignore failure).
+        '''(experimental) This option is no longer supported and a no-op.
+
+        Options are 'off' (default), 'on' (report a warning to stderr), or 'silent' (same as 'off').
 
         :stability: experimental
         :schema: NodeConfigSchemaNodeOptions#use-largepages
@@ -14848,6 +15150,7 @@ class PnpmWorkspaceYaml(
         self,
         project: "_projen_04054675.Project",
         *,
+        add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -14855,21 +15158,27 @@ class PnpmWorkspaceYaml(
         audit: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAudit", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAuditConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
+        auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+        boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
         cache_dir: typing.Optional[builtins.str] = None,
         cafile: typing.Optional[builtins.str] = None,
+        cargo: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaCargo", typing.Dict[builtins.str, typing.Any]]] = None,
         catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         catalog_mode: typing.Optional["PnpmWorkspaceYamlSchemaCatalogMode"] = None,
         catalog_prune: typing.Optional[builtins.bool] = None,
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
+        changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
         ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
+        concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         config_dependencies: typing.Any = None,
+        confirm_modules_purge: typing.Optional[builtins.bool] = None,
         dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
         dedupe_direct_deps: typing.Optional[builtins.bool] = None,
         dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -14893,7 +15202,9 @@ class PnpmWorkspaceYaml(
         fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+        force_ignores_platform: typing.Optional[builtins.bool] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_lockfile: typing.Optional[builtins.bool] = None,
         frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
@@ -14917,16 +15228,20 @@ class PnpmWorkspaceYaml(
         ignore_scripts: typing.Optional[builtins.bool] = None,
         ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
         ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+        include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         include_workspace_root: typing.Optional[builtins.bool] = None,
         inject_workspace_packages: typing.Optional[builtins.bool] = None,
         key: typing.Optional[builtins.str] = None,
+        legacy_dir_filtering: typing.Optional[builtins.bool] = None,
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
-        lockfile: typing.Optional[builtins.bool] = None,
+        lockfile: typing.Any = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
+        macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
         manage_package_manager_versions: typing.Optional[builtins.bool] = None,
         maxsockets: typing.Optional[jsii.Number] = None,
+        max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
         merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
         minimum_release_age: typing.Optional[jsii.Number] = None,
         minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14940,8 +15255,9 @@ class PnpmWorkspaceYaml(
         never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         node_experimental_package_map: typing.Optional[builtins.bool] = None,
-        node_linker: typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"] = None,
+        node_linker: typing.Any = None,
         node_options: typing.Optional[builtins.str] = None,
+        node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
         no_proxy: typing.Optional[builtins.str] = None,
@@ -14961,27 +15277,35 @@ class PnpmWorkspaceYaml(
         patches_dir: typing.Optional[builtins.str] = None,
         peer_dependency_rules: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaPeerDependencyRules", typing.Dict[builtins.str, typing.Any]]] = None,
         peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+        pipeline_base: typing.Optional[builtins.str] = None,
+        pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
         prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+        progress: typing.Optional[builtins.bool] = None,
+        project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
         provenance: typing.Optional[builtins.bool] = None,
         proxy: typing.Optional[builtins.str] = None,
         public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         publish_branch: typing.Optional[builtins.str] = None,
+        publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
-        registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
+        remote_cache: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaRemoteCache", typing.Dict[builtins.str, typing.Any]]] = None,
         reporter: typing.Optional["PnpmWorkspaceYamlSchemaReporter"] = None,
         required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         resolution_mode: typing.Optional["PnpmWorkspaceYamlSchemaResolutionMode"] = None,
         resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+        runtime: typing.Optional[builtins.bool] = None,
         runtime_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaRuntimeOnFail"] = None,
         save_exact: typing.Optional[builtins.bool] = None,
         save_prefix: typing.Optional["PnpmWorkspaceYamlSchemaSavePrefix"] = None,
+        save_types: typing.Optional[builtins.bool] = None,
         save_workspace_protocol: typing.Optional["PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol"] = None,
         script_shell: typing.Optional[builtins.str] = None,
         shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -14989,20 +15313,24 @@ class PnpmWorkspaceYaml(
         shell_emulator: typing.Optional[builtins.bool] = None,
         side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+        skills: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSkills", typing.Dict[builtins.str, typing.Any]]] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
+        store_index_format: typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"] = None,
         strict_dep_builds: typing.Optional[builtins.bool] = None,
         strict_peer_dependencies: typing.Optional[builtins.bool] = None,
         strict_ssl: typing.Optional[builtins.bool] = None,
         strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-        supported_architectures: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSupportedArchitectures", typing.Dict[builtins.str, typing.Any]]] = None,
+        supported_architectures: typing.Any = None,
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
         tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
         trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
         unsafe_perm: typing.Optional[builtins.bool] = None,
         update: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaUpdate", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15012,7 +15340,7 @@ class PnpmWorkspaceYaml(
         use_node_version: typing.Optional[builtins.str] = None,
         use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
-        verify_deps_before_run: typing.Any = None,
+        verify_deps_before_run: typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"] = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
         versioning: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaVersioning", typing.Dict[builtins.str, typing.Any]]] = None,
         virtual_store_dir: typing.Optional[builtins.str] = None,
@@ -15023,6 +15351,7 @@ class PnpmWorkspaceYaml(
     ) -> None:
         '''
         :param project: -
+        :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
         :param allow_non_applied_patches: (experimental) When true, installation won't fail if some of the patches from the "patchedDependencies" field were not applied.
@@ -15030,21 +15359,27 @@ class PnpmWorkspaceYaml(
         :param audit: 
         :param audit_config: 
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
+        :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
+        :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
         :param cache_dir: (experimental) The location of the cache (package metadata and dlx).
         :param cafile: (experimental) A path to a file containing one or multiple Certificate Authority signing certificates.
+        :param cargo: (experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages. Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
         :param catalog: (experimental) Define dependency version ranges as reusable constants, for later reference in package.json files. This (singular) field creates a catalog named default.
         :param catalog_mode: (experimental) Controlling if and how dependencies are added to the default catalog.
         :param catalog_prune: (experimental) When set to true, pnpm will remove unused catalog entries during installation. ``cleanupUnusedCatalogs`` is the deprecated spelling of this setting and continues to work; when both are set, ``catalogPrune`` wins.
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
+        :param changed_files_ignore_pattern: (experimental) Glob patterns of changed files to ignore when filtering for the projects changed since a commit or branch.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
         :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
+        :param concurrency_groups: (experimental) Machine-wide concurrency limits for named groups of tasks (assigned via ``tasks.<name>.concurrencyGroup``). At most the given number of tasks in a group run at once across pnpm processes sharing the same stateDir, including pnpm pipeline. A missing or zero group limit does not restrict execution. Added in pnpm v12.5.0.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
+        :param confirm_modules_purge: (experimental) Controls whether pnpm asks for confirmation before removing and reinstalling a modules directory that is incompatible with the current install settings. Confirmation is disabled in CI. Supported by pnpm v11.
         :param dangerously_allow_all_builds: (experimental) If set to true, all build scripts (e.g. preinstall, install, postinstall) from dependencies will run automatically, without requiring approval.
         :param dedupe_direct_deps: (experimental) When set to true, dependencies that are already symlinked to the root node_modules directory of the workspace will not be symlinked to subproject node_modules directories.
         :param dedupe_injected_deps: (experimental) When this setting is enabled, dependencies that are injected will be symlinked from the workspace whenever possible.
@@ -15068,7 +15403,9 @@ class PnpmWorkspaceYaml(
         :param fetch_retry_mintimeout: (experimental) The minimum (base) timeout for retrying requests.
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
+        :param force_ignores_platform: (experimental) When true, pnpm install --force also installs optional dependencies whose os, cpu, or libc do not match the host. When false, --force refetches every package but still skips optional dependencies built for other platforms. pnpm v11 behaved as if this setting were true; prefer supportedArchitectures to install optional dependencies for other platforms on purpose. Added in pnpm v12.7.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_lockfile: (experimental) When true, installation fails if the lockfile is missing or needs to be updated.
         :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
@@ -15092,16 +15429,20 @@ class PnpmWorkspaceYaml(
         :param ignore_scripts: (experimental) Do not execute any scripts defined in the project package.json and its dependencies.
         :param ignore_workspace_cycles: (experimental) When set to true, no workspace cycle warnings will be printed.
         :param ignore_workspace_root_check: (experimental) Adding a new dependency to the root workspace package fails, unless the --ignore-workspace-root-check or -w flag is used.
+        :param include: (experimental) Delegates settings to other YAML files and to config dependencies. Added in pnpm v12.15.0.
         :param include_workspace_root: (experimental) When executing commands recursively in a workspace, execute them on the root workspace project as well.
         :param inject_workspace_packages: (experimental) Enables hard-linking of all local workspace dependencies instead of symlinking them.
         :param key: (experimental) A client key to pass when accessing the registry.
+        :param legacy_dir_filtering: (experimental) When true, ``{<dir>}`` filter selectors use the legacy behavior: the selector names a directory and matches every project in the subtree below it. By default ``{<dir>}`` is matched as a glob pattern, so ``{packages/*}`` selects the projects one level below packages/ and a ``**`` reaches deeper. Only applies to user-written selectors; the workspace-root selectors pnpm generates are always matched as globs.
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
+        :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
         :param manage_package_manager_versions: (experimental) When enabled, pnpm will automatically download and run the version of pnpm specified in the packageManager field of package.json.
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
+        :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
         :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
@@ -15114,10 +15455,11 @@ class PnpmWorkspaceYaml(
         :param network_concurrency: (experimental) Controls the maximum number of HTTP(S) requests to process simultaneously.
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
-        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages.
+        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
-        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+        :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
         :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
@@ -15136,27 +15478,35 @@ class PnpmWorkspaceYaml(
         :param patches_dir: (experimental) The generated patch file will be saved to this directory.
         :param peer_dependency_rules: 
         :param peers_suffix_max_length: (experimental) Max length of the peer IDs suffix added to dependency keys in the lockfile. If the suffix is longer, it is replaced with a hash.
+        :param pipeline_base: (experimental) The git ref the affected selection of ``pnpm pipeline`` resolves its merge base against. Overridden by the ``--base <ref>`` option.
+        :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
         :param prefer_workspace_packages: (experimental) If this is enabled, local packages from the workspace are preferred over packages from the registry, even if there is a newer version of the package in the registry.
+        :param progress: (experimental) Controls whether dependency and download progress lines are printed during installation. When set to false (or --no-progress is passed), progress output is suppressed. Warnings, lifecycle script output, and the dependency summary are still printed. Added in pnpm v12.6.0.
+        :param project_scoped_optional_peers: (experimental) When true, a project gets a missing optional peer dependency only if the project's own dependencies already install a version of it. The workspace root's dependencies also count if resolvePeersFromWorkspaceRoot is true; a version that only another workspace project's dependencies install does not. dedupePeerDependents keeps deduplicating everything else, and this setting has no effect when dedupePeerDependents is false, because optional peers are already resolved only from the project's own dependencies then. Changing this setting changes the lockfile. Added in pnpm v12.19.0.
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
         :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
-        :param registries: (experimental) Configure registries for scoped packages in ``pnpm-workspace.yaml``. The ``default`` key sets the main registry (equivalent to the ``registry`` ``.npmrc`` setting). Scoped keys configure registries for specific package scopes.
+        :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
+        :param remote_cache: (experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with. Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
         :param reporter: (experimental) Allows you to customize the output style of the logs. https://pnpm.io/cli/install#--reportername
         :param required_scripts: (experimental) A list of scripts that must exist in each project.
         :param resolution_mode: (experimental) Determines how pnpm resolves dependencies, See https://pnpm.io/settings#resolutionmode.
         :param resolve_peers_from_workspace_root: (experimental) When enabled, dependencies of the root workspace project are used to resolve peer dependencies of any projects in the workspace.
+        :param runtime: (experimental) Controls whether pnpm installs runtime entries declared in ``devEngines.runtime``. Set to false when the runtime is provisioned separately, such as in a CI matrix.
         :param runtime_on_fail: (experimental) Overrides the ``onFail`` field of ``devEngines.runtime`` (and ``engines.runtime``) in the root project's ``package.json``. This is useful when you want a different local behavior than what is written in the manifest — for instance, forcing pnpm to download the declared runtime even when the manifest sets ``onFail: "warn"``.
         :param save_exact: (experimental) Saved dependencies will be configured with an exact version rather than using pnpm's default semver range operator.
         :param save_prefix: (experimental) Configure how versions of packages installed to a package.json file get prefixed.
+        :param save_types: (experimental) When set to true, pnpm add saves available.
         :param save_workspace_protocol: (experimental) This setting controls how dependencies that are linked from the workspace are added to package.json.
         :param script_shell: (experimental) The shell to use for scripts run with the pnpm run command.
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
@@ -15164,20 +15514,24 @@ class PnpmWorkspaceYaml(
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
         :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
         :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
+        :param skills: (experimental) Agent skills that approved dependencies ship. Added in pnpm v12.11.0.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
+        :param store_index_format: (experimental) How the store records which files each package has. sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
         :param strict_peer_dependencies: (experimental) If this is enabled, commands will fail if there is a missing or invalid peer dependency in the tree.
         :param strict_ssl: (experimental) Whether or not to do SSL key validation when making requests to the registry via HTTPS.
         :param strict_store_pkg_content_check: (experimental) Some registries allow the exact same content to be published under different package names and/or versions.
-        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
+        :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
+        :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
         :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
@@ -15193,7 +15547,7 @@ class PnpmWorkspaceYaml(
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
-        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -15202,6 +15556,7 @@ class PnpmWorkspaceYaml(
             type_hints = cached_type_hints(_typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef1f21e53)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PnpmWorkspaceYamlOptions(
+            add_missing_peer_types=add_missing_peer_types,
             allow_builds=allow_builds,
             allowed_deprecated_versions=allowed_deprecated_versions,
             allow_non_applied_patches=allow_non_applied_patches,
@@ -15209,21 +15564,27 @@ class PnpmWorkspaceYaml(
             audit=audit,
             audit_config=audit_config,
             audit_level=audit_level,
+            auto_dedupe=auto_dedupe,
             auto_install_peers=auto_install_peers,
             block_exotic_subdeps=block_exotic_subdeps,
+            boot_config=boot_config,
             ca=ca,
             cache_dir=cache_dir,
             cafile=cafile,
+            cargo=cargo,
             catalog=catalog,
             catalog_mode=catalog_mode,
             catalog_prune=catalog_prune,
             catalogs=catalogs,
             cert=cert,
+            changed_files_ignore_pattern=changed_files_ignore_pattern,
             child_concurrency=child_concurrency,
             ci=ci,
             cleanup_unused_catalogs=cleanup_unused_catalogs,
             color=color,
+            concurrency_groups=concurrency_groups,
             config_dependencies=config_dependencies,
+            confirm_modules_purge=confirm_modules_purge,
             dangerously_allow_all_builds=dangerously_allow_all_builds,
             dedupe_direct_deps=dedupe_direct_deps,
             dedupe_injected_deps=dedupe_injected_deps,
@@ -15247,7 +15608,9 @@ class PnpmWorkspaceYaml(
             fetch_retry_mintimeout=fetch_retry_mintimeout,
             fetch_timeout=fetch_timeout,
             fetch_warn_timeout_ms=fetch_warn_timeout_ms,
+            force_ignores_platform=force_ignores_platform,
             force_legacy_deploy=force_legacy_deploy,
+            frozen_lockfile=frozen_lockfile,
             frozen_store=frozen_store,
             git_branch_lockfile=git_branch_lockfile,
             git_checks=git_checks,
@@ -15271,16 +15634,20 @@ class PnpmWorkspaceYaml(
             ignore_scripts=ignore_scripts,
             ignore_workspace_cycles=ignore_workspace_cycles,
             ignore_workspace_root_check=ignore_workspace_root_check,
+            include=include,
             include_workspace_root=include_workspace_root,
             inject_workspace_packages=inject_workspace_packages,
             key=key,
+            legacy_dir_filtering=legacy_dir_filtering,
             link_workspace_packages=link_workspace_packages,
             local_address=local_address,
             lockfile=lockfile,
             lockfile_include_tarball_url=lockfile_include_tarball_url,
             loglevel=loglevel,
+            macos_backup=macos_backup,
             manage_package_manager_versions=manage_package_manager_versions,
             maxsockets=maxsockets,
+            max_tarball_unpacked_size=max_tarball_unpacked_size,
             merge_git_branch_lockfiles_branch_pattern=merge_git_branch_lockfiles_branch_pattern,
             minimum_release_age=minimum_release_age,
             minimum_release_age_exclude=minimum_release_age_exclude,
@@ -15296,6 +15663,7 @@ class PnpmWorkspaceYaml(
             node_experimental_package_map=node_experimental_package_map,
             node_linker=node_linker,
             node_options=node_options,
+            node_package_map=node_package_map,
             node_package_map_type=node_package_map_type,
             node_version=node_version,
             no_proxy=no_proxy,
@@ -15315,27 +15683,35 @@ class PnpmWorkspaceYaml(
             patches_dir=patches_dir,
             peer_dependency_rules=peer_dependency_rules,
             peers_suffix_max_length=peers_suffix_max_length,
+            pipeline_base=pipeline_base,
+            pipelines=pipelines,
             pm_on_fail=pm_on_fail,
             pnpmfile=pnpmfile,
             prefer_frozen_lockfile=prefer_frozen_lockfile,
             prefer_offline=prefer_offline,
             prefer_symlinked_executables=prefer_symlinked_executables,
             prefer_workspace_packages=prefer_workspace_packages,
+            progress=progress,
+            project_scoped_optional_peers=project_scoped_optional_peers,
             provenance=provenance,
             proxy=proxy,
             public_hoist_pattern=public_hoist_pattern,
             publish_branch=publish_branch,
+            publish_wait_timeout=publish_wait_timeout,
             recursive_install=recursive_install,
             registries=registries,
             registry=registry,
             registry_supports_time_field=registry_supports_time_field,
+            remote_cache=remote_cache,
             reporter=reporter,
             required_scripts=required_scripts,
             resolution_mode=resolution_mode,
             resolve_peers_from_workspace_root=resolve_peers_from_workspace_root,
+            runtime=runtime,
             runtime_on_fail=runtime_on_fail,
             save_exact=save_exact,
             save_prefix=save_prefix,
+            save_types=save_types,
             save_workspace_protocol=save_workspace_protocol,
             script_shell=script_shell,
             shamefully_hoist=shamefully_hoist,
@@ -15343,8 +15719,10 @@ class PnpmWorkspaceYaml(
             shell_emulator=shell_emulator,
             side_effects_cache=side_effects_cache,
             side_effects_cache_readonly=side_effects_cache_readonly,
+            skills=skills,
             state_dir=state_dir,
             store_dir=store_dir,
+            store_index_format=store_index_format,
             strict_dep_builds=strict_dep_builds,
             strict_peer_dependencies=strict_peer_dependencies,
             strict_ssl=strict_ssl,
@@ -15354,9 +15732,11 @@ class PnpmWorkspaceYaml(
             sync_injected_deps_after_scripts=sync_injected_deps_after_scripts,
             tag=tag,
             tasks=tasks,
+            test_pattern=test_pattern,
             trust_lockfile=trust_lockfile,
             trust_policy=trust_policy,
             trust_policy_exclude=trust_policy_exclude,
+            trust_policy_exclude_prune=trust_policy_exclude_prune,
             trust_policy_ignore_after=trust_policy_ignore_after,
             unsafe_perm=unsafe_perm,
             update=update,
@@ -15409,6 +15789,7 @@ class PnpmWorkspaceYaml(
     jsii_type="projen.javascript.PnpmWorkspaceYamlSchema",
     jsii_struct_bases=[],
     name_mapping={
+        "add_missing_peer_types": "addMissingPeerTypes",
         "allow_builds": "allowBuilds",
         "allowed_deprecated_versions": "allowedDeprecatedVersions",
         "allow_non_applied_patches": "allowNonAppliedPatches",
@@ -15416,21 +15797,27 @@ class PnpmWorkspaceYaml(
         "audit": "audit",
         "audit_config": "auditConfig",
         "audit_level": "auditLevel",
+        "auto_dedupe": "autoDedupe",
         "auto_install_peers": "autoInstallPeers",
         "block_exotic_subdeps": "blockExoticSubdeps",
+        "boot_config": "bootConfig",
         "ca": "ca",
         "cache_dir": "cacheDir",
         "cafile": "cafile",
+        "cargo": "cargo",
         "catalog": "catalog",
         "catalog_mode": "catalogMode",
         "catalog_prune": "catalogPrune",
         "catalogs": "catalogs",
         "cert": "cert",
+        "changed_files_ignore_pattern": "changedFilesIgnorePattern",
         "child_concurrency": "childConcurrency",
         "ci": "ci",
         "cleanup_unused_catalogs": "cleanupUnusedCatalogs",
         "color": "color",
+        "concurrency_groups": "concurrencyGroups",
         "config_dependencies": "configDependencies",
+        "confirm_modules_purge": "confirmModulesPurge",
         "dangerously_allow_all_builds": "dangerouslyAllowAllBuilds",
         "dedupe_direct_deps": "dedupeDirectDeps",
         "dedupe_injected_deps": "dedupeInjectedDeps",
@@ -15454,7 +15841,9 @@ class PnpmWorkspaceYaml(
         "fetch_retry_mintimeout": "fetchRetryMintimeout",
         "fetch_timeout": "fetchTimeout",
         "fetch_warn_timeout_ms": "fetchWarnTimeoutMs",
+        "force_ignores_platform": "forceIgnoresPlatform",
         "force_legacy_deploy": "forceLegacyDeploy",
+        "frozen_lockfile": "frozenLockfile",
         "frozen_store": "frozenStore",
         "git_branch_lockfile": "gitBranchLockfile",
         "git_checks": "gitChecks",
@@ -15478,16 +15867,20 @@ class PnpmWorkspaceYaml(
         "ignore_scripts": "ignoreScripts",
         "ignore_workspace_cycles": "ignoreWorkspaceCycles",
         "ignore_workspace_root_check": "ignoreWorkspaceRootCheck",
+        "include": "include",
         "include_workspace_root": "includeWorkspaceRoot",
         "inject_workspace_packages": "injectWorkspacePackages",
         "key": "key",
+        "legacy_dir_filtering": "legacyDirFiltering",
         "link_workspace_packages": "linkWorkspacePackages",
         "local_address": "localAddress",
         "lockfile": "lockfile",
         "lockfile_include_tarball_url": "lockfileIncludeTarballUrl",
         "loglevel": "loglevel",
+        "macos_backup": "macosBackup",
         "manage_package_manager_versions": "managePackageManagerVersions",
         "maxsockets": "maxsockets",
+        "max_tarball_unpacked_size": "maxTarballUnpackedSize",
         "merge_git_branch_lockfiles_branch_pattern": "mergeGitBranchLockfilesBranchPattern",
         "minimum_release_age": "minimumReleaseAge",
         "minimum_release_age_exclude": "minimumReleaseAgeExclude",
@@ -15503,6 +15896,7 @@ class PnpmWorkspaceYaml(
         "node_experimental_package_map": "nodeExperimentalPackageMap",
         "node_linker": "nodeLinker",
         "node_options": "nodeOptions",
+        "node_package_map": "nodePackageMap",
         "node_package_map_type": "nodePackageMapType",
         "node_version": "nodeVersion",
         "no_proxy": "noProxy",
@@ -15522,27 +15916,35 @@ class PnpmWorkspaceYaml(
         "patches_dir": "patchesDir",
         "peer_dependency_rules": "peerDependencyRules",
         "peers_suffix_max_length": "peersSuffixMaxLength",
+        "pipeline_base": "pipelineBase",
+        "pipelines": "pipelines",
         "pm_on_fail": "pmOnFail",
         "pnpmfile": "pnpmfile",
         "prefer_frozen_lockfile": "preferFrozenLockfile",
         "prefer_offline": "preferOffline",
         "prefer_symlinked_executables": "preferSymlinkedExecutables",
         "prefer_workspace_packages": "preferWorkspacePackages",
+        "progress": "progress",
+        "project_scoped_optional_peers": "projectScopedOptionalPeers",
         "provenance": "provenance",
         "proxy": "proxy",
         "public_hoist_pattern": "publicHoistPattern",
         "publish_branch": "publishBranch",
+        "publish_wait_timeout": "publishWaitTimeout",
         "recursive_install": "recursiveInstall",
         "registries": "registries",
         "registry": "registry",
         "registry_supports_time_field": "registrySupportsTimeField",
+        "remote_cache": "remoteCache",
         "reporter": "reporter",
         "required_scripts": "requiredScripts",
         "resolution_mode": "resolutionMode",
         "resolve_peers_from_workspace_root": "resolvePeersFromWorkspaceRoot",
+        "runtime": "runtime",
         "runtime_on_fail": "runtimeOnFail",
         "save_exact": "saveExact",
         "save_prefix": "savePrefix",
+        "save_types": "saveTypes",
         "save_workspace_protocol": "saveWorkspaceProtocol",
         "script_shell": "scriptShell",
         "shamefully_hoist": "shamefullyHoist",
@@ -15550,8 +15952,10 @@ class PnpmWorkspaceYaml(
         "shell_emulator": "shellEmulator",
         "side_effects_cache": "sideEffectsCache",
         "side_effects_cache_readonly": "sideEffectsCacheReadonly",
+        "skills": "skills",
         "state_dir": "stateDir",
         "store_dir": "storeDir",
+        "store_index_format": "storeIndexFormat",
         "strict_dep_builds": "strictDepBuilds",
         "strict_peer_dependencies": "strictPeerDependencies",
         "strict_ssl": "strictSsl",
@@ -15561,9 +15965,11 @@ class PnpmWorkspaceYaml(
         "sync_injected_deps_after_scripts": "syncInjectedDepsAfterScripts",
         "tag": "tag",
         "tasks": "tasks",
+        "test_pattern": "testPattern",
         "trust_lockfile": "trustLockfile",
         "trust_policy": "trustPolicy",
         "trust_policy_exclude": "trustPolicyExclude",
+        "trust_policy_exclude_prune": "trustPolicyExcludePrune",
         "trust_policy_ignore_after": "trustPolicyIgnoreAfter",
         "unsafe_perm": "unsafePerm",
         "update": "update",
@@ -15587,6 +15993,7 @@ class PnpmWorkspaceYamlSchema:
     def __init__(
         self,
         *,
+        add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -15594,21 +16001,27 @@ class PnpmWorkspaceYamlSchema:
         audit: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAudit", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAuditConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
+        auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+        boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
         cache_dir: typing.Optional[builtins.str] = None,
         cafile: typing.Optional[builtins.str] = None,
+        cargo: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaCargo", typing.Dict[builtins.str, typing.Any]]] = None,
         catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         catalog_mode: typing.Optional["PnpmWorkspaceYamlSchemaCatalogMode"] = None,
         catalog_prune: typing.Optional[builtins.bool] = None,
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
+        changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
         ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
+        concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         config_dependencies: typing.Any = None,
+        confirm_modules_purge: typing.Optional[builtins.bool] = None,
         dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
         dedupe_direct_deps: typing.Optional[builtins.bool] = None,
         dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -15632,7 +16045,9 @@ class PnpmWorkspaceYamlSchema:
         fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+        force_ignores_platform: typing.Optional[builtins.bool] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_lockfile: typing.Optional[builtins.bool] = None,
         frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
@@ -15656,16 +16071,20 @@ class PnpmWorkspaceYamlSchema:
         ignore_scripts: typing.Optional[builtins.bool] = None,
         ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
         ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+        include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         include_workspace_root: typing.Optional[builtins.bool] = None,
         inject_workspace_packages: typing.Optional[builtins.bool] = None,
         key: typing.Optional[builtins.str] = None,
+        legacy_dir_filtering: typing.Optional[builtins.bool] = None,
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
-        lockfile: typing.Optional[builtins.bool] = None,
+        lockfile: typing.Any = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
+        macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
         manage_package_manager_versions: typing.Optional[builtins.bool] = None,
         maxsockets: typing.Optional[jsii.Number] = None,
+        max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
         merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
         minimum_release_age: typing.Optional[jsii.Number] = None,
         minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -15679,8 +16098,9 @@ class PnpmWorkspaceYamlSchema:
         never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         node_experimental_package_map: typing.Optional[builtins.bool] = None,
-        node_linker: typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"] = None,
+        node_linker: typing.Any = None,
         node_options: typing.Optional[builtins.str] = None,
+        node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
         no_proxy: typing.Optional[builtins.str] = None,
@@ -15700,27 +16120,35 @@ class PnpmWorkspaceYamlSchema:
         patches_dir: typing.Optional[builtins.str] = None,
         peer_dependency_rules: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaPeerDependencyRules", typing.Dict[builtins.str, typing.Any]]] = None,
         peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+        pipeline_base: typing.Optional[builtins.str] = None,
+        pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
         prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+        progress: typing.Optional[builtins.bool] = None,
+        project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
         provenance: typing.Optional[builtins.bool] = None,
         proxy: typing.Optional[builtins.str] = None,
         public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         publish_branch: typing.Optional[builtins.str] = None,
+        publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
-        registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
+        remote_cache: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaRemoteCache", typing.Dict[builtins.str, typing.Any]]] = None,
         reporter: typing.Optional["PnpmWorkspaceYamlSchemaReporter"] = None,
         required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         resolution_mode: typing.Optional["PnpmWorkspaceYamlSchemaResolutionMode"] = None,
         resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+        runtime: typing.Optional[builtins.bool] = None,
         runtime_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaRuntimeOnFail"] = None,
         save_exact: typing.Optional[builtins.bool] = None,
         save_prefix: typing.Optional["PnpmWorkspaceYamlSchemaSavePrefix"] = None,
+        save_types: typing.Optional[builtins.bool] = None,
         save_workspace_protocol: typing.Optional["PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol"] = None,
         script_shell: typing.Optional[builtins.str] = None,
         shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -15728,20 +16156,24 @@ class PnpmWorkspaceYamlSchema:
         shell_emulator: typing.Optional[builtins.bool] = None,
         side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+        skills: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSkills", typing.Dict[builtins.str, typing.Any]]] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
+        store_index_format: typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"] = None,
         strict_dep_builds: typing.Optional[builtins.bool] = None,
         strict_peer_dependencies: typing.Optional[builtins.bool] = None,
         strict_ssl: typing.Optional[builtins.bool] = None,
         strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-        supported_architectures: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSupportedArchitectures", typing.Dict[builtins.str, typing.Any]]] = None,
+        supported_architectures: typing.Any = None,
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
         tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
         trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
         unsafe_perm: typing.Optional[builtins.bool] = None,
         update: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaUpdate", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15751,7 +16183,7 @@ class PnpmWorkspaceYamlSchema:
         use_node_version: typing.Optional[builtins.str] = None,
         use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
-        verify_deps_before_run: typing.Any = None,
+        verify_deps_before_run: typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"] = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
         versioning: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaVersioning", typing.Dict[builtins.str, typing.Any]]] = None,
         virtual_store_dir: typing.Optional[builtins.str] = None,
@@ -15762,6 +16194,7 @@ class PnpmWorkspaceYamlSchema:
     ) -> None:
         '''(experimental) JSON schema for pnpm-workspace.yaml files.
 
+        :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
         :param allow_non_applied_patches: (experimental) When true, installation won't fail if some of the patches from the "patchedDependencies" field were not applied.
@@ -15769,21 +16202,27 @@ class PnpmWorkspaceYamlSchema:
         :param audit: 
         :param audit_config: 
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
+        :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
+        :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
         :param cache_dir: (experimental) The location of the cache (package metadata and dlx).
         :param cafile: (experimental) A path to a file containing one or multiple Certificate Authority signing certificates.
+        :param cargo: (experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages. Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
         :param catalog: (experimental) Define dependency version ranges as reusable constants, for later reference in package.json files. This (singular) field creates a catalog named default.
         :param catalog_mode: (experimental) Controlling if and how dependencies are added to the default catalog.
         :param catalog_prune: (experimental) When set to true, pnpm will remove unused catalog entries during installation. ``cleanupUnusedCatalogs`` is the deprecated spelling of this setting and continues to work; when both are set, ``catalogPrune`` wins.
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
+        :param changed_files_ignore_pattern: (experimental) Glob patterns of changed files to ignore when filtering for the projects changed since a commit or branch.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
         :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
+        :param concurrency_groups: (experimental) Machine-wide concurrency limits for named groups of tasks (assigned via ``tasks.<name>.concurrencyGroup``). At most the given number of tasks in a group run at once across pnpm processes sharing the same stateDir, including pnpm pipeline. A missing or zero group limit does not restrict execution. Added in pnpm v12.5.0.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
+        :param confirm_modules_purge: (experimental) Controls whether pnpm asks for confirmation before removing and reinstalling a modules directory that is incompatible with the current install settings. Confirmation is disabled in CI. Supported by pnpm v11.
         :param dangerously_allow_all_builds: (experimental) If set to true, all build scripts (e.g. preinstall, install, postinstall) from dependencies will run automatically, without requiring approval.
         :param dedupe_direct_deps: (experimental) When set to true, dependencies that are already symlinked to the root node_modules directory of the workspace will not be symlinked to subproject node_modules directories.
         :param dedupe_injected_deps: (experimental) When this setting is enabled, dependencies that are injected will be symlinked from the workspace whenever possible.
@@ -15807,7 +16246,9 @@ class PnpmWorkspaceYamlSchema:
         :param fetch_retry_mintimeout: (experimental) The minimum (base) timeout for retrying requests.
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
+        :param force_ignores_platform: (experimental) When true, pnpm install --force also installs optional dependencies whose os, cpu, or libc do not match the host. When false, --force refetches every package but still skips optional dependencies built for other platforms. pnpm v11 behaved as if this setting were true; prefer supportedArchitectures to install optional dependencies for other platforms on purpose. Added in pnpm v12.7.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_lockfile: (experimental) When true, installation fails if the lockfile is missing or needs to be updated.
         :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
@@ -15831,16 +16272,20 @@ class PnpmWorkspaceYamlSchema:
         :param ignore_scripts: (experimental) Do not execute any scripts defined in the project package.json and its dependencies.
         :param ignore_workspace_cycles: (experimental) When set to true, no workspace cycle warnings will be printed.
         :param ignore_workspace_root_check: (experimental) Adding a new dependency to the root workspace package fails, unless the --ignore-workspace-root-check or -w flag is used.
+        :param include: (experimental) Delegates settings to other YAML files and to config dependencies. Added in pnpm v12.15.0.
         :param include_workspace_root: (experimental) When executing commands recursively in a workspace, execute them on the root workspace project as well.
         :param inject_workspace_packages: (experimental) Enables hard-linking of all local workspace dependencies instead of symlinking them.
         :param key: (experimental) A client key to pass when accessing the registry.
+        :param legacy_dir_filtering: (experimental) When true, ``{<dir>}`` filter selectors use the legacy behavior: the selector names a directory and matches every project in the subtree below it. By default ``{<dir>}`` is matched as a glob pattern, so ``{packages/*}`` selects the projects one level below packages/ and a ``**`` reaches deeper. Only applies to user-written selectors; the workspace-root selectors pnpm generates are always matched as globs.
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
+        :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
         :param manage_package_manager_versions: (experimental) When enabled, pnpm will automatically download and run the version of pnpm specified in the packageManager field of package.json.
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
+        :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
         :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
@@ -15853,10 +16298,11 @@ class PnpmWorkspaceYamlSchema:
         :param network_concurrency: (experimental) Controls the maximum number of HTTP(S) requests to process simultaneously.
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
-        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages.
+        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
-        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+        :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
         :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
@@ -15875,27 +16321,35 @@ class PnpmWorkspaceYamlSchema:
         :param patches_dir: (experimental) The generated patch file will be saved to this directory.
         :param peer_dependency_rules: 
         :param peers_suffix_max_length: (experimental) Max length of the peer IDs suffix added to dependency keys in the lockfile. If the suffix is longer, it is replaced with a hash.
+        :param pipeline_base: (experimental) The git ref the affected selection of ``pnpm pipeline`` resolves its merge base against. Overridden by the ``--base <ref>`` option.
+        :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
         :param prefer_workspace_packages: (experimental) If this is enabled, local packages from the workspace are preferred over packages from the registry, even if there is a newer version of the package in the registry.
+        :param progress: (experimental) Controls whether dependency and download progress lines are printed during installation. When set to false (or --no-progress is passed), progress output is suppressed. Warnings, lifecycle script output, and the dependency summary are still printed. Added in pnpm v12.6.0.
+        :param project_scoped_optional_peers: (experimental) When true, a project gets a missing optional peer dependency only if the project's own dependencies already install a version of it. The workspace root's dependencies also count if resolvePeersFromWorkspaceRoot is true; a version that only another workspace project's dependencies install does not. dedupePeerDependents keeps deduplicating everything else, and this setting has no effect when dedupePeerDependents is false, because optional peers are already resolved only from the project's own dependencies then. Changing this setting changes the lockfile. Added in pnpm v12.19.0.
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
         :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
-        :param registries: (experimental) Configure registries for scoped packages in ``pnpm-workspace.yaml``. The ``default`` key sets the main registry (equivalent to the ``registry`` ``.npmrc`` setting). Scoped keys configure registries for specific package scopes.
+        :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
+        :param remote_cache: (experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with. Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
         :param reporter: (experimental) Allows you to customize the output style of the logs. https://pnpm.io/cli/install#--reportername
         :param required_scripts: (experimental) A list of scripts that must exist in each project.
         :param resolution_mode: (experimental) Determines how pnpm resolves dependencies, See https://pnpm.io/settings#resolutionmode.
         :param resolve_peers_from_workspace_root: (experimental) When enabled, dependencies of the root workspace project are used to resolve peer dependencies of any projects in the workspace.
+        :param runtime: (experimental) Controls whether pnpm installs runtime entries declared in ``devEngines.runtime``. Set to false when the runtime is provisioned separately, such as in a CI matrix.
         :param runtime_on_fail: (experimental) Overrides the ``onFail`` field of ``devEngines.runtime`` (and ``engines.runtime``) in the root project's ``package.json``. This is useful when you want a different local behavior than what is written in the manifest — for instance, forcing pnpm to download the declared runtime even when the manifest sets ``onFail: "warn"``.
         :param save_exact: (experimental) Saved dependencies will be configured with an exact version rather than using pnpm's default semver range operator.
         :param save_prefix: (experimental) Configure how versions of packages installed to a package.json file get prefixed.
+        :param save_types: (experimental) When set to true, pnpm add saves available.
         :param save_workspace_protocol: (experimental) This setting controls how dependencies that are linked from the workspace are added to package.json.
         :param script_shell: (experimental) The shell to use for scripts run with the pnpm run command.
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
@@ -15903,20 +16357,24 @@ class PnpmWorkspaceYamlSchema:
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
         :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
         :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
+        :param skills: (experimental) Agent skills that approved dependencies ship. Added in pnpm v12.11.0.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
+        :param store_index_format: (experimental) How the store records which files each package has. sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
         :param strict_peer_dependencies: (experimental) If this is enabled, commands will fail if there is a missing or invalid peer dependency in the tree.
         :param strict_ssl: (experimental) Whether or not to do SSL key validation when making requests to the registry via HTTPS.
         :param strict_store_pkg_content_check: (experimental) Some registries allow the exact same content to be published under different package names and/or versions.
-        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
+        :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
+        :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
         :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
@@ -15932,7 +16390,7 @@ class PnpmWorkspaceYamlSchema:
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
-        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :stability: experimental
@@ -15942,12 +16400,22 @@ class PnpmWorkspaceYamlSchema:
             audit = PnpmWorkspaceYamlSchemaAudit(**audit)
         if isinstance(audit_config, dict):
             audit_config = PnpmWorkspaceYamlSchemaAuditConfig(**audit_config)
+        if isinstance(boot_config, dict):
+            boot_config = PnpmWorkspaceYamlSchemaBootConfig(**boot_config)
+        if isinstance(cargo, dict):
+            cargo = PnpmWorkspaceYamlSchemaCargo(**cargo)
         if isinstance(execution_env, dict):
             execution_env = PnpmWorkspaceYamlSchemaExecutionEnv(**execution_env)
+        if isinstance(macos_backup, dict):
+            macos_backup = PnpmWorkspaceYamlSchemaMacosBackup(**macos_backup)
+        if isinstance(node_package_map, dict):
+            node_package_map = PnpmWorkspaceYamlSchemaNodePackageMap(**node_package_map)
         if isinstance(peer_dependency_rules, dict):
             peer_dependency_rules = PnpmWorkspaceYamlSchemaPeerDependencyRules(**peer_dependency_rules)
-        if isinstance(supported_architectures, dict):
-            supported_architectures = PnpmWorkspaceYamlSchemaSupportedArchitectures(**supported_architectures)
+        if isinstance(remote_cache, dict):
+            remote_cache = PnpmWorkspaceYamlSchemaRemoteCache(**remote_cache)
+        if isinstance(skills, dict):
+            skills = PnpmWorkspaceYamlSchemaSkills(**skills)
         if isinstance(update, dict):
             update = PnpmWorkspaceYamlSchemaUpdate(**update)
         if isinstance(update_config, dict):
@@ -15956,6 +16424,7 @@ class PnpmWorkspaceYamlSchema:
             versioning = PnpmWorkspaceYamlSchemaVersioning(**versioning)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0fb33264)
+            check_type(argname="argument add_missing_peer_types", value=add_missing_peer_types, expected_type=type_hints["add_missing_peer_types"])
             check_type(argname="argument allow_builds", value=allow_builds, expected_type=type_hints["allow_builds"])
             check_type(argname="argument allowed_deprecated_versions", value=allowed_deprecated_versions, expected_type=type_hints["allowed_deprecated_versions"])
             check_type(argname="argument allow_non_applied_patches", value=allow_non_applied_patches, expected_type=type_hints["allow_non_applied_patches"])
@@ -15963,21 +16432,27 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument audit", value=audit, expected_type=type_hints["audit"])
             check_type(argname="argument audit_config", value=audit_config, expected_type=type_hints["audit_config"])
             check_type(argname="argument audit_level", value=audit_level, expected_type=type_hints["audit_level"])
+            check_type(argname="argument auto_dedupe", value=auto_dedupe, expected_type=type_hints["auto_dedupe"])
             check_type(argname="argument auto_install_peers", value=auto_install_peers, expected_type=type_hints["auto_install_peers"])
             check_type(argname="argument block_exotic_subdeps", value=block_exotic_subdeps, expected_type=type_hints["block_exotic_subdeps"])
+            check_type(argname="argument boot_config", value=boot_config, expected_type=type_hints["boot_config"])
             check_type(argname="argument ca", value=ca, expected_type=type_hints["ca"])
             check_type(argname="argument cache_dir", value=cache_dir, expected_type=type_hints["cache_dir"])
             check_type(argname="argument cafile", value=cafile, expected_type=type_hints["cafile"])
+            check_type(argname="argument cargo", value=cargo, expected_type=type_hints["cargo"])
             check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
             check_type(argname="argument catalog_mode", value=catalog_mode, expected_type=type_hints["catalog_mode"])
             check_type(argname="argument catalog_prune", value=catalog_prune, expected_type=type_hints["catalog_prune"])
             check_type(argname="argument catalogs", value=catalogs, expected_type=type_hints["catalogs"])
             check_type(argname="argument cert", value=cert, expected_type=type_hints["cert"])
+            check_type(argname="argument changed_files_ignore_pattern", value=changed_files_ignore_pattern, expected_type=type_hints["changed_files_ignore_pattern"])
             check_type(argname="argument child_concurrency", value=child_concurrency, expected_type=type_hints["child_concurrency"])
             check_type(argname="argument ci", value=ci, expected_type=type_hints["ci"])
             check_type(argname="argument cleanup_unused_catalogs", value=cleanup_unused_catalogs, expected_type=type_hints["cleanup_unused_catalogs"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
+            check_type(argname="argument concurrency_groups", value=concurrency_groups, expected_type=type_hints["concurrency_groups"])
             check_type(argname="argument config_dependencies", value=config_dependencies, expected_type=type_hints["config_dependencies"])
+            check_type(argname="argument confirm_modules_purge", value=confirm_modules_purge, expected_type=type_hints["confirm_modules_purge"])
             check_type(argname="argument dangerously_allow_all_builds", value=dangerously_allow_all_builds, expected_type=type_hints["dangerously_allow_all_builds"])
             check_type(argname="argument dedupe_direct_deps", value=dedupe_direct_deps, expected_type=type_hints["dedupe_direct_deps"])
             check_type(argname="argument dedupe_injected_deps", value=dedupe_injected_deps, expected_type=type_hints["dedupe_injected_deps"])
@@ -16001,7 +16476,9 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument fetch_retry_mintimeout", value=fetch_retry_mintimeout, expected_type=type_hints["fetch_retry_mintimeout"])
             check_type(argname="argument fetch_timeout", value=fetch_timeout, expected_type=type_hints["fetch_timeout"])
             check_type(argname="argument fetch_warn_timeout_ms", value=fetch_warn_timeout_ms, expected_type=type_hints["fetch_warn_timeout_ms"])
+            check_type(argname="argument force_ignores_platform", value=force_ignores_platform, expected_type=type_hints["force_ignores_platform"])
             check_type(argname="argument force_legacy_deploy", value=force_legacy_deploy, expected_type=type_hints["force_legacy_deploy"])
+            check_type(argname="argument frozen_lockfile", value=frozen_lockfile, expected_type=type_hints["frozen_lockfile"])
             check_type(argname="argument frozen_store", value=frozen_store, expected_type=type_hints["frozen_store"])
             check_type(argname="argument git_branch_lockfile", value=git_branch_lockfile, expected_type=type_hints["git_branch_lockfile"])
             check_type(argname="argument git_checks", value=git_checks, expected_type=type_hints["git_checks"])
@@ -16025,16 +16502,20 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument ignore_scripts", value=ignore_scripts, expected_type=type_hints["ignore_scripts"])
             check_type(argname="argument ignore_workspace_cycles", value=ignore_workspace_cycles, expected_type=type_hints["ignore_workspace_cycles"])
             check_type(argname="argument ignore_workspace_root_check", value=ignore_workspace_root_check, expected_type=type_hints["ignore_workspace_root_check"])
+            check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument include_workspace_root", value=include_workspace_root, expected_type=type_hints["include_workspace_root"])
             check_type(argname="argument inject_workspace_packages", value=inject_workspace_packages, expected_type=type_hints["inject_workspace_packages"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument legacy_dir_filtering", value=legacy_dir_filtering, expected_type=type_hints["legacy_dir_filtering"])
             check_type(argname="argument link_workspace_packages", value=link_workspace_packages, expected_type=type_hints["link_workspace_packages"])
             check_type(argname="argument local_address", value=local_address, expected_type=type_hints["local_address"])
             check_type(argname="argument lockfile", value=lockfile, expected_type=type_hints["lockfile"])
             check_type(argname="argument lockfile_include_tarball_url", value=lockfile_include_tarball_url, expected_type=type_hints["lockfile_include_tarball_url"])
             check_type(argname="argument loglevel", value=loglevel, expected_type=type_hints["loglevel"])
+            check_type(argname="argument macos_backup", value=macos_backup, expected_type=type_hints["macos_backup"])
             check_type(argname="argument manage_package_manager_versions", value=manage_package_manager_versions, expected_type=type_hints["manage_package_manager_versions"])
             check_type(argname="argument maxsockets", value=maxsockets, expected_type=type_hints["maxsockets"])
+            check_type(argname="argument max_tarball_unpacked_size", value=max_tarball_unpacked_size, expected_type=type_hints["max_tarball_unpacked_size"])
             check_type(argname="argument merge_git_branch_lockfiles_branch_pattern", value=merge_git_branch_lockfiles_branch_pattern, expected_type=type_hints["merge_git_branch_lockfiles_branch_pattern"])
             check_type(argname="argument minimum_release_age", value=minimum_release_age, expected_type=type_hints["minimum_release_age"])
             check_type(argname="argument minimum_release_age_exclude", value=minimum_release_age_exclude, expected_type=type_hints["minimum_release_age_exclude"])
@@ -16050,6 +16531,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument node_experimental_package_map", value=node_experimental_package_map, expected_type=type_hints["node_experimental_package_map"])
             check_type(argname="argument node_linker", value=node_linker, expected_type=type_hints["node_linker"])
             check_type(argname="argument node_options", value=node_options, expected_type=type_hints["node_options"])
+            check_type(argname="argument node_package_map", value=node_package_map, expected_type=type_hints["node_package_map"])
             check_type(argname="argument node_package_map_type", value=node_package_map_type, expected_type=type_hints["node_package_map_type"])
             check_type(argname="argument node_version", value=node_version, expected_type=type_hints["node_version"])
             check_type(argname="argument no_proxy", value=no_proxy, expected_type=type_hints["no_proxy"])
@@ -16069,27 +16551,35 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument patches_dir", value=patches_dir, expected_type=type_hints["patches_dir"])
             check_type(argname="argument peer_dependency_rules", value=peer_dependency_rules, expected_type=type_hints["peer_dependency_rules"])
             check_type(argname="argument peers_suffix_max_length", value=peers_suffix_max_length, expected_type=type_hints["peers_suffix_max_length"])
+            check_type(argname="argument pipeline_base", value=pipeline_base, expected_type=type_hints["pipeline_base"])
+            check_type(argname="argument pipelines", value=pipelines, expected_type=type_hints["pipelines"])
             check_type(argname="argument pm_on_fail", value=pm_on_fail, expected_type=type_hints["pm_on_fail"])
             check_type(argname="argument pnpmfile", value=pnpmfile, expected_type=type_hints["pnpmfile"])
             check_type(argname="argument prefer_frozen_lockfile", value=prefer_frozen_lockfile, expected_type=type_hints["prefer_frozen_lockfile"])
             check_type(argname="argument prefer_offline", value=prefer_offline, expected_type=type_hints["prefer_offline"])
             check_type(argname="argument prefer_symlinked_executables", value=prefer_symlinked_executables, expected_type=type_hints["prefer_symlinked_executables"])
             check_type(argname="argument prefer_workspace_packages", value=prefer_workspace_packages, expected_type=type_hints["prefer_workspace_packages"])
+            check_type(argname="argument progress", value=progress, expected_type=type_hints["progress"])
+            check_type(argname="argument project_scoped_optional_peers", value=project_scoped_optional_peers, expected_type=type_hints["project_scoped_optional_peers"])
             check_type(argname="argument provenance", value=provenance, expected_type=type_hints["provenance"])
             check_type(argname="argument proxy", value=proxy, expected_type=type_hints["proxy"])
             check_type(argname="argument public_hoist_pattern", value=public_hoist_pattern, expected_type=type_hints["public_hoist_pattern"])
             check_type(argname="argument publish_branch", value=publish_branch, expected_type=type_hints["publish_branch"])
+            check_type(argname="argument publish_wait_timeout", value=publish_wait_timeout, expected_type=type_hints["publish_wait_timeout"])
             check_type(argname="argument recursive_install", value=recursive_install, expected_type=type_hints["recursive_install"])
             check_type(argname="argument registries", value=registries, expected_type=type_hints["registries"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument registry_supports_time_field", value=registry_supports_time_field, expected_type=type_hints["registry_supports_time_field"])
+            check_type(argname="argument remote_cache", value=remote_cache, expected_type=type_hints["remote_cache"])
             check_type(argname="argument reporter", value=reporter, expected_type=type_hints["reporter"])
             check_type(argname="argument required_scripts", value=required_scripts, expected_type=type_hints["required_scripts"])
             check_type(argname="argument resolution_mode", value=resolution_mode, expected_type=type_hints["resolution_mode"])
             check_type(argname="argument resolve_peers_from_workspace_root", value=resolve_peers_from_workspace_root, expected_type=type_hints["resolve_peers_from_workspace_root"])
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument runtime_on_fail", value=runtime_on_fail, expected_type=type_hints["runtime_on_fail"])
             check_type(argname="argument save_exact", value=save_exact, expected_type=type_hints["save_exact"])
             check_type(argname="argument save_prefix", value=save_prefix, expected_type=type_hints["save_prefix"])
+            check_type(argname="argument save_types", value=save_types, expected_type=type_hints["save_types"])
             check_type(argname="argument save_workspace_protocol", value=save_workspace_protocol, expected_type=type_hints["save_workspace_protocol"])
             check_type(argname="argument script_shell", value=script_shell, expected_type=type_hints["script_shell"])
             check_type(argname="argument shamefully_hoist", value=shamefully_hoist, expected_type=type_hints["shamefully_hoist"])
@@ -16097,8 +16587,10 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument shell_emulator", value=shell_emulator, expected_type=type_hints["shell_emulator"])
             check_type(argname="argument side_effects_cache", value=side_effects_cache, expected_type=type_hints["side_effects_cache"])
             check_type(argname="argument side_effects_cache_readonly", value=side_effects_cache_readonly, expected_type=type_hints["side_effects_cache_readonly"])
+            check_type(argname="argument skills", value=skills, expected_type=type_hints["skills"])
             check_type(argname="argument state_dir", value=state_dir, expected_type=type_hints["state_dir"])
             check_type(argname="argument store_dir", value=store_dir, expected_type=type_hints["store_dir"])
+            check_type(argname="argument store_index_format", value=store_index_format, expected_type=type_hints["store_index_format"])
             check_type(argname="argument strict_dep_builds", value=strict_dep_builds, expected_type=type_hints["strict_dep_builds"])
             check_type(argname="argument strict_peer_dependencies", value=strict_peer_dependencies, expected_type=type_hints["strict_peer_dependencies"])
             check_type(argname="argument strict_ssl", value=strict_ssl, expected_type=type_hints["strict_ssl"])
@@ -16108,9 +16600,11 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument sync_injected_deps_after_scripts", value=sync_injected_deps_after_scripts, expected_type=type_hints["sync_injected_deps_after_scripts"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
+            check_type(argname="argument test_pattern", value=test_pattern, expected_type=type_hints["test_pattern"])
             check_type(argname="argument trust_lockfile", value=trust_lockfile, expected_type=type_hints["trust_lockfile"])
             check_type(argname="argument trust_policy", value=trust_policy, expected_type=type_hints["trust_policy"])
             check_type(argname="argument trust_policy_exclude", value=trust_policy_exclude, expected_type=type_hints["trust_policy_exclude"])
+            check_type(argname="argument trust_policy_exclude_prune", value=trust_policy_exclude_prune, expected_type=type_hints["trust_policy_exclude_prune"])
             check_type(argname="argument trust_policy_ignore_after", value=trust_policy_ignore_after, expected_type=type_hints["trust_policy_ignore_after"])
             check_type(argname="argument unsafe_perm", value=unsafe_perm, expected_type=type_hints["unsafe_perm"])
             check_type(argname="argument update", value=update, expected_type=type_hints["update"])
@@ -16129,6 +16623,8 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if add_missing_peer_types is not None:
+            self._values["add_missing_peer_types"] = add_missing_peer_types
         if allow_builds is not None:
             self._values["allow_builds"] = allow_builds
         if allowed_deprecated_versions is not None:
@@ -16143,16 +16639,22 @@ class PnpmWorkspaceYamlSchema:
             self._values["audit_config"] = audit_config
         if audit_level is not None:
             self._values["audit_level"] = audit_level
+        if auto_dedupe is not None:
+            self._values["auto_dedupe"] = auto_dedupe
         if auto_install_peers is not None:
             self._values["auto_install_peers"] = auto_install_peers
         if block_exotic_subdeps is not None:
             self._values["block_exotic_subdeps"] = block_exotic_subdeps
+        if boot_config is not None:
+            self._values["boot_config"] = boot_config
         if ca is not None:
             self._values["ca"] = ca
         if cache_dir is not None:
             self._values["cache_dir"] = cache_dir
         if cafile is not None:
             self._values["cafile"] = cafile
+        if cargo is not None:
+            self._values["cargo"] = cargo
         if catalog is not None:
             self._values["catalog"] = catalog
         if catalog_mode is not None:
@@ -16163,6 +16665,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["catalogs"] = catalogs
         if cert is not None:
             self._values["cert"] = cert
+        if changed_files_ignore_pattern is not None:
+            self._values["changed_files_ignore_pattern"] = changed_files_ignore_pattern
         if child_concurrency is not None:
             self._values["child_concurrency"] = child_concurrency
         if ci is not None:
@@ -16171,8 +16675,12 @@ class PnpmWorkspaceYamlSchema:
             self._values["cleanup_unused_catalogs"] = cleanup_unused_catalogs
         if color is not None:
             self._values["color"] = color
+        if concurrency_groups is not None:
+            self._values["concurrency_groups"] = concurrency_groups
         if config_dependencies is not None:
             self._values["config_dependencies"] = config_dependencies
+        if confirm_modules_purge is not None:
+            self._values["confirm_modules_purge"] = confirm_modules_purge
         if dangerously_allow_all_builds is not None:
             self._values["dangerously_allow_all_builds"] = dangerously_allow_all_builds
         if dedupe_direct_deps is not None:
@@ -16219,8 +16727,12 @@ class PnpmWorkspaceYamlSchema:
             self._values["fetch_timeout"] = fetch_timeout
         if fetch_warn_timeout_ms is not None:
             self._values["fetch_warn_timeout_ms"] = fetch_warn_timeout_ms
+        if force_ignores_platform is not None:
+            self._values["force_ignores_platform"] = force_ignores_platform
         if force_legacy_deploy is not None:
             self._values["force_legacy_deploy"] = force_legacy_deploy
+        if frozen_lockfile is not None:
+            self._values["frozen_lockfile"] = frozen_lockfile
         if frozen_store is not None:
             self._values["frozen_store"] = frozen_store
         if git_branch_lockfile is not None:
@@ -16267,12 +16779,16 @@ class PnpmWorkspaceYamlSchema:
             self._values["ignore_workspace_cycles"] = ignore_workspace_cycles
         if ignore_workspace_root_check is not None:
             self._values["ignore_workspace_root_check"] = ignore_workspace_root_check
+        if include is not None:
+            self._values["include"] = include
         if include_workspace_root is not None:
             self._values["include_workspace_root"] = include_workspace_root
         if inject_workspace_packages is not None:
             self._values["inject_workspace_packages"] = inject_workspace_packages
         if key is not None:
             self._values["key"] = key
+        if legacy_dir_filtering is not None:
+            self._values["legacy_dir_filtering"] = legacy_dir_filtering
         if link_workspace_packages is not None:
             self._values["link_workspace_packages"] = link_workspace_packages
         if local_address is not None:
@@ -16283,10 +16799,14 @@ class PnpmWorkspaceYamlSchema:
             self._values["lockfile_include_tarball_url"] = lockfile_include_tarball_url
         if loglevel is not None:
             self._values["loglevel"] = loglevel
+        if macos_backup is not None:
+            self._values["macos_backup"] = macos_backup
         if manage_package_manager_versions is not None:
             self._values["manage_package_manager_versions"] = manage_package_manager_versions
         if maxsockets is not None:
             self._values["maxsockets"] = maxsockets
+        if max_tarball_unpacked_size is not None:
+            self._values["max_tarball_unpacked_size"] = max_tarball_unpacked_size
         if merge_git_branch_lockfiles_branch_pattern is not None:
             self._values["merge_git_branch_lockfiles_branch_pattern"] = merge_git_branch_lockfiles_branch_pattern
         if minimum_release_age is not None:
@@ -16317,6 +16837,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["node_linker"] = node_linker
         if node_options is not None:
             self._values["node_options"] = node_options
+        if node_package_map is not None:
+            self._values["node_package_map"] = node_package_map
         if node_package_map_type is not None:
             self._values["node_package_map_type"] = node_package_map_type
         if node_version is not None:
@@ -16355,6 +16877,10 @@ class PnpmWorkspaceYamlSchema:
             self._values["peer_dependency_rules"] = peer_dependency_rules
         if peers_suffix_max_length is not None:
             self._values["peers_suffix_max_length"] = peers_suffix_max_length
+        if pipeline_base is not None:
+            self._values["pipeline_base"] = pipeline_base
+        if pipelines is not None:
+            self._values["pipelines"] = pipelines
         if pm_on_fail is not None:
             self._values["pm_on_fail"] = pm_on_fail
         if pnpmfile is not None:
@@ -16367,6 +16893,10 @@ class PnpmWorkspaceYamlSchema:
             self._values["prefer_symlinked_executables"] = prefer_symlinked_executables
         if prefer_workspace_packages is not None:
             self._values["prefer_workspace_packages"] = prefer_workspace_packages
+        if progress is not None:
+            self._values["progress"] = progress
+        if project_scoped_optional_peers is not None:
+            self._values["project_scoped_optional_peers"] = project_scoped_optional_peers
         if provenance is not None:
             self._values["provenance"] = provenance
         if proxy is not None:
@@ -16375,6 +16905,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["public_hoist_pattern"] = public_hoist_pattern
         if publish_branch is not None:
             self._values["publish_branch"] = publish_branch
+        if publish_wait_timeout is not None:
+            self._values["publish_wait_timeout"] = publish_wait_timeout
         if recursive_install is not None:
             self._values["recursive_install"] = recursive_install
         if registries is not None:
@@ -16383,6 +16915,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["registry"] = registry
         if registry_supports_time_field is not None:
             self._values["registry_supports_time_field"] = registry_supports_time_field
+        if remote_cache is not None:
+            self._values["remote_cache"] = remote_cache
         if reporter is not None:
             self._values["reporter"] = reporter
         if required_scripts is not None:
@@ -16391,12 +16925,16 @@ class PnpmWorkspaceYamlSchema:
             self._values["resolution_mode"] = resolution_mode
         if resolve_peers_from_workspace_root is not None:
             self._values["resolve_peers_from_workspace_root"] = resolve_peers_from_workspace_root
+        if runtime is not None:
+            self._values["runtime"] = runtime
         if runtime_on_fail is not None:
             self._values["runtime_on_fail"] = runtime_on_fail
         if save_exact is not None:
             self._values["save_exact"] = save_exact
         if save_prefix is not None:
             self._values["save_prefix"] = save_prefix
+        if save_types is not None:
+            self._values["save_types"] = save_types
         if save_workspace_protocol is not None:
             self._values["save_workspace_protocol"] = save_workspace_protocol
         if script_shell is not None:
@@ -16411,10 +16949,14 @@ class PnpmWorkspaceYamlSchema:
             self._values["side_effects_cache"] = side_effects_cache
         if side_effects_cache_readonly is not None:
             self._values["side_effects_cache_readonly"] = side_effects_cache_readonly
+        if skills is not None:
+            self._values["skills"] = skills
         if state_dir is not None:
             self._values["state_dir"] = state_dir
         if store_dir is not None:
             self._values["store_dir"] = store_dir
+        if store_index_format is not None:
+            self._values["store_index_format"] = store_index_format
         if strict_dep_builds is not None:
             self._values["strict_dep_builds"] = strict_dep_builds
         if strict_peer_dependencies is not None:
@@ -16433,12 +16975,16 @@ class PnpmWorkspaceYamlSchema:
             self._values["tag"] = tag
         if tasks is not None:
             self._values["tasks"] = tasks
+        if test_pattern is not None:
+            self._values["test_pattern"] = test_pattern
         if trust_lockfile is not None:
             self._values["trust_lockfile"] = trust_lockfile
         if trust_policy is not None:
             self._values["trust_policy"] = trust_policy
         if trust_policy_exclude is not None:
             self._values["trust_policy_exclude"] = trust_policy_exclude
+        if trust_policy_exclude_prune is not None:
+            self._values["trust_policy_exclude_prune"] = trust_policy_exclude_prune
         if trust_policy_ignore_after is not None:
             self._values["trust_policy_ignore_after"] = trust_policy_ignore_after
         if unsafe_perm is not None:
@@ -16473,6 +17019,17 @@ class PnpmWorkspaceYamlSchema:
             self._values["virtual_store_type"] = virtual_store_type
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
+
+    @builtins.property
+    def add_missing_peer_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, every peer dependency of a dependency also makes the matching.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#addMissingPeerTypes
+        :types: package nothing in the workspace depends on is installed. Changing this setting changes the lockfile. Added in pnpm v12.12.0.
+        '''
+        result = self._values.get("add_missing_peer_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_builds(self) -> typing.Any:
@@ -16551,6 +17108,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"], result)
 
     @builtins.property
+    def auto_dedupe(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation.
+
+        If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#autoDedupe
+        '''
+        result = self._values.get("auto_dedupe")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def auto_install_peers(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When true, any missing non-optional peer dependencies are automatically installed.
 
@@ -16571,6 +17140,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("block_exotic_subdeps")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def boot_config(self) -> typing.Optional["PnpmWorkspaceYamlSchemaBootConfig"]:
+        '''(experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#bootConfig
+        '''
+        result = self._values.get("boot_config")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaBootConfig"], result)
 
     @builtins.property
     def ca(self) -> typing.Optional[builtins.str]:
@@ -16601,6 +17182,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("cafile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cargo(self) -> typing.Optional["PnpmWorkspaceYamlSchemaCargo"]:
+        '''(experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages.
+
+        Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#cargo
+        '''
+        result = self._values.get("cargo")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaCargo"], result)
 
     @builtins.property
     def catalog(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -16657,6 +17250,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def changed_files_ignore_pattern(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Glob patterns of changed files to ignore when filtering for the projects changed since a commit or branch.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#changedFilesIgnorePattern
+        '''
+        result = self._values.get("changed_files_ignore_pattern")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def child_concurrency(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
 
@@ -16699,6 +17304,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaColor"], result)
 
     @builtins.property
+    def concurrency_groups(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, jsii.Number]]:
+        '''(experimental) Machine-wide concurrency limits for named groups of tasks (assigned via ``tasks.<name>.concurrencyGroup``). At most the given number of tasks in a group run at once across pnpm processes sharing the same stateDir, including pnpm pipeline. A missing or zero group limit does not restrict execution. Added in pnpm v12.5.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#concurrencyGroups
+        '''
+        result = self._values.get("concurrency_groups")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, jsii.Number]], result)
+
+    @builtins.property
     def config_dependencies(self) -> typing.Any:
         '''(experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects.
 
@@ -16709,6 +17326,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("config_dependencies")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def confirm_modules_purge(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether pnpm asks for confirmation before removing and reinstalling a modules directory that is incompatible with the current install settings.
+
+        Confirmation is disabled in CI. Supported by pnpm v11.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#confirmModulesPurge
+        '''
+        result = self._values.get("confirm_modules_purge")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def dangerously_allow_all_builds(self) -> typing.Optional[builtins.bool]:
@@ -16946,6 +17575,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def force_ignores_platform(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, pnpm install --force also installs optional dependencies whose os, cpu, or libc do not match the host.
+
+        When false, --force refetches every package but still skips optional dependencies built for other platforms. pnpm v11 behaved as if this setting were true; prefer supportedArchitectures to install optional dependencies for other platforms on purpose. Added in pnpm v12.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#forceIgnoresPlatform
+        '''
+        result = self._values.get("force_ignores_platform")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def force_legacy_deploy(self) -> typing.Optional[builtins.bool]:
         '''(experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment.
 
@@ -16955,6 +17596,16 @@ class PnpmWorkspaceYamlSchema:
         :schema: PnpmWorkspaceYamlSchema#forceLegacyDeploy
         '''
         result = self._values.get("force_legacy_deploy")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def frozen_lockfile(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, installation fails if the lockfile is missing or needs to be updated.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#frozenLockfile
+        '''
+        result = self._values.get("frozen_lockfile")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -17212,6 +17863,20 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def include(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        '''(experimental) Delegates settings to other YAML files and to config dependencies.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#include
+        '''
+        result = self._values.get("include")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
     def include_workspace_root(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When executing commands recursively in a workspace, execute them on the root workspace project as well.
 
@@ -17242,6 +17907,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def legacy_dir_filtering(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, ``{<dir>}`` filter selectors use the legacy behavior: the selector names a directory and matches every project in the subtree below it.
+
+        By default ``{<dir>}`` is matched as a glob pattern, so ``{packages/*}`` selects the projects one level below packages/ and a ``**`` reaches deeper. Only applies to user-written selectors; the workspace-root selectors pnpm generates are always matched as globs.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#legacyDirFiltering
+        '''
+        result = self._values.get("legacy_dir_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def link_workspace_packages(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"]:
@@ -17264,14 +17941,14 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def lockfile(self) -> typing.Optional[builtins.bool]:
+    def lockfile(self) -> typing.Any:
         '''(experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#lockfile
         '''
         result = self._values.get("lockfile")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def lockfile_include_tarball_url(self) -> typing.Optional[builtins.bool]:
@@ -17294,6 +17971,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"], result)
 
     @builtins.property
+    def macos_backup(self) -> typing.Optional["PnpmWorkspaceYamlSchemaMacosBackup"]:
+        '''(experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#macosBackup
+        '''
+        result = self._values.get("macos_backup")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaMacosBackup"], result)
+
+    @builtins.property
     def manage_package_manager_versions(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When enabled, pnpm will automatically download and run the version of pnpm specified in the packageManager field of package.json.
 
@@ -17311,6 +17998,18 @@ class PnpmWorkspaceYamlSchema:
         :schema: PnpmWorkspaceYamlSchema#maxsockets
         '''
         result = self._values.get("maxsockets")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_tarball_unpacked_size(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Caps the total number of bytes the files of one package may unpack to.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#maxTarballUnpackedSize
+        '''
+        result = self._values.get("max_tarball_unpacked_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
@@ -17449,7 +18148,7 @@ class PnpmWorkspaceYamlSchema:
 
     @builtins.property
     def node_experimental_package_map(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap.
+        '''(experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeExperimentalPackageMap
@@ -17458,14 +18157,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def node_linker(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"]:
+    def node_linker(self) -> typing.Any:
         '''(experimental) Defines what linker should be used for installing Node packages.
+
+        loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeLinker
         '''
         result = self._values.get("node_linker")
-        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def node_options(self) -> typing.Optional[builtins.str]:
@@ -17478,10 +18179,22 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def node_package_map(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMap"]:
+        '''(experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#nodePackageMap
+        '''
+        result = self._values.get("node_package_map")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMap"], result)
+
+    @builtins.property
     def node_package_map_type(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"]:
-        '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+        '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodePackageMapType
@@ -17683,6 +18396,32 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def pipeline_base(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The git ref the affected selection of ``pnpm pipeline`` resolves its merge base against.
+
+        Overridden by the ``--base <ref>`` option.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pipelineBase
+        '''
+        result = self._values.get("pipeline_base")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pipelines(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        '''(experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``.
+
+        A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pipelines
+        '''
+        result = self._values.get("pipelines")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
     def pm_on_fail(self) -> typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"]:
         '''(experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
 
@@ -17745,6 +18484,30 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def progress(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether dependency and download progress lines are printed during installation.
+
+        When set to false (or --no-progress is passed), progress output is suppressed. Warnings, lifecycle script output, and the dependency summary are still printed. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#progress
+        '''
+        result = self._values.get("progress")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def project_scoped_optional_peers(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, a project gets a missing optional peer dependency only if the project's own dependencies already install a version of it.
+
+        The workspace root's dependencies also count if resolvePeersFromWorkspaceRoot is true; a version that only another workspace project's dependencies install does not. dedupePeerDependents keeps deduplicating everything else, and this setting has no effect when dedupePeerDependents is false, because optional peers are already resolved only from the project's own dependencies then. Changing this setting changes the lockfile. Added in pnpm v12.19.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#projectScopedOptionalPeers
+        '''
+        result = self._values.get("project_scoped_optional_peers")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def provenance(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
 
@@ -17787,6 +18550,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def publish_wait_timeout(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry.
+
+        If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#publishWaitTimeout
+        '''
+        result = self._values.get("publish_wait_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def recursive_install(self) -> typing.Optional[builtins.bool]:
         '''(experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
 
@@ -17797,14 +18572,17 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def registries(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Configure registries for scoped packages in ``pnpm-workspace.yaml``. The ``default`` key sets the main registry (equivalent to the ``registry`` ``.npmrc`` setting). Scoped keys configure registries for specific package scopes.
+    def registries(self) -> typing.Any:
+        '''(experimental) Configures the registries packages resolve from, in one of two shapes.
+
+        The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed.
+        https://pnpm.io/settings#registries
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#registries
         '''
         result = self._values.get("registries")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def registry(self) -> typing.Optional[builtins.str]:
@@ -17825,6 +18603,18 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("registry_supports_time_field")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def remote_cache(self) -> typing.Optional["PnpmWorkspaceYamlSchemaRemoteCache"]:
+        '''(experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with.
+
+        Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#remoteCache
+        '''
+        result = self._values.get("remote_cache")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaRemoteCache"], result)
 
     @builtins.property
     def reporter(self) -> typing.Optional["PnpmWorkspaceYamlSchemaReporter"]:
@@ -17871,6 +18661,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def runtime(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether pnpm installs runtime entries declared in ``devEngines.runtime``. Set to false when the runtime is provisioned separately, such as in a CI matrix.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#runtime
+        '''
+        result = self._values.get("runtime")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def runtime_on_fail(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaRuntimeOnFail"]:
@@ -17901,6 +18701,17 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("save_prefix")
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSavePrefix"], result)
+
+    @builtins.property
+    def save_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm add saves available.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#saveTypes
+        :types: /* packages in devDependencies alongside registry dependencies. Packages that declare bundled TypeScript types are skipped. Added in pnpm v12.6.0.
+        '''
+        result = self._values.get("save_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def save_workspace_protocol(
@@ -17980,6 +18791,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def skills(self) -> typing.Optional["PnpmWorkspaceYamlSchemaSkills"]:
+        '''(experimental) Agent skills that approved dependencies ship.
+
+        Added in pnpm v12.11.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#skills
+        '''
+        result = self._values.get("skills")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSkills"], result)
+
+    @builtins.property
     def state_dir(self) -> typing.Optional[builtins.str]:
         '''(experimental) The location where all the packages are saved on the disk.
 
@@ -17998,6 +18821,20 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("store_dir")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def store_index_format(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"]:
+        '''(experimental) How the store records which files each package has.
+
+        sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#storeIndexFormat
+        '''
+        result = self._values.get("store_index_format")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"], result)
 
     @builtins.property
     def strict_dep_builds(self) -> typing.Optional[builtins.bool]:
@@ -18040,16 +18877,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def supported_architectures(
-        self,
-    ) -> typing.Optional["PnpmWorkspaceYamlSchemaSupportedArchitectures"]:
+    def supported_architectures(self) -> typing.Any:
         '''(experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+
+        Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#supportedArchitectures
         '''
         result = self._values.get("supported_architectures")
-        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSupportedArchitectures"], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def symlink(self) -> typing.Optional[builtins.bool]:
@@ -18100,6 +18937,18 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]], result)
 
     @builtins.property
+    def test_pattern(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Glob patterns of test files.
+
+        When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#testPattern
+        '''
+        result = self._values.get("test_pattern")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def trust_lockfile(self) -> typing.Optional[builtins.bool]:
         '''(experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile.
 
@@ -18132,6 +18981,16 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("trust_policy_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def trust_policy_exclude_prune(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#trustPolicyExcludePrune
+        '''
+        result = self._values.get("trust_policy_exclude_prune")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def trust_policy_ignore_after(self) -> typing.Optional[jsii.Number]:
@@ -18228,14 +19087,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def verify_deps_before_run(self) -> typing.Any:
+    def verify_deps_before_run(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"]:
         '''(experimental) This setting allows the checking of the state of dependencies before running scripts.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#verifyDepsBeforeRun
         '''
         result = self._values.get("verify_deps_before_run")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"], result)
 
     @builtins.property
     def verify_store_integrity(self) -> typing.Optional[builtins.bool]:
@@ -18295,7 +19156,7 @@ class PnpmWorkspaceYamlSchema:
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"]:
         '''(experimental) Determines where the virtual store is located.
 
-        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#virtualStoreType
@@ -18492,6 +19353,172 @@ class PnpmWorkspaceYamlSchemaAuditLevel(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaBootConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "minimum_release_age": "minimumReleaseAge",
+        "minimum_release_age_exclude": "minimumReleaseAgeExclude",
+        "trust_policy": "trustPolicy",
+        "trust_policy_exclude": "trustPolicyExclude",
+    },
+)
+class PnpmWorkspaceYamlSchemaBootConfig:
+    def __init__(
+        self,
+        *,
+        minimum_release_age: typing.Optional[jsii.Number] = None,
+        minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaBootConfigTrustPolicy"] = None,
+        trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded.
+
+        Added in pnpm v12.15.0.
+
+        :param minimum_release_age: (experimental) The minimum number of minutes that must pass after a version is published before pnpm will install it.
+        :param minimum_release_age_exclude: (experimental) Packages that are exempt from the minimumReleaseAge check.
+        :param trust_policy: (experimental) When set to no-downgrade, installation fails if a package's trust level has decreased compared to previous releases.
+        :param trust_policy_exclude: (experimental) Packages or versions that are allowed to install even if they don't satisfy the trust policy requirement.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaBootConfig
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__38961e8f46978bab3b0a08acb90805ddfe7f5b8c7b54dc9f5b4239979a5d4321)
+            check_type(argname="argument minimum_release_age", value=minimum_release_age, expected_type=type_hints["minimum_release_age"])
+            check_type(argname="argument minimum_release_age_exclude", value=minimum_release_age_exclude, expected_type=type_hints["minimum_release_age_exclude"])
+            check_type(argname="argument trust_policy", value=trust_policy, expected_type=type_hints["trust_policy"])
+            check_type(argname="argument trust_policy_exclude", value=trust_policy_exclude, expected_type=type_hints["trust_policy_exclude"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if minimum_release_age is not None:
+            self._values["minimum_release_age"] = minimum_release_age
+        if minimum_release_age_exclude is not None:
+            self._values["minimum_release_age_exclude"] = minimum_release_age_exclude
+        if trust_policy is not None:
+            self._values["trust_policy"] = trust_policy
+        if trust_policy_exclude is not None:
+            self._values["trust_policy_exclude"] = trust_policy_exclude
+
+    @builtins.property
+    def minimum_release_age(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The minimum number of minutes that must pass after a version is published before pnpm will install it.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaBootConfig#minimumReleaseAge
+        '''
+        result = self._values.get("minimum_release_age")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def minimum_release_age_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Packages that are exempt from the minimumReleaseAge check.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaBootConfig#minimumReleaseAgeExclude
+        '''
+        result = self._values.get("minimum_release_age_exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def trust_policy(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaBootConfigTrustPolicy"]:
+        '''(experimental) When set to no-downgrade, installation fails if a package's trust level has decreased compared to previous releases.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaBootConfig#trustPolicy
+        '''
+        result = self._values.get("trust_policy")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaBootConfigTrustPolicy"], result)
+
+    @builtins.property
+    def trust_policy_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Packages or versions that are allowed to install even if they don't satisfy the trust policy requirement.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaBootConfig#trustPolicyExclude
+        '''
+        result = self._values.get("trust_policy_exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaBootConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaBootConfigTrustPolicy")
+class PnpmWorkspaceYamlSchemaBootConfigTrustPolicy(enum.Enum):
+    '''(experimental) When set to no-downgrade, installation fails if a package's trust level has decreased compared to previous releases.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaBootConfigTrustPolicy
+    '''
+
+    OFF = "OFF"
+    '''(experimental) off.
+
+    :stability: experimental
+    '''
+    NO_HYPHEN_DOWNGRADE = "NO_HYPHEN_DOWNGRADE"
+    '''(experimental) no-downgrade.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaCargo",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled"},
+)
+class PnpmWorkspaceYamlSchemaCargo:
+    def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages.
+
+        Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
+
+        :param enabled: (experimental) Whether pnpm install resolves and installs the workspace's Cargo dependencies.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaCargo
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8396f6bd46b753c1c0b657081fb75f3c235c71399fa6ca7dfd718d9b84e6c72)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether pnpm install resolves and installs the workspace's Cargo dependencies.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaCargo#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaCargo(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaCatalogMode")
@@ -18694,26 +19721,157 @@ class PnpmWorkspaceYamlSchemaLoglevel(enum.Enum):
     '''
 
 
-@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaNodeLinker")
-class PnpmWorkspaceYamlSchemaNodeLinker(enum.Enum):
-    '''(experimental) Defines what linker should be used for installing Node packages.
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaMacosBackup",
+    jsii_struct_bases=[],
+    name_mapping={
+        "exclude_modules_dir": "excludeModulesDir",
+        "exclude_store_dir": "excludeStoreDir",
+    },
+)
+class PnpmWorkspaceYamlSchemaMacosBackup:
+    def __init__(
+        self,
+        *,
+        exclude_modules_dir: typing.Optional[builtins.bool] = None,
+        exclude_store_dir: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
+
+        :param exclude_modules_dir: (experimental) When true on macOS, newly created node_modules, virtual-store, and similar directories are marked so Time Machine skips them.
+        :param exclude_store_dir: (experimental) When true on macOS, newly created package-store directories are marked so Time Machine skips them.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaMacosBackup
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__db44a0e2a2a83a7da53891c37b311049a089238b2caef0b72c5b1565ce841602)
+            check_type(argname="argument exclude_modules_dir", value=exclude_modules_dir, expected_type=type_hints["exclude_modules_dir"])
+            check_type(argname="argument exclude_store_dir", value=exclude_store_dir, expected_type=type_hints["exclude_store_dir"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if exclude_modules_dir is not None:
+            self._values["exclude_modules_dir"] = exclude_modules_dir
+        if exclude_store_dir is not None:
+            self._values["exclude_store_dir"] = exclude_store_dir
+
+    @builtins.property
+    def exclude_modules_dir(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true on macOS, newly created node_modules, virtual-store, and similar directories are marked so Time Machine skips them.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaMacosBackup#excludeModulesDir
+        '''
+        result = self._values.get("exclude_modules_dir")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def exclude_store_dir(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true on macOS, newly created package-store directories are marked so Time Machine skips them.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaMacosBackup#excludeStoreDir
+        '''
+        result = self._values.get("exclude_store_dir")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaMacosBackup(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaNodePackageMap",
+    jsii_struct_bases=[],
+    name_mapping={"mode": "mode", "type": "type"},
+)
+class PnpmWorkspaceYamlSchemaNodePackageMap:
+    def __init__(
+        self,
+        *,
+        mode: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapMode"] = None,
+        type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
+    ) -> None:
+        '''(experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+
+        :param mode: (experimental) off - pnpm writes no package map, and an install removes a map that an earlier install left. write-only - pnpm writes the package map for other tools to read; Node.js does not load it. load - pnpm also adds Node's --experimental-package-map option to NODE_OPTIONS in pnpm-managed Node.js script environments.
+        :param type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaNodePackageMap
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9079f8a8d9bfe854ea5f34d7f2f0b5f40292bd649340b17eb31dcb063448cf38)
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if mode is not None:
+            self._values["mode"] = mode
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def mode(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapMode"]:
+        '''(experimental) off - pnpm writes no package map, and an install removes a map that an earlier install left.
+
+        write-only - pnpm writes the package map for other tools to read; Node.js does not load it. load - pnpm also adds Node's --experimental-package-map option to NODE_OPTIONS in pnpm-managed Node.js script environments.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaNodePackageMap#mode
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapMode"], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"]:
+        '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaNodePackageMap#type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaNodePackageMap(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaNodePackageMapMode")
+class PnpmWorkspaceYamlSchemaNodePackageMapMode(enum.Enum):
+    '''(experimental) off - pnpm writes no package map, and an install removes a map that an earlier install left.
+
+    write-only - pnpm writes the package map for other tools to read; Node.js does not load it. load - pnpm also adds Node's --experimental-package-map option to NODE_OPTIONS in pnpm-managed Node.js script environments.
 
     :stability: experimental
-    :schema: PnpmWorkspaceYamlSchemaNodeLinker
+    :schema: PnpmWorkspaceYamlSchemaNodePackageMapMode
     '''
 
-    ISOLATED = "ISOLATED"
-    '''(experimental) isolated.
-
-    :stability: experimental
-    '''
-    HOISTED = "HOISTED"
-    '''(experimental) hoisted.
+    OFF = "OFF"
+    '''(experimental) off.
 
     :stability: experimental
     '''
-    PNP = "PNP"
-    '''(experimental) pnp.
+    WRITE_HYPHEN_ONLY = "WRITE_HYPHEN_ONLY"
+    '''(experimental) write-only.
+
+    :stability: experimental
+    '''
+    LOAD = "LOAD"
+    '''(experimental) load.
 
     :stability: experimental
     '''
@@ -18721,7 +19879,7 @@ class PnpmWorkspaceYamlSchemaNodeLinker(enum.Enum):
 
 @jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaNodePackageMapType")
 class PnpmWorkspaceYamlSchemaNodePackageMapType(enum.Enum):
-    '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+    '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
 
     :stability: experimental
     :schema: PnpmWorkspaceYamlSchemaNodePackageMapType
@@ -18882,6 +20040,53 @@ class PnpmWorkspaceYamlSchemaPmOnFail(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaRemoteCache",
+    jsii_struct_bases=[],
+    name_mapping={"org": "org"},
+)
+class PnpmWorkspaceYamlSchemaRemoteCache:
+    def __init__(self, *, org: typing.Optional[builtins.str] = None) -> None:
+        '''(experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with.
+
+        Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
+
+        :param org: (experimental) The organization that owns the artifacts. On a pnpr server, one of the organizations it declares under artifacts.orgs. It also names the organization pnpm pipeline --report records a run under.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaRemoteCache
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f05e8d694e2b5375913815289818bb479bfabe0cd2b23341e6794a57931c28c0)
+            check_type(argname="argument org", value=org, expected_type=type_hints["org"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if org is not None:
+            self._values["org"] = org
+
+    @builtins.property
+    def org(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The organization that owns the artifacts.
+
+        On a pnpr server, one of the organizations it declares under artifacts.orgs. It also names the organization pnpm pipeline --report records a run under.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaRemoteCache#org
+        '''
+        result = self._values.get("org")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaRemoteCache(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaReporter")
@@ -19048,65 +20253,42 @@ class PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol(
 
 
 @jsii.data_type(
-    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaSupportedArchitectures",
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaSkills",
     jsii_struct_bases=[],
-    name_mapping={"cpu": "cpu", "libc": "libc", "os": "os"},
+    name_mapping={"dirs": "dirs"},
 )
-class PnpmWorkspaceYamlSchemaSupportedArchitectures:
+class PnpmWorkspaceYamlSchemaSkills:
     def __init__(
         self,
         *,
-        cpu: typing.Optional[typing.Sequence[builtins.str]] = None,
-        libc: typing.Optional[typing.Sequence[builtins.str]] = None,
-        os: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dirs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''(experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+        '''(experimental) Agent skills that approved dependencies ship.
 
-        :param cpu: 
-        :param libc: 
-        :param os: 
+        Added in pnpm v12.11.0.
+
+        :param dirs: (experimental) The directories, relative to the workspace root, that pnpm links approved agent skills into. When set, it replaces the detected directories, and pnpm creates the ones that are missing. An empty list turns agent skills off.
 
         :stability: experimental
-        :schema: PnpmWorkspaceYamlSchemaSupportedArchitectures
+        :schema: PnpmWorkspaceYamlSchemaSkills
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__645b4c4db2557fa13ad01633c54fab0621aa15adcf6dab7209176c06ff0ffec4)
-            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
-            check_type(argname="argument libc", value=libc, expected_type=type_hints["libc"])
-            check_type(argname="argument os", value=os, expected_type=type_hints["os"])
+            type_hints = cached_type_hints(_typecheckingstub__81d7119ed1baa7ff92ab4a8ce39a84a36145b59dbf166f9587c10e9ac3903a34)
+            check_type(argname="argument dirs", value=dirs, expected_type=type_hints["dirs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cpu is not None:
-            self._values["cpu"] = cpu
-        if libc is not None:
-            self._values["libc"] = libc
-        if os is not None:
-            self._values["os"] = os
+        if dirs is not None:
+            self._values["dirs"] = dirs
 
     @builtins.property
-    def cpu(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :stability: experimental
-        :schema: PnpmWorkspaceYamlSchemaSupportedArchitectures#cpu
-        '''
-        result = self._values.get("cpu")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+    def dirs(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The directories, relative to the workspace root, that pnpm links approved agent skills into.
 
-    @builtins.property
-    def libc(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :stability: experimental
-        :schema: PnpmWorkspaceYamlSchemaSupportedArchitectures#libc
-        '''
-        result = self._values.get("libc")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        When set, it replaces the detected directories, and pnpm creates the ones that are missing. An empty list turns agent skills off.
 
-    @builtins.property
-    def os(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
         :stability: experimental
-        :schema: PnpmWorkspaceYamlSchemaSupportedArchitectures#os
+        :schema: PnpmWorkspaceYamlSchemaSkills#dirs
         '''
-        result = self._values.get("os")
+        result = self._values.get("dirs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -19116,39 +20298,130 @@ class PnpmWorkspaceYamlSchemaSupportedArchitectures:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "PnpmWorkspaceYamlSchemaSupportedArchitectures(%s)" % ", ".join(
+        return "PnpmWorkspaceYamlSchemaSkills(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaStoreIndexFormat")
+class PnpmWorkspaceYamlSchemaStoreIndexFormat(enum.Enum):
+    '''(experimental) How the store records which files each package has.
+
+    sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaStoreIndexFormat
+    '''
+
+    SQLITE = "SQLITE"
+    '''(experimental) sqlite.
+
+    :stability: experimental
+    '''
+    FILES = "FILES"
+    '''(experimental) files.
+
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
     jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaTasks",
     jsii_struct_bases=[],
-    name_mapping={"concurrency": "concurrency", "depends_on": "dependsOn"},
+    name_mapping={
+        "cache": "cache",
+        "cargo_target_dir": "cargoTargetDir",
+        "concurrency": "concurrency",
+        "concurrency_group": "concurrencyGroup",
+        "depends_on": "dependsOn",
+        "env": "env",
+        "inputs": "inputs",
+        "outputs": "outputs",
+        "priority": "priority",
+    },
 )
 class PnpmWorkspaceYamlSchemaTasks:
     def __init__(
         self,
         *,
+        cache: typing.Optional[builtins.bool] = None,
+        cargo_target_dir: typing.Optional[builtins.str] = None,
         concurrency: typing.Optional[jsii.Number] = None,
+        concurrency_group: typing.Optional[builtins.str] = None,
         depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+        env: typing.Optional[typing.Sequence[builtins.str]] = None,
+        inputs: typing.Optional[typing.Sequence[builtins.str]] = None,
+        outputs: typing.Optional[typing.Sequence[builtins.str]] = None,
+        priority: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
+        :param cache: (experimental) Set to false to opt a task with declared outputs back out of the ``pnpm pipeline`` cache. Read by pnpm pipeline only.
+        :param cargo_target_dir: (experimental) Points Cargo's target and build directories at this path so a Cargo task keeps its local build state between runs and between git worktrees. The directory must be relative to the project and ignored by git. Read by pnpm pipeline only.
         :param concurrency: (experimental) A positive integer limiting how many instances of this named task may run across workspace projects at once. This limit is separate from workspaceConcurrency.
+        :param concurrency_group: (experimental) Assigns this task to a named concurrency group whose machine-wide limit is configured under concurrencyGroups. Added in pnpm v12.5.0.
         :param depends_on: (experimental) Tasks this task depends on. Each entry is either the task in the same project (e.g. ``build``) or the task in each selected workspace dependency of the project (e.g. ``^build``).
+        :param env: (experimental) Environment variable names whose values take part in the task's cache key. The values are hashed, never stored. Read by pnpm pipeline only.
+        :param inputs: (experimental) Globs narrowing what goes into the task's cache key. Without it, every tracked file of the project counts. An entry prefixed with ``+`` adds to that default instead of replacing it. Read by pnpm pipeline only.
+        :param outputs: (experimental) Globs, relative to the project directory, naming the files the task produces. Their presence makes the task cacheable by ``pnpm pipeline``; declaring ``outputs: []`` states the task produces no files. Read by pnpm pipeline only.
+        :param priority: (experimental) Waiting tasks take available slots in order of descending priority, with higher values running first. Ties are broken by arrival order. Added in pnpm v12.6.0.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchemaTasks
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__11922318df2eb4c2d78131a285a39e0b5aa239597cdde9c9c386144852a5c473)
+            check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
+            check_type(argname="argument cargo_target_dir", value=cargo_target_dir, expected_type=type_hints["cargo_target_dir"])
             check_type(argname="argument concurrency", value=concurrency, expected_type=type_hints["concurrency"])
+            check_type(argname="argument concurrency_group", value=concurrency_group, expected_type=type_hints["concurrency_group"])
             check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
+            check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cache is not None:
+            self._values["cache"] = cache
+        if cargo_target_dir is not None:
+            self._values["cargo_target_dir"] = cargo_target_dir
         if concurrency is not None:
             self._values["concurrency"] = concurrency
+        if concurrency_group is not None:
+            self._values["concurrency_group"] = concurrency_group
         if depends_on is not None:
             self._values["depends_on"] = depends_on
+        if env is not None:
+            self._values["env"] = env
+        if inputs is not None:
+            self._values["inputs"] = inputs
+        if outputs is not None:
+            self._values["outputs"] = outputs
+        if priority is not None:
+            self._values["priority"] = priority
+
+    @builtins.property
+    def cache(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Set to false to opt a task with declared outputs back out of the ``pnpm pipeline`` cache.
+
+        Read by pnpm pipeline only.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#cache
+        '''
+        result = self._values.get("cache")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def cargo_target_dir(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Points Cargo's target and build directories at this path so a Cargo task keeps its local build state between runs and between git worktrees.
+
+        The directory must be relative to the project and ignored by git. Read by pnpm pipeline only.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#cargoTargetDir
+        '''
+        result = self._values.get("cargo_target_dir")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def concurrency(self) -> typing.Optional[jsii.Number]:
@@ -19163,6 +20436,18 @@ class PnpmWorkspaceYamlSchemaTasks:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def concurrency_group(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Assigns this task to a named concurrency group whose machine-wide limit is configured under concurrencyGroups.
+
+        Added in pnpm v12.5.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#concurrencyGroup
+        '''
+        result = self._values.get("concurrency_group")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def depends_on(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Tasks this task depends on.
 
@@ -19173,6 +20458,54 @@ class PnpmWorkspaceYamlSchemaTasks:
         '''
         result = self._values.get("depends_on")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def env(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Environment variable names whose values take part in the task's cache key.
+
+        The values are hashed, never stored. Read by pnpm pipeline only.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#env
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def inputs(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Globs narrowing what goes into the task's cache key.
+
+        Without it, every tracked file of the project counts. An entry prefixed with ``+`` adds to that default instead of replacing it. Read by pnpm pipeline only.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#inputs
+        '''
+        result = self._values.get("inputs")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def outputs(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Globs, relative to the project directory, naming the files the task produces.
+
+        Their presence makes the task cacheable by ``pnpm pipeline``; declaring ``outputs: []`` states the task produces no files. Read by pnpm pipeline only.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#outputs
+        '''
+        result = self._values.get("outputs")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Waiting tasks take available slots in order of descending priority, with higher values running first.
+
+        Ties are broken by arrival order. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19348,6 +20681,57 @@ class PnpmWorkspaceYamlSchemaUpdateConfig:
         return "PnpmWorkspaceYamlSchemaUpdateConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun",
+):
+    '''(experimental) This setting allows the checking of the state of dependencies before running scripts.
+
+    :stability: experimental
+    :schema: PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun
+    '''
+
+    @jsii.member(jsii_name="fromBoolean")
+    @builtins.classmethod
+    def from_boolean(
+        cls,
+        value: builtins.bool,
+    ) -> "PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d77e7308366dfcad5124d285d50e24a7282216a8921b125db3d02e5c9062e2b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun", jsii.sinvoke(cls, "fromBoolean", [value]))
+
+    @jsii.member(jsii_name="fromString")
+    @builtins.classmethod
+    def from_string(
+        cls,
+        value: builtins.str,
+    ) -> "PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dec525f113737a91d18d083d0069c0feaafeca8178adbb56028e6db1a3ccc199)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun", jsii.sinvoke(cls, "fromString", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> typing.Union[builtins.str, builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Union[builtins.str, builtins.bool], jsii.get(self, "value"))
 
 
 @jsii.data_type(
@@ -19655,7 +21039,7 @@ class PnpmWorkspaceYamlSchemaVersioningMaxBump(enum.Enum):
 class PnpmWorkspaceYamlSchemaVirtualStoreType(enum.Enum):
     '''(experimental) Determines where the virtual store is located.
 
-    When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+    When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
 
     :stability: experimental
     :schema: PnpmWorkspaceYamlSchemaVirtualStoreType
@@ -27142,6 +28526,7 @@ class AddBundleOptions(BundlingOptions):
     jsii_type="projen.javascript.NodeConfigFileOptions",
     jsii_struct_bases=[NodeConfigSchema],
     name_mapping={
+        "bench": "bench",
         "node_options": "nodeOptions",
         "node_version": "nodeVersion",
         "permission": "permission",
@@ -27155,6 +28540,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
     def __init__(
         self,
         *,
+        bench: typing.Optional[typing.Union["NodeConfigSchemaBench", typing.Dict[builtins.str, typing.Any]]] = None,
         node_options: typing.Optional[typing.Union["NodeConfigSchemaNodeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         node_version: typing.Optional[jsii.Number] = None,
         permission: typing.Optional[typing.Union["NodeConfigSchemaPermission", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -27165,6 +28551,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
     ) -> None:
         '''(experimental) Options for ``NodeConfigFile``.
 
+        :param bench: 
         :param node_options: 
         :param node_version: 
         :param permission: 
@@ -27176,6 +28563,8 @@ class NodeConfigFileOptions(NodeConfigSchema):
         :see: https://nodejs.org/api/cli.html#configuration-via-nodeconfig
         :stability: experimental
         '''
+        if isinstance(bench, dict):
+            bench = NodeConfigSchemaBench(**bench)
         if isinstance(node_options, dict):
             node_options = NodeConfigSchemaNodeOptions(**node_options)
         if isinstance(permission, dict):
@@ -27186,6 +28575,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
             watch = NodeConfigSchemaWatch(**watch)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebbe0c9e1f42bce4a170364283456b0aea82335e75c430ec9b8391794c65ffa3)
+            check_type(argname="argument bench", value=bench, expected_type=type_hints["bench"])
             check_type(argname="argument node_options", value=node_options, expected_type=type_hints["node_options"])
             check_type(argname="argument node_version", value=node_version, expected_type=type_hints["node_version"])
             check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
@@ -27194,6 +28584,8 @@ class NodeConfigFileOptions(NodeConfigSchema):
             check_type(argname="argument watch", value=watch, expected_type=type_hints["watch"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bench is not None:
+            self._values["bench"] = bench
         if node_options is not None:
             self._values["node_options"] = node_options
         if node_version is not None:
@@ -27208,6 +28600,15 @@ class NodeConfigFileOptions(NodeConfigSchema):
             self._values["watch"] = watch
         if file_path is not None:
             self._values["file_path"] = file_path
+
+    @builtins.property
+    def bench(self) -> typing.Optional["NodeConfigSchemaBench"]:
+        '''
+        :stability: experimental
+        :schema: NodeConfigSchema#bench
+        '''
+        result = self._values.get("bench")
+        return typing.cast(typing.Optional["NodeConfigSchemaBench"], result)
 
     @builtins.property
     def node_options(self) -> typing.Optional["NodeConfigSchemaNodeOptions"]:
@@ -27290,6 +28691,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
     jsii_type="projen.javascript.PnpmWorkspaceYamlOptions",
     jsii_struct_bases=[PnpmWorkspaceYamlSchema],
     name_mapping={
+        "add_missing_peer_types": "addMissingPeerTypes",
         "allow_builds": "allowBuilds",
         "allowed_deprecated_versions": "allowedDeprecatedVersions",
         "allow_non_applied_patches": "allowNonAppliedPatches",
@@ -27297,21 +28699,27 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "audit": "audit",
         "audit_config": "auditConfig",
         "audit_level": "auditLevel",
+        "auto_dedupe": "autoDedupe",
         "auto_install_peers": "autoInstallPeers",
         "block_exotic_subdeps": "blockExoticSubdeps",
+        "boot_config": "bootConfig",
         "ca": "ca",
         "cache_dir": "cacheDir",
         "cafile": "cafile",
+        "cargo": "cargo",
         "catalog": "catalog",
         "catalog_mode": "catalogMode",
         "catalog_prune": "catalogPrune",
         "catalogs": "catalogs",
         "cert": "cert",
+        "changed_files_ignore_pattern": "changedFilesIgnorePattern",
         "child_concurrency": "childConcurrency",
         "ci": "ci",
         "cleanup_unused_catalogs": "cleanupUnusedCatalogs",
         "color": "color",
+        "concurrency_groups": "concurrencyGroups",
         "config_dependencies": "configDependencies",
+        "confirm_modules_purge": "confirmModulesPurge",
         "dangerously_allow_all_builds": "dangerouslyAllowAllBuilds",
         "dedupe_direct_deps": "dedupeDirectDeps",
         "dedupe_injected_deps": "dedupeInjectedDeps",
@@ -27335,7 +28743,9 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "fetch_retry_mintimeout": "fetchRetryMintimeout",
         "fetch_timeout": "fetchTimeout",
         "fetch_warn_timeout_ms": "fetchWarnTimeoutMs",
+        "force_ignores_platform": "forceIgnoresPlatform",
         "force_legacy_deploy": "forceLegacyDeploy",
+        "frozen_lockfile": "frozenLockfile",
         "frozen_store": "frozenStore",
         "git_branch_lockfile": "gitBranchLockfile",
         "git_checks": "gitChecks",
@@ -27359,16 +28769,20 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "ignore_scripts": "ignoreScripts",
         "ignore_workspace_cycles": "ignoreWorkspaceCycles",
         "ignore_workspace_root_check": "ignoreWorkspaceRootCheck",
+        "include": "include",
         "include_workspace_root": "includeWorkspaceRoot",
         "inject_workspace_packages": "injectWorkspacePackages",
         "key": "key",
+        "legacy_dir_filtering": "legacyDirFiltering",
         "link_workspace_packages": "linkWorkspacePackages",
         "local_address": "localAddress",
         "lockfile": "lockfile",
         "lockfile_include_tarball_url": "lockfileIncludeTarballUrl",
         "loglevel": "loglevel",
+        "macos_backup": "macosBackup",
         "manage_package_manager_versions": "managePackageManagerVersions",
         "maxsockets": "maxsockets",
+        "max_tarball_unpacked_size": "maxTarballUnpackedSize",
         "merge_git_branch_lockfiles_branch_pattern": "mergeGitBranchLockfilesBranchPattern",
         "minimum_release_age": "minimumReleaseAge",
         "minimum_release_age_exclude": "minimumReleaseAgeExclude",
@@ -27384,6 +28798,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "node_experimental_package_map": "nodeExperimentalPackageMap",
         "node_linker": "nodeLinker",
         "node_options": "nodeOptions",
+        "node_package_map": "nodePackageMap",
         "node_package_map_type": "nodePackageMapType",
         "node_version": "nodeVersion",
         "no_proxy": "noProxy",
@@ -27403,27 +28818,35 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "patches_dir": "patchesDir",
         "peer_dependency_rules": "peerDependencyRules",
         "peers_suffix_max_length": "peersSuffixMaxLength",
+        "pipeline_base": "pipelineBase",
+        "pipelines": "pipelines",
         "pm_on_fail": "pmOnFail",
         "pnpmfile": "pnpmfile",
         "prefer_frozen_lockfile": "preferFrozenLockfile",
         "prefer_offline": "preferOffline",
         "prefer_symlinked_executables": "preferSymlinkedExecutables",
         "prefer_workspace_packages": "preferWorkspacePackages",
+        "progress": "progress",
+        "project_scoped_optional_peers": "projectScopedOptionalPeers",
         "provenance": "provenance",
         "proxy": "proxy",
         "public_hoist_pattern": "publicHoistPattern",
         "publish_branch": "publishBranch",
+        "publish_wait_timeout": "publishWaitTimeout",
         "recursive_install": "recursiveInstall",
         "registries": "registries",
         "registry": "registry",
         "registry_supports_time_field": "registrySupportsTimeField",
+        "remote_cache": "remoteCache",
         "reporter": "reporter",
         "required_scripts": "requiredScripts",
         "resolution_mode": "resolutionMode",
         "resolve_peers_from_workspace_root": "resolvePeersFromWorkspaceRoot",
+        "runtime": "runtime",
         "runtime_on_fail": "runtimeOnFail",
         "save_exact": "saveExact",
         "save_prefix": "savePrefix",
+        "save_types": "saveTypes",
         "save_workspace_protocol": "saveWorkspaceProtocol",
         "script_shell": "scriptShell",
         "shamefully_hoist": "shamefullyHoist",
@@ -27431,8 +28854,10 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "shell_emulator": "shellEmulator",
         "side_effects_cache": "sideEffectsCache",
         "side_effects_cache_readonly": "sideEffectsCacheReadonly",
+        "skills": "skills",
         "state_dir": "stateDir",
         "store_dir": "storeDir",
+        "store_index_format": "storeIndexFormat",
         "strict_dep_builds": "strictDepBuilds",
         "strict_peer_dependencies": "strictPeerDependencies",
         "strict_ssl": "strictSsl",
@@ -27442,9 +28867,11 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "sync_injected_deps_after_scripts": "syncInjectedDepsAfterScripts",
         "tag": "tag",
         "tasks": "tasks",
+        "test_pattern": "testPattern",
         "trust_lockfile": "trustLockfile",
         "trust_policy": "trustPolicy",
         "trust_policy_exclude": "trustPolicyExclude",
+        "trust_policy_exclude_prune": "trustPolicyExcludePrune",
         "trust_policy_ignore_after": "trustPolicyIgnoreAfter",
         "unsafe_perm": "unsafePerm",
         "update": "update",
@@ -27468,6 +28895,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     def __init__(
         self,
         *,
+        add_missing_peer_types: typing.Optional[builtins.bool] = None,
         allow_builds: typing.Any = None,
         allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -27475,21 +28903,27 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         audit: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAudit", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaAuditConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
+        auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+        boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
         cache_dir: typing.Optional[builtins.str] = None,
         cafile: typing.Optional[builtins.str] = None,
+        cargo: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaCargo", typing.Dict[builtins.str, typing.Any]]] = None,
         catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         catalog_mode: typing.Optional["PnpmWorkspaceYamlSchemaCatalogMode"] = None,
         catalog_prune: typing.Optional[builtins.bool] = None,
         catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         cert: typing.Optional[builtins.str] = None,
+        changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         child_concurrency: typing.Optional[jsii.Number] = None,
         ci: typing.Optional[builtins.bool] = None,
         cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
         color: typing.Optional["PnpmWorkspaceYamlSchemaColor"] = None,
+        concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
         config_dependencies: typing.Any = None,
+        confirm_modules_purge: typing.Optional[builtins.bool] = None,
         dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
         dedupe_direct_deps: typing.Optional[builtins.bool] = None,
         dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -27513,7 +28947,9 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
         fetch_timeout: typing.Optional[jsii.Number] = None,
         fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+        force_ignores_platform: typing.Optional[builtins.bool] = None,
         force_legacy_deploy: typing.Optional[builtins.bool] = None,
+        frozen_lockfile: typing.Optional[builtins.bool] = None,
         frozen_store: typing.Optional[builtins.bool] = None,
         git_branch_lockfile: typing.Optional[builtins.bool] = None,
         git_checks: typing.Optional[builtins.bool] = None,
@@ -27537,16 +28973,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         ignore_scripts: typing.Optional[builtins.bool] = None,
         ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
         ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+        include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         include_workspace_root: typing.Optional[builtins.bool] = None,
         inject_workspace_packages: typing.Optional[builtins.bool] = None,
         key: typing.Optional[builtins.str] = None,
+        legacy_dir_filtering: typing.Optional[builtins.bool] = None,
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
-        lockfile: typing.Optional[builtins.bool] = None,
+        lockfile: typing.Any = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
+        macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
         manage_package_manager_versions: typing.Optional[builtins.bool] = None,
         maxsockets: typing.Optional[jsii.Number] = None,
+        max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
         merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
         minimum_release_age: typing.Optional[jsii.Number] = None,
         minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -27560,8 +29000,9 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         node_experimental_package_map: typing.Optional[builtins.bool] = None,
-        node_linker: typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"] = None,
+        node_linker: typing.Any = None,
         node_options: typing.Optional[builtins.str] = None,
+        node_package_map: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaNodePackageMap", typing.Dict[builtins.str, typing.Any]]] = None,
         node_package_map_type: typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"] = None,
         node_version: typing.Optional[builtins.str] = None,
         no_proxy: typing.Optional[builtins.str] = None,
@@ -27581,27 +29022,35 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         patches_dir: typing.Optional[builtins.str] = None,
         peer_dependency_rules: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaPeerDependencyRules", typing.Dict[builtins.str, typing.Any]]] = None,
         peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+        pipeline_base: typing.Optional[builtins.str] = None,
+        pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
         prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+        progress: typing.Optional[builtins.bool] = None,
+        project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
         provenance: typing.Optional[builtins.bool] = None,
         proxy: typing.Optional[builtins.str] = None,
         public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         publish_branch: typing.Optional[builtins.str] = None,
+        publish_wait_timeout: typing.Optional[jsii.Number] = None,
         recursive_install: typing.Optional[builtins.bool] = None,
-        registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        registries: typing.Any = None,
         registry: typing.Optional[builtins.str] = None,
         registry_supports_time_field: typing.Optional[builtins.bool] = None,
+        remote_cache: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaRemoteCache", typing.Dict[builtins.str, typing.Any]]] = None,
         reporter: typing.Optional["PnpmWorkspaceYamlSchemaReporter"] = None,
         required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         resolution_mode: typing.Optional["PnpmWorkspaceYamlSchemaResolutionMode"] = None,
         resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+        runtime: typing.Optional[builtins.bool] = None,
         runtime_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaRuntimeOnFail"] = None,
         save_exact: typing.Optional[builtins.bool] = None,
         save_prefix: typing.Optional["PnpmWorkspaceYamlSchemaSavePrefix"] = None,
+        save_types: typing.Optional[builtins.bool] = None,
         save_workspace_protocol: typing.Optional["PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol"] = None,
         script_shell: typing.Optional[builtins.str] = None,
         shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -27609,20 +29058,24 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         shell_emulator: typing.Optional[builtins.bool] = None,
         side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+        skills: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSkills", typing.Dict[builtins.str, typing.Any]]] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
+        store_index_format: typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"] = None,
         strict_dep_builds: typing.Optional[builtins.bool] = None,
         strict_peer_dependencies: typing.Optional[builtins.bool] = None,
         strict_ssl: typing.Optional[builtins.bool] = None,
         strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-        supported_architectures: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaSupportedArchitectures", typing.Dict[builtins.str, typing.Any]]] = None,
+        supported_architectures: typing.Any = None,
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
         tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
         trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
         unsafe_perm: typing.Optional[builtins.bool] = None,
         update: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaUpdate", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -27632,7 +29085,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         use_node_version: typing.Optional[builtins.str] = None,
         use_running_store_server: typing.Optional[builtins.bool] = None,
         use_stderr: typing.Optional[builtins.bool] = None,
-        verify_deps_before_run: typing.Any = None,
+        verify_deps_before_run: typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"] = None,
         verify_store_integrity: typing.Optional[builtins.bool] = None,
         versioning: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaVersioning", typing.Dict[builtins.str, typing.Any]]] = None,
         virtual_store_dir: typing.Optional[builtins.str] = None,
@@ -27643,6 +29096,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     ) -> None:
         '''(experimental) Options for ``PnpmWorkspaceYaml``.
 
+        :param add_missing_peer_types: (experimental) When true, every peer dependency of a dependency also makes the matching.
         :param allow_builds: (experimental) A map of package matchers to explicitly allow (``true``) or disallow (``false``) script execution. This field replaces ``onlyBuiltDependencies`` and ``ignoredBuiltDependencies`` (which are also deprecated by this new setting), providing a single source of truth.
         :param allowed_deprecated_versions: (experimental) A list of deprecated versions that the warnings are suppressed.
         :param allow_non_applied_patches: (experimental) When true, installation won't fail if some of the patches from the "patchedDependencies" field were not applied.
@@ -27650,21 +29104,27 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param audit: 
         :param audit_config: 
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
+        :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
+        :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
         :param cache_dir: (experimental) The location of the cache (package metadata and dlx).
         :param cafile: (experimental) A path to a file containing one or multiple Certificate Authority signing certificates.
+        :param cargo: (experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages. Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
         :param catalog: (experimental) Define dependency version ranges as reusable constants, for later reference in package.json files. This (singular) field creates a catalog named default.
         :param catalog_mode: (experimental) Controlling if and how dependencies are added to the default catalog.
         :param catalog_prune: (experimental) When set to true, pnpm will remove unused catalog entries during installation. ``cleanupUnusedCatalogs`` is the deprecated spelling of this setting and continues to work; when both are set, ``catalogPrune`` wins.
         :param catalogs: (experimental) Define arbitrarily named catalogs.
         :param cert: (experimental) A client certificate to pass when accessing the registry.
+        :param changed_files_ignore_pattern: (experimental) Glob patterns of changed files to ignore when filtering for the projects changed since a commit or branch.
         :param child_concurrency: (experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
         :param ci: (experimental) Explicitly tells pnpm whether the current environment is a Continuous Integration system, overriding pnpm's automatic CI detection. Added in pnpm v10.12.1.
         :param cleanup_unused_catalogs: (experimental) When set to ``true``, pnpm will remove unused catalog entries during installation.
         :param color: (experimental) Controls colors in the output.
+        :param concurrency_groups: (experimental) Machine-wide concurrency limits for named groups of tasks (assigned via ``tasks.<name>.concurrencyGroup``). At most the given number of tasks in a group run at once across pnpm processes sharing the same stateDir, including pnpm pipeline. A missing or zero group limit does not restrict execution. Added in pnpm v12.5.0.
         :param config_dependencies: (experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects. They are installed before all regular dependencies ('dependencies', 'devDependencies', 'optionalDependencies'), making them ideal for setting up custom hooks, patches, and catalog entries.
+        :param confirm_modules_purge: (experimental) Controls whether pnpm asks for confirmation before removing and reinstalling a modules directory that is incompatible with the current install settings. Confirmation is disabled in CI. Supported by pnpm v11.
         :param dangerously_allow_all_builds: (experimental) If set to true, all build scripts (e.g. preinstall, install, postinstall) from dependencies will run automatically, without requiring approval.
         :param dedupe_direct_deps: (experimental) When set to true, dependencies that are already symlinked to the root node_modules directory of the workspace will not be symlinked to subproject node_modules directories.
         :param dedupe_injected_deps: (experimental) When this setting is enabled, dependencies that are injected will be symlinked from the workspace whenever possible.
@@ -27688,7 +29148,9 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param fetch_retry_mintimeout: (experimental) The minimum (base) timeout for retrying requests.
         :param fetch_timeout: (experimental) The maximum amount of time to wait for HTTP requests to complete.
         :param fetch_warn_timeout_ms: (experimental) A warning message is displayed if a metadata request to the registry takes longer than the specified threshold (in milliseconds). Added in pnpm v10.18.0.
+        :param force_ignores_platform: (experimental) When true, pnpm install --force also installs optional dependencies whose os, cpu, or libc do not match the host. When false, --force refetches every package but still skips optional dependencies built for other platforms. pnpm v11 behaved as if this setting were true; prefer supportedArchitectures to install optional dependencies for other platforms on purpose. Added in pnpm v12.7.0.
         :param force_legacy_deploy: (experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment. If this setting is set to true, the legacy deploy behavior will be used.
+        :param frozen_lockfile: (experimental) When true, installation fails if the lockfile is missing or needs to be updated.
         :param frozen_store: (experimental) Makes pnpm install work against a read-only package store (such as a Nix store or OCI image layer). When enabled, pnpm opens the store's SQLite database in immutable mode and never writes to the store. Works best together with --offline and --frozen-lockfile; incompatible with --force. Added in pnpm v11.7.0.
         :param git_branch_lockfile: (experimental) When set to true, the generated lockfile name after installation will be named based on the current branch name to completely avoid merge conflicts.
         :param git_checks: (experimental) Check if current branch is your publish branch, clean, and up-to-date with remote.
@@ -27712,16 +29174,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param ignore_scripts: (experimental) Do not execute any scripts defined in the project package.json and its dependencies.
         :param ignore_workspace_cycles: (experimental) When set to true, no workspace cycle warnings will be printed.
         :param ignore_workspace_root_check: (experimental) Adding a new dependency to the root workspace package fails, unless the --ignore-workspace-root-check or -w flag is used.
+        :param include: (experimental) Delegates settings to other YAML files and to config dependencies. Added in pnpm v12.15.0.
         :param include_workspace_root: (experimental) When executing commands recursively in a workspace, execute them on the root workspace project as well.
         :param inject_workspace_packages: (experimental) Enables hard-linking of all local workspace dependencies instead of symlinking them.
         :param key: (experimental) A client key to pass when accessing the registry.
+        :param legacy_dir_filtering: (experimental) When true, ``{<dir>}`` filter selectors use the legacy behavior: the selector names a directory and matches every project in the subtree below it. By default ``{<dir>}`` is matched as a glob pattern, so ``{packages/*}`` selects the projects one level below packages/ and a ``**`` reaches deeper. Only applies to user-written selectors; the workspace-root selectors pnpm generates are always matched as globs.
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
+        :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
         :param manage_package_manager_versions: (experimental) When enabled, pnpm will automatically download and run the version of pnpm specified in the packageManager field of package.json.
         :param maxsockets: (experimental) The maximum number of connections to use per origin (protocol/host/port combination).
+        :param max_tarball_unpacked_size: (experimental) Caps the total number of bytes the files of one package may unpack to. Added in pnpm v12.15.0.
         :param merge_git_branch_lockfiles_branch_pattern: (experimental) This configuration matches the current branch name to determine whether to merge all git branch lockfile files.
         :param minimum_release_age: (experimental) minimumReleaseAge defines the minimum number of minutes that must pass after a version is published before pnpm will install it. This applies to all dependencies, including transitive ones.
         :param minimum_release_age_exclude: (experimental) If you set ``minimumReleaseAge`` but need certain dependencies to always install the newest version immediately, you can list them under ``minimumReleaseAgeExclude``. The exclusion works by ``package name`` and applies to all versions of that package.
@@ -27734,10 +29200,11 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param network_concurrency: (experimental) Controls the maximum number of HTTP(S) requests to process simultaneously.
         :param never_built_dependencies: (experimental) A list of dependencies to run builds for.
         :param node_download_mirrors: (experimental) Configure custom Node.js download mirrors in ``pnpm-workspace.yaml``. The keys are release channels (``release``, ``rc``, ``nightly``, ``v8-canary``, etc.) and the values are base URLs.
-        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap.
-        :param node_linker: (experimental) Defines what linker should be used for installing Node packages.
+        :param node_experimental_package_map: (experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
+        :param node_linker: (experimental) Defines what linker should be used for installing Node packages. loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
         :param node_options: (experimental) Options to pass through to Node.js via the NODE_OPTIONS environment variable.
-        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+        :param node_package_map: (experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+        :param node_package_map_type: (experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
         :param node_version: (experimental) The Node.js version to use when checking a package's engines setting.
         :param no_proxy: (experimental) A comma-separated string of domain extensions that a proxy should not be used for.
         :param npm_path: (experimental) The location of the npm binary that pnpm uses for some actions, like publishing.
@@ -27756,27 +29223,35 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param patches_dir: (experimental) The generated patch file will be saved to this directory.
         :param peer_dependency_rules: 
         :param peers_suffix_max_length: (experimental) Max length of the peer IDs suffix added to dependency keys in the lockfile. If the suffix is longer, it is replaced with a hash.
+        :param pipeline_base: (experimental) The git ref the affected selection of ``pnpm pipeline`` resolves its merge base against. Overridden by the ``--base <ref>`` option.
+        :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
         :param prefer_workspace_packages: (experimental) If this is enabled, local packages from the workspace are preferred over packages from the registry, even if there is a newer version of the package in the registry.
+        :param progress: (experimental) Controls whether dependency and download progress lines are printed during installation. When set to false (or --no-progress is passed), progress output is suppressed. Warnings, lifecycle script output, and the dependency summary are still printed. Added in pnpm v12.6.0.
+        :param project_scoped_optional_peers: (experimental) When true, a project gets a missing optional peer dependency only if the project's own dependencies already install a version of it. The workspace root's dependencies also count if resolvePeersFromWorkspaceRoot is true; a version that only another workspace project's dependencies install does not. dedupePeerDependents keeps deduplicating everything else, and this setting has no effect when dedupePeerDependents is false, because optional peers are already resolved only from the project's own dependencies then. Changing this setting changes the lockfile. Added in pnpm v12.19.0.
         :param provenance: (experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
         :param proxy: (experimental) npm's legacy proxy setting, used as the fallback for both httpsProxy and httpProxy. If the HTTP_PROXY or http_proxy environment variables are set, proxy settings will be honored by the underlying request library.
         :param public_hoist_pattern: (experimental) Unlike hoistPattern, which hoists dependencies to a hidden modules directory inside the virtual store, publicHoistPattern hoists dependencies matching the pattern to the root modules directory.
         :param publish_branch: (experimental) The primary branch of the repository which is used for publishing the latest changes.
+        :param publish_wait_timeout: (experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry. If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
         :param recursive_install: (experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
-        :param registries: (experimental) Configure registries for scoped packages in ``pnpm-workspace.yaml``. The ``default`` key sets the main registry (equivalent to the ``registry`` ``.npmrc`` setting). Scoped keys configure registries for specific package scopes.
+        :param registries: (experimental) Configures the registries packages resolve from, in one of two shapes. The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed. https://pnpm.io/settings#registries
         :param registry: (experimental) The base URL of the npm package registry (trailing slash included).
         :param registry_supports_time_field: (experimental) Set this to true if the registry that you are using returns the "time" field in the abbreviated metadata.
+        :param remote_cache: (experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with. Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
         :param reporter: (experimental) Allows you to customize the output style of the logs. https://pnpm.io/cli/install#--reportername
         :param required_scripts: (experimental) A list of scripts that must exist in each project.
         :param resolution_mode: (experimental) Determines how pnpm resolves dependencies, See https://pnpm.io/settings#resolutionmode.
         :param resolve_peers_from_workspace_root: (experimental) When enabled, dependencies of the root workspace project are used to resolve peer dependencies of any projects in the workspace.
+        :param runtime: (experimental) Controls whether pnpm installs runtime entries declared in ``devEngines.runtime``. Set to false when the runtime is provisioned separately, such as in a CI matrix.
         :param runtime_on_fail: (experimental) Overrides the ``onFail`` field of ``devEngines.runtime`` (and ``engines.runtime``) in the root project's ``package.json``. This is useful when you want a different local behavior than what is written in the manifest — for instance, forcing pnpm to download the declared runtime even when the manifest sets ``onFail: "warn"``.
         :param save_exact: (experimental) Saved dependencies will be configured with an exact version rather than using pnpm's default semver range operator.
         :param save_prefix: (experimental) Configure how versions of packages installed to a package.json file get prefixed.
+        :param save_types: (experimental) When set to true, pnpm add saves available.
         :param save_workspace_protocol: (experimental) This setting controls how dependencies that are linked from the workspace are added to package.json.
         :param script_shell: (experimental) The shell to use for scripts run with the pnpm run command.
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
@@ -27784,20 +29259,24 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
         :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
         :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
+        :param skills: (experimental) Agent skills that approved dependencies ship. Added in pnpm v12.11.0.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
+        :param store_index_format: (experimental) How the store records which files each package has. sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
         :param strict_peer_dependencies: (experimental) If this is enabled, commands will fail if there is a missing or invalid peer dependency in the tree.
         :param strict_ssl: (experimental) Whether or not to do SSL key validation when making requests to the registry via HTTPS.
         :param strict_store_pkg_content_check: (experimental) Some registries allow the exact same content to be published under different package names and/or versions.
-        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+        :param supported_architectures: (experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install. Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
         :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
+        :param test_pattern: (experimental) Glob patterns of test files. When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
+        :param trust_policy_exclude_prune: (experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
         :param trust_policy_ignore_after: (experimental) Allows ignoring the trust policy check for packages published more than the specified number of minutes ago. This is useful when enabling strict trust policies, as it allows older versions of packages (which may lack a process for publishing with signatures or provenance) to be installed without manual exclusion, assuming they are safe due to their age.
         :param unsafe_perm: (experimental) Set to true to enable UID/GID switching when running package scripts. If set explicitly to false, then installing as a non-root user will fail.
         :param update: 
@@ -27813,7 +29292,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param virtual_store_dir: (experimental) The directory with links to the store.
         :param virtual_store_dir_max_length: (experimental) Sets the maximum allowed length of directory names inside the virtual store directory (node_modules/.pnpm).
         :param virtual_store_only: (experimental) When set to true, pnpm populates the virtual store without creating importer symlinks, hoisting, bin links, or running lifecycle scripts. This is useful for pre-populating a store (e.g., in Nix builds) without creating unnecessary project-level artifacts. pnpm fetch uses this mode internally.
-        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+        :param virtual_store_type: (experimental) Determines where the virtual store is located. When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
         :param workspace_concurrency: (experimental) Set the maximum number of tasks to run simultaneously. For unlimited concurrency use Infinity. You can set the value to <= 0 and it will use amount of CPU cores of the host minus the absolute value of the provided number as: max(1, (number of cores) - abs(workspaceConcurrency)).
 
         :see: https://pnpm.io/pnpm-workspace_yaml
@@ -27823,12 +29302,22 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             audit = PnpmWorkspaceYamlSchemaAudit(**audit)
         if isinstance(audit_config, dict):
             audit_config = PnpmWorkspaceYamlSchemaAuditConfig(**audit_config)
+        if isinstance(boot_config, dict):
+            boot_config = PnpmWorkspaceYamlSchemaBootConfig(**boot_config)
+        if isinstance(cargo, dict):
+            cargo = PnpmWorkspaceYamlSchemaCargo(**cargo)
         if isinstance(execution_env, dict):
             execution_env = PnpmWorkspaceYamlSchemaExecutionEnv(**execution_env)
+        if isinstance(macos_backup, dict):
+            macos_backup = PnpmWorkspaceYamlSchemaMacosBackup(**macos_backup)
+        if isinstance(node_package_map, dict):
+            node_package_map = PnpmWorkspaceYamlSchemaNodePackageMap(**node_package_map)
         if isinstance(peer_dependency_rules, dict):
             peer_dependency_rules = PnpmWorkspaceYamlSchemaPeerDependencyRules(**peer_dependency_rules)
-        if isinstance(supported_architectures, dict):
-            supported_architectures = PnpmWorkspaceYamlSchemaSupportedArchitectures(**supported_architectures)
+        if isinstance(remote_cache, dict):
+            remote_cache = PnpmWorkspaceYamlSchemaRemoteCache(**remote_cache)
+        if isinstance(skills, dict):
+            skills = PnpmWorkspaceYamlSchemaSkills(**skills)
         if isinstance(update, dict):
             update = PnpmWorkspaceYamlSchemaUpdate(**update)
         if isinstance(update_config, dict):
@@ -27837,6 +29326,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             versioning = PnpmWorkspaceYamlSchemaVersioning(**versioning)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb1e98ee7)
+            check_type(argname="argument add_missing_peer_types", value=add_missing_peer_types, expected_type=type_hints["add_missing_peer_types"])
             check_type(argname="argument allow_builds", value=allow_builds, expected_type=type_hints["allow_builds"])
             check_type(argname="argument allowed_deprecated_versions", value=allowed_deprecated_versions, expected_type=type_hints["allowed_deprecated_versions"])
             check_type(argname="argument allow_non_applied_patches", value=allow_non_applied_patches, expected_type=type_hints["allow_non_applied_patches"])
@@ -27844,21 +29334,27 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument audit", value=audit, expected_type=type_hints["audit"])
             check_type(argname="argument audit_config", value=audit_config, expected_type=type_hints["audit_config"])
             check_type(argname="argument audit_level", value=audit_level, expected_type=type_hints["audit_level"])
+            check_type(argname="argument auto_dedupe", value=auto_dedupe, expected_type=type_hints["auto_dedupe"])
             check_type(argname="argument auto_install_peers", value=auto_install_peers, expected_type=type_hints["auto_install_peers"])
             check_type(argname="argument block_exotic_subdeps", value=block_exotic_subdeps, expected_type=type_hints["block_exotic_subdeps"])
+            check_type(argname="argument boot_config", value=boot_config, expected_type=type_hints["boot_config"])
             check_type(argname="argument ca", value=ca, expected_type=type_hints["ca"])
             check_type(argname="argument cache_dir", value=cache_dir, expected_type=type_hints["cache_dir"])
             check_type(argname="argument cafile", value=cafile, expected_type=type_hints["cafile"])
+            check_type(argname="argument cargo", value=cargo, expected_type=type_hints["cargo"])
             check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
             check_type(argname="argument catalog_mode", value=catalog_mode, expected_type=type_hints["catalog_mode"])
             check_type(argname="argument catalog_prune", value=catalog_prune, expected_type=type_hints["catalog_prune"])
             check_type(argname="argument catalogs", value=catalogs, expected_type=type_hints["catalogs"])
             check_type(argname="argument cert", value=cert, expected_type=type_hints["cert"])
+            check_type(argname="argument changed_files_ignore_pattern", value=changed_files_ignore_pattern, expected_type=type_hints["changed_files_ignore_pattern"])
             check_type(argname="argument child_concurrency", value=child_concurrency, expected_type=type_hints["child_concurrency"])
             check_type(argname="argument ci", value=ci, expected_type=type_hints["ci"])
             check_type(argname="argument cleanup_unused_catalogs", value=cleanup_unused_catalogs, expected_type=type_hints["cleanup_unused_catalogs"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
+            check_type(argname="argument concurrency_groups", value=concurrency_groups, expected_type=type_hints["concurrency_groups"])
             check_type(argname="argument config_dependencies", value=config_dependencies, expected_type=type_hints["config_dependencies"])
+            check_type(argname="argument confirm_modules_purge", value=confirm_modules_purge, expected_type=type_hints["confirm_modules_purge"])
             check_type(argname="argument dangerously_allow_all_builds", value=dangerously_allow_all_builds, expected_type=type_hints["dangerously_allow_all_builds"])
             check_type(argname="argument dedupe_direct_deps", value=dedupe_direct_deps, expected_type=type_hints["dedupe_direct_deps"])
             check_type(argname="argument dedupe_injected_deps", value=dedupe_injected_deps, expected_type=type_hints["dedupe_injected_deps"])
@@ -27882,7 +29378,9 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument fetch_retry_mintimeout", value=fetch_retry_mintimeout, expected_type=type_hints["fetch_retry_mintimeout"])
             check_type(argname="argument fetch_timeout", value=fetch_timeout, expected_type=type_hints["fetch_timeout"])
             check_type(argname="argument fetch_warn_timeout_ms", value=fetch_warn_timeout_ms, expected_type=type_hints["fetch_warn_timeout_ms"])
+            check_type(argname="argument force_ignores_platform", value=force_ignores_platform, expected_type=type_hints["force_ignores_platform"])
             check_type(argname="argument force_legacy_deploy", value=force_legacy_deploy, expected_type=type_hints["force_legacy_deploy"])
+            check_type(argname="argument frozen_lockfile", value=frozen_lockfile, expected_type=type_hints["frozen_lockfile"])
             check_type(argname="argument frozen_store", value=frozen_store, expected_type=type_hints["frozen_store"])
             check_type(argname="argument git_branch_lockfile", value=git_branch_lockfile, expected_type=type_hints["git_branch_lockfile"])
             check_type(argname="argument git_checks", value=git_checks, expected_type=type_hints["git_checks"])
@@ -27906,16 +29404,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument ignore_scripts", value=ignore_scripts, expected_type=type_hints["ignore_scripts"])
             check_type(argname="argument ignore_workspace_cycles", value=ignore_workspace_cycles, expected_type=type_hints["ignore_workspace_cycles"])
             check_type(argname="argument ignore_workspace_root_check", value=ignore_workspace_root_check, expected_type=type_hints["ignore_workspace_root_check"])
+            check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument include_workspace_root", value=include_workspace_root, expected_type=type_hints["include_workspace_root"])
             check_type(argname="argument inject_workspace_packages", value=inject_workspace_packages, expected_type=type_hints["inject_workspace_packages"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument legacy_dir_filtering", value=legacy_dir_filtering, expected_type=type_hints["legacy_dir_filtering"])
             check_type(argname="argument link_workspace_packages", value=link_workspace_packages, expected_type=type_hints["link_workspace_packages"])
             check_type(argname="argument local_address", value=local_address, expected_type=type_hints["local_address"])
             check_type(argname="argument lockfile", value=lockfile, expected_type=type_hints["lockfile"])
             check_type(argname="argument lockfile_include_tarball_url", value=lockfile_include_tarball_url, expected_type=type_hints["lockfile_include_tarball_url"])
             check_type(argname="argument loglevel", value=loglevel, expected_type=type_hints["loglevel"])
+            check_type(argname="argument macos_backup", value=macos_backup, expected_type=type_hints["macos_backup"])
             check_type(argname="argument manage_package_manager_versions", value=manage_package_manager_versions, expected_type=type_hints["manage_package_manager_versions"])
             check_type(argname="argument maxsockets", value=maxsockets, expected_type=type_hints["maxsockets"])
+            check_type(argname="argument max_tarball_unpacked_size", value=max_tarball_unpacked_size, expected_type=type_hints["max_tarball_unpacked_size"])
             check_type(argname="argument merge_git_branch_lockfiles_branch_pattern", value=merge_git_branch_lockfiles_branch_pattern, expected_type=type_hints["merge_git_branch_lockfiles_branch_pattern"])
             check_type(argname="argument minimum_release_age", value=minimum_release_age, expected_type=type_hints["minimum_release_age"])
             check_type(argname="argument minimum_release_age_exclude", value=minimum_release_age_exclude, expected_type=type_hints["minimum_release_age_exclude"])
@@ -27931,6 +29433,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument node_experimental_package_map", value=node_experimental_package_map, expected_type=type_hints["node_experimental_package_map"])
             check_type(argname="argument node_linker", value=node_linker, expected_type=type_hints["node_linker"])
             check_type(argname="argument node_options", value=node_options, expected_type=type_hints["node_options"])
+            check_type(argname="argument node_package_map", value=node_package_map, expected_type=type_hints["node_package_map"])
             check_type(argname="argument node_package_map_type", value=node_package_map_type, expected_type=type_hints["node_package_map_type"])
             check_type(argname="argument node_version", value=node_version, expected_type=type_hints["node_version"])
             check_type(argname="argument no_proxy", value=no_proxy, expected_type=type_hints["no_proxy"])
@@ -27950,27 +29453,35 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument patches_dir", value=patches_dir, expected_type=type_hints["patches_dir"])
             check_type(argname="argument peer_dependency_rules", value=peer_dependency_rules, expected_type=type_hints["peer_dependency_rules"])
             check_type(argname="argument peers_suffix_max_length", value=peers_suffix_max_length, expected_type=type_hints["peers_suffix_max_length"])
+            check_type(argname="argument pipeline_base", value=pipeline_base, expected_type=type_hints["pipeline_base"])
+            check_type(argname="argument pipelines", value=pipelines, expected_type=type_hints["pipelines"])
             check_type(argname="argument pm_on_fail", value=pm_on_fail, expected_type=type_hints["pm_on_fail"])
             check_type(argname="argument pnpmfile", value=pnpmfile, expected_type=type_hints["pnpmfile"])
             check_type(argname="argument prefer_frozen_lockfile", value=prefer_frozen_lockfile, expected_type=type_hints["prefer_frozen_lockfile"])
             check_type(argname="argument prefer_offline", value=prefer_offline, expected_type=type_hints["prefer_offline"])
             check_type(argname="argument prefer_symlinked_executables", value=prefer_symlinked_executables, expected_type=type_hints["prefer_symlinked_executables"])
             check_type(argname="argument prefer_workspace_packages", value=prefer_workspace_packages, expected_type=type_hints["prefer_workspace_packages"])
+            check_type(argname="argument progress", value=progress, expected_type=type_hints["progress"])
+            check_type(argname="argument project_scoped_optional_peers", value=project_scoped_optional_peers, expected_type=type_hints["project_scoped_optional_peers"])
             check_type(argname="argument provenance", value=provenance, expected_type=type_hints["provenance"])
             check_type(argname="argument proxy", value=proxy, expected_type=type_hints["proxy"])
             check_type(argname="argument public_hoist_pattern", value=public_hoist_pattern, expected_type=type_hints["public_hoist_pattern"])
             check_type(argname="argument publish_branch", value=publish_branch, expected_type=type_hints["publish_branch"])
+            check_type(argname="argument publish_wait_timeout", value=publish_wait_timeout, expected_type=type_hints["publish_wait_timeout"])
             check_type(argname="argument recursive_install", value=recursive_install, expected_type=type_hints["recursive_install"])
             check_type(argname="argument registries", value=registries, expected_type=type_hints["registries"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument registry_supports_time_field", value=registry_supports_time_field, expected_type=type_hints["registry_supports_time_field"])
+            check_type(argname="argument remote_cache", value=remote_cache, expected_type=type_hints["remote_cache"])
             check_type(argname="argument reporter", value=reporter, expected_type=type_hints["reporter"])
             check_type(argname="argument required_scripts", value=required_scripts, expected_type=type_hints["required_scripts"])
             check_type(argname="argument resolution_mode", value=resolution_mode, expected_type=type_hints["resolution_mode"])
             check_type(argname="argument resolve_peers_from_workspace_root", value=resolve_peers_from_workspace_root, expected_type=type_hints["resolve_peers_from_workspace_root"])
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument runtime_on_fail", value=runtime_on_fail, expected_type=type_hints["runtime_on_fail"])
             check_type(argname="argument save_exact", value=save_exact, expected_type=type_hints["save_exact"])
             check_type(argname="argument save_prefix", value=save_prefix, expected_type=type_hints["save_prefix"])
+            check_type(argname="argument save_types", value=save_types, expected_type=type_hints["save_types"])
             check_type(argname="argument save_workspace_protocol", value=save_workspace_protocol, expected_type=type_hints["save_workspace_protocol"])
             check_type(argname="argument script_shell", value=script_shell, expected_type=type_hints["script_shell"])
             check_type(argname="argument shamefully_hoist", value=shamefully_hoist, expected_type=type_hints["shamefully_hoist"])
@@ -27978,8 +29489,10 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument shell_emulator", value=shell_emulator, expected_type=type_hints["shell_emulator"])
             check_type(argname="argument side_effects_cache", value=side_effects_cache, expected_type=type_hints["side_effects_cache"])
             check_type(argname="argument side_effects_cache_readonly", value=side_effects_cache_readonly, expected_type=type_hints["side_effects_cache_readonly"])
+            check_type(argname="argument skills", value=skills, expected_type=type_hints["skills"])
             check_type(argname="argument state_dir", value=state_dir, expected_type=type_hints["state_dir"])
             check_type(argname="argument store_dir", value=store_dir, expected_type=type_hints["store_dir"])
+            check_type(argname="argument store_index_format", value=store_index_format, expected_type=type_hints["store_index_format"])
             check_type(argname="argument strict_dep_builds", value=strict_dep_builds, expected_type=type_hints["strict_dep_builds"])
             check_type(argname="argument strict_peer_dependencies", value=strict_peer_dependencies, expected_type=type_hints["strict_peer_dependencies"])
             check_type(argname="argument strict_ssl", value=strict_ssl, expected_type=type_hints["strict_ssl"])
@@ -27989,9 +29502,11 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument sync_injected_deps_after_scripts", value=sync_injected_deps_after_scripts, expected_type=type_hints["sync_injected_deps_after_scripts"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
+            check_type(argname="argument test_pattern", value=test_pattern, expected_type=type_hints["test_pattern"])
             check_type(argname="argument trust_lockfile", value=trust_lockfile, expected_type=type_hints["trust_lockfile"])
             check_type(argname="argument trust_policy", value=trust_policy, expected_type=type_hints["trust_policy"])
             check_type(argname="argument trust_policy_exclude", value=trust_policy_exclude, expected_type=type_hints["trust_policy_exclude"])
+            check_type(argname="argument trust_policy_exclude_prune", value=trust_policy_exclude_prune, expected_type=type_hints["trust_policy_exclude_prune"])
             check_type(argname="argument trust_policy_ignore_after", value=trust_policy_ignore_after, expected_type=type_hints["trust_policy_ignore_after"])
             check_type(argname="argument unsafe_perm", value=unsafe_perm, expected_type=type_hints["unsafe_perm"])
             check_type(argname="argument update", value=update, expected_type=type_hints["update"])
@@ -28010,6 +29525,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument virtual_store_type", value=virtual_store_type, expected_type=type_hints["virtual_store_type"])
             check_type(argname="argument workspace_concurrency", value=workspace_concurrency, expected_type=type_hints["workspace_concurrency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if add_missing_peer_types is not None:
+            self._values["add_missing_peer_types"] = add_missing_peer_types
         if allow_builds is not None:
             self._values["allow_builds"] = allow_builds
         if allowed_deprecated_versions is not None:
@@ -28024,16 +29541,22 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["audit_config"] = audit_config
         if audit_level is not None:
             self._values["audit_level"] = audit_level
+        if auto_dedupe is not None:
+            self._values["auto_dedupe"] = auto_dedupe
         if auto_install_peers is not None:
             self._values["auto_install_peers"] = auto_install_peers
         if block_exotic_subdeps is not None:
             self._values["block_exotic_subdeps"] = block_exotic_subdeps
+        if boot_config is not None:
+            self._values["boot_config"] = boot_config
         if ca is not None:
             self._values["ca"] = ca
         if cache_dir is not None:
             self._values["cache_dir"] = cache_dir
         if cafile is not None:
             self._values["cafile"] = cafile
+        if cargo is not None:
+            self._values["cargo"] = cargo
         if catalog is not None:
             self._values["catalog"] = catalog
         if catalog_mode is not None:
@@ -28044,6 +29567,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["catalogs"] = catalogs
         if cert is not None:
             self._values["cert"] = cert
+        if changed_files_ignore_pattern is not None:
+            self._values["changed_files_ignore_pattern"] = changed_files_ignore_pattern
         if child_concurrency is not None:
             self._values["child_concurrency"] = child_concurrency
         if ci is not None:
@@ -28052,8 +29577,12 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["cleanup_unused_catalogs"] = cleanup_unused_catalogs
         if color is not None:
             self._values["color"] = color
+        if concurrency_groups is not None:
+            self._values["concurrency_groups"] = concurrency_groups
         if config_dependencies is not None:
             self._values["config_dependencies"] = config_dependencies
+        if confirm_modules_purge is not None:
+            self._values["confirm_modules_purge"] = confirm_modules_purge
         if dangerously_allow_all_builds is not None:
             self._values["dangerously_allow_all_builds"] = dangerously_allow_all_builds
         if dedupe_direct_deps is not None:
@@ -28100,8 +29629,12 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["fetch_timeout"] = fetch_timeout
         if fetch_warn_timeout_ms is not None:
             self._values["fetch_warn_timeout_ms"] = fetch_warn_timeout_ms
+        if force_ignores_platform is not None:
+            self._values["force_ignores_platform"] = force_ignores_platform
         if force_legacy_deploy is not None:
             self._values["force_legacy_deploy"] = force_legacy_deploy
+        if frozen_lockfile is not None:
+            self._values["frozen_lockfile"] = frozen_lockfile
         if frozen_store is not None:
             self._values["frozen_store"] = frozen_store
         if git_branch_lockfile is not None:
@@ -28148,12 +29681,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["ignore_workspace_cycles"] = ignore_workspace_cycles
         if ignore_workspace_root_check is not None:
             self._values["ignore_workspace_root_check"] = ignore_workspace_root_check
+        if include is not None:
+            self._values["include"] = include
         if include_workspace_root is not None:
             self._values["include_workspace_root"] = include_workspace_root
         if inject_workspace_packages is not None:
             self._values["inject_workspace_packages"] = inject_workspace_packages
         if key is not None:
             self._values["key"] = key
+        if legacy_dir_filtering is not None:
+            self._values["legacy_dir_filtering"] = legacy_dir_filtering
         if link_workspace_packages is not None:
             self._values["link_workspace_packages"] = link_workspace_packages
         if local_address is not None:
@@ -28164,10 +29701,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["lockfile_include_tarball_url"] = lockfile_include_tarball_url
         if loglevel is not None:
             self._values["loglevel"] = loglevel
+        if macos_backup is not None:
+            self._values["macos_backup"] = macos_backup
         if manage_package_manager_versions is not None:
             self._values["manage_package_manager_versions"] = manage_package_manager_versions
         if maxsockets is not None:
             self._values["maxsockets"] = maxsockets
+        if max_tarball_unpacked_size is not None:
+            self._values["max_tarball_unpacked_size"] = max_tarball_unpacked_size
         if merge_git_branch_lockfiles_branch_pattern is not None:
             self._values["merge_git_branch_lockfiles_branch_pattern"] = merge_git_branch_lockfiles_branch_pattern
         if minimum_release_age is not None:
@@ -28198,6 +29739,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["node_linker"] = node_linker
         if node_options is not None:
             self._values["node_options"] = node_options
+        if node_package_map is not None:
+            self._values["node_package_map"] = node_package_map
         if node_package_map_type is not None:
             self._values["node_package_map_type"] = node_package_map_type
         if node_version is not None:
@@ -28236,6 +29779,10 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["peer_dependency_rules"] = peer_dependency_rules
         if peers_suffix_max_length is not None:
             self._values["peers_suffix_max_length"] = peers_suffix_max_length
+        if pipeline_base is not None:
+            self._values["pipeline_base"] = pipeline_base
+        if pipelines is not None:
+            self._values["pipelines"] = pipelines
         if pm_on_fail is not None:
             self._values["pm_on_fail"] = pm_on_fail
         if pnpmfile is not None:
@@ -28248,6 +29795,10 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["prefer_symlinked_executables"] = prefer_symlinked_executables
         if prefer_workspace_packages is not None:
             self._values["prefer_workspace_packages"] = prefer_workspace_packages
+        if progress is not None:
+            self._values["progress"] = progress
+        if project_scoped_optional_peers is not None:
+            self._values["project_scoped_optional_peers"] = project_scoped_optional_peers
         if provenance is not None:
             self._values["provenance"] = provenance
         if proxy is not None:
@@ -28256,6 +29807,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["public_hoist_pattern"] = public_hoist_pattern
         if publish_branch is not None:
             self._values["publish_branch"] = publish_branch
+        if publish_wait_timeout is not None:
+            self._values["publish_wait_timeout"] = publish_wait_timeout
         if recursive_install is not None:
             self._values["recursive_install"] = recursive_install
         if registries is not None:
@@ -28264,6 +29817,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["registry"] = registry
         if registry_supports_time_field is not None:
             self._values["registry_supports_time_field"] = registry_supports_time_field
+        if remote_cache is not None:
+            self._values["remote_cache"] = remote_cache
         if reporter is not None:
             self._values["reporter"] = reporter
         if required_scripts is not None:
@@ -28272,12 +29827,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["resolution_mode"] = resolution_mode
         if resolve_peers_from_workspace_root is not None:
             self._values["resolve_peers_from_workspace_root"] = resolve_peers_from_workspace_root
+        if runtime is not None:
+            self._values["runtime"] = runtime
         if runtime_on_fail is not None:
             self._values["runtime_on_fail"] = runtime_on_fail
         if save_exact is not None:
             self._values["save_exact"] = save_exact
         if save_prefix is not None:
             self._values["save_prefix"] = save_prefix
+        if save_types is not None:
+            self._values["save_types"] = save_types
         if save_workspace_protocol is not None:
             self._values["save_workspace_protocol"] = save_workspace_protocol
         if script_shell is not None:
@@ -28292,10 +29851,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["side_effects_cache"] = side_effects_cache
         if side_effects_cache_readonly is not None:
             self._values["side_effects_cache_readonly"] = side_effects_cache_readonly
+        if skills is not None:
+            self._values["skills"] = skills
         if state_dir is not None:
             self._values["state_dir"] = state_dir
         if store_dir is not None:
             self._values["store_dir"] = store_dir
+        if store_index_format is not None:
+            self._values["store_index_format"] = store_index_format
         if strict_dep_builds is not None:
             self._values["strict_dep_builds"] = strict_dep_builds
         if strict_peer_dependencies is not None:
@@ -28314,12 +29877,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["tag"] = tag
         if tasks is not None:
             self._values["tasks"] = tasks
+        if test_pattern is not None:
+            self._values["test_pattern"] = test_pattern
         if trust_lockfile is not None:
             self._values["trust_lockfile"] = trust_lockfile
         if trust_policy is not None:
             self._values["trust_policy"] = trust_policy
         if trust_policy_exclude is not None:
             self._values["trust_policy_exclude"] = trust_policy_exclude
+        if trust_policy_exclude_prune is not None:
+            self._values["trust_policy_exclude_prune"] = trust_policy_exclude_prune
         if trust_policy_ignore_after is not None:
             self._values["trust_policy_ignore_after"] = trust_policy_ignore_after
         if unsafe_perm is not None:
@@ -28354,6 +29921,17 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["virtual_store_type"] = virtual_store_type
         if workspace_concurrency is not None:
             self._values["workspace_concurrency"] = workspace_concurrency
+
+    @builtins.property
+    def add_missing_peer_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, every peer dependency of a dependency also makes the matching.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#addMissingPeerTypes
+        :types: package nothing in the workspace depends on is installed. Changing this setting changes the lockfile. Added in pnpm v12.12.0.
+        '''
+        result = self._values.get("add_missing_peer_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def allow_builds(self) -> typing.Any:
@@ -28432,6 +30010,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"], result)
 
     @builtins.property
+    def auto_dedupe(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation.
+
+        If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#autoDedupe
+        '''
+        result = self._values.get("auto_dedupe")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def auto_install_peers(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When true, any missing non-optional peer dependencies are automatically installed.
 
@@ -28452,6 +30042,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("block_exotic_subdeps")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def boot_config(self) -> typing.Optional["PnpmWorkspaceYamlSchemaBootConfig"]:
+        '''(experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#bootConfig
+        '''
+        result = self._values.get("boot_config")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaBootConfig"], result)
 
     @builtins.property
     def ca(self) -> typing.Optional[builtins.str]:
@@ -28482,6 +30084,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("cafile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cargo(self) -> typing.Optional["PnpmWorkspaceYamlSchemaCargo"]:
+        '''(experimental) Cargo (Rust) dependencies support: when enabled, ``pnpm install`` resolves and installs the workspace's Cargo dependencies next to the npm packages.
+
+        Multi-ecosystem support is experimental. Added in: v12.4.0 (pnpm v12 only).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#cargo
+        '''
+        result = self._values.get("cargo")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaCargo"], result)
 
     @builtins.property
     def catalog(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -28538,6 +30152,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def changed_files_ignore_pattern(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Glob patterns of changed files to ignore when filtering for the projects changed since a commit or branch.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#changedFilesIgnorePattern
+        '''
+        result = self._values.get("changed_files_ignore_pattern")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def child_concurrency(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The maximum number of child processes to allocate simultaneously to build node_modules.
 
@@ -28580,6 +30206,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaColor"], result)
 
     @builtins.property
+    def concurrency_groups(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, jsii.Number]]:
+        '''(experimental) Machine-wide concurrency limits for named groups of tasks (assigned via ``tasks.<name>.concurrencyGroup``). At most the given number of tasks in a group run at once across pnpm processes sharing the same stateDir, including pnpm pipeline. A missing or zero group limit does not restrict execution. Added in pnpm v12.5.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#concurrencyGroups
+        '''
+        result = self._values.get("concurrency_groups")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, jsii.Number]], result)
+
+    @builtins.property
     def config_dependencies(self) -> typing.Any:
         '''(experimental) Config dependencies allow you to share and centralize configuration files, settings, and hooks across multiple projects.
 
@@ -28590,6 +30228,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("config_dependencies")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def confirm_modules_purge(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether pnpm asks for confirmation before removing and reinstalling a modules directory that is incompatible with the current install settings.
+
+        Confirmation is disabled in CI. Supported by pnpm v11.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#confirmModulesPurge
+        '''
+        result = self._values.get("confirm_modules_purge")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def dangerously_allow_all_builds(self) -> typing.Optional[builtins.bool]:
@@ -28827,6 +30477,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def force_ignores_platform(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, pnpm install --force also installs optional dependencies whose os, cpu, or libc do not match the host.
+
+        When false, --force refetches every package but still skips optional dependencies built for other platforms. pnpm v11 behaved as if this setting were true; prefer supportedArchitectures to install optional dependencies for other platforms on purpose. Added in pnpm v12.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#forceIgnoresPlatform
+        '''
+        result = self._values.get("force_ignores_platform")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def force_legacy_deploy(self) -> typing.Optional[builtins.bool]:
         '''(experimental) By default, pnpm deploy will try creating a dedicated lockfile from a shared lockfile for deployment.
 
@@ -28836,6 +30498,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :schema: PnpmWorkspaceYamlSchema#forceLegacyDeploy
         '''
         result = self._values.get("force_legacy_deploy")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def frozen_lockfile(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, installation fails if the lockfile is missing or needs to be updated.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#frozenLockfile
+        '''
+        result = self._values.get("frozen_lockfile")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -29093,6 +30765,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def include(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        '''(experimental) Delegates settings to other YAML files and to config dependencies.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#include
+        '''
+        result = self._values.get("include")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
     def include_workspace_root(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When executing commands recursively in a workspace, execute them on the root workspace project as well.
 
@@ -29123,6 +30809,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def legacy_dir_filtering(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, ``{<dir>}`` filter selectors use the legacy behavior: the selector names a directory and matches every project in the subtree below it.
+
+        By default ``{<dir>}`` is matched as a glob pattern, so ``{packages/*}`` selects the projects one level below packages/ and a ``**`` reaches deeper. Only applies to user-written selectors; the workspace-root selectors pnpm generates are always matched as globs.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#legacyDirFiltering
+        '''
+        result = self._values.get("legacy_dir_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def link_workspace_packages(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"]:
@@ -29145,14 +30843,14 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def lockfile(self) -> typing.Optional[builtins.bool]:
+    def lockfile(self) -> typing.Any:
         '''(experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#lockfile
         '''
         result = self._values.get("lockfile")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def lockfile_include_tarball_url(self) -> typing.Optional[builtins.bool]:
@@ -29175,6 +30873,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"], result)
 
     @builtins.property
+    def macos_backup(self) -> typing.Optional["PnpmWorkspaceYamlSchemaMacosBackup"]:
+        '''(experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#macosBackup
+        '''
+        result = self._values.get("macos_backup")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaMacosBackup"], result)
+
+    @builtins.property
     def manage_package_manager_versions(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When enabled, pnpm will automatically download and run the version of pnpm specified in the packageManager field of package.json.
 
@@ -29192,6 +30900,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :schema: PnpmWorkspaceYamlSchema#maxsockets
         '''
         result = self._values.get("maxsockets")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_tarball_unpacked_size(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Caps the total number of bytes the files of one package may unpack to.
+
+        Added in pnpm v12.15.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#maxTarballUnpackedSize
+        '''
+        result = self._values.get("max_tarball_unpacked_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
@@ -29330,7 +31050,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
 
     @builtins.property
     def node_experimental_package_map(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap.
+        '''(experimental) When true, pnpm injects the generated node_modules/.package-map.json into pnpm-managed Node.js script environments by adding Node's --experimental-package-map option to NODE_OPTIONS. see https://pnpm.io/settings/node-modules#nodeexperimentalpackagemap. Deprecated since pnpm v12.13.0: use nodePackageMap.mode instead. true is the same as mode: load and false the same as mode: off; nodePackageMap wins when both are set in the same place.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeExperimentalPackageMap
@@ -29339,14 +31059,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def node_linker(self) -> typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"]:
+    def node_linker(self) -> typing.Any:
         '''(experimental) Defines what linker should be used for installing Node packages.
+
+        loaded is an experimental linker that loads packages directly from the content-addressable store, without placing them in node_modules; it also accepts an object with type: loaded and an optional excluded list. Configuration sources replace the whole nodeLinker value: a higher-priority scalar, or an object without excluded, clears exclusions from lower-priority sources. The environment variable PNPM_CONFIG_NODE_LINKER and --config.node-linker accept the object as JSON.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodeLinker
         '''
         result = self._values.get("node_linker")
-        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodeLinker"], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def node_options(self) -> typing.Optional[builtins.str]:
@@ -29359,10 +31081,22 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def node_package_map(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMap"]:
+        '''(experimental) Groups the package-map settings, which control node_modules/.package-map.json during isolated and hoisted installs. Replaces nodeExperimentalPackageMap and nodePackageMapType, which still work; nodePackageMap takes precedence when both are set in the same place. Added in pnpm v12.13.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#nodePackageMap
+        '''
+        result = self._values.get("node_package_map")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMap"], result)
+
+    @builtins.property
     def node_package_map_type(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaNodePackageMapType"]:
-        '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve.
+        '''(experimental) Controls how node_modules/.package-map.json is generated. standard - only declared dependencies are available through the package map. loose - also maps packages that are reachable through the installed node_modules layout, which can allow undeclared hoisted dependencies to resolve. Deprecated since pnpm v12.13.0: use nodePackageMap.type instead; nodePackageMap wins when both are set in the same place.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#nodePackageMapType
@@ -29564,6 +31298,32 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def pipeline_base(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The git ref the affected selection of ``pnpm pipeline`` resolves its merge base against.
+
+        Overridden by the ``--base <ref>`` option.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pipelineBase
+        '''
+        result = self._values.get("pipeline_base")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pipelines(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        '''(experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``.
+
+        A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pipelines
+        '''
+        result = self._values.get("pipelines")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
     def pm_on_fail(self) -> typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"]:
         '''(experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
 
@@ -29626,6 +31386,30 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def progress(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether dependency and download progress lines are printed during installation.
+
+        When set to false (or --no-progress is passed), progress output is suppressed. Warnings, lifecycle script output, and the dependency summary are still printed. Added in pnpm v12.6.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#progress
+        '''
+        result = self._values.get("progress")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def project_scoped_optional_peers(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When true, a project gets a missing optional peer dependency only if the project's own dependencies already install a version of it.
+
+        The workspace root's dependencies also count if resolvePeersFromWorkspaceRoot is true; a version that only another workspace project's dependencies install does not. dedupePeerDependents keeps deduplicating everything else, and this setting has no effect when dedupePeerDependents is false, because optional peers are already resolved only from the project's own dependencies then. Changing this setting changes the lockfile. Added in pnpm v12.19.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#projectScopedOptionalPeers
+        '''
+        result = self._values.get("project_scoped_optional_peers")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def provenance(self) -> typing.Optional[builtins.bool]:
         '''(experimental) When publishing from a supported cloud CI/CD system, the package will be publicly linked to where it was built and published from.
 
@@ -29668,6 +31452,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def publish_wait_timeout(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) After uploading a package, wait up to this many milliseconds for the published version and its tarball to become available from the registry.
+
+        If they are not available in time, the command fails. 0 disables the check. When publishing recursively, pnpm confirms that a package is available before it publishes the packages that depend on it. Added in pnpm v12.7.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#publishWaitTimeout
+        '''
+        result = self._values.get("publish_wait_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def recursive_install(self) -> typing.Optional[builtins.bool]:
         '''(experimental) If this is enabled, the primary behaviour of pnpm install becomes that of pnpm install -r, meaning the install is performed on all workspace or subdirectory packages.
 
@@ -29678,14 +31474,17 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def registries(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Configure registries for scoped packages in ``pnpm-workspace.yaml``. The ``default`` key sets the main registry (equivalent to the ``registry`` ``.npmrc`` setting). Scoped keys configure registries for specific package scopes.
+    def registries(self) -> typing.Any:
+        '''(experimental) Configures the registries packages resolve from, in one of two shapes.
+
+        The declaration shape keys each registry by its URL and states everything about it in one place: which scopes and bare-specifier prefix are routed to it, how it lays out tarball URLs, and whether its abbreviated metadata carries the ``time`` field. The older shape maps the ``default`` registry and ``@``-prefixed scopes straight to registry URLs. The two shapes cannot be mixed.
+        https://pnpm.io/settings#registries
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#registries
         '''
         result = self._values.get("registries")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def registry(self) -> typing.Optional[builtins.str]:
@@ -29706,6 +31505,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("registry_supports_time_field")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def remote_cache(self) -> typing.Optional["PnpmWorkspaceYamlSchemaRemoteCache"]:
+        '''(experimental) The server that shares task results and dependency builds between machines, and the keys every shared artifact is signed and verified with.
+
+        Read by both sideEffectsCache.remote and the task cache of pnpm pipeline. Only org may be set in pnpm-workspace.yaml; the fields naming the server and its trust material (url, team, trustedKeys, publish, privateKey, keyId, builderId, imageDigest, architectureBaseline, buildEnv) are read from the global configuration file or the PNPM_REMOTE_CACHE_* environment variables instead, and setting them here fails with ERR_PNPM_WORKSPACE_REMOTE_CACHE_TRUST. Added in pnpm v12.12.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#remoteCache
+        '''
+        result = self._values.get("remote_cache")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaRemoteCache"], result)
 
     @builtins.property
     def reporter(self) -> typing.Optional["PnpmWorkspaceYamlSchemaReporter"]:
@@ -29752,6 +31563,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def runtime(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Controls whether pnpm installs runtime entries declared in ``devEngines.runtime``. Set to false when the runtime is provisioned separately, such as in a CI matrix.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#runtime
+        '''
+        result = self._values.get("runtime")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def runtime_on_fail(
         self,
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaRuntimeOnFail"]:
@@ -29782,6 +31603,17 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("save_prefix")
         return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSavePrefix"], result)
+
+    @builtins.property
+    def save_types(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm add saves available.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#saveTypes
+        :types: /* packages in devDependencies alongside registry dependencies. Packages that declare bundled TypeScript types are skipped. Added in pnpm v12.6.0.
+        '''
+        result = self._values.get("save_types")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def save_workspace_protocol(
@@ -29861,6 +31693,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def skills(self) -> typing.Optional["PnpmWorkspaceYamlSchemaSkills"]:
+        '''(experimental) Agent skills that approved dependencies ship.
+
+        Added in pnpm v12.11.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#skills
+        '''
+        result = self._values.get("skills")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSkills"], result)
+
+    @builtins.property
     def state_dir(self) -> typing.Optional[builtins.str]:
         '''(experimental) The location where all the packages are saved on the disk.
 
@@ -29879,6 +31723,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("store_dir")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def store_index_format(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"]:
+        '''(experimental) How the store records which files each package has.
+
+        sqlite - one index.db database; SQLite's locking only works between processes on one machine, so this format is for a store on a local disk. files - one file per package in the store's index directory, for a store on a network filesystem that several machines use at once, such as a store shared by CI jobs; each entry is written to a temporary file and renamed into place, so concurrent jobs need no locks. The format belongs to the store: once the index directory exists, every pnpm process uses it whatever its own setting says, and the packages recorded in an existing index.db are not carried over when switching. pnpm v11 reads only index.db. Added in pnpm v12.13.0.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#storeIndexFormat
+        '''
+        result = self._values.get("store_index_format")
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaStoreIndexFormat"], result)
 
     @builtins.property
     def strict_dep_builds(self) -> typing.Optional[builtins.bool]:
@@ -29921,16 +31779,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def supported_architectures(
-        self,
-    ) -> typing.Optional["PnpmWorkspaceYamlSchemaSupportedArchitectures"]:
+    def supported_architectures(self) -> typing.Any:
         '''(experimental) Specifies architectures for which you'd like to install optional dependencies, even if they don't match the architecture of the system running the install.
+
+        Either a mapping of os, cpu, and libc lists, or a list of exact platform tags to prepare.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#supportedArchitectures
         '''
         result = self._values.get("supported_architectures")
-        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaSupportedArchitectures"], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def symlink(self) -> typing.Optional[builtins.bool]:
@@ -29981,6 +31839,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]], result)
 
     @builtins.property
+    def test_pattern(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Glob patterns of test files.
+
+        When the changed files of a project all match them, the "changed since" filter leaves out the projects that depend on it.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#testPattern
+        '''
+        result = self._values.get("test_pattern")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def trust_lockfile(self) -> typing.Optional[builtins.bool]:
         '''(experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile.
 
@@ -30013,6 +31883,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("trust_policy_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def trust_policy_exclude_prune(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to ``true``, ``pnpm add``, ``pnpm update``, and ``pnpm remove`` prune the entries of ```trustPolicyExclude`` <#trustpolicyexclude>`_ in ``pnpm-workspace.yaml`` that the freshly written lockfile no longer resolves: a version that is gone is dropped (an entry is removed once none of its versions remain), and an entry for a package that is no longer in the lockfile is removed too. Name patterns (``@myorg/*``) are always kept.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#trustPolicyExcludePrune
+        '''
+        result = self._values.get("trust_policy_exclude_prune")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def trust_policy_ignore_after(self) -> typing.Optional[jsii.Number]:
@@ -30109,14 +31989,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def verify_deps_before_run(self) -> typing.Any:
+    def verify_deps_before_run(
+        self,
+    ) -> typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"]:
         '''(experimental) This setting allows the checking of the state of dependencies before running scripts.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#verifyDepsBeforeRun
         '''
         result = self._values.get("verify_deps_before_run")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional["PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun"], result)
 
     @builtins.property
     def verify_store_integrity(self) -> typing.Optional[builtins.bool]:
@@ -30176,7 +32058,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
     ) -> typing.Optional["PnpmWorkspaceYamlSchemaVirtualStoreType"]:
         '''(experimental) Determines where the virtual store is located.
 
-        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. Added in pnpm v11.23.0.
+        When set to project, a separate virtual store is created in each project's node_modules/.pnpm. When set to global, a single store is shared by every project on the machine, with each project's node_modules holding only symlinks into it. The value may also be an environment variable placeholder such as ${PNPM_VIRTUAL_STORE_TYPE:-global}. Added in pnpm v11.23.0.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#virtualStoreType
@@ -30249,6 +32131,7 @@ __all__ = [
     "NodeConfigFile",
     "NodeConfigFileOptions",
     "NodeConfigSchema",
+    "NodeConfigSchemaBench",
     "NodeConfigSchemaNodeOptions",
     "NodeConfigSchemaPermission",
     "NodeConfigSchemaTest",
@@ -30274,27 +32157,35 @@ __all__ = [
     "PnpmWorkspaceYamlSchemaAudit",
     "PnpmWorkspaceYamlSchemaAuditConfig",
     "PnpmWorkspaceYamlSchemaAuditLevel",
+    "PnpmWorkspaceYamlSchemaBootConfig",
+    "PnpmWorkspaceYamlSchemaBootConfigTrustPolicy",
+    "PnpmWorkspaceYamlSchemaCargo",
     "PnpmWorkspaceYamlSchemaCatalogMode",
     "PnpmWorkspaceYamlSchemaColor",
     "PnpmWorkspaceYamlSchemaExecutionEnv",
     "PnpmWorkspaceYamlSchemaHoistingLimits",
     "PnpmWorkspaceYamlSchemaLinkWorkspacePackages",
     "PnpmWorkspaceYamlSchemaLoglevel",
-    "PnpmWorkspaceYamlSchemaNodeLinker",
+    "PnpmWorkspaceYamlSchemaMacosBackup",
+    "PnpmWorkspaceYamlSchemaNodePackageMap",
+    "PnpmWorkspaceYamlSchemaNodePackageMapMode",
     "PnpmWorkspaceYamlSchemaNodePackageMapType",
     "PnpmWorkspaceYamlSchemaPackageImportMethod",
     "PnpmWorkspaceYamlSchemaPeerDependencyRules",
     "PnpmWorkspaceYamlSchemaPmOnFail",
+    "PnpmWorkspaceYamlSchemaRemoteCache",
     "PnpmWorkspaceYamlSchemaReporter",
     "PnpmWorkspaceYamlSchemaResolutionMode",
     "PnpmWorkspaceYamlSchemaRuntimeOnFail",
     "PnpmWorkspaceYamlSchemaSavePrefix",
     "PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol",
-    "PnpmWorkspaceYamlSchemaSupportedArchitectures",
+    "PnpmWorkspaceYamlSchemaSkills",
+    "PnpmWorkspaceYamlSchemaStoreIndexFormat",
     "PnpmWorkspaceYamlSchemaTasks",
     "PnpmWorkspaceYamlSchemaTrustPolicy",
     "PnpmWorkspaceYamlSchemaUpdate",
     "PnpmWorkspaceYamlSchemaUpdateConfig",
+    "PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun",
     "PnpmWorkspaceYamlSchemaVersioning",
     "PnpmWorkspaceYamlSchemaVersioningChangelog",
     "PnpmWorkspaceYamlSchemaVersioningChangelogStorage",
@@ -30715,6 +32606,7 @@ def _typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc4
     *,
     config_file_path: typing.Optional[builtins.str] = None,
     coverage_text: typing.Optional[builtins.bool] = None,
+    experimental_vm_modules: typing.Optional[builtins.bool] = None,
     extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest_config: typing.Optional[typing.Union[JestConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     jest_version: typing.Optional[builtins.str] = None,
@@ -30895,6 +32787,7 @@ def _typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51b
     *,
     config_file_path: typing.Optional[builtins.str] = None,
     coverage_text: typing.Optional[builtins.bool] = None,
+    experimental_vm_modules: typing.Optional[builtins.bool] = None,
     extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
     jest_config: typing.Optional[typing.Union[JestConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     jest_version: typing.Optional[builtins.str] = None,
@@ -30942,6 +32835,7 @@ def _typecheckingstub__1dd5c137b6dab5e40bdba1bb0a4209fe5cf43a43b04b8640cd56a1485
     project: _projen_04054675.Project,
     *,
     file_path: typing.Optional[builtins.str] = None,
+    bench: typing.Optional[typing.Union[NodeConfigSchemaBench, typing.Dict[builtins.str, typing.Any]]] = None,
     node_options: typing.Optional[typing.Union[NodeConfigSchemaNodeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     node_version: typing.Optional[jsii.Number] = None,
     permission: typing.Optional[typing.Union[NodeConfigSchemaPermission, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -30960,12 +32854,26 @@ def _typecheckingstub__d048d98cad06567ad6474187a3e255e20f89085d7d82a265458198069
 
 def _typecheckingstub__8ca84812eab2d171af75911099e4a9c96964b168c0a4080177f501d7b536ea96(
     *,
+    bench: typing.Optional[typing.Union[NodeConfigSchemaBench, typing.Dict[builtins.str, typing.Any]]] = None,
     node_options: typing.Optional[typing.Union[NodeConfigSchemaNodeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     node_version: typing.Optional[jsii.Number] = None,
     permission: typing.Optional[typing.Union[NodeConfigSchemaPermission, typing.Dict[builtins.str, typing.Any]]] = None,
     schema: typing.Optional[builtins.str] = None,
     test: typing.Optional[typing.Union[NodeConfigSchemaTest, typing.Dict[builtins.str, typing.Any]]] = None,
     watch: typing.Optional[typing.Union[NodeConfigSchemaWatch, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ac95ae972e516320b1c244c40dfed107b81a812689d39186c76ba6df527482(
+    *,
+    bench: typing.Optional[builtins.bool] = None,
+    bench_isolation: typing.Optional[builtins.str] = None,
+    bench_name_pattern: typing.Optional[builtins.str] = None,
+    bench_reporter: typing.Optional[typing.Sequence[builtins.str]] = None,
+    bench_reporter_destination: typing.Optional[typing.Sequence[builtins.str]] = None,
+    bench_samples: typing.Optional[jsii.Number] = None,
+    bench_warmup: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30984,6 +32892,12 @@ def _typecheckingstub__e6c0d7f031ab61205e58075998158746dc73f126b48a415ae96883afd
     allow_wasi: typing.Optional[builtins.bool] = None,
     allow_worker: typing.Optional[builtins.bool] = None,
     async_context_frame: typing.Optional[builtins.bool] = None,
+    bench_isolation: typing.Optional[builtins.str] = None,
+    bench_name_pattern: typing.Optional[builtins.str] = None,
+    bench_reporter: typing.Optional[typing.Sequence[builtins.str]] = None,
+    bench_reporter_destination: typing.Optional[typing.Sequence[builtins.str]] = None,
+    bench_samples: typing.Optional[jsii.Number] = None,
+    bench_warmup: typing.Optional[jsii.Number] = None,
     conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     cpu_prof: typing.Optional[builtins.bool] = None,
     cpu_prof_dir: typing.Optional[builtins.str] = None,
@@ -31001,6 +32915,7 @@ def _typecheckingstub__e6c0d7f031ab61205e58075998158746dc73f126b48a415ae96883afd
     enable_source_maps: typing.Optional[builtins.bool] = None,
     entry_url: typing.Optional[builtins.bool] = None,
     experimental_addon_modules: typing.Optional[builtins.bool] = None,
+    experimental_bench: typing.Optional[builtins.bool] = None,
     experimental_detect_module: typing.Optional[builtins.bool] = None,
     experimental_eventsource: typing.Optional[builtins.bool] = None,
     experimental_ffi: typing.Optional[builtins.bool] = None,
@@ -31750,6 +33665,7 @@ def _typecheckingstub__f0658f702068b1f034b45100a2c48201c2d2665809f5f2ea84ec80efc
 def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef1f21e53(
     project: _projen_04054675.Project,
     *,
+    add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -31757,21 +33673,27 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     audit: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAudit, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAuditConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
+    auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+    boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
     cache_dir: typing.Optional[builtins.str] = None,
     cafile: typing.Optional[builtins.str] = None,
+    cargo: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaCargo, typing.Dict[builtins.str, typing.Any]]] = None,
     catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     catalog_mode: typing.Optional[PnpmWorkspaceYamlSchemaCatalogMode] = None,
     catalog_prune: typing.Optional[builtins.bool] = None,
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
+    changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
     ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
+    concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     config_dependencies: typing.Any = None,
+    confirm_modules_purge: typing.Optional[builtins.bool] = None,
     dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
     dedupe_direct_deps: typing.Optional[builtins.bool] = None,
     dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -31795,7 +33717,9 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+    force_ignores_platform: typing.Optional[builtins.bool] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_lockfile: typing.Optional[builtins.bool] = None,
     frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
@@ -31819,16 +33743,20 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     ignore_scripts: typing.Optional[builtins.bool] = None,
     ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
     ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+    include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     include_workspace_root: typing.Optional[builtins.bool] = None,
     inject_workspace_packages: typing.Optional[builtins.bool] = None,
     key: typing.Optional[builtins.str] = None,
+    legacy_dir_filtering: typing.Optional[builtins.bool] = None,
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
-    lockfile: typing.Optional[builtins.bool] = None,
+    lockfile: typing.Any = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
+    macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
     manage_package_manager_versions: typing.Optional[builtins.bool] = None,
     maxsockets: typing.Optional[jsii.Number] = None,
+    max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
     merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
     minimum_release_age: typing.Optional[jsii.Number] = None,
     minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -31842,8 +33770,9 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     node_experimental_package_map: typing.Optional[builtins.bool] = None,
-    node_linker: typing.Optional[PnpmWorkspaceYamlSchemaNodeLinker] = None,
+    node_linker: typing.Any = None,
     node_options: typing.Optional[builtins.str] = None,
+    node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
     no_proxy: typing.Optional[builtins.str] = None,
@@ -31863,27 +33792,35 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     patches_dir: typing.Optional[builtins.str] = None,
     peer_dependency_rules: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaPeerDependencyRules, typing.Dict[builtins.str, typing.Any]]] = None,
     peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+    pipeline_base: typing.Optional[builtins.str] = None,
+    pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
     prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+    progress: typing.Optional[builtins.bool] = None,
+    project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
     provenance: typing.Optional[builtins.bool] = None,
     proxy: typing.Optional[builtins.str] = None,
     public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     publish_branch: typing.Optional[builtins.str] = None,
+    publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
-    registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
+    remote_cache: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaRemoteCache, typing.Dict[builtins.str, typing.Any]]] = None,
     reporter: typing.Optional[PnpmWorkspaceYamlSchemaReporter] = None,
     required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     resolution_mode: typing.Optional[PnpmWorkspaceYamlSchemaResolutionMode] = None,
     resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+    runtime: typing.Optional[builtins.bool] = None,
     runtime_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaRuntimeOnFail] = None,
     save_exact: typing.Optional[builtins.bool] = None,
     save_prefix: typing.Optional[PnpmWorkspaceYamlSchemaSavePrefix] = None,
+    save_types: typing.Optional[builtins.bool] = None,
     save_workspace_protocol: typing.Optional[PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol] = None,
     script_shell: typing.Optional[builtins.str] = None,
     shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -31891,20 +33828,24 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     shell_emulator: typing.Optional[builtins.bool] = None,
     side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+    skills: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSkills, typing.Dict[builtins.str, typing.Any]]] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
+    store_index_format: typing.Optional[PnpmWorkspaceYamlSchemaStoreIndexFormat] = None,
     strict_dep_builds: typing.Optional[builtins.bool] = None,
     strict_peer_dependencies: typing.Optional[builtins.bool] = None,
     strict_ssl: typing.Optional[builtins.bool] = None,
     strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-    supported_architectures: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSupportedArchitectures, typing.Dict[builtins.str, typing.Any]]] = None,
+    supported_architectures: typing.Any = None,
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
     tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
     trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
     unsafe_perm: typing.Optional[builtins.bool] = None,
     update: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaUpdate, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -31914,7 +33855,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     use_node_version: typing.Optional[builtins.str] = None,
     use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
-    verify_deps_before_run: typing.Any = None,
+    verify_deps_before_run: typing.Optional[PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun] = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
     versioning: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaVersioning, typing.Dict[builtins.str, typing.Any]]] = None,
     virtual_store_dir: typing.Optional[builtins.str] = None,
@@ -31934,6 +33875,7 @@ def _typecheckingstub__8407c59fe681b320e93b0a6a7dd88da52c40697c54b67c90b8261b85d
 
 def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0fb33264(
     *,
+    add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -31941,21 +33883,27 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     audit: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAudit, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAuditConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
+    auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+    boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
     cache_dir: typing.Optional[builtins.str] = None,
     cafile: typing.Optional[builtins.str] = None,
+    cargo: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaCargo, typing.Dict[builtins.str, typing.Any]]] = None,
     catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     catalog_mode: typing.Optional[PnpmWorkspaceYamlSchemaCatalogMode] = None,
     catalog_prune: typing.Optional[builtins.bool] = None,
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
+    changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
     ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
+    concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     config_dependencies: typing.Any = None,
+    confirm_modules_purge: typing.Optional[builtins.bool] = None,
     dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
     dedupe_direct_deps: typing.Optional[builtins.bool] = None,
     dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -31979,7 +33927,9 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+    force_ignores_platform: typing.Optional[builtins.bool] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_lockfile: typing.Optional[builtins.bool] = None,
     frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
@@ -32003,16 +33953,20 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     ignore_scripts: typing.Optional[builtins.bool] = None,
     ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
     ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+    include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     include_workspace_root: typing.Optional[builtins.bool] = None,
     inject_workspace_packages: typing.Optional[builtins.bool] = None,
     key: typing.Optional[builtins.str] = None,
+    legacy_dir_filtering: typing.Optional[builtins.bool] = None,
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
-    lockfile: typing.Optional[builtins.bool] = None,
+    lockfile: typing.Any = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
+    macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
     manage_package_manager_versions: typing.Optional[builtins.bool] = None,
     maxsockets: typing.Optional[jsii.Number] = None,
+    max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
     merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
     minimum_release_age: typing.Optional[jsii.Number] = None,
     minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -32026,8 +33980,9 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     node_experimental_package_map: typing.Optional[builtins.bool] = None,
-    node_linker: typing.Optional[PnpmWorkspaceYamlSchemaNodeLinker] = None,
+    node_linker: typing.Any = None,
     node_options: typing.Optional[builtins.str] = None,
+    node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
     no_proxy: typing.Optional[builtins.str] = None,
@@ -32047,27 +34002,35 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     patches_dir: typing.Optional[builtins.str] = None,
     peer_dependency_rules: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaPeerDependencyRules, typing.Dict[builtins.str, typing.Any]]] = None,
     peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+    pipeline_base: typing.Optional[builtins.str] = None,
+    pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
     prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+    progress: typing.Optional[builtins.bool] = None,
+    project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
     provenance: typing.Optional[builtins.bool] = None,
     proxy: typing.Optional[builtins.str] = None,
     public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     publish_branch: typing.Optional[builtins.str] = None,
+    publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
-    registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
+    remote_cache: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaRemoteCache, typing.Dict[builtins.str, typing.Any]]] = None,
     reporter: typing.Optional[PnpmWorkspaceYamlSchemaReporter] = None,
     required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     resolution_mode: typing.Optional[PnpmWorkspaceYamlSchemaResolutionMode] = None,
     resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+    runtime: typing.Optional[builtins.bool] = None,
     runtime_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaRuntimeOnFail] = None,
     save_exact: typing.Optional[builtins.bool] = None,
     save_prefix: typing.Optional[PnpmWorkspaceYamlSchemaSavePrefix] = None,
+    save_types: typing.Optional[builtins.bool] = None,
     save_workspace_protocol: typing.Optional[PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol] = None,
     script_shell: typing.Optional[builtins.str] = None,
     shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -32075,20 +34038,24 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     shell_emulator: typing.Optional[builtins.bool] = None,
     side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+    skills: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSkills, typing.Dict[builtins.str, typing.Any]]] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
+    store_index_format: typing.Optional[PnpmWorkspaceYamlSchemaStoreIndexFormat] = None,
     strict_dep_builds: typing.Optional[builtins.bool] = None,
     strict_peer_dependencies: typing.Optional[builtins.bool] = None,
     strict_ssl: typing.Optional[builtins.bool] = None,
     strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-    supported_architectures: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSupportedArchitectures, typing.Dict[builtins.str, typing.Any]]] = None,
+    supported_architectures: typing.Any = None,
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
     tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
     trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
     unsafe_perm: typing.Optional[builtins.bool] = None,
     update: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaUpdate, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -32098,7 +34065,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     use_node_version: typing.Optional[builtins.str] = None,
     use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
-    verify_deps_before_run: typing.Any = None,
+    verify_deps_before_run: typing.Optional[PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun] = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
     versioning: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaVersioning, typing.Dict[builtins.str, typing.Any]]] = None,
     virtual_store_dir: typing.Optional[builtins.str] = None,
@@ -32127,6 +34094,23 @@ def _typecheckingstub__bc0f810cb7274c1a225981db5f555a914f8d54e9b113741aeefee92d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__38961e8f46978bab3b0a08acb90805ddfe7f5b8c7b54dc9f5b4239979a5d4321(
+    *,
+    minimum_release_age: typing.Optional[jsii.Number] = None,
+    minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaBootConfigTrustPolicy] = None,
+    trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8396f6bd46b753c1c0b657081fb75f3c235c71399fa6ca7dfd718d9b84e6c72(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a5ba0b46cbeb325f9d0799aa3a684fb7c1a6be2573a717cbd2b73abbba17a579(
     *,
     node_version: typing.Optional[builtins.str] = None,
@@ -32146,11 +34130,34 @@ def _typecheckingstub__fafbc4a0f7c4fc7613130fd19c8eb44ed45afc46eaf91970b91252d07
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db44a0e2a2a83a7da53891c37b311049a089238b2caef0b72c5b1565ce841602(
+    *,
+    exclude_modules_dir: typing.Optional[builtins.bool] = None,
+    exclude_store_dir: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9079f8a8d9bfe854ea5f34d7f2f0b5f40292bd649340b17eb31dcb063448cf38(
+    *,
+    mode: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapMode] = None,
+    type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dae41ac6331e500f95e212bb9101be9c6e4a97ef70bc9781ae8af8d144745c65(
     *,
     allow_any: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_versions: typing.Any = None,
     ignore_missing: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f05e8d694e2b5375913815289818bb479bfabe0cd2b23341e6794a57931c28c0(
+    *,
+    org: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32167,19 +34174,24 @@ def _typecheckingstub__27c9abe21da79511afbe988249b4e832e0eb9575a0ce4087a85755701
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__645b4c4db2557fa13ad01633c54fab0621aa15adcf6dab7209176c06ff0ffec4(
+def _typecheckingstub__81d7119ed1baa7ff92ab4a8ce39a84a36145b59dbf166f9587c10e9ac3903a34(
     *,
-    cpu: typing.Optional[typing.Sequence[builtins.str]] = None,
-    libc: typing.Optional[typing.Sequence[builtins.str]] = None,
-    os: typing.Optional[typing.Sequence[builtins.str]] = None,
+    dirs: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__11922318df2eb4c2d78131a285a39e0b5aa239597cdde9c9c386144852a5c473(
     *,
+    cache: typing.Optional[builtins.bool] = None,
+    cargo_target_dir: typing.Optional[builtins.str] = None,
     concurrency: typing.Optional[jsii.Number] = None,
+    concurrency_group: typing.Optional[builtins.str] = None,
     depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    env: typing.Optional[typing.Sequence[builtins.str]] = None,
+    inputs: typing.Optional[typing.Sequence[builtins.str]] = None,
+    outputs: typing.Optional[typing.Sequence[builtins.str]] = None,
+    priority: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32197,6 +34209,18 @@ def _typecheckingstub__54568d01d70d755fc248862058decf0706f6f6e1b051d8e2dab7f350a
 def _typecheckingstub__bfc8233950eddcc5fc536f3297720f8d7f5c4f5957e7a9d8170d7631285e3f38(
     *,
     ignore_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d77e7308366dfcad5124d285d50e24a7282216a8921b125db3d02e5c9062e2b1(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dec525f113737a91d18d083d0069c0feaafeca8178adbb56028e6db1a3ccc199(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32912,6 +34936,7 @@ def _typecheckingstub__fda879bb1fe52a68839c7634ab5ab9f2cedf7154361c8a0487248d72b
 
 def _typecheckingstub__ebbe0c9e1f42bce4a170364283456b0aea82335e75c430ec9b8391794c65ffa3(
     *,
+    bench: typing.Optional[typing.Union[NodeConfigSchemaBench, typing.Dict[builtins.str, typing.Any]]] = None,
     node_options: typing.Optional[typing.Union[NodeConfigSchemaNodeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     node_version: typing.Optional[jsii.Number] = None,
     permission: typing.Optional[typing.Union[NodeConfigSchemaPermission, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -32925,6 +34950,7 @@ def _typecheckingstub__ebbe0c9e1f42bce4a170364283456b0aea82335e75c430ec9b8391794
 
 def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb1e98ee7(
     *,
+    add_missing_peer_types: typing.Optional[builtins.bool] = None,
     allow_builds: typing.Any = None,
     allowed_deprecated_versions: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     allow_non_applied_patches: typing.Optional[builtins.bool] = None,
@@ -32932,21 +34958,27 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     audit: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAudit, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaAuditConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
+    auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
+    boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
     cache_dir: typing.Optional[builtins.str] = None,
     cafile: typing.Optional[builtins.str] = None,
+    cargo: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaCargo, typing.Dict[builtins.str, typing.Any]]] = None,
     catalog: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     catalog_mode: typing.Optional[PnpmWorkspaceYamlSchemaCatalogMode] = None,
     catalog_prune: typing.Optional[builtins.bool] = None,
     catalogs: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     cert: typing.Optional[builtins.str] = None,
+    changed_files_ignore_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     child_concurrency: typing.Optional[jsii.Number] = None,
     ci: typing.Optional[builtins.bool] = None,
     cleanup_unused_catalogs: typing.Optional[builtins.bool] = None,
     color: typing.Optional[PnpmWorkspaceYamlSchemaColor] = None,
+    concurrency_groups: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     config_dependencies: typing.Any = None,
+    confirm_modules_purge: typing.Optional[builtins.bool] = None,
     dangerously_allow_all_builds: typing.Optional[builtins.bool] = None,
     dedupe_direct_deps: typing.Optional[builtins.bool] = None,
     dedupe_injected_deps: typing.Optional[builtins.bool] = None,
@@ -32970,7 +35002,9 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     fetch_retry_mintimeout: typing.Optional[jsii.Number] = None,
     fetch_timeout: typing.Optional[jsii.Number] = None,
     fetch_warn_timeout_ms: typing.Optional[jsii.Number] = None,
+    force_ignores_platform: typing.Optional[builtins.bool] = None,
     force_legacy_deploy: typing.Optional[builtins.bool] = None,
+    frozen_lockfile: typing.Optional[builtins.bool] = None,
     frozen_store: typing.Optional[builtins.bool] = None,
     git_branch_lockfile: typing.Optional[builtins.bool] = None,
     git_checks: typing.Optional[builtins.bool] = None,
@@ -32994,16 +35028,20 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     ignore_scripts: typing.Optional[builtins.bool] = None,
     ignore_workspace_cycles: typing.Optional[builtins.bool] = None,
     ignore_workspace_root_check: typing.Optional[builtins.bool] = None,
+    include: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     include_workspace_root: typing.Optional[builtins.bool] = None,
     inject_workspace_packages: typing.Optional[builtins.bool] = None,
     key: typing.Optional[builtins.str] = None,
+    legacy_dir_filtering: typing.Optional[builtins.bool] = None,
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
-    lockfile: typing.Optional[builtins.bool] = None,
+    lockfile: typing.Any = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
+    macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
     manage_package_manager_versions: typing.Optional[builtins.bool] = None,
     maxsockets: typing.Optional[jsii.Number] = None,
+    max_tarball_unpacked_size: typing.Optional[jsii.Number] = None,
     merge_git_branch_lockfiles_branch_pattern: typing.Optional[typing.Sequence[typing.Any]] = None,
     minimum_release_age: typing.Optional[jsii.Number] = None,
     minimum_release_age_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -33017,8 +35055,9 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     never_built_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     node_download_mirrors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     node_experimental_package_map: typing.Optional[builtins.bool] = None,
-    node_linker: typing.Optional[PnpmWorkspaceYamlSchemaNodeLinker] = None,
+    node_linker: typing.Any = None,
     node_options: typing.Optional[builtins.str] = None,
+    node_package_map: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaNodePackageMap, typing.Dict[builtins.str, typing.Any]]] = None,
     node_package_map_type: typing.Optional[PnpmWorkspaceYamlSchemaNodePackageMapType] = None,
     node_version: typing.Optional[builtins.str] = None,
     no_proxy: typing.Optional[builtins.str] = None,
@@ -33038,27 +35077,35 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     patches_dir: typing.Optional[builtins.str] = None,
     peer_dependency_rules: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaPeerDependencyRules, typing.Dict[builtins.str, typing.Any]]] = None,
     peers_suffix_max_length: typing.Optional[jsii.Number] = None,
+    pipeline_base: typing.Optional[builtins.str] = None,
+    pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
     prefer_workspace_packages: typing.Optional[builtins.bool] = None,
+    progress: typing.Optional[builtins.bool] = None,
+    project_scoped_optional_peers: typing.Optional[builtins.bool] = None,
     provenance: typing.Optional[builtins.bool] = None,
     proxy: typing.Optional[builtins.str] = None,
     public_hoist_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     publish_branch: typing.Optional[builtins.str] = None,
+    publish_wait_timeout: typing.Optional[jsii.Number] = None,
     recursive_install: typing.Optional[builtins.bool] = None,
-    registries: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    registries: typing.Any = None,
     registry: typing.Optional[builtins.str] = None,
     registry_supports_time_field: typing.Optional[builtins.bool] = None,
+    remote_cache: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaRemoteCache, typing.Dict[builtins.str, typing.Any]]] = None,
     reporter: typing.Optional[PnpmWorkspaceYamlSchemaReporter] = None,
     required_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     resolution_mode: typing.Optional[PnpmWorkspaceYamlSchemaResolutionMode] = None,
     resolve_peers_from_workspace_root: typing.Optional[builtins.bool] = None,
+    runtime: typing.Optional[builtins.bool] = None,
     runtime_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaRuntimeOnFail] = None,
     save_exact: typing.Optional[builtins.bool] = None,
     save_prefix: typing.Optional[PnpmWorkspaceYamlSchemaSavePrefix] = None,
+    save_types: typing.Optional[builtins.bool] = None,
     save_workspace_protocol: typing.Optional[PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol] = None,
     script_shell: typing.Optional[builtins.str] = None,
     shamefully_hoist: typing.Optional[builtins.bool] = None,
@@ -33066,20 +35113,24 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     shell_emulator: typing.Optional[builtins.bool] = None,
     side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
+    skills: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSkills, typing.Dict[builtins.str, typing.Any]]] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
+    store_index_format: typing.Optional[PnpmWorkspaceYamlSchemaStoreIndexFormat] = None,
     strict_dep_builds: typing.Optional[builtins.bool] = None,
     strict_peer_dependencies: typing.Optional[builtins.bool] = None,
     strict_ssl: typing.Optional[builtins.bool] = None,
     strict_store_pkg_content_check: typing.Optional[builtins.bool] = None,
-    supported_architectures: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaSupportedArchitectures, typing.Dict[builtins.str, typing.Any]]] = None,
+    supported_architectures: typing.Any = None,
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
     tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_pattern: typing.Optional[typing.Sequence[builtins.str]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    trust_policy_exclude_prune: typing.Optional[builtins.bool] = None,
     trust_policy_ignore_after: typing.Optional[jsii.Number] = None,
     unsafe_perm: typing.Optional[builtins.bool] = None,
     update: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaUpdate, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -33089,7 +35140,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     use_node_version: typing.Optional[builtins.str] = None,
     use_running_store_server: typing.Optional[builtins.bool] = None,
     use_stderr: typing.Optional[builtins.bool] = None,
-    verify_deps_before_run: typing.Any = None,
+    verify_deps_before_run: typing.Optional[PnpmWorkspaceYamlSchemaVerifyDepsBeforeRun] = None,
     verify_store_integrity: typing.Optional[builtins.bool] = None,
     versioning: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaVersioning, typing.Dict[builtins.str, typing.Any]]] = None,
     virtual_store_dir: typing.Optional[builtins.str] = None,

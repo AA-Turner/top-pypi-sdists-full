@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-yaml12
-Version: 0.2.0
+Version: 0.2.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -71,8 +72,9 @@ Wheel coverage:
 | macOS | Apple silicon, Intel | Apple silicon, Intel |
 | Windows | x86-64, x86, ARM64 | x86-64 |
 
-CPython 3.14 free-threaded builds use separate `cp314t` wheels for the
-same CPython platforms. Free-threading support is currently beta.
+CPython 3.14 and 3.15 free-threaded builds use separate `cp314t` and
+`cp315t` wheels for the same CPython platforms. Free-threading support
+is currently beta.
 
 ## Development install
 

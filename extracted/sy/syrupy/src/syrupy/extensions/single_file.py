@@ -1,9 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 from gettext import gettext
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    Optional,
 )
 from unicodedata import category
 
@@ -21,20 +20,14 @@ from .base import AbstractSyrupyExtension
 
 if TYPE_CHECKING:
     from syrupy.types import (
-        PropertyFilter,
-        PropertyMatcher,
-        SerializableData,
         SerializedData,
         SnapshotIndex,
     )
 
 
-class WriteMode(Enum):
+class WriteMode(StrEnum):
     BINARY = "b"
     TEXT = "t"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 class SingleFileSnapshotExtension(AbstractSyrupyExtension):
@@ -47,9 +40,9 @@ class SingleFileSnapshotExtension(AbstractSyrupyExtension):
         self,
         data: "SerializableData",
         *,
-        exclude: Optional["PropertyFilter"] = None,
-        include: Optional["PropertyFilter"] = None,
-        matcher: Optional["PropertyMatcher"] = None,
+        exclude: PropertyFilter | None = None,
+        include: PropertyFilter | None = None,
+        matcher: PropertyMatcher | None = None,
     ) -> "SerializedData":
         supported_dataclass = self.get_supported_dataclass()
         if supported_dataclass is bytes:
@@ -98,6 +91,44 @@ class SingleFileSnapshotExtension(AbstractSyrupyExtension):
             return dirname
         return str(Path(dirname).parent)
 
+    def is_snapshot_location(self, *, location: str) -> bool:
+        """
+        Match this extension's snapshot files.
+
+        ``str.endswith("")`` is true for every path, so an empty
+        ``file_extension`` would otherwise claim every nested single-file
+        snapshot during directory-scoped discovery (including ``.json``,
+        ``.raw``, images, etc.) and treat them as unused.
+        """
+        if self.file_extension:
+            return super().is_snapshot_location(location=location)
+        name = Path(location).name
+        return not any(
+            name.endswith(f".{ext}") for ext in self._concrete_file_extensions()
+        )
+
+    @classmethod
+    def _concrete_file_extensions(cls) -> frozenset[str]:
+        # Import built-ins so they count even when this session never used them.
+        from syrupy.extensions.image import (  # noqa: F401
+            PNGImageSnapshotExtension,
+            SVGImageSnapshotExtension,
+        )
+        from syrupy.extensions.json import JSONSnapshotExtension  # noqa: F401
+
+        extensions: set[str] = set()
+        if SingleFileSnapshotExtension.file_extension:
+            extensions.add(SingleFileSnapshotExtension.file_extension)
+        stack: list[type[SingleFileSnapshotExtension]] = list(
+            SingleFileSnapshotExtension.__subclasses__()
+        )
+        while stack:
+            sub = stack.pop()
+            stack.extend(sub.__subclasses__())
+            if sub.file_extension:
+                extensions.add(sub.file_extension)
+        return frozenset(extensions)
+
     def owns_snapshot_collection(
         self, *, filepath: str, test_location: "PyTestLocation"
     ) -> bool:
@@ -119,7 +150,9 @@ class SingleFileSnapshotExtension(AbstractSyrupyExtension):
         self, *, snapshot_location: str
     ) -> "SnapshotCollection":
         file_ext_len = len(self.file_extension) + 1 if self.file_extension else 0
-        filename_wo_ext = snapshot_location[:-file_ext_len]
+        filename_wo_ext = (
+            snapshot_location[:-file_ext_len] if file_ext_len else snapshot_location
+        )
         basename = Path(filename_wo_ext).parts[-1]
 
         snapshot_collection = SnapshotCollection(location=snapshot_location)
@@ -128,7 +161,7 @@ class SingleFileSnapshotExtension(AbstractSyrupyExtension):
 
     def read_snapshot_data_from_location(
         self, *, snapshot_location: str, snapshot_name: str, session_id: str
-    ) -> Optional["SerializableData"]:
+    ) -> SerializableData | None:
         try:
             with open(
                 snapshot_location,
@@ -177,17 +210,70 @@ class SingleFileSnapshotExtension(AbstractSyrupyExtension):
             f.write(data)
 
     @classmethod
-    def __clean_filename(cls, filename: str) -> str:
-        max_filename_length = 255 - len(cls.file_extension or "")
+    def matches_test_location(
+        cls, *, test_location: "PyTestLocation", snapshot_location: str
+    ) -> bool:
+        """
+        Match a single-file snapshot, including one truncated to 255 characters.
+
+        ``PyTestLocation`` requires the filename to start with the full
+        parametrized id. A long id is stored as a prefix of that id, so the
+        generic check never claims the file and unused-snapshot cleanup can
+        delete it.
+        """
+        if test_location.matches_snapshot_location(snapshot_location):
+            return True
+        loc = Path(snapshot_location)
+        if not test_location.is_item_parametrized:
+            return False
+        if test_location.basename != loc.parent.name:
+            return False
+        if not test_location.matches_snapshot_site(snapshot_location):
+            return False
+        stem = cls._snapshot_stem(loc.name)
+        if stem is None:
+            return False
+        sanitized = cls._sanitize_filename(test_location.snapshot_name_parametrized)
+        max_stem = cls._max_stem_length()
+        # Exact budget-length prefix only. ``test[a]`` must not claim the
+        # snapshot for ``test[aaa...]`` just because one id starts the other.
+        if max_stem <= 0 or len(sanitized) <= max_stem:
+            return False
+        return stem == sanitized[:max_stem]
+
+    @classmethod
+    def _snapshot_suffix(cls) -> str:
+        if not cls.file_extension:
+            return ""
+        return f".{cls.file_extension}"
+
+    @classmethod
+    def _max_stem_length(cls) -> int:
+        return 255 - len(cls._snapshot_suffix())
+
+    @classmethod
+    def _snapshot_stem(cls, filename: str) -> str | None:
+        suffix = cls._snapshot_suffix()
+        if not suffix:
+            return filename
+        if not filename.endswith(suffix):
+            return None
+        return filename[: -len(suffix)]
+
+    @classmethod
+    def _sanitize_filename(cls, filename: str) -> str:
         exclude_chars = '\\/?*:|"<>'
         exclude_categ = ("C",)
-        cleaned_filename = "".join(
+        return "".join(
             c
             for c in filename
             if c not in exclude_chars
             and not any(categ in category(c) for categ in exclude_categ)
         )
-        return cleaned_filename[:max_filename_length]
+
+    @classmethod
+    def __clean_filename(cls, filename: str) -> str:
+        return cls._sanitize_filename(filename)[: cls._max_stem_length()]
 
 
 class SingleFileAmberSnapshotExtension(SingleFileSnapshotExtension):
@@ -198,9 +284,9 @@ class SingleFileAmberSnapshotExtension(SingleFileSnapshotExtension):
         self,
         data: "SerializableData",
         *,
-        exclude: Optional["PropertyFilter"] = None,
-        include: Optional["PropertyFilter"] = None,
-        matcher: Optional["PropertyMatcher"] = None,
+        exclude: PropertyFilter | None = None,
+        include: PropertyFilter | None = None,
+        matcher: PropertyMatcher | None = None,
     ) -> "SerializedData":
         return AmberDataSerializer.serialize(
             data, exclude=exclude, include=include, matcher=matcher
@@ -208,7 +294,7 @@ class SingleFileAmberSnapshotExtension(SingleFileSnapshotExtension):
 
     def read_snapshot_data_from_location(
         self, *, snapshot_location: str, snapshot_name: str, session_id: str
-    ) -> Optional["SerializableData"]:
+    ) -> SerializableData | None:
         snapshot_collection = AmberDataSerializer.read_file(snapshot_location)
         if not snapshot_collection or not snapshot_collection.has_snapshots:
             return None

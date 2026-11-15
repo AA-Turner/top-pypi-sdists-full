@@ -228,7 +228,7 @@ def _process_ending(in_flight: BaseException | None) -> str | None:
         if any(cls.__name__ == "SIGTERMException" for cls in type(in_flight).__mro__):
             # Lightning's SIGTERM: a code-less exit that is not a success.
             return "failed"
-        from probe.sdk.run.closing.status import _status_for_system_exit
+        from probe.sdk.run.closing.status import status_for_system_exit
 
-        return _status_for_system_exit(in_flight.code, in_flight.__context__)[0]
+        return status_for_system_exit(in_flight.code, in_flight.__context__)[0]
     return "failed" if isinstance(in_flight, Exception) else None

@@ -43,6 +43,44 @@ STORED_RECORD_ID_FIELD = "storedId"
 TENANT_INDEX_REDIRECTS = {"itemBySlug": "itemByTenantSlug"}
 #: Indexes whose partition key is stored tenant-prefixed (a field in TENANT_SCOPED_INDEX_FIELDS): a query names the tenant's own partition.
 TENANT_PREFIXED_INDEXES = frozenset({"itemsByHeadStage", "itemsByLanguageGroup"})
+#: The index of each model whose partition is ``tenantId``: the query field that lists every row of one tenant (PPY-1ce06f). Declared in
+#: amplify/data/schema.ts and the plugin and function schemas; test_tenancy.py checks that this map and those declarations agree. A model whose
+#: rows can be listed by tenant through another index (Reference through its corpora, docs/tenant-key-inventory.md) is not here.
+TENANT_FIELD = "tenantId"
+TENANT_LISTING_QUERIES = {
+    "Automation": "listAutomationsByTenant",
+    "CategoryKeyword": "listCategoryKeywordsByTenant",
+    "CurationDelegationRecord": "listCurationDelegationRecordsByTenant",
+    "EditionItem": "listEditionItemsByTenant",
+    "EditorialCheckRun": "listEditorialCheckRunsByTenant",
+    "EditorialCheckSettings": "listEditorialCheckSettingsByTenant",
+    "EditorialFeedback": "listEditorialFeedbackByTenant",
+    "EditorialPolicy": "listEditorialPoliciesByTenant",
+    "ItemTag": "listItemTagsByTenant",
+    "KnowledgeRawPayload": "listKnowledgeRawPayloadsByTenant",
+    "ModerationAction": "listModerationActionsByTenant",
+    "NewsroomSection": "listNewsroomSectionsByTenantAndSortOrder",
+    "PublishedCategory": "listPublishedCategoriesByTenant",
+    "PublishedEditionItem": "listPublishedEditionItemsByTenant",
+    "PublishedItem": "listPublishedItemsByTenant",
+    "ReaderFlag": "listReaderFlagsByTenant",
+    "ReaderHandle": "listReaderHandlesByTenant",
+    "ReaderProfile": "listReaderProfilesByTenant",
+    "ReaderReport": "listReaderReportsByTenant",
+    "ReaderVote": "listReaderVotesByTenant",
+    "ReferenceAttachment": "listReferenceAttachmentsByTenant",
+    "ReviewReadMark": "listReviewReadMarksByTenant",
+    "ReviewRecipientRule": "listReviewRecipientRulesByTenant",
+    "ReviewRequest": "listReviewRequestsByTenant",
+    "SemanticNode": "listSemanticNodesByTenant",
+    "SemanticRelation": "listSemanticRelationsByTenant",
+    "SignupEntry": "listSignupEntriesByTenant",
+    "SteeringDecision": "listSteeringDecisionsByTenant",
+    "StoryVariation": "listStoryVariationsByTenant",
+    "Tag": "listTagsByTenant",
+    "TenantDomain": "listTenantDomainsByTenant",
+    "TenantMembership": "listTenantMembershipsByTenant",
+}
 
 
 def is_shared_stack() -> bool:
@@ -152,9 +190,13 @@ def tenant_field_stamped_payload(model_name: str, tenant_id: str | None, payload
 
 
 def row_belongs_to_tenant(model_name: str, tenant_id: str | None, row: dict[str, Any] | None) -> bool:
-    if not tenant_id or model_name not in TENANT_MODELS or row is None:
+    """A tenant client sees a row of a TENANT_MODELS model only when it carries the client's tenant. On a SHARED stack the same holds for the
+    models in TENANT_FIELD_MODELS (a row with no ``tenantId`` is nobody's); a dedicated stack keeps reading them whole, as it always has."""
+    if not tenant_id or row is None:
         return True
-    return row.get("tenantId") == tenant_id
+    if model_name in TENANT_MODELS or (model_name in TENANT_FIELD_MODELS and is_shared_stack()):
+        return row.get("tenantId") == tenant_id
+    return True
 
 
 def rows_for_tenant(model_name: str, tenant_id: str | None, rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

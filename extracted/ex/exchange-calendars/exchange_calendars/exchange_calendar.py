@@ -13,13 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from calendar import day_name
 import collections
 import functools
 import operator
-from typing import TYPE_CHECKING, Literal, Any
 import warnings
+from abc import ABC, abstractmethod
+from calendar import day_name
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -28,10 +28,11 @@ from pandas.tseries.holiday import AbstractHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 
 from exchange_calendars import errors
+
 from .calendar_helpers import (
-    UTC,
     NANOSECONDS_PER_MINUTE,
     NP_NAT,
+    UTC,
     Date,
     Minute,
     Session,
@@ -50,9 +51,10 @@ from .calendar_helpers import (
 from .utils.pandas_utils import days_at_time
 
 if TYPE_CHECKING:
-    from zoneinfo import ZoneInfo
     import datetime
-    from collections.abc import Sequence, Callable
+    from collections.abc import Callable, Sequence
+    from zoneinfo import ZoneInfo
+
     from pandas._libs.tslibs.nattype import NaTType
 
 
@@ -86,7 +88,7 @@ def selection(
 
 def _group_times(
     sessions: pd.DatetimeIndex,
-    times: None | Sequence[tuple[pd.Timestamp | None, datetime.time]],
+    times: Sequence[tuple[pd.Timestamp | None, datetime.time]] | None,
     tz: ZoneInfo,
     offset: int = 0,
 ) -> pd.DatetimeIndex | None:
@@ -494,7 +496,7 @@ class ExchangeCalendar(ABC):
     @property
     def break_start_times(
         self,
-    ) -> None | Sequence[tuple[pd.Timestamp | None, datetime.time]]:
+    ) -> Sequence[tuple[pd.Timestamp | None, datetime.time]] | None:
         """Local break start time(s).
 
         As `close_times` although times represent the close of the morning
@@ -505,7 +507,7 @@ class ExchangeCalendar(ABC):
     @property
     def break_end_times(
         self,
-    ) -> None | Sequence[tuple[pd.Timestamp | None, datetime.time]]:
+    ) -> Sequence[tuple[pd.Timestamp | None, datetime.time]] | None:
         """Local break end time(s).
 
         As `open_times` although times represent the open of the afternoon
@@ -604,7 +606,7 @@ class ExchangeCalendar(ABC):
         return []
 
     @property
-    def special_opens(self) -> list[tuple[datetime.time, HolidayCalendar] | int]:
+    def special_opens(self) -> list[tuple[datetime.time, HolidayCalendar | int]]:
         """Regular non-standard open times.
 
         Example of what would be defined as a special open:

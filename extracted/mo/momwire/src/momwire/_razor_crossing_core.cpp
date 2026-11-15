@@ -99,6 +99,19 @@ Ctx make_ctx(const Front &f) {
 // ---------------------------------------------------------------------------
 // Axes
 
+// An end's nonzero basis values (what `End::fv` holds densely), ascending
+// row order: razor's axes keep them here and leave `fv` empty (momwire#1541:
+// a path-tested axis carries two ends per basis, and two dense n_basis rows
+// per basis were 16 n_basis^2 bytes, a whole Z, on the below axis).
+struct EndNz {
+    std::vector<int64_t> idx;
+    std::vector<double> val;
+};
+// An axis with its ends' values sparse, `nz[e]` for `ends[e]`.
+struct RAxis : Axis {
+    std::vector<EndNz> nz;
+};
+
 // `_path_test_rows` + `path_test_axis`: one record per row -- its path's
 // points (the two wing centroids, or one half with the knot), tangents,
 // weights, and the T2 endpoints.
@@ -109,8 +122,8 @@ struct Rec {
     double before[3], after[3];
 };
 
-Axis path_test_axis(int64_t n_basis, const std::vector<Rec> &recs) {
-    Axis ax;
+RAxis path_test_axis(int64_t n_basis, const std::vector<Rec> &recs) {
+    RAxis ax;
     ax.n_basis = n_basis;
     ax.path_tested = true;
     std::vector<std::tuple<int64_t, int64_t, double>> trip;
@@ -123,16 +136,20 @@ Axis path_test_axis(int64_t n_basis, const std::vector<Rec> &recs) {
         for (size_t k = 0; k < q; k++) trip.emplace_back(r.m, off + static_cast<int64_t>(k), 1.0);
         off += static_cast<int64_t>(q);
         ax.segof.insert(ax.segof.end(), r.seg.begin(), r.seg.end());
+        // Each end's fv is one 1.0 at the record's own row: kept sparse
+        // (`EndNz`), not as two dense n_basis rows per record (momwire#1541).
         End b, a;
         std::copy(r.before, r.before + 3, b.pt);
         b.sign = -1.0;
-        b.fv.assign(static_cast<size_t>(n_basis), 0.0);
-        b.fv[static_cast<size_t>(r.m)] = 1.0;
         std::copy(r.after, r.after + 3, a.pt);
         a.sign = +1.0;
-        a.fv = b.fv;
         ax.ends.push_back(b);
         ax.ends.push_back(a);
+        EndNz nz;
+        nz.idx.push_back(r.m);
+        nz.val.push_back(1.0);
+        ax.nz.push_back(nz);
+        ax.nz.push_back(nz);
     }
     ax.F = to_csr(n_basis, off, trip);
     ax.Fd = to_csr(n_basis, off, {});
@@ -141,7 +158,7 @@ Axis path_test_axis(int64_t n_basis, const std::vector<Rec> &recs) {
 
 // `_crossing_path_axis(geom, tents, side)`: the medium's own tents whole,
 // each crossing tent's live half (the knot its shared endpoint).
-Axis crossing_path_axis(const Front &f, const std::vector<std::pair<int64_t, int>> &tents, bool below) {
+RAxis crossing_path_axis(const Front &f, const std::vector<std::pair<int64_t, int>> &tents, bool below) {
     std::vector<char> mine(static_cast<size_t>(f.n_seg), 0);
     for (int64_t w = 0; w < f.n_wires; w++)
         if ((f.media_below[static_cast<size_t>(w)] != 0) == below)
@@ -200,9 +217,9 @@ Axis crossing_path_axis(const Front &f, const std::vector<std::pair<int64_t, int
 
 // `axis_data(ctx, seg_idx, grade_near_plane=True, growth=2.0, panel_order=8,
 // q=12)` with razor's tent polynomials.
-Axis axis_data(const Ctx &c, const std::vector<int64_t> &seg_idx, double a_wire) {
+RAxis axis_data(const Ctx &c, const std::vector<int64_t> &seg_idx, double a_wire) {
     const Front &f = *c.f;
-    Axis ax;
+    RAxis ax;
     ax.n_basis = f.n_basis;
     std::vector<double> xg, wg, gx, gw;
     leggauss(12, xg, wg);
@@ -300,16 +317,234 @@ Axis axis_data(const Ctx &c, const std::vector<int64_t> &seg_idx, double a_wire)
                     e.fv[static_cast<size_t>(m)] += acc;
                 }
             for (double v : e.fv) any |= v != 0.0;
-            if (any) ax.ends.push_back(std::move(e));
+            if (any) {
+                // Kept sparse (`EndNz`): the entries the folds read, in
+                // ascending row order, each `fv != 0.0`.
+                EndNz nz;
+                for (size_t m = 0; m < e.fv.size(); m++)
+                    if (e.fv[m] != 0.0) {
+                        nz.idx.push_back(static_cast<int64_t>(m));
+                        nz.val.push_back(e.fv[m]);
+                    }
+                std::vector<double>().swap(e.fv);
+                ax.ends.push_back(std::move(e));
+                ax.nz.push_back(std::move(nz));
+            }
         }
     }
     return ax;
 }
 
+// One cross block, compact (momwire#1541): only the entries the fold
+// `Z[rows, cols] -= t` reads, row-major (|rows| x |cols|). `rpos` / `cpos`
+// map a basis to its local row / column (-1: not folded). Every kept entry
+// sees the operations the whole (n x n) block gave it, in the same order;
+// the rest were computed and dropped, so leaving them out moves no bit.
+struct Block {
+    std::vector<int64_t> rpos, cpos;
+    std::vector<int64_t> rows, cols;  // local index -> basis
+    std::vector<cd> v;
+    void shape(int64_t n_basis, const std::vector<int64_t> &r, const std::vector<int64_t> &cc) {
+        rows = r;
+        cols = cc;
+        rpos.assign(static_cast<size_t>(n_basis), -1);
+        cpos.assign(static_cast<size_t>(n_basis), -1);
+        for (size_t i = 0; i < rows.size(); i++) rpos[static_cast<size_t>(rows[i])] = static_cast<int64_t>(i);
+        for (size_t j = 0; j < cols.size(); j++) cpos[static_cast<size_t>(cols[j])] = static_cast<int64_t>(j);
+        v.assign(rows.size() * cols.size(), cd(0.0, 0.0));
+    }
+    cd *at(int64_t r_basis, int64_t c_basis) {
+        const int64_t r = rpos[static_cast<size_t>(r_basis)], q = cpos[static_cast<size_t>(c_basis)];
+        if (r < 0 || q < 0) return nullptr;
+        return &v[static_cast<size_t>(r) * cols.size() + static_cast<size_t>(q)];
+    }
+};
+
+// The main sandwich's node pairs per window (momwire#1541): the grid tables
+// are formed a window of A's nodes at a time, never over the whole grid.
+constexpr size_t SANDWICH_WINDOW_PAIRS = size_t(1) << 21;
+
+// One (A node, B node) pair's table row, as the whole-grid fill formed it.
+inline void pair_row(const Ctx &c, double a_wire, const Axis &A, const Axis &B, size_t a, size_t b,
+                     double *row) {
+    const double rho = std::hypot(A.nodes[3 * a] - B.nodes[3 * b], A.nodes[3 * a + 1] - B.nodes[3 * b + 1]);
+    row[0] = std::hypot(rho, a_wire);
+    row[1] = A.nodes[3 * a + 2] - c.gz;
+    row[2] = B.nodes[3 * b + 2] - c.gz;
+}
+
+// `designed_index`'s claim over one window of the grid's rows (labels off),
+// continued across windows: `rows` gathers the fresh distinct triples in
+// first-appearance order over every window so far (the order one call over
+// the whole grid claims them), each at index `base` + its place there, and
+// `nan_rows` is the call's NaN dedup. Nothing is evaluated here:
+// `claim_finish` evaluates the whole list as the one call would, because a
+// triple's value can depend on which others share its exact-rho column
+// (`_chunked_tables`' argument), so the evaluation must see the same set.
+void claim_window(BlockEval &be, uint32_t base, const double *re, const double *z, const double *zp,
+                  size_t n, ni_eval::TripleIndex &nan_rows, std::vector<double> &rows) {
+    using ni_eval::TripleIndex;
+    TripleIndex &keys = be.memo.keys();
+    auto claim = [&](size_t i) {
+        const double row[3] = {re[i], z[i], zp[i]};
+        const uint32_t next = base + static_cast<uint32_t>(rows.size() / 3);
+        bool ins = false;
+        const bool nan = std::isnan(row[0]) || std::isnan(row[1]) || std::isnan(row[2]);
+        if (nan)
+            nan_rows.find_or_insert(row, next, ins);
+        else
+            keys.find_or_insert(row, next, ins);
+        if (ins) rows.insert(rows.end(), row, row + 3);
+    };
+    int nt = 1;
+#if defined(_OPENMP)
+    nt = team(be, n);
+    nt = std::min(nt, omp_get_max_threads());
+    if (n < 16384) nt = 1;
+    if (nt > 1) {
+        // As `designed_index`: each chunk's points deduplicated on their own,
+        // then claimed in chunk order at their first appearance, which is the
+        // serial walk's order. No memo lookup first (momwire#1541): a triple
+        // an earlier window claimed is found by the claim itself, once per
+        // chunk-distinct triple rather than once per point.
+        std::vector<std::vector<size_t>> first(static_cast<size_t>(nt));
+        #pragma omp parallel for schedule(static, 1) num_threads(nt)
+        for (int ch = 0; ch < nt; ch++) {
+            const size_t i0 = n * static_cast<size_t>(ch) / static_cast<size_t>(nt);
+            const size_t i1 = n * static_cast<size_t>(ch + 1) / static_cast<size_t>(nt);
+            TripleIndex li;
+            li.reserve((i1 - i0) / 8);
+            std::vector<size_t> &fc = first[static_cast<size_t>(ch)];
+            for (size_t i = i0; i < i1; i++) {
+                const double row[3] = {re[i], z[i], zp[i]};
+                bool ins = false;
+                li.find_or_insert(row, static_cast<uint32_t>(fc.size()), ins);
+                if (ins) fc.push_back(i);
+            }
+        }
+        for (int ch = 0; ch < nt; ch++)
+            for (size_t i : first[static_cast<size_t>(ch)]) claim(i);
+        return;
+    }
+#else
+    (void)nt;
+#endif
+    for (size_t i = 0; i < n; i++) claim(i);
+}
+
+// The rows one evaluation batch takes (whole exact-rho columns, so a batch
+// can run over by its last column).
+constexpr size_t EVAL_BATCH_ROWS = size_t(1) << 18;
+
+// The claimed rows evaluated and appended to the memo, as `designed_index`
+// ends: their values written straight into the memo's own storage, and
+// evaluated a batch of whole exact-rho COLUMNS at a time (momwire#1541), not
+// in one call over every row, whose internals held several copies of the
+// values beside the memo's.
+//
+// Why a batch of whole columns is the one call's bits: every row is either
+// served from a sheet or by the column twin. A sheet row is interpolated at
+// its own point from a sheet grown by whole strips, each new cell evaluated
+// as its own columns, so how far a call grows it moves no cell. A twin row
+// is its exact-rho column's: the column's rule (its cache key, from the
+// column's own members' smallest z - z') and its members' own sums, so the
+// column moves no bit wherever its members sit, as long as they arrive
+// together and in their order. Batches take the columns in the one call's
+// first-seen order, each column's members in claim order. With
+// momwire#1860 L5 (`crossing_table`) on, a call decides from its own row
+// count whether it takes the table, so the rows stay ONE call.
+void claim_finish(BlockEval &be, std::vector<double> &rows, size_t room) {
+    const size_t m = rows.size() / 3;
+    if (m == 0) return;
+    Six *vals = be.memo.grow_values(m, room);
+    const ni_eval::SheetPlan *plan = be.memo.have_plan ? &be.memo.plan : nullptr;
+    if (m <= EVAL_BATCH_ROWS || ni_eval::active_features().crossing_table) {
+        ni_eval::evaluate_fresh(be.ev, rows.data(), m, nullptr, plan, be.memo.cache.get(), vals);
+        std::vector<double>().swap(rows);
+        return;
+    }
+    // The columns (exact rho, -0.0 == 0.0) in first-seen order, and each
+    // row's: members chained in claim order.
+    std::vector<uint32_t> head, tail, next(m, ni_eval::TripleIndex::NONE);
+    {
+        ni_eval::TripleIndex col_of;  // keyed (rho, 0, 0): `x + 0.0` bits
+        for (size_t i = 0; i < m; i++) {
+            const double key[3] = {rows[3 * i], 0.0, 0.0};
+            bool ins = false;
+            const uint32_t c = col_of.find_or_insert(key, static_cast<uint32_t>(head.size()), ins);
+            if (ins) {
+                head.push_back(static_cast<uint32_t>(i));
+                tail.push_back(static_cast<uint32_t>(i));
+            } else {
+                next[tail[c]] = static_cast<uint32_t>(i);
+                tail[c] = static_cast<uint32_t>(i);
+            }
+        }
+    }
+    std::vector<uint32_t>().swap(tail);
+    std::vector<double> sub;
+    std::vector<uint32_t> at;
+    std::vector<Six> got;
+    size_t c = 0;
+    while (c < head.size()) {
+        sub.clear();
+        at.clear();
+        for (; c < head.size() && at.size() < EVAL_BATCH_ROWS; c++)
+            for (uint32_t i = head[c]; i != ni_eval::TripleIndex::NONE; i = next[i]) {
+                sub.insert(sub.end(), &rows[3 * static_cast<size_t>(i)], &rows[3 * static_cast<size_t>(i)] + 3);
+                at.push_back(i);
+            }
+        got.resize(at.size());
+        ni_eval::evaluate_fresh(be.ev, sub.data(), at.size(), nullptr, plan, be.memo.cache.get(), got.data());
+        for (size_t k = 0; k < at.size(); k++) vals[at[k]] = got[k];
+    }
+    std::vector<double>().swap(rows);
+}
+
+// y[c] += a * key(tab[ix[c]]): `axpy_gather` over one key of the memo's
+// values read in place (momwire#1541: no plane copies of them), the same
+// product and sum per part.
+void axpy_gather_key(cd *__restrict y, const Six *__restrict tab, int key, const uint32_t *__restrict ix,
+                     double a, size_t n) {
+    double *__restrict yd = reinterpret_cast<double *>(y);
+    const double *__restrict td = reinterpret_cast<const double *>(tab) + 2 * key;
+    for (size_t cc = 0; cc < n; cc++) {
+        const size_t k = 2 * static_cast<size_t>(ni_eval::N_KEYS) * static_cast<size_t>(ix[cc]);
+        yd[2 * cc] = yd[2 * cc] + a * td[k];
+        yd[2 * cc + 1] = yd[2 * cc + 1] + a * td[k + 1];
+    }
+}
+
+// The same over `k2 V + dzpW`, each part formed as the plane held it.
+void axpy_gather_x(cd *__restrict y, const Six *__restrict tab, double k2sq, const uint32_t *__restrict ix,
+                   double a, size_t n) {
+    double *__restrict yd = reinterpret_cast<double *>(y);
+    const double *__restrict tv = reinterpret_cast<const double *>(tab) + 2 * K_V;
+    const double *__restrict tx = reinterpret_cast<const double *>(tab) + 2 * K_DZPW;
+    for (size_t cc = 0; cc < n; cc++) {
+        const size_t k = 2 * static_cast<size_t>(ni_eval::N_KEYS) * static_cast<size_t>(ix[cc]);
+        const double xr = k2sq * tv[k] + tx[k], xi = k2sq * tv[k + 1] + tx[k + 1];
+        yd[2 * cc] = yd[2 * cc] + a * xr;
+        yd[2 * cc + 1] = yd[2 * cc + 1] + a * xi;
+    }
+}
+
 // `_main_sandwich(ctx, A, B, ...)` with the plan: the (nA basis x nB basis)
 // block of the five-term contraction, times c1 (zero outside rA x rB, then
-// times c1 as numpy multiplies the whole block).
-std::vector<cd> main_sandwich(const Ctx &c, BlockEval &be, double a_wire, const Axis &A, const Axis &B) {
+// times c1 as numpy multiplies the whole block), written into `T`: entry
+// (A row, B row) at T(A row, B row), or at T(B row, A row) when `transposed`
+// (the reversed block, `_main_sandwich(ctx, Q, P).T`).
+//
+// momwire#1541: the grid tables are never held whole. Pass 1 forms them a
+// window of A's nodes at a time and only CLAIMS each window's fresh triples
+// (`claim_window`), so the memo ends holding the triples, in the order, the
+// whole-grid `designed_index` gave it, and their values from the same one
+// evaluation. Pass 2 forms, a window of rA's rows at a time, only the table
+// rows (A nodes) those rows read, each pair's index found in the memo, and
+// contracts each row as before. The memo, its key planes and every
+// contracted entry are therefore the whole-grid route's bits.
+void main_sandwich(const Ctx &c, BlockEval &be, double a_wire, const Axis &A, const Axis &B, Block &T,
+                   bool transposed, size_t room) {
     const size_t nA = A.n_nodes(), nB = B.n_nodes();
     // The sheet plan, once per fill, from the node pairs.
     {
@@ -319,111 +554,182 @@ std::vector<cd> main_sandwich(const Ctx &c, BlockEval &be, double a_wire, const 
         be.memo.plan = ni_eval::sheet_plan(c.k_p, c.k_m, {ni_eval::NodePair{pa.data(), nA, pb.data(), nB}}, a_wire);
         be.memo.have_plan = true;
     }
-    // The tables over the whole grid, row a * nB + b.
-    std::vector<uint32_t> K;
+    const size_t per = std::max<size_t>(1, SANDWICH_WINDOW_PAIRS / std::max<size_t>(1, nB));
+    ni_eval::TripleIndex nan_rows;
+    // Pass 1: every pair's triple claimed, window by window, in row-major
+    // grid order (a * nB + b), then the one evaluation.
     {
-        std::vector<double> re(nA * nB), z(nA * nB), zp(nA * nB);
-        const std::ptrdiff_t nAp = static_cast<std::ptrdiff_t>(nA);
-        const int nt = team(be, nA * nB);
+        const uint32_t base = static_cast<uint32_t>(be.memo.size());
+        std::vector<double> fresh, re, z, zp;
+        for (size_t a0 = 0; a0 < nA; a0 += per) {
+            const size_t a1 = std::min(nA, a0 + per), m = (a1 - a0) * nB;
+            re.resize(m);
+            z.resize(m);
+            zp.resize(m);
+            const std::ptrdiff_t na = static_cast<std::ptrdiff_t>(a1 - a0);
+            const int nt = team(be, m);
 #if defined(_OPENMP)
-        #pragma omp parallel for schedule(static) num_threads(nt) if (nt > 1)
+            #pragma omp parallel for schedule(static) num_threads(nt) if (nt > 1)
 #else
-        (void)nt;
+            (void)nt;
 #endif
-        for (std::ptrdiff_t ap = 0; ap < nAp; ap++) {
-            const size_t a = static_cast<size_t>(ap);
-            for (size_t b = 0; b < nB; b++) {
-                const size_t q = a * nB + b;
-                const double rho = std::hypot(A.nodes[3 * a] - B.nodes[3 * b], A.nodes[3 * a + 1] - B.nodes[3 * b + 1]);
-                re[q] = std::hypot(rho, a_wire);
-                z[q] = A.nodes[3 * a + 2] - c.gz;
-                zp[q] = B.nodes[3 * b + 2] - c.gz;
+            for (std::ptrdiff_t ap = 0; ap < na; ap++) {
+                const size_t a = a0 + static_cast<size_t>(ap);
+                for (size_t b = 0; b < nB; b++) {
+                    const size_t q = static_cast<size_t>(ap) * nB + b;
+                    double row[3];
+                    pair_row(c, a_wire, A, B, a, b, row);
+                    re[q] = row[0];
+                    z[q] = row[1];
+                    zp[q] = row[2];
+                }
             }
+            claim_window(be, base, re.data(), z.data(), zp.data(), m, nan_rows, fresh);
         }
-        table_index(be, re, z, zp, nullptr, K);
+        std::vector<double>().swap(re);
+        std::vector<double>().swap(z);
+        std::vector<double>().swap(zp);
+        // The end terms append their own fresh values after these: room for
+        // as many as they have pairs, at most this evaluation's count again
+        // (the capacity a doubling would have taken, without its copy).
+        claim_finish(be, fresh, std::min(room, fresh.size() / 3));
     }
     const double k2sq = c.k_p * c.k_p;
     const std::vector<int64_t> rA = support_rows(A), rB = support_rows(B);
     const std::array<CSR, 4> P = row_weights(A, rA), Q = row_weights(B, rB);
-    // The four keys the contraction reads, one plane each over the memo's
-    // values; `k2 V + dzpW` is a function of the value alone.
-    const std::vector<cd> KU = key_plane(be.memo, K_U), KV = key_plane(be.memo, K_V),
-                          KW = key_plane(be.memo, K_W);
-    std::vector<cd> KX(KV.size());
-    {
-        const std::vector<cd> KD = key_plane(be.memo, K_DZPW);
-        for (size_t j = 0; j < KX.size(); j++)
-            KX[j] = cd(k2sq * KV[j].real() + KD[j].real(), k2sq * KV[j].imag() + KD[j].imag());
-    }
-    // Per row of rA (rows apart, any thread): its left products
-    // (`left_products_gathered`'s sums, six (nB) rows) into the thread's own
-    // buffer, then `combine_rows` against Q's rows: ((((T0 + T1) + T2) + T3)
-    // + T4) - T5. Only the row's own products feed its combine, so nothing
-    // (nr x nB) is ever held.
+    // The four keys the contraction reads, gathered from the memo's values
+    // in place (they were copied into one plane each); `k2 V + dzpW` is a
+    // function of the value alone, formed as its plane was.
+    const Six *MV = be.memo.size() ? &be.memo.at(0) : nullptr;
+    // Pass 2, a window of rA's rows at a time: the A nodes those rows read
+    // (their four weight rows' columns), each one's table row of memo
+    // indices, then each row's left products (`left_products_gathered`'s
+    // sums, six (nB) rows) into the thread's own buffer and `combine_rows`
+    // against Q's rows: ((((T0 + T1) + T2) + T3) + T4) - T5.
     static const int qsel[6] = {0, 1, 2, 3, 2, 3};
-    std::vector<cd> t(static_cast<size_t>(A.n_basis * B.n_basis), cd(0.0, 0.0));
     const size_t nr = rA.size();
-    const std::ptrdiff_t nrp = static_cast<std::ptrdiff_t>(nr);
-    const int nt = team(be, nr * nB);
+    std::vector<int64_t> slot(nA, -1);
+    std::vector<size_t> need;
+    std::vector<uint32_t> K;
+    size_t i0 = 0;
+    while (i0 < nr) {
+        // The window: rows while their nodes fit (at least one row).
+        need.clear();
+        size_t i1 = i0;
+        while (i1 < nr) {
+            size_t added = 0;
+            for (int pm = 0; pm < 4; pm++) {
+                const CSR &M = P[static_cast<size_t>(pm)];
+                for (int64_t jj = M.indptr[i1]; jj < M.indptr[i1 + 1]; jj++) {
+                    const size_t node = static_cast<size_t>(M.indices[static_cast<size_t>(jj)]);
+                    if (slot[node] < 0) {
+                        slot[node] = static_cast<int64_t>(need.size());
+                        need.push_back(node);
+                        added++;
+                    }
+                }
+            }
+            i1++;
+            if (i1 > i0 + 1 && need.size() > per) {
+                // This row overflowed the window: hand it to the next one.
+                for (size_t k = need.size() - added; k < need.size(); k++) slot[need[k]] = -1;
+                need.resize(need.size() - added);
+                i1--;
+                break;
+            }
+            if (need.size() >= per) break;
+        }
+        // The window's table rows: each pair's memo index (a NaN row's from
+        // the claim's own NaN dedup, as `designed_index` answered it).
+        K.resize(need.size() * nB);
+        {
+            const std::ptrdiff_t nnp = static_cast<std::ptrdiff_t>(need.size());
+            const int nt = team(be, need.size() * nB);
 #if defined(_OPENMP)
-    #pragma omp parallel num_threads(nt) if (nt > 1)
+            #pragma omp parallel for schedule(static) num_threads(nt) if (nt > 1)
 #else
-    (void)nt;
+            (void)nt;
 #endif
-    {
-    std::vector<cd> Lrow(6 * nB);
-#if defined(_OPENMP)
-    #pragma omp for schedule(dynamic)
-#endif
-    for (std::ptrdiff_t ip = 0; ip < nrp; ip++) {
-        const size_t i = static_cast<size_t>(ip);
-        std::fill(Lrow.begin(), Lrow.end(), cd(0.0, 0.0));
-        cd *L[6];
-        for (int m = 0; m < 6; m++) L[m] = &Lrow[static_cast<size_t>(m) * nB];
-        for (int pm = 0; pm < 3; pm++) {
-            const CSR &M = P[static_cast<size_t>(pm)];
-            for (int64_t jj = M.indptr[i]; jj < M.indptr[i + 1]; jj++) {
-                const double a = M.data[static_cast<size_t>(jj)];
-                const uint32_t *kx = &K[static_cast<size_t>(M.indices[static_cast<size_t>(jj)]) * nB];
-                if (pm < 2) {
-                    axpy_gather(L[pm], KU.data(), kx, a, nB);
-                } else {
-                    axpy_gather(L[2], KX.data(), kx, a, nB);
-                    axpy_gather(L[3], KW.data(), kx, a, nB);
+            for (std::ptrdiff_t u = 0; u < nnp; u++) {
+                const size_t a = need[static_cast<size_t>(u)];
+                uint32_t *kr = &K[static_cast<size_t>(u) * nB];
+                for (size_t b = 0; b < nB; b++) {
+                    double row[3];
+                    pair_row(c, a_wire, A, B, a, b, row);
+                    uint32_t ix = be.memo.find(row);
+                    if (ix == ni_eval::TripleIndex::NONE) ix = nan_rows.find(row);
+                    kr[b] = ix;
                 }
             }
         }
-        const CSR &M = P[3];
-        for (int64_t jj = M.indptr[i]; jj < M.indptr[i + 1]; jj++) {
-            const double a = M.data[static_cast<size_t>(jj)];
-            const uint32_t *kx = &K[static_cast<size_t>(M.indices[static_cast<size_t>(jj)]) * nB];
-            axpy_gather(L[4], KW.data(), kx, a, nB);
-            axpy_gather(L[5], KV.data(), kx, a, nB);
-        }
-        for (size_t j = 0; j < rB.size(); j++) {
-            double tr[6], ti[6];
-            for (int m = 0; m < 6; m++) {
-                const CSR &Mq = Q[static_cast<size_t>(qsel[m])];
-                csr_row_dot(Mq.indices.data(), Mq.data.data(), Mq.indptr[j], Mq.indptr[j + 1],
-                            reinterpret_cast<const double *>(L[m]), tr[m], ti[m]);
+        if (std::find(K.begin(), K.end(), ni_eval::TripleIndex::NONE) != K.end())
+            throw std::runtime_error("razor crossing: a table pair missing from the memo (momwire#1541)");
+        const std::ptrdiff_t w0 = static_cast<std::ptrdiff_t>(i0), w1 = static_cast<std::ptrdiff_t>(i1);
+        const int nt = team(be, (i1 - i0) * nB);
+#if defined(_OPENMP)
+        #pragma omp parallel num_threads(nt) if (nt > 1)
+#else
+        (void)nt;
+#endif
+        {
+        std::vector<cd> Lrow(6 * nB);
+#if defined(_OPENMP)
+        #pragma omp for schedule(dynamic)
+#endif
+        for (std::ptrdiff_t ip = w0; ip < w1; ip++) {
+            const size_t i = static_cast<size_t>(ip);
+            std::fill(Lrow.begin(), Lrow.end(), cd(0.0, 0.0));
+            cd *L[6];
+            for (int m = 0; m < 6; m++) L[m] = &Lrow[static_cast<size_t>(m) * nB];
+            for (int pm = 0; pm < 3; pm++) {
+                const CSR &M = P[static_cast<size_t>(pm)];
+                for (int64_t jj = M.indptr[i]; jj < M.indptr[i + 1]; jj++) {
+                    const double a = M.data[static_cast<size_t>(jj)];
+                    const uint32_t *kx =
+                        &K[static_cast<size_t>(slot[static_cast<size_t>(M.indices[static_cast<size_t>(jj)])]) * nB];
+                    if (pm < 2) {
+                        axpy_gather_key(L[pm], MV, K_U, kx, a, nB);
+                    } else {
+                        axpy_gather_x(L[2], MV, k2sq, kx, a, nB);
+                        axpy_gather_key(L[3], MV, K_W, kx, a, nB);
+                    }
+                }
             }
-            t[static_cast<size_t>(rA[i] * B.n_basis + rB[j])] =
-                cd(((((tr[0] + tr[1]) + tr[2]) + tr[3]) + tr[4]) - tr[5],
-                   ((((ti[0] + ti[1]) + ti[2]) + ti[3]) + ti[4]) - ti[5]);
+            const CSR &M = P[3];
+            for (int64_t jj = M.indptr[i]; jj < M.indptr[i + 1]; jj++) {
+                const double a = M.data[static_cast<size_t>(jj)];
+                const uint32_t *kx =
+                    &K[static_cast<size_t>(slot[static_cast<size_t>(M.indices[static_cast<size_t>(jj)])]) * nB];
+                axpy_gather_key(L[4], MV, K_W, kx, a, nB);
+                axpy_gather_key(L[5], MV, K_V, kx, a, nB);
+            }
+            for (size_t j = 0; j < rB.size(); j++) {
+                cd *dst = transposed ? T.at(rB[j], rA[i]) : T.at(rA[i], rB[j]);
+                if (dst == nullptr) continue;
+                double tr[6], ti[6];
+                for (int m = 0; m < 6; m++) {
+                    const CSR &Mq = Q[static_cast<size_t>(qsel[m])];
+                    csr_row_dot(Mq.indices.data(), Mq.data.data(), Mq.indptr[j], Mq.indptr[j + 1],
+                                reinterpret_cast<const double *>(L[m]), tr[m], ti[m]);
+                }
+                *dst = cd(((((tr[0] + tr[1]) + tr[2]) + tr[3]) + tr[4]) - tr[5],
+                          ((((ti[0] + ti[1]) + ti[2]) + ti[3]) + ti[4]) - ti[5]);
+            }
         }
-    }
+        }
+        for (size_t node : need) slot[node] = -1;
+        i0 = i1;
     }
     {
-        const std::ptrdiff_t nt2 = static_cast<std::ptrdiff_t>(t.size());
-        const int ntc = team(be, t.size());
+        const std::ptrdiff_t nt2 = static_cast<std::ptrdiff_t>(T.v.size());
+        const int ntc = team(be, T.v.size());
 #if defined(_OPENMP)
         #pragma omp parallel for schedule(static) num_threads(ntc) if (ntc > 1)
 #else
         (void)ntc;
 #endif
-        for (std::ptrdiff_t q = 0; q < nt2; q++) t[static_cast<size_t>(q)] = np_cmul(t[static_cast<size_t>(q)], c.c1);
+        for (std::ptrdiff_t q = 0; q < nt2; q++) T.v[static_cast<size_t>(q)] = np_cmul(T.v[static_cast<size_t>(q)], c.c1);
     }
-    return t;
 }
 
 int n_physical_threads() {
@@ -431,10 +737,148 @@ int n_physical_threads() {
     return n > 1 ? static_cast<int>(n / 2) : 1;
 }
 
+// The (end, line node) pairs `add_end_terms_kept(R, C)` asks tables of: a
+// bound on the fresh values it adds to the block's memo.
+size_t end_pairs(const RAxis &R, const RAxis &C) {
+    return R.ends.size() * C.n_nodes() + C.ends.size() * R.n_nodes();
+}
+
+// `add_end_terms<RazorPolicy>(c, be, a_wire, R, C, r_above, t)` (razor's: no
+// corner, both loops) into the compact block (momwire#1541): E_r and E_c are
+// formed only over the rows and columns `T` keeps, and the ends' fv read
+// sparse (`RAxis::nz`). Every kept entry of E_r, E_c and T takes the terms
+// the shared spelling gives it, in the same order (ends in end order, each
+// loop's two passes, then `answer`'s two adds), so the fold reads the same
+// bits; the dropped entries only fed entries the fold never reads.
+template <class P>
+void add_end_terms_kept(const Ctx &c, BlockEval &be, double a_wire, const RAxis &R, const RAxis &C,
+                        bool r_above, Block &T) {
+    const int64_t nR = R.n_basis, nC = C.n_basis;
+    auto live = [](const RAxis &ax) {
+        std::set<int64_t> s;
+        for (const EndNz &e : ax.nz) s.insert(e.idx.begin(), e.idx.end());
+        return std::vector<int64_t>(s.begin(), s.end());
+    };
+    const std::vector<int64_t> LA = live(R), LB = live(C);
+    // The kept live rows (LA in T's rows) and live columns (LB in T's cols).
+    std::vector<int64_t> la, lb;  // basis
+    for (int64_t a : LA)
+        if (T.rpos[static_cast<size_t>(a)] >= 0) la.push_back(a);
+    for (int64_t b : LB)
+        if (T.cpos[static_cast<size_t>(b)] >= 0) lb.push_back(b);
+    std::vector<int64_t> posLA(static_cast<size_t>(nR), -1), posLB(static_cast<size_t>(nC), -1);
+    for (size_t i = 0; i < la.size(); i++) posLA[static_cast<size_t>(la[i])] = static_cast<int64_t>(i);
+    for (size_t i = 0; i < lb.size(); i++) posLB[static_cast<size_t>(lb[i])] = static_cast<int64_t>(i);
+    const size_t nq = T.cols.size(), nr = T.rows.size();
+    std::vector<cd> E_r(la.size() * nq, cd(0.0, 0.0));  // (la, T.cols)
+    std::vector<cd> E_c(nr * lb.size(), cd(0.0, 0.0));  // (T.rows, lb)
+    const cd neg_c1(-c.c1.real(), -c.c1.imag());
+    // Row loop: R's ends against C's line, folded a batch of ends at a time.
+    size_t e_row = 0;
+    auto row_fold = [&](const std::vector<EndVec> &evs) {
+        const size_t g0 = e_row;
+        e_row += evs.size();
+        const int nt = team(be, evs.size() * static_cast<size_t>(nC));
+#if defined(_OPENMP)
+        #pragma omp parallel for schedule(static, 1) num_threads(nt) if (nt > 1)
+#endif
+        for (int ch = 0; ch < nt; ch++) {
+            const size_t q0 = nq * static_cast<size_t>(ch) / static_cast<size_t>(nt);
+            const size_t q1 = nq * static_cast<size_t>(ch + 1) / static_cast<size_t>(nt);
+            for (size_t e = 0; e < evs.size(); e++) {
+                const EndVec &ev = evs[e];
+                const EndNz &nz = R.nz[g0 + e];
+                const cd s_plus = py_prod(c.c1, cd(ev.sign, 0.0));
+                const cd s_minus = py_prod(neg_c1, cd(ev.sign, 0.0));
+                for (int pass = 0; pass < 2; pass++) {
+                    const std::vector<cd> &vec = pass == 0 ? ev.vV : ev.vW;
+                    const cd scale = pass == 0 ? s_plus : s_minus;
+                    for (size_t k = 0; k < nz.idx.size(); k++) {
+                        const int64_t a = posLA[static_cast<size_t>(nz.idx[k])];
+                        if (a < 0) continue;
+                        const double fvi = nz.val[k];
+                        cd *row = &E_r[static_cast<size_t>(a) * nq];
+                        for (size_t q = q0; q < q1; q++) {
+                            const int64_t j = T.cols[q];
+                            const cd o = np_cmul(np_cmul(cd(fvi, 0.0), vec[static_cast<size_t>(j)]), scale);
+                            row[q] = cd(row[q].real() + o.real(), row[q].imag() + o.imag());
+                        }
+                    }
+                }
+            }
+        }
+    };
+    end_vectors_each<P>(c, be, a_wire, R.ends, C, r_above, row_fold);
+    // Column loop: C's ends against R's line (W, then V), batched the same way.
+    size_t e_col = 0;
+    auto col_fold = [&](const std::vector<EndVec> &evs) {
+        const size_t g0 = e_col;
+        e_col += evs.size();
+        const size_t nla = la.size();
+        const int nt = team(be, evs.size() * static_cast<size_t>(nR));
+#if defined(_OPENMP)
+        #pragma omp parallel for schedule(static, 1) num_threads(nt) if (nt > 1)
+#endif
+        for (int ch = 0; ch < nt; ch++) {
+            const size_t a0 = nla * static_cast<size_t>(ch) / static_cast<size_t>(nt);
+            const size_t a1 = nla * static_cast<size_t>(ch + 1) / static_cast<size_t>(nt);
+            const size_t r0 = nr * static_cast<size_t>(ch) / static_cast<size_t>(nt);
+            const size_t r1 = nr * static_cast<size_t>(ch + 1) / static_cast<size_t>(nt);
+            for (size_t e = 0; e < evs.size(); e++) {
+                const EndVec &ev = evs[e];
+                const EndNz &nz = C.nz[g0 + e];
+                const cd s_plus = py_prod(c.c1, cd(ev.sign, 0.0));
+                const cd s_minus = py_prod(neg_c1, cd(ev.sign, 0.0));
+                for (int pass = 0; pass < 2; pass++) {
+                    const std::vector<cd> &vec = pass == 0 ? ev.vW : ev.vV;
+                    const cd scale = pass == 0 ? s_minus : s_plus;
+                    for (size_t k = 0; k < nz.idx.size(); k++) {
+                        const int64_t jn = nz.idx[k];
+                        const int64_t q = T.cpos[static_cast<size_t>(jn)];
+                        if (q < 0) continue;  // a column the fold never reads
+                        const double fvj = nz.val[k];
+                        // E_r's columns (rows la), then E_c's (every kept row).
+                        for (size_t i = a0; i < a1; i++) {
+                            const cd o = np_cmul(np_cmul(vec[static_cast<size_t>(la[i])], cd(fvj, 0.0)), scale);
+                            cd &x = E_r[i * nq + static_cast<size_t>(q)];
+                            x = cd(x.real() + o.real(), x.imag() + o.imag());
+                        }
+                        const size_t lbj = static_cast<size_t>(posLB[static_cast<size_t>(jn)]);
+                        for (size_t r = r0; r < r1; r++) {
+                            const cd o = np_cmul(np_cmul(vec[static_cast<size_t>(T.rows[r])], cd(fvj, 0.0)), scale);
+                            cd &x = E_c[r * lb.size() + lbj];
+                            x = cd(x.real() + o.real(), x.imag() + o.imag());
+                        }
+                    }
+                }
+            }
+        }
+    };
+    end_vectors_each<P>(c, be, a_wire, C.ends, R, !r_above, col_fold);
+    // `answer`: E_c[LA, :] = 0; dest[LA, :] += E_r; dest[:, LB] += E_c.
+    for (int64_t a : la) {
+        const size_t r = static_cast<size_t>(T.rpos[static_cast<size_t>(a)]);
+        for (size_t j = 0; j < lb.size(); j++) E_c[r * lb.size() + j] = cd(0.0, 0.0);
+    }
+    for (size_t i = 0; i < la.size(); i++) {
+        cd *dst = &T.v[static_cast<size_t>(T.rpos[static_cast<size_t>(la[i])]) * nq];
+        for (size_t q = 0; q < nq; q++) {
+            const cd v = E_r[i * nq + q];
+            dst[q] = cd(dst[q].real() + v.real(), dst[q].imag() + v.imag());
+        }
+    }
+    for (size_t r = 0; r < nr; r++)
+        for (size_t j = 0; j < lb.size(); j++) {
+            cd &d = T.v[r * nq + static_cast<size_t>(T.cpos[static_cast<size_t>(lb[j])])];
+            const cd v = E_c[r * lb.size() + j];
+            d = cd(d.real() + v.real(), d.imag() + v.imag());
+        }
+}
+
 // `_crossing_node_charges(geom, tents, ctx, A, P, omega)`: the (n_basis,
 // n_tents) addition to the crossing tents' columns, `-sgn q (fam - c1 V)` at
 // each T2 endpoint of A (above rows) and P (below rows), np.add.at'ed.
-std::vector<cd> node_charges(const Ctx &c, const Axis &A, const Axis &P,
+std::vector<cd> node_charges(const Ctx &c, const RAxis &A, const RAxis &P,
                              const std::vector<std::pair<int64_t, int>> &tents, uintptr_t cancel_flag) {
     const Front &f = *c.f;
     const size_t T = tents.size();
@@ -473,7 +917,7 @@ std::vector<cd> node_charges(const Ctx &c, const Axis &A, const Axis &P,
     be.ev.cancel_flag = cancel_flag;
     for (int pass = 0; pass < 2; pass++) {
         const bool above = pass == 0;
-        const Axis &ax = above ? A : P;
+        const RAxis &ax = above ? A : P;
         const size_t E = ax.ends.size();
         if (E == 0) continue;
         const std::vector<double> &a_half = above ? a_above : a_below;
@@ -481,11 +925,8 @@ std::vector<cd> node_charges(const Ctx &c, const Axis &A, const Axis &P,
         std::vector<int64_t> row(E);
         for (size_t e = 0; e < E; e++) {
             const End &en = ax.ends[e];
-            for (size_t i = 0; i < en.fv.size(); i++)
-                if (en.fv[i] != 0.0) {
-                    row[e] = static_cast<int64_t>(i);
-                    break;
-                }
+            // The first row whose fv is nonzero (`EndNz` holds them in order).
+            if (!ax.nz[e].idx.empty()) row[e] = ax.nz[e].idx.front();
             for (size_t t = 0; t < T; t++) {
                 const double d0 = en.pt[0] - nodes[3 * t], d1 = en.pt[1] - nodes[3 * t + 1],
                              d2 = en.pt[2] - nodes[3 * t + 2];
@@ -560,8 +1001,8 @@ void crossing_blocks(const Front &f, std::vector<cd> &z,
                      const std::vector<std::pair<int64_t, int>> &tents, uintptr_t cancel_flag) {
     const Ctx c = make_ctx(f);
     const int64_t n = f.n_basis;
-    const Axis A = crossing_path_axis(f, tents, false);
-    const Axis P = crossing_path_axis(f, tents, true);
+    const RAxis A = crossing_path_axis(f, tents, false);
+    const RAxis P = crossing_path_axis(f, tents, true);
     // Each medium's rows (`_medium_geometry`'s `rows`): its wires' interior
     // bases, then the junction bases with a wing on its segments.
     auto rows_of = [&](bool below) {
@@ -595,37 +1036,47 @@ void crossing_blocks(const Front &f, std::vector<cd> &z,
         if (rows.empty()) continue;
         for (const auto &part : parts_of(src_below)) {
             const double r = part.first;
-            const Axis ax = axis_data(c, part.second, r);
+            const RAxis ax = axis_data(c, part.second, r);
             BlockEval be;
             be.ev.k_p = c.k_p;
             be.ev.k_m = c.k_m;
             be.ev.n_threads = n_physical_threads();
             be.ev.cancel_flag = cancel_flag;
-            std::vector<cd> t;  // (n x n) row-major, rows = test axis
+            // The block (rows = test axis), held only over the entries the
+            // fold reads (momwire#1541; it was a whole n x n block).
+            Block t;
+            t.shape(n, rows, cols);
             if (src_below) {
                 // `cross_complete_block(ctx_r, A, ax)`: above test rows x below
                 // source columns.
-                t = main_sandwich(c, be, r, A, ax);
-                add_end_terms<RazorPolicy>(c, be, r, A, ax, true, t);
+                //
+                // Ordering (momwire#1860 L5, `crossing_table`): Python's fused
+                // streamed route asks for this block's slow end terms in a
+                // prepass BEFORE its main tiles (`_FusedEnds._slow_prepass`),
+                // while this route forms them after `main_sandwich`. Whether a
+                // twin call reads the crossing table depends on whether an
+                // earlier call in the fill already took it, so the end terms
+                // must decide on the state the main tiles started from, not
+                // the one they left: `CrossingEndsFirst` restores it around
+                // them. In the fill's first such block that state is "not
+                // taken", so the end terms weigh their own rows, as Python's
+                // prepass does. With the feature off nothing reads it.
+                const bool taken_before = ni_eval::crossing_table_taken();
+                main_sandwich(c, be, r, A, ax, t, false, end_pairs(A, ax));
+                {
+                    const ni_eval::CrossingEndsFirst ends_first(taken_before);
+                    add_end_terms_kept<RazorPolicy>(c, be, r, A, ax, true, t);
+                }
             } else {
                 // `cross_complete_block_reversed(ctx_r, P, ax)`: the main
                 // sandwich over (above source Q = ax, below test P),
-                // transposed; the ends with the rows below.
-                // Transposed in place (n x n), so the block is held once.
-                t = main_sandwich(c, be, r, ax, P);
-                const int ntt = team(be, t.size());
-#if defined(_OPENMP)
-                #pragma omp parallel for schedule(dynamic, 16) num_threads(ntt) if (ntt > 1)
-#else
-                (void)ntt;
-#endif
-                for (int64_t i = 0; i < n; i++)
-                    for (int64_t j = i + 1; j < n; j++)
-                        std::swap(t[static_cast<size_t>(i * n + j)], t[static_cast<size_t>(j * n + i)]);
-                add_end_terms<RazorPolicy>(c, be, r, P, ax, false, t);
+                // transposed as it is written; the ends with the rows below.
+                main_sandwich(c, be, r, ax, P, t, true, end_pairs(P, ax));
+                add_end_terms_kept<RazorPolicy>(c, be, r, P, ax, false, t);
             }
             // The fold: `Z[rows, cols] -= t`, columns apart.
             const std::ptrdiff_t ncols = static_cast<std::ptrdiff_t>(cols.size());
+            const size_t nrows = rows.size();
             const int ntf = team(be, cols.size() * rows.size());
 #if defined(_OPENMP)
             #pragma omp parallel for schedule(static) num_threads(ntf) if (ntf > 1)
@@ -634,9 +1085,10 @@ void crossing_blocks(const Front &f, std::vector<cd> &z,
 #endif
             for (std::ptrdiff_t cq = 0; cq < ncols; cq++) {
                 const int64_t ci = cols[static_cast<size_t>(cq)];
-                for (int64_t ri : rows) {
+                for (size_t rq = 0; rq < nrows; rq++) {
+                    const int64_t ri = rows[rq];
                     cd &e = z[static_cast<size_t>(ci * n + ri)];
-                    const cd v = t[static_cast<size_t>(ri * n + ci)];
+                    const cd v = t.v[rq * static_cast<size_t>(ncols) + static_cast<size_t>(cq)];
                     e = cd(e.real() - v.real(), e.imag() - v.imag());
                 }
             }

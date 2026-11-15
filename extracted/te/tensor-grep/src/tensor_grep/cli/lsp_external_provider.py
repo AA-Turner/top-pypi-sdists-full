@@ -50,6 +50,7 @@ from tensor_grep.cli.process_containment import (
     spawn_contained,
     teardown_provider,
 )
+from tensor_grep.core.config import configured_positive_int
 
 
 class LSPTransportError(RuntimeError):
@@ -110,15 +111,7 @@ def _configured_timeout_seconds(env_var: str, default: float) -> float:
     return parsed if parsed > 0.0 else default
 
 
-def _configured_positive_int(env_var: str, default: int) -> int:
-    raw_value = os.environ.get(env_var)
-    if raw_value is None:
-        return default
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
+_configured_positive_int = configured_positive_int
 
 
 def _write_message(stream: Any, payload: dict[str, Any]) -> None:
@@ -1448,11 +1441,6 @@ class ExternalLSPProviderManager:
         clients = self._pop_all_clients()
         for client in clients:
             client.stop()
-
-    def close_all(self) -> None:
-        clients = self._pop_all_clients()
-        for current in clients:
-            current.stop()
 
 
 def _command_source(command: list[str]) -> str:

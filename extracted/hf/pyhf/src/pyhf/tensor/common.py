@@ -1,6 +1,6 @@
 import pyhf
-from pyhf.tensor.manager import get_backend
 from pyhf import events
+from pyhf.tensor.manager import get_backend
 
 
 class _TensorViewer:
@@ -21,18 +21,18 @@ class _TensorViewer:
         self.names = names
         self._partition_indices = indices
         _concat_indices = default_backend.astensor(
-            default_backend.concatenate(self._partition_indices), dtype='int'
+            default_backend.concatenate(self._partition_indices), dtype="int"
         )
         self._sorted_indices = default_backend.tolist(_concat_indices.argsort())
 
         self._precompute()
-        events.subscribe('tensorlib_changed')(self._precompute)
+        events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         tensorlib, _ = get_backend()
-        self.sorted_indices = tensorlib.astensor(self._sorted_indices, dtype='int')
+        self.sorted_indices = tensorlib.astensor(self._sorted_indices, dtype="int")
         self.partition_indices = [
-            tensorlib.astensor(idx, dtype='int') for idx in self._partition_indices
+            tensorlib.astensor(idx, dtype="int") for idx in self._partition_indices
         ]
         if self.names:
             self.name_map = dict(zip(self.names, self.partition_indices))
@@ -45,9 +45,9 @@ class _TensorViewer:
         if len(tensorlib.shape(data)) == 1:
             stitched = tensorlib.gather(data, self.sorted_indices)
         else:
-            data = tensorlib.einsum('...j->j...', data)
+            data = tensorlib.einsum("...j->j...", data)
             stitched = tensorlib.gather(data, self.sorted_indices)
-            stitched = tensorlib.einsum('j...->...j', stitched)
+            stitched = tensorlib.einsum("j...->...j", stitched)
         return stitched
 
     def split(self, data, selection=None):
@@ -59,18 +59,18 @@ class _TensorViewer:
         )
         if len(tensorlib.shape(data)) == 1:
             return [tensorlib.gather(data, idx) for idx in indices]
-        data = tensorlib.einsum('...j->j...', tensorlib.astensor(data))
+        data = tensorlib.einsum("...j->j...", tensorlib.astensor(data))
         return [
-            tensorlib.einsum('j...->...j', tensorlib.gather(data, idx))
+            tensorlib.einsum("j...->...j", tensorlib.gather(data, idx))
             for idx in indices
         ]
 
 
 def _tensorviewer_from_slices(target_slices, names, batch_size):
     default_backend = pyhf.default_backend
-    ranges = []
-    for sl in target_slices:
-        ranges.append(default_backend.astensor(range(sl.start, sl.stop)))
+    ranges = [
+        default_backend.astensor(range(sl.start, sl.stop)) for sl in target_slices
+    ]
     if not target_slices:
         return None
     return _TensorViewer(ranges, names=names, batch_size=batch_size)

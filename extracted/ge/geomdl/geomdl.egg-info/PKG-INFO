@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: geomdl
+Version: 5.5.1
+Summary: Object-oriented B-Spline and NURBS evaluation library
+Author-email: "Onur R. Bingol" <contact@onurbingol.net>
+Maintainer-email: "Onur R. Bingol" <contact@onurbingol.net>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/orbingol/NURBS-Python
+Project-URL: Documentation, http://nurbs-python.readthedocs.io/
+Project-URL: Repository, https://github.com/orbingol/NURBS-Python.git
+Project-URL: Issues, https://github.com/orbingol/NURBS-Python/issues
+Keywords: NURBS,B-Spline,curve,surface,volume,CAD,modeling,geometry
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Provides-Extra: vis
+Requires-Dist: numpy<3.0,>=2.0; extra == "vis"
+Requires-Dist: matplotlib>=3.9.0; extra == "vis"
+Requires-Dist: plotly>=6.0.0; extra == "vis"
+Requires-Dist: vtk>=9.7.0; extra == "vis"
+Provides-Extra: test
+Requires-Dist: pytest>=8.0.0; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx>=8.3.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.0.0; extra == "docs"
+Dynamic: license-file
+
+NURBS-Python (geomdl)
+^^^^^^^^^^^^^^^^^^^^^
+
+|GHACTIONS|_ |RTD|_ |PYPI|_ |PYPIDL|_
+
+Introduction
+============
+
+NURBS-Python (geomdl) is a pure Python, self-contained, object-oriented B-Spline and NURBS library.
+
+Features
+========
+
+NURBS-Python (geomdl) provides convenient data structures and highly customizable API for rational and non-rational
+splines along with the efficient and extensible implementations of the following algorithms:
+
+* Spline evaluation
+* Derivative evaluation
+* Knot insertion
+* Knot removal
+* Knot vector refinement
+* Degree elevation
+* Degree reduction
+* Curve and surface fitting via interpolation and least squares approximation
+
+NURBS-Python (geomdl) also provides customizable visualization and animation options via Matplotlib, Plotly and VTK
+libraries. Please refer to the `documentation <http://nurbs-python.readthedocs.io/>`_ for more details.
+
+Further reading
+===============
+
+* Documentation: https://nurbs-python.readthedocs.io/
+* Examples: https://github.com/orbingol/NURBS-Python_Examples
+* Development: https://github.com/orbingol/NURBS-Python
+
+Additional file format support
+==============================
+
+* `rw3dm <https://github.com/orbingol/rw3dm>`_
+* `rwsat <https://github.com/orbingol/rwsat>`_
+
+Citing
+======
+
+The `following article <https://doi.org/10.1016/j.softx.2018.12.005>`_ outlines the design and features of NURBS-Python
+(geomdl)::
+
+    @article{bingol2019geomdl,
+      title={{NURBS-Python}: An open-source object-oriented {NURBS} modeling framework in {Python}},
+      author={Bingol, Onur Rauf and Krishnamurthy, Adarsh},
+      journal={{SoftwareX}},
+      volume={9},
+      pages={85--94},
+      year={2019},
+      publisher={Elsevier},
+      doi={https://doi.org/10.1016/j.softx.2018.12.005}
+    }
+
+License
+=======
+
+NURBS-Python (geomdl) is licensed under the terms of the MIT License. It also contains the following modules:
+
+* ``six`` is licensed under the terms of the MIT License.
+* ``backports.functools_lru_cache`` is licensed under the terms of the MIT License.
+
+.. |RTD| image:: https://readthedocs.org/projects/nurbs-python/badge/?version=5.x
+.. _RTD: https://nurbs-python.readthedocs.io/en/5.x/?badge=5.x
+
+.. |PYPI| image:: https://img.shields.io/pypi/v/geomdl.svg
+.. _PYPI: https://pypi.org/project/geomdl/
+
+.. |PYPIDL| image:: https://img.shields.io/pypi/dm/geomdl.svg
+.. _PYPIDL: https://pypi.org/project/geomdl/
+
+.. |GHACTIONS| image:: https://img.shields.io/github/actions/workflow/status/orbingol/NURBS-Python/build.yml
+.. _GHACTIONS: https://github.com/orbingol/NURBS-Python/actions/workflows/build.yml

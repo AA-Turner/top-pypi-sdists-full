@@ -199,7 +199,7 @@ _HOMES = {
     "_FINISH_LOCK_POLL_SECONDS": "probe.sdk.run.closing.drain",
     # probe.sdk.run.closing.status
     "_TERMINAL_STATUSES": "probe.sdk.run.closing.status",
-    "_status_for_system_exit": "probe.sdk.run.closing.status",
+    "status_for_system_exit": "probe.sdk.run.closing.status",
     "_status_for_exit": "probe.sdk.run.closing.status",
     # probe.sdk.run.launch.host_claims
     "_global_rank": "probe.sdk.run.launch.host_claims",

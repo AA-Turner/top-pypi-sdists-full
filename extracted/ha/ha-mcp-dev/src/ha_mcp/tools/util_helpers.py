@@ -8,13 +8,15 @@ import logging
 import posixpath
 import urllib.parse
 from collections.abc import Mapping
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 from ..client.rest_client import (
     HomeAssistantAPIError,
     HomeAssistantAuthError,
     HomeAssistantConnectionError,
+    HomeAssistantError,
 )
+from .helpers import core_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,27 @@ def websocket_error_message(error: Any) -> str:
     return str(error)
 
 
+async def search_related(
+    client: Any, item_type: str, item_id: str, warnings: list[str]
+) -> dict[str, Any] | None:
+    """Core's ``search/related`` answer for one item, the Related set its UI shows.
+
+    None, with the reason in ``warnings``, when Core does not answer it.
+    """
+    try:
+        result = await client.send_websocket_message(
+            {"type": "search/related", "item_type": item_type, "item_id": item_id}
+        )
+    except HomeAssistantError as e:
+        warnings.append(f"related unavailable: {e}")
+        return None
+    if not result.get("success"):
+        reason = core_error_message(result.get("error") or "request failed")
+        warnings.append(f"related unavailable: {reason}")
+        return None
+    return cast(dict[str, Any], result["result"])
+
+
 def summarize_theme_listing(raw_themes: dict[str, Any]) -> dict[str, Any]:
     """Summarize a ``frontend/get_themes`` result into names plus defaults.
 
@@ -94,7 +117,7 @@ def unwrap_service_response(result: dict[str, Any]) -> dict[str, Any]:
     {"changed_states": [...], "service_response": {...}}.
     Returns service_response if present and is a dict, otherwise the original result.
 
-    Deliberately NOT the same rule as ``ServiceTools._split_return_response_envelope``,
+    Deliberately NOT the same rule as ``service_response.split_return_response_envelope``,
     which powers ha_call_service: that one returns the response whatever its type and
     reports the whole reply only when the key is absent. The two disagree solely for a
     NON-DICT ``service_response`` (this helper hands back the envelope, the split hands

@@ -44,12 +44,12 @@ class PyQt(PyQtProject):
         # QtLocation is still to be ported to Qt6.
         self.bindings_factories = [QtCore, QtNetwork, QtGui, QtQml, QtWidgets,
                 QtDBus, QtDesigner, QtHelp, QtOpenGL, QtOpenGLWidgets,
-                QtPrintSupport, QtQuick, QtQuick3D, QtQuickWidgets, QtSql,
-                QtSvg, QtSvgWidgets, QtTest, QtXml, QtMultimedia,
-                QtMultimediaWidgets, QtPositioning, QtRemoteObjects, QtSensors,
-                QtSerialPort, QtWebChannel, QtWebSockets, QtBluetooth, QtNfc,
-                QtPdf, QtPdfWidgets, QtSpatialAudio, QtTextToSpeech,
-                QtStateMachine, QAxContainer]
+                QtPrintSupport, QtQuick, QtQuick3D, QtQuickControls2,
+                QtQuickWidgets, QtSql, QtSvg, QtSvgWidgets, QtTest, QtXml,
+                QtMultimedia, QtMultimediaWidgets, QtPositioning,
+                QtRemoteObjects, QtSensors, QtSerialPort, QtWebChannel,
+                QtWebSockets, QtBluetooth, QtNfc, QtPdf, QtPdfWidgets,
+                QtSpatialAudio, QtTextToSpeech, QtStateMachine, QAxContainer]
 
     def apply_user_defaults(self, tool):
         """ Set default values where needed. """
@@ -772,6 +772,18 @@ class QtQuick3D(PyQtBindings):
         super().__init__(project, 'QtQuick3D', qmake_QT=['quick3d'],
                 test_headers=['qquick3d.h'],
                 test_statement='QQuick3D::idealSurfaceFormat()')
+
+
+class QtQuickControls2(PyQtBindings):
+    """ The QtQuickControls2 bindings. """
+
+    def __init__(self, project):
+        """ Initialise the bindings. """
+
+        super().__init__(project, 'QtQuickControls2',
+                qmake_QT=['quickcontrols2'],
+                test_headers=['qquickstyle.h'],
+                test_statement='QQuickStyle::name()')
 
 
 class QtQuickWidgets(PyQtBindings):

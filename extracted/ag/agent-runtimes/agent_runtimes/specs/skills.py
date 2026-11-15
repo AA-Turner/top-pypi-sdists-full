@@ -39,6 +39,11 @@ ACCOUNTING_SKILL_SPEC_0_0_1 = SkillSpec(
     icon="@primer/octicons-react:book",
     emoji="🧮",
     enabled=True,
+    ui=[
+        {"plugin": "bank-reconciliation", "renderer": "a2ui"},
+        {"plugin": "trial-balance"},
+        {"plugin": "vat-summary"},
+    ],
 )
 
 CRAWL_SKILL_SPEC_0_0_1 = SkillSpec(
@@ -64,6 +69,52 @@ CRAWL_SKILL_SPEC_0_0_1 = SkillSpec(
     enabled=True,
 )
 
+DATALAYER_EMAIL_SKILL_SPEC_0_0_1 = SkillSpec(
+    id="datalayer-email",
+    version="0.0.1",
+    name="Email Skill",
+    description="Send the person whose agent this is one email — a summary, a report, a draft they asked for — through Datalayer's mailer, to them alone, a few a day",
+    module="datalayer_skills.skills.email",
+    package=None,
+    method=None,
+    path=None,
+    envvars=[],
+    optional_env_vars=[],
+    dependencies=["datalayer-skills>=0.6.0"],
+    install=InstallSpec(
+        type="python",
+        command='pip install "datalayer-skills>=0.6.0"',
+        note="Standard library only; the runtime sends the mail (agent-runtimes 1.6.65, IAM 1.1.124).",
+    ),
+    tags=["email", "mail", "datalayer"],
+    icon="@primer/octicons-react:mail",
+    emoji="✉️",
+    enabled=True,
+)
+
+DINING_SKILL_SPEC_0_0_1 = SkillSpec(
+    id="dining",
+    version="0.0.1",
+    name="Dining Skill",
+    description="Restaurants, sights, activities and stops along a route that fit the travellers' tastes, diet and budget, placed in the trip's days with their travel times and map links",
+    module="datalayer_skills.skills.dining",
+    package=None,
+    method=None,
+    path=None,
+    envvars=[],
+    optional_env_vars=[],
+    dependencies=["datalayer-skills>=0.5.0"],
+    install=InstallSpec(
+        type="python",
+        command='pip install "datalayer-skills>=0.5.0"',
+        note="Instructions alone: no dependencies of its own.",
+    ),
+    tags=["travel", "dining", "restaurants", "activities"],
+    icon="@primer/octicons-react:flame",
+    emoji="🍽️",
+    enabled=True,
+)
+
 EVENTS_SKILL_SPEC_0_0_1 = SkillSpec(
     id="events",
     version="0.0.1",
@@ -85,6 +136,30 @@ EVENTS_SKILL_SPEC_0_0_1 = SkillSpec(
     icon="@primer/octicons-react:calendar",
     emoji="📅",
     enabled=True,
+)
+
+FARE_AND_STAY_COMPARISON_SKILL_SPEC_0_0_1 = SkillSpec(
+    id="fare-and-stay-comparison",
+    version="0.0.1",
+    name="Fare and Stay Comparison Skill",
+    description="Compare flights by route, fare, baggage, connections and travel time, and stays by location, price, amenities and cancellation terms, with one recommendation and the booking links",
+    module="datalayer_skills.skills.fare_and_stay_comparison",
+    package=None,
+    method=None,
+    path=None,
+    envvars=[],
+    optional_env_vars=[],
+    dependencies=["datalayer-skills>=0.5.0"],
+    install=InstallSpec(
+        type="python",
+        command='pip install "datalayer-skills>=0.5.0"',
+        note="Instructions alone: no dependencies of its own.",
+    ),
+    tags=["travel", "flights", "accommodation", "comparison"],
+    icon="@primer/octicons-react:arrow-switch",
+    emoji="⚖️",
+    enabled=True,
+    ui=[{"plugin": "trip-options", "renderer": "a2ui"}, {"plugin": "trip-budget"}],
 )
 
 GITHUB_SKILL_SPEC_0_0_1 = SkillSpec(
@@ -202,6 +277,34 @@ TEXT_SUMMARIZER_SKILL_SPEC_0_0_1 = SkillSpec(
     enabled=True,
 )
 
+TRAVEL_PLANNING_SKILL_SPEC_0_0_1 = SkillSpec(
+    id="travel-planning",
+    version="0.0.1",
+    name="Travel Planning Skill",
+    description="Plan a trip end to end — dates, destinations, travellers, preferences and budget first, then three trip options, each with its transport, stay, daily schedule, travel times, a map link, a budget with its total and the booking links",
+    module="datalayer_skills.skills.travel_planning",
+    package=None,
+    method=None,
+    path=None,
+    envvars=[],
+    optional_env_vars=[],
+    dependencies=["datalayer-skills>=0.5.0"],
+    install=InstallSpec(
+        type="python",
+        command='pip install "datalayer-skills>=0.5.0"',
+        note="Instructions alone: no dependencies of its own.",
+    ),
+    tags=["travel", "planning", "itinerary", "budget"],
+    icon="@primer/octicons-react:milestone",
+    emoji="🧭",
+    enabled=True,
+    ui=[
+        {"plugin": "trip-itinerary"},
+        {"plugin": "trip-budget"},
+        {"plugin": "trip-summary"},
+    ],
+)
+
 VIDEO_SKILL_SPEC_0_0_1 = SkillSpec(
     id="video",
     version="0.0.1",
@@ -232,12 +335,16 @@ VIDEO_SKILL_SPEC_0_0_1 = SkillSpec(
 SKILLS_CATALOG: Dict[str, SkillSpec] = {
     "accounting": ACCOUNTING_SKILL_SPEC_0_0_1,
     "crawl": CRAWL_SKILL_SPEC_0_0_1,
+    "datalayer-email": DATALAYER_EMAIL_SKILL_SPEC_0_0_1,
+    "dining": DINING_SKILL_SPEC_0_0_1,
     "events": EVENTS_SKILL_SPEC_0_0_1,
+    "fare-and-stay-comparison": FARE_AND_STAY_COMPARISON_SKILL_SPEC_0_0_1,
     "github": GITHUB_SKILL_SPEC_0_0_1,
     "image": IMAGE_SKILL_SPEC_0_0_1,
     "jokes": JOKES_SKILL_SPEC_0_0_1,
     "pdf": PDF_SKILL_SPEC_0_0_1,
     "text-summarizer": TEXT_SUMMARIZER_SKILL_SPEC_0_0_1,
+    "travel-planning": TRAVEL_PLANNING_SKILL_SPEC_0_0_1,
     "video": VIDEO_SKILL_SPEC_0_0_1,
 }
 

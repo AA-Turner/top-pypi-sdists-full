@@ -8,21 +8,21 @@ dynamic = ["version"]
 description = "Thumbnails for Django, made in the template on first use with Pillow, libvips or ImageMagick, stored on any Django storage"
 readme = "README.rst"
 license = "BSD-3-Clause"
-keywords = ["django", "thumbnail", "sorl"]
+keywords = ["django", "thumbnail", "thumbnails", "images", "resize", "crop", "pillow",
+            "libvips", "imagemagick", "s3", "django-storages", "sorl"]
 authors = [
   {name = "Mikko Hellsing", email = "mikko@aino.se"},
 ]
 maintainers = [
   {name = "Mario-César"}
 ]
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Environment :: Web Environment',
     'Intended Audience :: Developers',
     'Operating System :: OS Independent',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
@@ -39,6 +39,8 @@ classifiers=[
 Homepage = "https://mariocesar.github.io/sorl-thumbnail/"
 Documentation = "https://sorl-thumbnail.readthedocs.io/en/latest/"
 Repository = "https://github.com/mariocesar/sorl-thumbnail"
+Changelog = "https://github.com/mariocesar/sorl-thumbnail/blob/main/CHANGES.rst"
+Issues = "https://github.com/mariocesar/sorl-thumbnail/issues"
 
 [project.optional-dependencies]
 pgmagick = ["pgmagick"]

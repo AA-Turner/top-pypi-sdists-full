@@ -18,7 +18,7 @@ if(NOT SOGEN_ENABLE_SDL3 OR NOT TARGET SDL3::SDL3)
   endif()
 endif()
 
-if(NOT ANDROID)
+if(NOT ANDROID OR NOT SOGEN_ENABLE_AAUDIO)
   list(REMOVE_ITEM SRC_FILES "${CMAKE_CURRENT_LIST_DIR}/audio_backends/aaudio_audio_backend.cpp")
 endif()
 
@@ -33,11 +33,11 @@ add_library(windows-emulator ${SRC_FILES})
 
 sogen_assign_source_group(${SRC_FILES})
 
-# vulkan_host.cpp exceeds the COFF section limit in Debug builds without the large-object format.
+# These exceed the COFF section limit in Debug builds without the large-object format.
 if(MSVC)
-  set_source_files_properties(devices/vulkan_host.cpp PROPERTIES COMPILE_OPTIONS /bigobj)
+  set_source_files_properties(devices/vulkan_host.cpp process_context.cpp PROPERTIES COMPILE_OPTIONS /bigobj)
 elseif(MINGW)
-  set_source_files_properties(devices/vulkan_host.cpp PROPERTIES COMPILE_OPTIONS -Wa,-mbig-obj)
+  set_source_files_properties(devices/vulkan_host.cpp process_context.cpp PROPERTIES COMPILE_OPTIONS -Wa,-mbig-obj)
 endif()
 
 if(NOT SOGEN_ENABLE_CLANG_TIDY)
@@ -49,8 +49,9 @@ target_link_libraries(windows-emulator PRIVATE gpu-bridge-protocol vulkan-header
 if(WIN32)
   target_link_libraries(windows-emulator PRIVATE crypt32)
 endif()
-if(ANDROID)
+if(ANDROID AND SOGEN_ENABLE_AAUDIO)
   target_link_libraries(windows-emulator PRIVATE aaudio)
+  target_compile_definitions(windows-emulator PRIVATE SOGEN_HAS_AAUDIO=1)
 endif()
 
 # When the Steamworks SDK was provided, link the real Steam host backend (owns the SDK headers + the

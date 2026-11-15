@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlbuild_analysis::sql_macros::models::TypedCall;
 
 use crate::errors::RowsError;
+use crate::orchestration_rules::models::OrchestrationFacts;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -200,6 +201,12 @@ impl RulesConfig {
         self.rule_options
             .get(code)
             .and_then(|options| options.get(option))
+    }
+
+    pub(crate) fn rule_option_u32(&self, code: &str, option: &str) -> Option<u32> {
+        self.rule_option(code, option)
+            .and_then(Value::as_u64)
+            .map(|value| u32::try_from(value).unwrap_or(u32::MAX))
     }
 
     pub(crate) fn rule_option_enabled(&self, code: &str, option: &str) -> bool {
@@ -762,6 +769,23 @@ pub struct EvaluateRequest {
     pub defer_suppressions: bool,
     pub custom_rules: Vec<CustomRule>,
     pub rules_cache_path: String,
+    /// The interpreter's major and minor version, which decides how project Python parses.
+    pub python_version: (u8, u8),
+    /// The supported project Python files, filled from disk only when a Python rule is selected.
+    pub python_sources: Vec<PythonSource>,
+    /// The job and sensor selections, filled from disk only when an orchestration rule is selected.
+    pub orchestration: OrchestrationFacts,
+}
+
+/// One project Python file, keyed in the request by the digest of its bytes.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PythonSource {
+    pub relative_path: String,
+    pub digest: String,
+    /// The text that was digested; it never enters the request JSON or the memo.
+    #[serde(skip)]
+    pub text: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -799,6 +823,9 @@ impl Default for EvaluateRequest {
             defer_suppressions: false,
             custom_rules: vec![],
             rules_cache_path: String::new(),
+            python_version: (3, 12),
+            python_sources: vec![],
+            orchestration: OrchestrationFacts::default(),
         }
     }
 }
@@ -839,6 +866,8 @@ pub enum RuleScope {
     Project,
     ModelAndProject,
     SqlLint,
+    /// Project Python files, evaluated per file outside the model phases.
+    Python,
 }
 
 impl RuleScope {
@@ -848,6 +877,10 @@ impl RuleScope {
 
     pub(crate) fn evaluates_project(self) -> bool {
         matches!(self, Self::Project | Self::ModelAndProject)
+    }
+
+    pub(crate) fn evaluates_python(self) -> bool {
+        matches!(self, Self::Python)
     }
 }
 

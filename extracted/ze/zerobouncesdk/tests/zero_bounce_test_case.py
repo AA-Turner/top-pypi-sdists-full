@@ -1,0 +1,820 @@
+from datetime import date, datetime, timedelta
+from io import BytesIO
+from pathlib import Path
+
+
+from . import BaseTestCase, MockResponse
+from zerobouncesdk import (
+    ZBApiException,
+    ZBClientException,
+    ZBConfidence,
+    ZBDownloadType,
+    ZBGetFileOptions,
+    ZBValidateStatus,
+    ZBValidateSubStatus,
+    ZBValidateBatchElement,
+    ZeroBounce,
+)
+from zerobouncesdk._zb_response import ZBResponse
+
+
+class ZeroBounceTestCase(BaseTestCase):
+
+    def test_zb_response_handles_none_data(self):
+        """ZBResponse with None data should not crash (e.g. malformed API response)."""
+        r = ZBResponse(None)
+        self.assertEqual(r.__dict__, {})
+
+    def test_init_blank_key(self):
+        with self.assertRaises(ZBClientException) as cm:
+            ZeroBounce("   ")
+        expected_error = "Empty parameter: api_key"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_init_rejects_http_base_url(self):
+        with self.assertRaises(ZBClientException) as cm:
+            ZeroBounce("dummy_key", base_url="http://evil.example/v2")
+        self.assertIn("https://", str(cm.exception))
+
+    def test_default_http_timeout(self):
+        self.requests_mock.get.return_value = MockResponse({'a': 'b'})
+        client = ZeroBounce("dummy_key")
+        client._get("https://example.com", ZBResponse)
+        self.requests_mock.get.assert_called_with(
+            'https://example.com', params={'api_key': 'dummy_key'}, timeout=(30.0, 120.0), allow_redirects=False
+        )
+
+    def test_credits_invalid_key(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "Credits": "-1",
+        })
+
+        response = self.zero_bounce_client.get_credits()
+        self.assertEqual(response.credits, "-1")
+
+    def test_credits_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "Credits": "12345",
+        })
+
+        response = self.zero_bounce_client.get_credits()
+        self.assertEqual(response.credits, "12345")
+
+    def test_credits_handles_missing_credits_key(self):
+        """A missing or null Credits is the wrong shape for this call: an API error with status 200, not None."""
+        for body in ({}, {"Credits": None}):
+            self.requests_mock.get.return_value = MockResponse(body)
+            with self.assertRaises(ZBApiException) as cm:
+                self.zero_bounce_client.get_credits()
+            self.assertEqual(cm.exception.status_code, 200)
+
+    def test_response_contains_error(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "error": "Invalid API key or your account ran out of credits",
+        })
+
+        with self.assertRaises(ZBApiException) as cm:
+            self.zero_bounce_client.get_credits()
+        expected_error = "Invalid API key or your account ran out of credits"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_api_usage_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "total": 9,
+            "start_date": "3/1/2023",
+            "end_date": "3/16/2023",
+        })
+
+        response = self.zero_bounce_client.get_api_usage(date(2023, 3, 1), date(2023, 3, 16))
+        self.assertEqual(response.total, 9)
+        self.assertEqual(response.start_date, date(2023, 3, 1))
+        self.assertEqual(response.end_date, date(2023, 3, 16))
+
+    def test_activity_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "found": True,
+            "active_in_days": "180"
+        })
+
+        response = self.zero_bounce_client.get_activity("valid@example.com")
+        self.assertTrue(response.found)
+        self.assertEqual(response.active_in_days, "180")
+
+    def test_score_email_get(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "mark@gmail.com",
+            "score": 10,
+        })
+
+        response = self.zero_bounce_client.score_email("mark@gmail.com")
+        self.assertEqual(response.email, "mark@gmail.com")
+        self.assertEqual(response.score, 10)
+        self.requests_mock.get.assert_called_with(
+            f"{self.zero_bounce_client._base_url}/scoring",
+            params={"api_key": "dummy_key", "email": "mark@gmail.com"},
+            timeout=(30.0, 120.0),
+            allow_redirects=False,
+        )
+
+    def test_score_email_post(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "email": "mark@gmail.com",
+            "score": 10,
+        })
+
+        response = self.zero_bounce_client.score_email("mark@gmail.com", use_post=True)
+        self.assertEqual(response.email, "mark@gmail.com")
+        self.assertEqual(response.score, 10)
+        self.requests_mock.post.assert_called_with(
+            f"{self.zero_bounce_client._base_url}/scoring",
+            data={"api_key": "dummy_key", "email": "mark@gmail.com"},
+            timeout=(30.0, 120.0),
+            allow_redirects=False,
+        )
+
+    def test_score_email_api_error(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "error": "Please provide a valid email address",
+        })
+
+        with self.assertRaises(ZBApiException) as cm:
+            self.zero_bounce_client.score_email("not-an-email")
+        self.assertEqual(str(cm.exception), "Please provide a valid email address")
+
+    def test_validate_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "invalid@example.com",
+            "status": "invalid",
+            "sub_status": "mailbox_not_found",
+            "processed_at": "2023-03-28 12:30:18.990",
+        })
+
+        response = self.zero_bounce_client.validate("invalid@example.com", "99.110.204.1")
+        self.assertEqual(response.address, "invalid@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.invalid)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.mailbox_not_found)
+        self.assertEqual(response.processed_at, datetime(2023, 3, 28, 12, 30, 18, 990000))
+
+    def test_validate_sends_optional_query_params(self):
+        self.requests_mock.get.return_value = MockResponse({"address": "a@b.com", "status": "valid"})
+        self.zero_bounce_client.validate(
+            "a@b.com",
+            timeout=10,
+            activity_data=True,
+            verify_plus=False,
+        )
+        params = self.requests_mock.get.call_args[1]["params"]
+        self.assertEqual(params["timeout"], 10)
+        self.assertEqual(params["activity_data"], "true")
+        self.assertEqual(params["verify_plus"], "false")
+
+    def test_validate_post_uses_form_body(self):
+        self.requests_mock.post.return_value = MockResponse({"address": "a@b.com", "status": "valid"})
+        self.zero_bounce_client.validate("a@b.com", use_post=True, timeout=30)
+        self.requests_mock.post.assert_called_once()
+        data = self.requests_mock.post.call_args[1]["data"]
+        self.assertEqual(data["email"], "a@b.com")
+        self.assertEqual(data["timeout"], 30)
+
+    def test_list_s3files_gets_bulk_root(self):
+        self.requests_mock.request.return_value = MockResponse(
+            [{"name": "uploads/a.csv", "size": 10, "last_modified": "2024-01-01T00:00:00Z"}]
+        )
+        result = self.zero_bounce_client.list_s3files(bucket="my-bucket", search="a")
+        self.assertEqual(result[0]["name"], "uploads/a.csv")
+        called_url = self.requests_mock.request.call_args[0][1]
+        self.assertIn("bulkapi.zerobounce.net/listS3files", called_url)
+
+    def test_validate_timeout_out_of_range(self):
+        with self.assertRaises(ZBClientException):
+            self.zero_bounce_client.validate("a@b.com", timeout=2)
+
+    def test_response_sub_status_accept_all(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "none@example.com",
+            "status": "catch-all",
+            "sub_status": "accept_all",
+        })
+        response = self.zero_bounce_client.validate("none@example.com")
+        self.assertEqual(response.address, "none@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.catch_all)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.accept_all)
+
+    def test_response_sub_status_role_based_accept_all(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "none@example.com",
+            "status": "valid",
+            "sub_status": "role_based_accept_all",
+        })
+        response = self.zero_bounce_client.validate("none@example.com")
+        self.assertEqual(response.address, "none@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.valid)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.role_based_accept_all)
+
+    def test_response_sub_status_ai_agent_mailbox_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "agent@example.com",
+            "status": "valid",
+            "sub_status": "ai_agent_mailbox",
+        })
+        response = self.zero_bounce_client.validate("agent@example.com")
+        self.assertEqual(response.address, "agent@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.valid)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.ai_agent_mailbox)
+
+    def test_response_sub_status_ai_agent_mailbox_catch_all(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "agent@example.com",
+            "status": "catch-all",
+            "sub_status": "ai_agent_mailbox",
+        })
+        response = self.zero_bounce_client.validate("agent@example.com")
+        self.assertEqual(response.address, "agent@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.catch_all)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.ai_agent_mailbox)
+
+    def test_response_sub_status_unknown_falls_back_to_none(self):
+        """An unrecognised sub_status must warn and degrade, never raise."""
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "future@example.com",
+            "status": "valid",
+            "sub_status": "some_future_sub_status",
+        })
+        with self.assertWarns(UserWarning):
+            response = self.zero_bounce_client.validate("future@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.valid)
+        self.assertIsNone(response.sub_status)
+
+    def test_response_sub_status_gold(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "address": "gold@example.com",
+            "status": "valid",
+            "sub_status": "gold",
+        })
+        response = self.zero_bounce_client.validate("gold@example.com")
+        self.assertEqual(response.address, "gold@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.valid)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.gold)
+
+    def test_response_contains_errors(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "email_batch": [],
+            "errors": [{
+                "email_address": "all",
+                "error": "Invalid API Key or your account ran out of credits",
+            }],
+        })
+
+        with self.assertRaises(ZBApiException) as cm:
+            self.zero_bounce_client.validate_batch([ZBValidateBatchElement("any_email")])
+        expected_error = "Invalid API Key or your account ran out of credits"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_validate_batch_blank_email(self):
+        with self.assertRaises(ZBClientException) as cm:
+            ZBValidateBatchElement("  ")
+        expected_error = "Empty parameter: email_address"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_validate_batch_no_emails(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.validate_batch([])
+        expected_error = "Empty parameter: email_batch"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_validate_batch_valid(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "email_batch": [{
+                "address": "valid@example.com",
+                "status": "valid",
+                "sub_status": "",
+            },{
+                "address": "invalid@example.com",
+                "status": "invalid",
+                "sub_status": "mailbox_not_found",
+            }],
+            "errors": []
+        })
+
+        response = self.zero_bounce_client.validate_batch([
+            ZBValidateBatchElement("valid@example.com"),
+            ZBValidateBatchElement("invalid@example.com"),
+        ])
+        self.assertEqual(len(response.email_batch), 2)
+        self.assertEqual(response.email_batch[0].address, "valid@example.com")
+        self.assertEqual(response.email_batch[0].status, ZBValidateStatus.valid)
+        self.assertEqual(response.email_batch[0].sub_status, ZBValidateSubStatus.none)
+        self.assertEqual(response.email_batch[1].address, "invalid@example.com")
+        self.assertEqual(response.email_batch[1].status, ZBValidateStatus.invalid)
+        self.assertEqual(response.email_batch[1].sub_status, ZBValidateSubStatus.mailbox_not_found)
+        self.assertEqual(len(response.errors), 0)
+
+    def test_validate_batch_sends_optional_body_fields(self):
+        self.requests_mock.post.return_value = MockResponse({"email_batch": [], "errors": []})
+        self.zero_bounce_client.validate_batch(
+            [ZBValidateBatchElement("a@b.com")],
+            timeout=60,
+            activity_data=True,
+            verify_plus=True,
+        )
+        payload = self.requests_mock.post.call_args[1]["json"]
+        self.assertEqual(payload["timeout"], "60")  # a string: the live API rejects a JSON number
+        self.assertTrue(payload["activity_data"])
+        self.assertTrue(payload["verify_plus"])
+
+    def test_validate_batch_timeout_out_of_range(self):
+        with self.assertRaises(ZBClientException):
+            self.zero_bounce_client.validate_batch([ZBValidateBatchElement("a@b.com")], timeout=9)
+
+    def test_validate_batch_uses_api_base_url(self):
+        self.requests_mock.post.return_value = MockResponse({"email_batch": [], "errors": []})
+        self.zero_bounce_client.validate_batch([ZBValidateBatchElement("a@b.com")])
+        url = self.requests_mock.post.call_args[0][0]
+        self.assertEqual(url, "https://api.zerobounce.net/v2/validatebatch")
+        self.assertNotIn("bulkapi", url)
+
+    def test_validate_batch_uses_custom_base_url(self):
+        client = ZeroBounce("dummy_key", base_url="https://api-eu.zerobounce.net/v2/")
+        self.requests_mock.post.return_value = MockResponse({"email_batch": [], "errors": []})
+        client.validate_batch([ZBValidateBatchElement("a@b.com")])
+        url = self.requests_mock.post.call_args[0][0]
+        self.assertEqual(url, "https://api-eu.zerobounce.net/v2/validatebatch")
+
+    def test_validate_batch_handles_missing_email_batch_and_errors_keys(self):
+        """API may omit email_batch or errors keys; client should not crash (an empty object is an error)."""
+        self.requests_mock.post.return_value = MockResponse({"email_batch": []})
+        response = self.zero_bounce_client.validate_batch([ZBValidateBatchElement("a@b.com")])
+        self.assertEqual(response.email_batch, [])
+        self.assertEqual(response.errors, [])
+        self.requests_mock.post.return_value = MockResponse({})
+        with self.assertRaises(ZBApiException):
+            self.zero_bounce_client.validate_batch([ZBValidateBatchElement("a@b.com")])
+
+    def test_response_contains_message_list(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "success": "False",
+            "message": ["api_key is invalid"],
+        })
+
+        with self.assertRaises(ZBApiException) as cm:
+            self.zero_bounce_client.get_file("any_file_id", "any_download_path")
+        self.assertEqual(str(cm.exception), "api_key is invalid")
+
+    def test_response_contains_message(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "success": False,
+            "message": "File cannot be found.",
+        })
+
+        with self.assertRaises(ZBApiException) as cm:
+            self.zero_bounce_client.get_file("invalid_file_id", "any_download_path")
+        self.assertEqual(str(cm.exception), "File cannot be found.")
+
+    def test_invalid_file_path(self):
+        with self.assertRaises(FileNotFoundError) as cm:
+            self.zero_bounce_client.send_file("invalid_file_path", 1)
+        expected_error = "[Errno 2] No such file or directory: 'invalid_file_path'"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    @staticmethod
+    def _delete_file(file: Path):
+        try:
+            file.unlink()
+        except FileNotFoundError:
+            pass
+
+    def test_send_file_valid(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "success": True,
+            "message": "File Accepted",
+            "file_name": "emails.txt",
+            "file_id": "5e87c21f-45b2-4803-8daf-307f29fa7340",
+        })
+        file = Path("emails.txt")
+        self.addCleanup(self._delete_file, file=file)
+        file.touch()
+
+        response = self.zero_bounce_client.send_file("emails.txt", 1)
+        self.assertTrue(response.success)
+        self.assertEqual(response.message, "File Accepted")
+        self.assertEqual(response.file_name, "emails.txt")
+        self.assertEqual(response.file_id, "5e87c21f-45b2-4803-8daf-307f29fa7340")
+
+    def test_send_file_allow_phase_2(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "success": True,
+            "message": "File Accepted",
+            "file_name": "emails.txt",
+            "file_id": "5e87c21f-45b2-4803-8daf-307f29fa7340",
+        })
+        file = Path("emails_allow2.txt")
+        self.addCleanup(self._delete_file, file=file)
+        file.touch()
+
+        self.zero_bounce_client.send_file("emails_allow2.txt", 1, allow_phase_2=True)
+        _, kwargs = self.requests_mock.post.call_args
+        self.assertEqual(kwargs["data"]["allow_phase_2"], "true")
+
+    def test_scoring_send_file_no_allow_phase_2(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "success": True,
+            "message": "File Accepted",
+            "file_name": "emails.txt",
+            "file_id": "5e87c21f-45b2-4803-8daf-307f29fa7340",
+        })
+        file = Path("emails_score.txt")
+        self.addCleanup(self._delete_file, file=file)
+        file.touch()
+
+        self.zero_bounce_client.scoring_send_file("emails_score.txt", 1)
+        _, kwargs = self.requests_mock.post.call_args
+        self.assertNotIn("allow_phase_2", kwargs["data"])
+
+    def test_blank_file_id(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.get_file("  ", "any_download_path")
+        expected_error = "Empty parameter: file_id"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_file_status_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "success": True,
+            "file_id": "5e87c21f-45b2-4803-8daf-307f29fa7340",
+            "file_name": "emails.txt",
+            "upload_date": "2023-03-28T12:30:18Z",
+            "file_status": "Complete",
+            "file_phase_2_status": "N/A",
+            "complete_percentage": "100%",
+            "return_url": "Your return URL if provided when calling sendfile API",
+        })
+
+        response = self.zero_bounce_client.file_status("5e87c21f-45b2-4803-8daf-307f29fa7340")
+        self.assertTrue(response.success)
+        self.assertEqual(response.file_id, "5e87c21f-45b2-4803-8daf-307f29fa7340")
+        self.assertEqual(response.file_name, "emails.txt")
+        self.assertEqual(response.upload_date, datetime(2023, 3, 28, 12, 30, 18))
+        self.assertEqual(response.file_status, "Complete")
+        self.assertEqual(response.file_phase_2_status, "N/A")
+
+    def test_get_file_valid(self):
+        self.requests_mock.get.return_value = MockResponse(
+            json_data=None,
+            content=b""""Email Address","First Name","Last Name","Gender","ZB Status","ZB Sub Status","ZB Account","ZB Domain","ZB First Name","ZB Last Name","ZB Gender","ZB Free Email","ZB MX Found","ZB MX Record","ZB SMTP Provider","ZB Did You Mean"
+"valid@example.com","","","","valid","","","","zero","bounce","male","False","true","mx.example.com","example",""
+"spamtrap@example.com","","","","spamtrap","","","","zero","bounce","male","False","true","mx.example.com","example",""
+"invalid@example.com","","","","invalid","mailbox_not_found","","","zero","bounce","male","False","true","mx.example.com","example",""
+"catchall@example.com","","","","do_not_mail","global_suppression","catchall","example.com","","","","False","false","","",""
+            """,
+            headers={"Content-Type": "application/octet-stream"}
+        )
+        file = Path("results.txt")
+        self.addCleanup(self._delete_file, file=file)
+
+        self.assertFalse(file.is_file())
+        response = self.zero_bounce_client.get_file("5e87c21f-45b2-4803-8daf-307f29fa7340", "results.txt")
+        self.assertTrue(file.is_file())
+        self.assertTrue(response.success)
+        self.assertEqual(response.local_file_path, "results.txt")
+
+    def test_get_file_with_options_query_params(self):
+        self.requests_mock.get.return_value = MockResponse(
+            json_data=None,
+            content=b"a,b\n1,2\n",
+            headers={"Content-Type": "text/csv"},
+        )
+        out = Path("opts_out.csv")
+        self.addCleanup(self._delete_file, file=out)
+        opt = ZBGetFileOptions(download_type=ZBDownloadType.COMBINED, activity_data=True)
+        self.zero_bounce_client.get_file("5e87c21f-45b2-4803-8daf-307f29fa7340", str(out), opt)
+        _, kwargs = self.requests_mock.get.call_args
+        self.assertEqual(kwargs["params"]["download_type"], "combined")
+        self.assertEqual(kwargs["params"]["activity_data"], "true")
+
+    def test_scoring_get_file_omits_activity_data(self):
+        self.requests_mock.get.return_value = MockResponse(
+            json_data=None,
+            content=b"a,b\n",
+            headers={"Content-Type": "text/csv"},
+        )
+        out = Path("sco_out.csv")
+        self.addCleanup(self._delete_file, file=out)
+        opt = ZBGetFileOptions(download_type=ZBDownloadType.PHASE_2, activity_data=True)
+        self.zero_bounce_client.scoring_get_file("5e87c21f-45b2-4803-8daf-307f29fa7340", str(out), opt)
+        _, kwargs = self.requests_mock.get.call_args
+        self.assertEqual(kwargs["params"]["download_type"], "phase_2")
+        self.assertNotIn("activity_data", kwargs["params"])
+
+    def test_get_file_json_indicates_error_static(self):
+        self.assertTrue(ZeroBounce.get_file_json_indicates_error('{"success":false,"message":""}'))
+        self.assertTrue(ZeroBounce.get_file_json_indicates_error('{"file_id":"x"}'))
+        self.assertTrue(ZeroBounce.get_file_json_indicates_error('\ufeff[{"error":"bad"}]'))
+        self.assertFalse(ZeroBounce.get_file_json_indicates_error("a@b.com,valid\n"))
+
+    def test_delete_file_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "success": True,
+            "message": "File Deleted",
+            "file_name": "emails.txt",
+            "file_id": "5e87c21f-45b2-4803-8daf-307f29fa7340",
+        })
+
+        response = self.zero_bounce_client.delete_file("5e87c21f-45b2-4803-8daf-307f29fa7340")
+        self.assertTrue(response.success)
+        self.assertEqual(response.message, "File Deleted")
+        self.assertEqual(response.file_id, "5e87c21f-45b2-4803-8daf-307f29fa7340")
+        self.assertEqual(response.file_name, "emails.txt")
+
+    def test_guess_format_status_invalid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "",
+            "domain": "invalid.com",
+            "format": "unknown",
+            "status": "",
+            "sub_status": "",
+            "confidence": "undetermined",
+            "did_you_mean": "",
+            "failure_reason": "Cannot find pattern for free domains.",
+            "other_domain_formats": []
+        })
+
+        response = self.zero_bounce_client.guess_format(
+            "invalid.com", "John", "", "Doe"
+        )
+        self.assertEqual(response.domain, "invalid.com")
+        self.assertEqual(response.confidence, ZBConfidence.undetermined)
+        self.assertEqual(response.other_domain_formats, [])
+
+    def test_guess_format_status_valid(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "john.doe@example.com",
+            "domain": "example.com",
+            "format": "first.last",
+            "status": "valid",
+            "sub_status": "",
+            "confidence": "high",
+            "did_you_mean": "",
+            "failure_reason": "",
+            "other_domain_formats": [
+                {
+                    "format": "first_last",
+                    "confidence": "high"
+                },
+                {
+                    "format": "first",
+                    "confidence": "medium"
+                }
+            ]
+        })
+
+        response = self.zero_bounce_client.guess_format(
+            "example.com", "John", "", "Doe"
+        )
+        self.assertEqual(response.email, "john.doe@example.com")
+        self.assertEqual(response.status, ZBValidateStatus.valid)
+        self.assertEqual(response.sub_status, ZBValidateSubStatus.none)
+        self.assertEqual(response.confidence, ZBConfidence.high)
+        self.assertEqual(len(response.other_domain_formats), 2)
+        self.assertEqual(response.other_domain_formats[0].format, "first_last")
+        self.assertEqual(response.other_domain_formats[0].confidence, ZBConfidence.high)
+        self.assertEqual(response.other_domain_formats[1].format, "first")
+        self.assertEqual(response.other_domain_formats[1].confidence, ZBConfidence.medium)
+
+    def test_guess_format_handles_none_status_sub_status_confidence(self):
+        """Regression for issue #9: API may return null for status/sub_status/confidence."""
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "",
+            "domain": "example.com",
+            "format": "first.last",
+            "status": None,
+            "sub_status": None,
+            "confidence": None,
+            "did_you_mean": "",
+            "failure_reason": "",
+            "other_domain_formats": [
+                {"format": "first_last", "confidence": None},
+            ]
+        })
+        response = self.zero_bounce_client.guess_format("example.com", "John", "", "Doe")
+        self.assertIsNone(response.status)
+        self.assertIsNone(response.sub_status)
+        self.assertIsNone(response.confidence)
+        self.assertEqual(len(response.other_domain_formats), 1)
+        self.assertEqual(response.other_domain_formats[0].format, "first_last")
+        self.assertIsNone(response.other_domain_formats[0].confidence)
+
+    def test_find_email_format_with_domain(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "john.doe@example.com",
+            "email_confidence": "high",
+            "domain": "example.com",
+            "company_name": "",
+            "did_you_mean": "",
+            "failure_reason": "",
+        })
+
+        response = self.zero_bounce_client.find_email_format(
+            first_name="John",
+            domain="example.com",
+            last_name="Doe"
+        )
+        self.assertEqual(response.email, "john.doe@example.com")
+        self.assertEqual(response.email_confidence, ZBConfidence.high)
+        self.assertEqual(response.domain, "example.com")
+        self.assertEqual(response.company_name, "")
+
+    def test_find_email_format_with_company_name(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "jane@acmestores.com",
+            "email_confidence": "low",
+            "domain": "acmestores.com",
+            "company_name": "Acme Corp",
+            "did_you_mean": "",
+            "failure_reason": "",
+        })
+
+        response = self.zero_bounce_client.find_email_format(
+            first_name="Jane",
+            company_name="Acme Corp"
+        )
+        self.assertEqual(response.email, "jane@acmestores.com")
+        self.assertEqual(response.email_confidence, ZBConfidence.low)
+        self.assertEqual(response.domain, "acmestores.com")
+        self.assertEqual(response.company_name, "Acme Corp")
+
+    def test_find_email_format_both_domain_and_company_name(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.find_email_format(
+                first_name="John",
+                domain="example.com",
+                company_name="Acme Corp"
+            )
+        expected_error = "Parameter error: domain and company_name cannot be used together"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_find_email_format_neither_domain_nor_company_name(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.find_email_format(
+                first_name="John"
+            )
+        expected_error = "Empty parameter: domain or company_name required"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_find_email_format_email_confidence_enum_conversion(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "email": "test@example.com",
+            "email_confidence": "medium",
+            "domain": "example.com",
+            "company_name": "",
+            "did_you_mean": "",
+            "failure_reason": "",
+        })
+
+        response = self.zero_bounce_client.find_email_format(
+            first_name="Test",
+            domain="example.com"
+        )
+        self.assertIsInstance(response.email_confidence, ZBConfidence)
+        self.assertEqual(response.email_confidence, ZBConfidence.medium)
+
+    def test_find_domain_with_domain(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "domain": "example.com",
+            "company_name": "",
+            "format": "unknown",
+            "confidence": "undetermined",
+            "did_you_mean": "",
+            "failure_reason": "",
+            "other_domain_formats": []
+        })
+
+        response = self.zero_bounce_client.find_domain(domain="example.com")
+        self.assertEqual(response.domain, "example.com")
+        self.assertEqual(response.company_name, "")
+        self.assertEqual(response.format, "unknown")
+        self.assertEqual(response.confidence, ZBConfidence.undetermined)
+        self.assertEqual(response.other_domain_formats, [])
+
+    def test_find_domain_with_company_name(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "domain": "acmestores.com",
+            "company_name": "Acme Corp",
+            "format": "first_last",
+            "confidence": "high",
+            "did_you_mean": "",
+            "failure_reason": "",
+            "other_domain_formats": [
+                {
+                    "format": "firstlast",
+                    "confidence": "medium"
+                },
+                {
+                    "format": "first.last",
+                    "confidence": "medium"
+                },
+                {
+                    "format": "first",
+                    "confidence": "low"
+                }
+            ]
+        })
+
+        response = self.zero_bounce_client.find_domain(company_name="Acme Corp")
+        self.assertEqual(response.domain, "acmestores.com")
+        self.assertEqual(response.company_name, "Acme Corp")
+        self.assertEqual(response.format, "first_last")
+        self.assertEqual(response.confidence, ZBConfidence.high)
+        self.assertEqual(len(response.other_domain_formats), 3)
+        self.assertEqual(response.other_domain_formats[0].format, "firstlast")
+        self.assertEqual(response.other_domain_formats[0].confidence, ZBConfidence.medium)
+        self.assertEqual(response.other_domain_formats[1].format, "first.last")
+        self.assertEqual(response.other_domain_formats[1].confidence, ZBConfidence.medium)
+        self.assertEqual(response.other_domain_formats[2].format, "first")
+        self.assertEqual(response.other_domain_formats[2].confidence, ZBConfidence.low)
+
+    def test_find_domain_both_domain_and_company_name(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.find_domain(
+                domain="example.com",
+                company_name="Acme Corp"
+            )
+        expected_error = "Parameter error: domain and company_name cannot be used together"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_find_domain_neither_domain_nor_company_name(self):
+        with self.assertRaises(ZBClientException) as cm:
+            self.zero_bounce_client.find_domain()
+        expected_error = "Empty parameter: domain xor company_name required"
+        self.assertEqual(str(cm.exception), expected_error)
+
+    def test_find_domain_confidence_enum_conversion(self):
+        self.requests_mock.get.return_value = MockResponse({
+            "domain": "example.com",
+            "company_name": "",
+            "format": "first.last",
+            "confidence": "high",
+            "did_you_mean": "",
+            "failure_reason": "",
+            "other_domain_formats": []
+        })
+
+        response = self.zero_bounce_client.find_domain(domain="example.com")
+        self.assertIsInstance(response.confidence, ZBConfidence)
+        self.assertEqual(response.confidence, ZBConfidence.high)
+
+    def test_gets_pass_timeout(self):
+        self.requests_mock.get.return_value = MockResponse({'a': 'b'})
+
+        client = ZeroBounce("dummy_key", timeout=timedelta(milliseconds=123))
+        response = client._get("https://example.com", ZBResponse)
+        self.assertEqual(response.a, 'b')
+        self.requests_mock.get.assert_called_with(
+            'https://example.com', params={'api_key': 'dummy_key'}, timeout=(0.123, 0.123), allow_redirects=False
+        )
+
+    def test_posts_pass_timeout(self):
+        self.requests_mock.post.return_value = MockResponse({'a': 'b'})
+
+        client = ZeroBounce("dummy_key", timeout=timedelta(milliseconds=123))
+        response = client._post("https://example.com", ZBResponse)
+        self.assertEqual(response.a, 'b')
+        self.requests_mock.post.assert_called_with(
+            'https://example.com', data=None, json=None, files=None, timeout=(0.123, 0.123), allow_redirects=False
+        )
+
+    def test_send_email_finder_file_uses_bulk_email_finder_url(self):
+        self.requests_mock.post.return_value = MockResponse({
+            "success": True,
+            "file_id": "ef-1",
+        })
+        stream = BytesIO(b"domain,name\nacme.com,Jane")
+        self.zero_bounce_client.send_email_finder_file_stream(
+            stream, "finder.csv", domain_column=1, full_name_column=2
+        )
+        url = self.requests_mock.post.call_args[0][0]
+        self.assertEqual(url, "https://bulkapi.zerobounce.net/email-finder/sendfile")
+
+    def test_add_filter_posts_to_main_api(self):
+        self.requests_mock.request.return_value = MockResponse(
+            {"Message": "Filter successfully added"}
+        )
+        self.zero_bounce_client.add_filter("allow", "domain", "example.com")
+        method, url = self.requests_mock.request.call_args[0][:2]
+        self.assertEqual(method, "POST")
+        self.assertTrue(url.endswith("/filters/add"))
+        data = self.requests_mock.request.call_args[1]["data"]
+        self.assertEqual(data["rule"], "allow")
+
+    def test_validate_s3file_posts_to_bulk_root(self):
+        self.requests_mock.post.return_value = MockResponse({"success": True, "file_id": "s3-1"})
+        self.zero_bounce_client.validate_s3file(
+            "lists/jan.csv", has_header_row=True, remove_duplicates=True, return_url="https://example.com/cb"
+        )
+        url = self.requests_mock.post.call_args[0][0]
+        self.assertEqual(url, "https://bulkapi.zerobounce.net/validateS3file")
+
+    def test_get_list_evaluator_result_url(self):
+        self.requests_mock.request.return_value = MockResponse({"file_status": "Complete"})
+        self.zero_bounce_client.get_list_evaluator_result("abc-123")
+        method, url = self.requests_mock.request.call_args[0][:2]
+        self.assertEqual(method, "GET")
+        self.assertIn("/v2/listevaluator/abc-123/", url)

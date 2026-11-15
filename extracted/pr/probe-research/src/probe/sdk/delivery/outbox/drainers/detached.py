@@ -235,6 +235,18 @@ def maybe_spawn(directory: str | None = None, *, credential_env: dict | None = N
     return request_drain(journal, credential_env) == BackgroundState.STARTED or child_spawned
 
 
+def start_drain_now(directory: str, *, credential_env: dict | None = None) -> bool:
+    """Ask the service for a drain of ``directory`` now, queued work or not, unless one holds its
+    lease or it is paused: a close is seconds away, and a drain started only then spends ~1 s
+    importing its client before its first send (T16j). True when the service took it."""
+    from ...journal.journal import Journal
+
+    journal = Journal(directory)
+    if journal.paused or not _lease_is_free(journal):
+        return False
+    return request_drain(journal, credential_env) is not None
+
+
 #: An `outbox.drain` ask's answer, at most (the service answers within its own 2 s).
 DRAIN_ASK_S = 5.0
 

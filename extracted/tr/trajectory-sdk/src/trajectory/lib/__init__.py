@@ -19,6 +19,7 @@ from trajectory.lib.benchmarks import (
 )
 from trajectory.lib.diagnostics import start_task_diagnostic
 from trajectory.lib.files import UploadFile, put_files
+from trajectory.lib.images import ImageInput
 
 __all__ = [
   "BenchmarkImageBuildError",
@@ -28,6 +29,7 @@ __all__ = [
   "FileUploadError",
   "WorkflowError",
   "DockerfileBuild",
+  "ImageInput",
   "ImageRef",
   "RuntimeRef",
   "UploadFile",

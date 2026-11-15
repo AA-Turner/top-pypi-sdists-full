@@ -6,8 +6,6 @@ from threading import Thread
 import aioblescan as aiobs
 from datetime import datetime
 
-from bleparser import BleParser
-
 from fhempy.lib.ble_monitor.bt_helpers import reset_bluetooth, BT_INTERFACES
 
 from .const import (
@@ -24,6 +22,7 @@ from .const import (
     MEASUREMENT_DICT,
 )
 
+from .parser import FhempyBleParser
 from .helper import dict_get_or_clean, dict_get_or, identifier_clean
 
 
@@ -106,7 +105,7 @@ class HCIdump(Thread):
         )
 
         # prepare the ble_parser
-        self.ble_parser = BleParser(
+        self.ble_parser = FhempyBleParser(
             report_unknown=self.report_unknown,
             discovery=self.discovery,
             filter_duplicates=self.filter_duplicates,
@@ -130,23 +129,28 @@ class HCIdump(Thread):
         if sensor_msg:
             measurements = list(sensor_msg.keys())
             device_type = sensor_msg["type"]
-            sensor_list = (
-                MEASUREMENT_DICT[device_type][0] + MEASUREMENT_DICT[device_type][1]
-            )
-            binary_list = MEASUREMENT_DICT[device_type][2] + ["battery"]
-            measuring = any(x in measurements for x in sensor_list)
-            binary = any(x in measurements for x in binary_list)
-            if binary == measuring:
-                self.dataqueue_bin.sync_q.put_nowait(sensor_msg)
+            if device_type not in MEASUREMENT_DICT:
+                # bleparser knows more sensor types than MEASUREMENT_DICT:
+                # deliver the readings instead of crashing the scanner
                 self.dataqueue_meas.sync_q.put_nowait(sensor_msg)
             else:
-                if binary is True:
-                    self.dataqueue_bin.sync_q.put_nowait(sensor_msg)
-                if measuring is True:
-                    self.dataqueue_meas.sync_q.put_nowait(sensor_msg)
+                self._queue_sensor_msg(sensor_msg, measurements, device_type)
         if tracker_msg:
             tracker_msg[CONF_GATEWAY_ID] = gateway_id
             self.dataqueue_tracker.sync_q.put_nowait(tracker_msg)
+
+    def _queue_sensor_msg(self, sensor_msg, measurements, device_type):
+        sensors, extra, binaries = MEASUREMENT_DICT[device_type]
+        measuring = any(x in measurements for x in sensors + extra)
+        binary = any(x in measurements for x in binaries + ["battery"])
+        if binary == measuring:
+            self.dataqueue_bin.sync_q.put_nowait(sensor_msg)
+            self.dataqueue_meas.sync_q.put_nowait(sensor_msg)
+        else:
+            if binary is True:
+                self.dataqueue_bin.sync_q.put_nowait(sensor_msg)
+            if measuring is True:
+                self.dataqueue_meas.sync_q.put_nowait(sensor_msg)
 
     def run(self):
         """Run HCIdump thread."""

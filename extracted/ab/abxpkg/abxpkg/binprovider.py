@@ -1009,7 +1009,7 @@ class BinProvider(BaseModel):
                 break
         if not isinstance(cached_record, dict):
             return None
-        if cached_record.get("fingerprint") != fingerprints:
+        if not _fingerprints_match(cached_record.get("fingerprint"), fingerprints):
             cache.pop(cached_record_key or cache_key, None)
             save_derived_cache(derived_env_path, cache)
             return None
@@ -1072,7 +1072,9 @@ class BinProvider(BaseModel):
             or cached_record.get("cache_kind") != cache_kind
             or cached_record.get("bin_name") != str(bin_name)
             or cached_abspath not in {original_abspath, resolved_abspath}
-            or cached_record.get("mtime") != primary_fingerprint["mtime_ns"]
+            or not isinstance(cached_record.get("mtime"), int)
+            or cast(int, cached_record["mtime"]) // 1_000_000_000
+            != primary_fingerprint["mtime_ns"] // 1_000_000_000
             or cached_record.get("euid") != primary_fingerprint["euid"]
             or cached_record.get("cache_context_hash") != cache_context_hash
             or cached_record.get("cache_context") != cache_context
@@ -1358,7 +1360,10 @@ class BinProvider(BaseModel):
                 == resolved_abspath
                 and typed_record.get("resolved_provider_name") == exec_provider.name
                 and len(fingerprint_paths) == len(raw_fingerprints)
-                and raw_fingerprints == self._fingerprint_paths(fingerprint_paths)
+                and _fingerprints_match(
+                    raw_fingerprints,
+                    self._fingerprint_paths(fingerprint_paths),
+                )
             )
 
         cache_entry = next(
@@ -1420,8 +1425,9 @@ class BinProvider(BaseModel):
                     fingerprint_paths = []
                     break
                 fingerprint_paths.append(Path(raw_fingerprint["path"]))
-            if not fingerprint_paths or raw_fingerprints != self._fingerprint_paths(
-                fingerprint_paths,
+            if not fingerprint_paths or not _fingerprints_match(
+                raw_fingerprints,
+                self._fingerprint_paths(fingerprint_paths),
             ):
                 projections.pop(existing_key)
                 projections_changed = True
@@ -1572,6 +1578,12 @@ class BinProvider(BaseModel):
         fingerprints = self._fingerprint_paths(unique_paths)
         if fingerprints is None:
             return None
+        # Plans carry validation only, so rebuilding one after OCI export must
+        # not rewrite its cache solely because subsecond precision disappeared.
+        for fingerprint in fingerprints:
+            fingerprint["mtime_ns"] = (
+                fingerprint["mtime_ns"] // 1_000_000_000 * 1_000_000_000
+            )
         return {
             "version": 7,
             "script": plan_key is not None,
@@ -1648,7 +1660,10 @@ class BinProvider(BaseModel):
                 )
                 and typed_record.get("resolved_provider_name") == exec_provider.name
                 and len(fingerprint_paths) == len(raw_fingerprints)
-                and raw_fingerprints == self._fingerprint_paths(fingerprint_paths)
+                and _fingerprints_match(
+                    raw_fingerprints,
+                    self._fingerprint_paths(fingerprint_paths),
+                )
             )
 
         cache_entry = next(

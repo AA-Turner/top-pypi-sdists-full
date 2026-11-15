@@ -40,8 +40,8 @@ from typing import Any
 
 from restate.agents import _signals
 from restate.agents._calls import call_of
-from restate.agents._common import PerSession, ToolError, configured
-from restate.agents._turn import stop_signal_of, tool_call_ended, tool_call_started
+from restate.agents._common import NeedsAgent, PerSession, ToolError, configured
+from restate.agents._turn import stop_signal_of, tool_call_started
 from restate.exceptions import TerminalError
 from restate.handler import Handler, handler_from_callable
 from restate.sessions import SessionContext
@@ -172,6 +172,9 @@ class Tool:
                     # nothing else. The turn still stops with its reason, from the stop signal.
                     raise
                 raise stop.reason from error
+            if isinstance(error, NeedsAgent):
+                # Not the model's to fix (a wait from a session object that is no agent): the turn fails with it.
+                raise
             if isinstance(error, TerminalError):
                 # A terminal error is the tool's result, which the model can act on.
                 return f"Error: {error.message}"
@@ -184,9 +187,9 @@ class Tool:
 async def run_tool(tool: Tool, args: object, call: ToolCall) -> str:
     """Run ``tool`` for a tool call, the way a framework integration should.
 
-    Unlike ``Tool.run``, it publishes the tool call's start and end to the
-    clients that follow the conversation, and first settles the earlier calls
-    whose results the framework has stored.
+    Unlike ``Tool.run``, it first settles the earlier calls whose results the
+    framework has stored (``tool_call_started``). It publishes nothing: the
+    turn publishes as it stores the call, and its result.
 
     Args:
         tool: The tool to run.
@@ -197,10 +200,7 @@ async def run_tool(tool: Tool, args: object, call: ToolCall) -> str:
         The tool's result as text, as ``Tool.run`` returns it.
     """
     await tool_call_started(call.ctx)
-    try:
-        return await tool.run(args, call)
-    finally:
-        await tool_call_ended(call.ctx)
+    return await tool.run(args, call)
 
 
 def _text(value: object) -> str:
@@ -691,12 +691,16 @@ async def _wait(
     """Wait for signal ``signal`` as tool call ``call``, once however often it runs; ``pending`` shows ``input`` if
     ``shown``. ``rejoin`` and ``approval`` are ``call_of``'s."""
 
+    # Before the call is recorded: from a session object that is no agent, the turn fails for good (``NeedsAgent``).
+    waiting = "waiting for an approval" if approval else f"waiting for signal {signal!r}"
+    wait = _signals.waits_in(call.ctx, waiting).wait
+
     async def made(c: ToolCall) -> Any:
         wait_id = c.idempotency_key
         request: _signals.WaitRequest = {"id": wait_id, "name": signal}
         if shown:
             request["input"] = input
-        return await c.ctx.call(_signals.wait, request, key=_signals.signals_of(c.ctx), idempotency_key=wait_id)
+        return await c.ctx.call(wait, request, key=c.ctx.key, idempotency_key=wait_id)
 
     return await _once(f"signal/{signal}", input, call, made, rejoin=rejoin, approval=approval)
 

@@ -7225,22 +7225,18 @@ class PostCss(metaclass=jsii.JSIIMeta, jsii_type="projen.web.PostCss"):
         *,
         file_name: typing.Optional[builtins.str] = None,
         tailwind: typing.Optional[builtins.bool] = None,
-        tailwind_options: typing.Optional[typing.Union["TailwindConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param project: -
         :param file_name: Default: "postcss.config.json"
         :param tailwind: (experimental) Install Tailwind CSS as a PostCSS plugin. Default: true
-        :param tailwind_options: (experimental) Tailwind CSS options.
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__752c44b0de55a970e38fc2cb17c404afdaec5c73ad5ec508896294719f7100c2)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-        options = PostCssOptions(
-            file_name=file_name, tailwind=tailwind, tailwind_options=tailwind_options
-        )
+        options = PostCssOptions(file_name=file_name, tailwind=tailwind)
 
         jsii.create(self.__class__, self, [project, options])
 
@@ -7260,23 +7256,11 @@ class PostCss(metaclass=jsii.JSIIMeta, jsii_type="projen.web.PostCss"):
         '''
         return typing.cast(builtins.str, jsii.get(self, "fileName"))
 
-    @builtins.property
-    @jsii.member(jsii_name="tailwind")
-    def tailwind(self) -> typing.Optional["TailwindConfig"]:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional["TailwindConfig"], jsii.get(self, "tailwind"))
-
 
 @jsii.data_type(
     jsii_type="projen.web.PostCssOptions",
     jsii_struct_bases=[],
-    name_mapping={
-        "file_name": "fileName",
-        "tailwind": "tailwind",
-        "tailwind_options": "tailwindOptions",
-    },
+    name_mapping={"file_name": "fileName", "tailwind": "tailwind"},
 )
 class PostCssOptions:
     def __init__(
@@ -7284,29 +7268,22 @@ class PostCssOptions:
         *,
         file_name: typing.Optional[builtins.str] = None,
         tailwind: typing.Optional[builtins.bool] = None,
-        tailwind_options: typing.Optional[typing.Union["TailwindConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param file_name: Default: "postcss.config.json"
         :param tailwind: (experimental) Install Tailwind CSS as a PostCSS plugin. Default: true
-        :param tailwind_options: (experimental) Tailwind CSS options.
 
         :stability: experimental
         '''
-        if isinstance(tailwind_options, dict):
-            tailwind_options = TailwindConfigOptions(**tailwind_options)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e03796ae9fae72764e1f49df637cf7f8e5ec8a1b33d3b53c5ea92253079ee95c)
             check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
-            check_type(argname="argument tailwind_options", value=tailwind_options, expected_type=type_hints["tailwind_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if file_name is not None:
             self._values["file_name"] = file_name
         if tailwind is not None:
             self._values["tailwind"] = tailwind
-        if tailwind_options is not None:
-            self._values["tailwind_options"] = tailwind_options
 
     @builtins.property
     def file_name(self) -> typing.Optional[builtins.str]:
@@ -7328,15 +7305,6 @@ class PostCssOptions:
         '''
         result = self._values.get("tailwind")
         return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tailwind_options(self) -> typing.Optional["TailwindConfigOptions"]:
-        '''(experimental) Tailwind CSS options.
-
-        :stability: experimental
-        '''
-        result = self._values.get("tailwind_options")
-        return typing.cast(typing.Optional["TailwindConfigOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14951,7 +14919,6 @@ def _typecheckingstub__752c44b0de55a970e38fc2cb17c404afdaec5c73ad5ec508896294719
     *,
     file_name: typing.Optional[builtins.str] = None,
     tailwind: typing.Optional[builtins.bool] = None,
-    tailwind_options: typing.Optional[typing.Union[TailwindConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14960,7 +14927,6 @@ def _typecheckingstub__e03796ae9fae72764e1f49df637cf7f8e5ec8a1b33d3b53c5ea922530
     *,
     file_name: typing.Optional[builtins.str] = None,
     tailwind: typing.Optional[builtins.bool] = None,
-    tailwind_options: typing.Optional[typing.Union[TailwindConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

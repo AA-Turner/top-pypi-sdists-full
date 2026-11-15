@@ -19,7 +19,7 @@ class JobSearchTheirstackInput(TypedDict, total=False):
     """Input for Job Search - TheirStack."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     companyCountryCodeNot: NotRequired[list[str]]
     """Return companies whose HQ country code is not any of the ones passed here, case sensitive. Pass ISO2 country codes."""
     companyCountryCodeOr: NotRequired[list[str]]
@@ -50,9 +50,9 @@ class JobSearchTheirstackInput(TypedDict, total=False):
     """(Use `property_exists_or / property_exists_and` instead) Only return companies with a LinkedIn URL"""
     companyLinkedinUrlOr: NotRequired[list[str]]
     """Return companies whose LinkedIn URL matches any of the slugs passed here. Can also pass full LinkedIn company URLs."""
-    companyListIdNot: NotRequired[list[str]]
+    companyListIdNot: NotRequired[list[int]]
     """Return companies that don't belong to any of the company lists passed here"""
-    companyListIdOr: NotRequired[list[str]]
+    companyListIdOr: NotRequired[list[int]]
     """Return companies that belong to any of the company lists passed here"""
     companyLocationPatternOr: NotRequired[list[str]]
     """Return companies whose city matches any of the patterns passed here. Case insensitive. For example, if you pass 'san francisco', it will return companies whose city is 'San Francisco', 'San Francisco Bay Area', etc."""
@@ -95,12 +95,12 @@ class JobSearchTheirstackInput(TypedDict, total=False):
     hiringManagersExists: NotRequired[bool]
     """(Use `property_exists_or / property_exists_and` instead) If True, only return jobs with a hiring manager. If False, only return jobs without a hiring manager. If None, return all jobs."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     includeTotalResults: NotRequired[bool]
     """When enabled, calculates and returns `total_results` and `total_companies` fields in the response. WARNING: This significantly slows down responses as it requires reading the entire dataset. Recommended usage: enable only for the initial request to get totals, then disable for subsequent pagination requests."""
-    industryIdNot: NotRequired[list[str]]
-    """Industry ids to exclude.You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
-    industryIdOr: NotRequired[list[str]]
+    industryIdNot: NotRequired[list[int]]
+    """Industry ids to exclude. You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
+    industryIdOr: NotRequired[list[int]]
     """Industry codes. You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
     industryNot: NotRequired[list[str]]
     """Names of industries, case-insensitive. Results will exclude companies that belong to any of the industries specified in this parameter. Available values: GET /v0/catalog/industries WARNING: Deprecated parameter. Use the industry_id_not field instead."""
@@ -124,11 +124,11 @@ class JobSearchTheirstackInput(TypedDict, total=False):
     """Regex patterns to look for in job descriptions. Case-sensitive. Results will include jobs whose description don't match any of these patterns. Use (?i) at the start of a pattern to make it case-insensitive. Can pass more than one."""
     jobDescriptionPatternOr: NotRequired[list[str]]
     """Regex patterns to look for in job descriptions. Case-sensitive. Results will include jobs whose description matches any of these patterns. Use (?i) at the start of a pattern to make it case-insensitive. Can pass more than one."""
-    jobIdNot: NotRequired[list[str]]
+    jobIdNot: NotRequired[list[int]]
     """Exclude jobs with these IDs."""
-    jobIdOr: NotRequired[list[str]]
+    jobIdOr: NotRequired[list[int]]
     """Get jobs with these IDs only."""
-    jobIds: NotRequired[list[str]]
+    jobIds: NotRequired[list[int]]
     """Get jobs with these IDs only. Deprecated parameter, use job_id_or instead."""
     jobKeywordSlugAnd: NotRequired[list[str]]
     """Will return jobs where all of these keyword slugs appear. Case sensitive. Check out all the keywords we track at GET /v0/catalog/keywords"""
@@ -218,7 +218,7 @@ class JobSearchTheirstackInput(TypedDict, total=False):
     scraperNamePatternOr: NotRequired[list[str]]
     """Regex patterns to match job sources. Case-insensitive."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     urlDomainNot: NotRequired[list[str]]
     """Exclude jobs if their URL domain (from `url` or `source_url`) is in the provided case-insensitive list. For example, ['greenhouse.io', 'workable.com'] will exclude URLs containing 'greenhouse.io' or 'workable.com'. Refer to our list of sources at https://theirstack.com/en/docs/data/job/sources."""
     urlDomainOr: NotRequired[list[str]]

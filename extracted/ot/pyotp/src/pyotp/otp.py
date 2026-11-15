@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
-from typing import Any, Optional
+from typing import Any
 
 
-class OTP(object):
+class OTP:
     """
     Base class for OTP handlers.
     """
@@ -12,14 +14,15 @@ class OTP(object):
     def __init__(
         self,
         s: str,
+        *,
         digits: int = 6,
         digest: Any = hashlib.sha1,
-        name: Optional[str] = None,
-        issuer: Optional[str] = None,
+        name: str | None = None,
+        issuer: str | None = None,
     ) -> None:
         self.digits = digits
-        if digits > 10:
-            raise ValueError("digits must be no greater than 10")
+        if not 6 <= digits <= 10:
+            raise ValueError("digits must be between 6 and 10")
         self.digest = digest
         if digest in [hashlib.md5, hashlib.shake_128]:
             raise ValueError("selected digest function must generate digest size greater than or equals to 18 bytes")
@@ -53,10 +56,13 @@ class OTP(object):
         missing_padding = len(secret) % 8
         if missing_padding != 0:
             secret += "=" * (8 - missing_padding)
-        return base64.b32decode(secret, casefold=True)
+        decoded = base64.b32decode(secret, casefold=True)
+        if len(decoded) < 10:
+            raise ValueError("Secrets must be at least 80 bits after decoding")
+        return decoded
 
     @staticmethod
-    def int_to_bytestring(i: int, padding: int = 8) -> bytes:
+    def int_to_bytestring(i: int, *, padding: int = 8) -> bytes:
         """
         Turns an integer to the OATH specified
         bytestring, which is fed to the HMAC
@@ -69,4 +75,4 @@ class OTP(object):
         # It's necessary to convert the final result from bytearray to bytes
         # because the hmac functions in python 2.6 and 3.3 don't work with
         # bytearray
-        return bytes(bytearray(reversed(result)).rjust(padding, b"\0"))
+        return bytes(reversed(result.ljust(padding, b"\0")))

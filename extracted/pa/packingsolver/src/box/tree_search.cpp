@@ -2,6 +2,7 @@
 
 #include "packingsolver/box/algorithm_formatter.hpp"
 #include "box/solution_builder.hpp"
+#include "box/static_stability.hpp"
 #include "algorithms/thread_pool.hpp"
 #include "treesearchsolver/iterative_beam_search_2.hpp"
 
@@ -1272,11 +1273,17 @@ const packingsolver::box::TreeSearchOutput packingsolver::box::tree_search(
                     = static_cast<const treesearchsolver::IterativeBeamSearch2Output<BranchingScheme>&>(tss_output);
                 Solution solution = branching_schemes[scheme_idx].to_solution(
                         tssibs_output.solution_pool.best());
+                // The search doesn't model the static stability: let the
+                // items of the unstable bins fall, then remove the items
+                // which still can't be balanced. The bounds below are
+                // computed from the solution of the search.
+                Solution stable_solution = remove_unbalanced_items(
+                        drop_items(solution));
                 std::stringstream ss;
                 ss << "g " << branching_schemes[scheme_idx].parameters().guide_id
                     << " d " << branching_schemes[scheme_idx].parameters().direction
                     << " q " << tssibs_output.maximum_size_of_the_queue;
-                scheme_algorithm_formatter->update_solution(solution, ss.str());
+                scheme_algorithm_formatter->update_solution(stable_solution, ss.str());
 
                 if (tssibs_output.optimal) {
                     // 'Solution::operator<' always ranks a feasible solution
@@ -1284,9 +1291,13 @@ const packingsolver::box::TreeSearchOutput packingsolver::box::tree_search(
                     // 'solution_pool.best()' can only be infeasible here if
                     // no feasible solution was found anywhere in this
                     // now-exhaustive search: a genuine infeasibility proof,
-                    // independent of objective.
+                    // independent of objective. The search doesn't model
+                    // the static stability and the feasibility callback, so
+                    // it only proves the infeasibility without them, and
+                    // the value of its best solution is a bound even if
+                    // they make it infeasible.
                     Output bounds(instance);
-                    if (!solution.feasible()) {
+                    if (!solution.feasible_without_unmodeled_constraints()) {
                         // For every non-Knapsack objective (Feasibility
                         // included), 'copies_min' defaults to 'copies', so
                         // this already subsumes "not everything got packed"

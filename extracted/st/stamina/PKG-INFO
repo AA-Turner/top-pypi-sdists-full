@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: stamina
-Version: 26.1.0
+Version: 26.2.0
 Summary: Production-grade retries made easy.
 Project-URL: Documentation, https://stamina.hynek.me/
 Project-URL: GitHub, https://github.com/hynek/stamina
@@ -17,17 +17,19 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
-Requires-Dist: tenacity
+Requires-Python: >=3.11
+Requires-Dist: tenacity>=8.3.0
 Description-Content-Type: text/markdown
 
 # *stamina*: Production-grade Retries Made Easy
+
+<!-- --8<-- [start:intro] -->
 
 Transient failures are common in distributed systems.
 To make your systems resilient, you need to **retry** failed operations.
@@ -48,20 +50,20 @@ It is the result of years of copy-pasting the same configuration over and over a
 For example:
 
 ```python
-import httpx
+import httpx2
 
 import stamina
 
 
-@stamina.retry(on=httpx.HTTPError, attempts=3)
-def do_it(code: int) -> httpx.Response:
-    resp = httpx.get(f"https://httpbin.org/status/{code}")
+@stamina.retry(on=httpx2.HTTPError, attempts=3)
+def do_it(code: int) -> httpx2.Response:
+    resp = httpx2.get(f"https://httpbin.org/status/{code}")
     resp.raise_for_status()
 
     return resp
 ```
 
-<!-- end docs index -->
+<!-- --8<-- [end:intro] -->
 
 **Async** callables work use the same API and it's possible to retry **arbitrary blocks**, too.
 Check out our [tutorial](https://stamina.hynek.me/en/latest/tutorial.html) for more examples!
@@ -73,17 +75,60 @@ Or, if you prefer video, here's a brief introduction into retries and *stamina*:
 
 ## Release Information
 
+### Removed
+
+- Support for Python 3.10.
+
+
+### Deprecated
+
+- Raising `tenacity.TryAgain` in code that *stamina* retries now emits a `DeprecationWarning`.
+  It only ever worked because *stamina* uses Tenacity internally.
+  Raise `stamina.exceptions.TryAgain` instead.
+
+  Generally speaking, we do [**not** support](https://github.com/hynek/stamina/blob/main/.github/SECURITY.md) "hybrid" usage of Tenacity features via *stamina* and will break such cases *without warning* in the future.
+  [#158](https://github.com/hynek/stamina/issues/158)
+
+
+### Added
+
+- `stamina.exceptions.TryAgain` that you can raise to force a retry, whatever *on* says.
+  If *stamina* runs out of attempts, it raises the exception that you raised `TryAgain` from.
+  Without one, your caller gets the `TryAgain`.
+
+  Pass *after* to wait *at least* a number of seconds, a `datetime.timedelta`, or until a timezone-aware `datetime.datetime` before the next attempt.
+  [#158](https://github.com/hynek/stamina/issues/158)
+
+- `stamina.instrumentation.set_process_details()` that lets you change the `stamina.instrumentation.RetryDetails` before *stamina* passes them to the retry hooks.
+  For example, you can remove secrets from the arguments before they are logged.
+  `stamina.instrumentation.get_process_details()` returns the current one.
+  [#160](https://github.com/hynek/stamina/issues/160)
+
+- `stamina.retry_context()`, `stamina.RetryingCaller()`, and `stamina.AsyncRetryingCaller()` now accept a keyword-only *name* for retry instrumentation, like Prometheus labels.
+  The default remains `<context block>`.
+  [#165](https://github.com/hynek/stamina/issues/165)
+
+
 ### Changed
 
-- Passing `timeout=0` now raises a warning since it counterintuitively disables all retries.
-  If you explicitly want to disable the timeout, use `timeout=None`.
+- The type hints of *on* now accept subclasses of `BaseException`, backoff hooks are typed to receive a `BaseException`, and `stamina.instrumentation.RetryDetails.caused_by` is typed as a `BaseException`.
+  This matches what *stamina* always did at runtime; we've only imposed our opinion via type hints which isn't always useful.
+  If you annotated the argument of a backoff hook with `Exception`, your type checker now wants `BaseException`.
+  [#155](https://github.com/hynek/stamina/issues/155)
+
+- If a backoff would end after *timeout*, *stamina* now gives up right away.
+  Before, it waited past *timeout* and attempted once more.
+  This also applies to custom backoffs from backoff hooks.
+  [#158](https://github.com/hynek/stamina/issues/158)
+
+- On Python 3.15 and later, *stamina* now uses [lazy imports](https://peps.python.org/pep-0810/).
+  [#159](https://github.com/hynek/stamina/issues/159)
 
 
 ### Fixed
 
-- `_compute_backoff()` no longer raises `OverflowError` when the attempt number exceeds 1024 with a float *wait_exp_base*.
-  The exponential result is now clamped to *wait_max* on overflow.
-  [#137](https://github.com/hynek/stamina/issues/137)
+- Context managers returned by `stamina.instrumentation.RetryHook`s are now exited only once.
+  [#157](https://github.com/hynek/stamina/issues/157)
 
 
 ---
@@ -92,6 +137,8 @@ Or, if you prefer video, here's a brief introduction into retries and *stamina*:
 
 
 ## Credits
+
+<!-- --8<-- [start:credits] -->
 
 *stamina* is written by [Hynek Schlawack](https://hynek.me/) and distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
 
@@ -106,3 +153,4 @@ Available as part of the [Tidelift Subscription](https://tidelift.com/?utm_sourc
 
 The maintainers of *stamina* and thousands of other packages are working with Tidelift to deliver commercial support and maintenance for the open-source packages you use to build your applications.
 Save time, reduce risk, and improve code health, while paying the maintainers of the exact packages you use.
+<!-- --8<-- [end:credits] -->

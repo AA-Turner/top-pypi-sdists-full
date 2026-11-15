@@ -148,6 +148,8 @@ from inspect_ai._util.http import (
 )
 from inspect_ai._util.http_defaults_httpx2 import (
     DEFAULT_REQUEST_TIMEOUT,
+    REQUEST_TIMEOUT_ENV,
+    connect_timeout,
     default_async_client,
     default_timeout,
 )
@@ -246,6 +248,12 @@ from .util import (
 from .util.hooks import HttpxHooks
 
 logger = getLogger(__name__)
+
+ANTHROPIC_GENERATE_TIMEOUT = 1800.0
+"""Read deadline (seconds) for generate calls."""
+
+AUTO_STREAMING_MAX_TOKENS = 8192
+"""`max_tokens` at or above which generate streams by default."""
 
 ANTHROPIC_API_KEY = "ANTHROPIC_API_KEY"
 AZUREAI_ANTHROPIC_API_KEY = "AZUREAI_ANTHROPIC_API_KEY"
@@ -544,6 +552,43 @@ class AnthropicAPI(ModelAPI):
         )
         model_args["http_client"] = default_async_client()
         return model_args
+
+    def _generate_timeout(
+        self, request: dict[str, Any], streaming: bool
+    ) -> httpx2.Timeout | anthropic.NotGiven:
+        """Request budget for a generate call.
+
+        A non-streaming response sends nothing until the whole message is
+        ready, and a proxy that buffers server-sent events does the same to a
+        streaming one, so a very long input can outlast the SDK's 10 minute
+        read deadline. That timeout is retried, every attempt fails the same
+        way, and with Inspect's default unlimited retries the sample never
+        finishes, so the read deadline is raised.
+
+        A budget set by the caller (`timeout` model arg or
+        `INSPECT_HTTP_REQUEST_TIMEOUT`) is left alone. So is a non-streaming
+        request above the auto-streaming threshold: an explicit timeout would
+        skip the SDK's check that rejects non-streaming requests whose output
+        may take longer than 10 minutes.
+        """
+        if (
+            "timeout" in self.model_args
+            or os.environ.get(REQUEST_TIMEOUT_ENV, "").strip()
+            or self.client.timeout != anthropic.DEFAULT_TIMEOUT
+        ):
+            return anthropic.NOT_GIVEN
+        if (
+            not streaming
+            and (request.get("max_tokens") or 0) > AUTO_STREAMING_MAX_TOKENS
+        ):
+            return anthropic.NOT_GIVEN
+        sdk_timeout = anthropic.DEFAULT_TIMEOUT
+        return httpx2.Timeout(
+            connect=connect_timeout(),
+            read=ANTHROPIC_GENERATE_TIMEOUT,
+            write=sdk_timeout.write,
+            pool=sdk_timeout.pool,
+        )
 
     def _create_client(
         self,
@@ -1301,10 +1346,14 @@ class AnthropicAPI(ModelAPI):
                 )
             head_message = await self._batcher.generate_for_request(request)
         elif streaming:
-            async with self.client.messages.stream(**request) as stream:
+            async with self.client.messages.stream(
+                **request, timeout=self._generate_timeout(request, True)
+            ) as stream:
                 head_message, _ = await _capture_compaction_from_stream(stream)
         else:
-            head_message = await self.client.messages.create(**request, stream=False)
+            head_message = await self.client.messages.create(
+                **request, stream=False, timeout=self._generate_timeout(request, False)
+            )
 
         head_model_output, continuation_required = await model_output_from_message(
             self.client,
@@ -1778,7 +1827,8 @@ class AnthropicAPI(ModelAPI):
     # see https://github.com/anthropics/anthropic-sdk-python?tab=readme-ov-file#long-requests
     def auto_streaming(self, config: GenerateConfig) -> bool:
         return self.is_using_thinking(config) or (
-            config.max_tokens is not None and config.max_tokens >= 8192
+            config.max_tokens is not None
+            and config.max_tokens >= AUTO_STREAMING_MAX_TOKENS
         )
 
     def is_thinking_model(self) -> bool:
@@ -1993,6 +2043,10 @@ class AnthropicAPI(ModelAPI):
         return _CACHE_DIAGNOSIS_BETA in self._pull_betas_from_headers(
             dict(config.extra_headers or {})
         )
+
+    @override
+    def _client_endpoint(self) -> str | None:
+        return str(self.client.base_url)
 
     @override
     def connection_key(self) -> str:
@@ -4091,12 +4145,9 @@ class _AssistantInternal:
     Replayed as the `container` request param when a turn left code
     execution pending (see `_pending_container_for_input`).
 
-    Unlike `server_tool_span_index`, there is no fallback for message ids
-    rewritten by the agent bridge: a pending span has produced no content,
-    so no bridge-surviving key exists to index by. Pending-work resumption
-    therefore does not survive a bridge id rewrite (the bridge does not
-    carry server tool state in general -- its anthropic impl handles
-    neither `server_tool_use` blocks nor the `container` param)."""
+    Unlike `server_tool_span_index`, there is no content-keyed fallback: a
+    pending span has produced no content. An edit of the message, which gets
+    an id of its own, is recorded here by `copy_server_tool_state`."""
 
 
 def assistant_internal() -> _AssistantInternal:
@@ -4280,6 +4331,22 @@ def merge_server_tool_spans(head_id: str | None, tail_id: str | None) -> None:
         internal.containers.setdefault(tail_id, head_container)
 
 
+def copy_server_tool_state(source_id: str, edited_id: str) -> None:
+    """Record the spans and container of message `source_id` under its edit too.
+
+    An edit of a turn (approved arguments, a scaffold's changed copy) is still
+    the turn that left work pending, so it replays that work; `source_id` keeps
+    its own record.
+    """
+    internal = assistant_internal()
+    spans = internal.server_tool_spans.get(source_id)
+    if spans:
+        internal.server_tool_spans.setdefault(edited_id, list(spans))
+    container = internal.containers.get(source_id)
+    if container is not None:
+        internal.containers.setdefault(edited_id, container)
+
+
 def _prior_turn_server_tool_use(tool_use_id: str) -> BetaServerToolUseBlock | None:
     """Server tool use block recorded in a prior turn's span (if any).
 
@@ -4325,14 +4392,21 @@ def _pending_container_for_input(input: list[ChatMessage]) -> str | None:
     )
     if last_assistant is None or last_assistant.id is None:
         return None
-    internal = assistant_internal()
-    container = internal.containers.get(last_assistant.id)
-    if container is None:
+    container = assistant_internal().containers.get(last_assistant.id)
+    if container is None or not has_pending_server_work(last_assistant.id):
         return None
-    spans = internal.server_tool_spans.get(last_assistant.id, [])
-    if any(span.open_use_ids for span in spans):
-        return container
-    return None
+    return container
+
+
+def has_pending_server_work(message_id: str) -> bool:
+    """Whether message `message_id` ended its turn with server tool work still running.
+
+    That work is replayed from the spans recorded under the message id (and
+    resumed in the container recorded under it): a span with no results yet
+    has no content item to be found by.
+    """
+    spans = assistant_internal().server_tool_spans.get(message_id, [])
+    return any(span.open_use_ids for span in spans)
 
 
 def _server_tool_span_for_content(

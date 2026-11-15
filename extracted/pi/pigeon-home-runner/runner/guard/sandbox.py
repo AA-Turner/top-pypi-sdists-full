@@ -188,6 +188,23 @@ def _validate_confinement_block(block):
     _bind_pairs(extra_binds)
     work_mount = block.get("work_mount", WORK_MOUNT)
     _absolute_mount(work_mount, "work_mount")
+    # The FreeBSD jail backend's own settings live in a block of
+    # their own; that module owns its schema. Checked on every
+    # platform, so a config is right or wrong the same way
+    # wherever it is read.
+    if "freebsd" in block:
+        try:
+            from runner.guard import freebsd_confine as _freebsd
+        except ImportError:
+            from guard import freebsd_confine as _freebsd  # type: ignore
+        _freebsd.validate_freebsd_block(block["freebsd"])
+    # The macOS backend's settings, the same way.
+    if "macos" in block:
+        try:
+            from runner.guard import macos_confine as _macos
+        except ImportError:
+            from guard import macos_confine as _macos  # type: ignore
+        _macos.validate_macos_block(block["macos"])
     return True
 
 
@@ -226,6 +243,52 @@ def _is_user_home(path):
             and parts[1] in ("home", "Users") and bool(parts[2]))
 
 
+def _realpath_or_self(path):
+    """os.path.realpath, answering the path itself when the
+    resolution cannot be taken (a scripted host, an error)."""
+    try:
+        real = os.path.realpath(path)
+    except (OSError, ValueError):
+        return path
+    return real if isinstance(real, str) and real else path
+
+
+def _is_user_home_dir(path):
+    """True when the directory `path` names is a user home,
+    under any spelling of it (Q192). _is_user_home judges a
+    spelling; this judges the directory: the spelled test on
+    the path and on its realpath, a home-shaped tail
+    (</...>/home/<name> or </...>/Users/<name> -- a firmlink
+    or a symlinked tree puts a prefix in front of the home's
+    own spelling), and directory identity with the process
+    user's own home, whose realpath an alias may hide behind
+    a name with no home component in it."""
+    if not isinstance(path, str) or not path:
+        return False
+    if _is_user_home(path):
+        return True
+    real = _realpath_or_self(path)
+    # A resolution is trusted for identity only when it keeps
+    # the directory's own name: an alias renames a parent
+    # component (a firmlink, a linked /home), never the leaf.
+    # A resolution that renames the leaf is a scripted host
+    # answering for another path entirely, and judges nothing.
+    real_ok = (real == path
+               or os.path.basename(real) == os.path.basename(path))
+    if real_ok and real != path and _is_user_home(real):
+        return True
+    for cand in ((path, real) if real_ok else (path,)):
+        parts = cand.split("/")
+        if (len(parts) >= 4 and parts[-2] in ("home", "Users")
+                and bool(parts[-1])):
+            return True
+    own = os.path.expanduser("~")
+    if (own.startswith("/") and real_ok and real == path
+            and real == _realpath_or_self(own)):
+        return True
+    return False
+
+
 def _install_prefix(path):
     """The directory to bind so `path` can run: its grandparent when
     the parent is `bin` (…/x64/bin/python3 -> …/x64, bringing lib/
@@ -238,42 +301,93 @@ def _install_prefix(path):
     prefix bind instead of binding the whole root or tree. Never a
     user home directory either (Q-new-25): a bin grandparent that
     is a home directory (/home/<user>/bin/python3) falls back to
-    the bin directory itself, so the whole home is never bound."""
+    the bin directory itself, so the whole home is never bound.
+    The home is judged by directory, not spelling (Q192): a
+    grandparent that names a home under an alias -- a firmlink
+    or a symlinked /home -- falls back the same way.
+    A path carrying a NUL is no path at all: it gets no
+    prefix, the same skip interpreter_binds gives it whole
+    (Q190 family)."""
+    if not isinstance(path, str) or "\x00" in path:
+        return None
     parent = os.path.dirname(path)
     if os.path.basename(parent) == "bin":
         grand = os.path.dirname(parent)
         if grand.count("/") >= 2 and grand != "/" \
-                and not _is_user_home(grand):
+                and not _is_user_home_dir(grand):
             return grand
     if parent.count("/") >= 2:
-        if _is_user_home(parent):
+        if _is_user_home_dir(parent):
             return None
         return parent
     return None
 
 
-def interpreter_binds(resolved, extra_ro_binds=()):
+def interpreter_binds(resolved, extra_ro_binds=(),
+                      always_visible=_ALWAYS_VISIBLE):
     """Read-only binds needed for `resolved` to execute in the sandbox.
 
     Returns a list of (src, dst) pairs, possibly empty. Both the path
     as resolved and its realpath are considered: a venv's python3 is
     a symlink whose own prefix (pyvenv.cfg, site-packages) is needed
     as well as the base interpreter's. Paths already under /usr or an
-    operator extra_ro_bind need nothing.
+    operator extra_ro_bind need nothing. `always_visible` is the set
+    of trees the confinement shows without a bind: /usr for bwrap,
+    and the FreeBSD jail backend passes the trees it mounts, so one
+    rule decides the widening on both.
     """
-    visible = list(_ALWAYS_VISIBLE) + [
+    visible = list(always_visible) + [
         dst for _src, dst in extra_ro_binds if isinstance(dst, str)]
     out = []
     seen = set()
-    for cand in (resolved, os.path.realpath(resolved)):
-        if not isinstance(cand, str) or not cand.startswith("/"):
+    if isinstance(resolved, str) and "\x00" in resolved:
+        # A path no filesystem can hold: realpath would raise
+        # ValueError on it, and the skip convention below (a
+        # relative path answers no binds) covers it -- answer
+        # no binds instead of crashing the caller (Q190).
+        return out
+    candidates = []
+    if isinstance(resolved, str):
+        candidates = [resolved, _realpath_or_self(resolved)]
+    # The homes either candidate names, by directory (Q192):
+    # an ancestor of one spelling that the spelled test knows
+    # as a home condemns the same directory under every other
+    # spelling, including one with no home component in it.
+    home_dirs = set()
+    for cand in candidates:
+        if not cand.startswith("/"):
+            continue
+        parent = os.path.dirname(cand)
+        for anc in (parent, os.path.dirname(parent)):
+            if _is_user_home_dir(anc):
+                home_dirs.add(anc)
+                anc_real = _realpath_or_self(anc)
+                if os.path.basename(anc_real) == os.path.basename(anc):
+                    home_dirs.add(anc_real)
+    seen_dirs = set()
+    for cand in candidates:
+        if not cand.startswith("/"):
             continue
         if _under(cand, visible):
             continue
         prefix = _install_prefix(cand)
         if prefix is None or prefix in seen or _under(prefix, visible):
             continue
+        # Option 1 on the desk (Q192): a candidate whose
+        # prefix names a user home -- by its realpath, or by
+        # identity with a home the other candidate named --
+        # is dropped, never bound.
+        prefix_dir = _realpath_or_self(prefix)
+        if os.path.basename(prefix_dir) != os.path.basename(prefix):
+            prefix_dir = prefix
+        if _is_user_home_dir(prefix) or prefix_dir in home_dirs:
+            continue
+        if prefix_dir in seen_dirs:
+            # One directory under two spellings is one
+            # widening; the first spelling taken stands.
+            continue
         seen.add(prefix)
+        seen_dirs.add(prefix_dir)
         out.append((prefix, prefix))
     return out
 
@@ -293,6 +407,15 @@ def build_bwrap_command(cfg, interpreter, script_name, workdir, args, env,
     """
     if not interpreter or not all(isinstance(x, str) for x in interpreter):
         raise RuntimeError("interpreter must be a non-empty list of strings")
+    if any("\x00" in x for x in interpreter):
+        # A NUL in the name is refused here, in the open: on
+        # POSIX the resolution below would find nothing and
+        # refuse anyway, but on Windows shutil.which raises
+        # ValueError for the same name instead of returning
+        # None, and the refusal this function promises is the
+        # RuntimeError (Q190's family, the build path's own
+        # shape).
+        raise RuntimeError("interpreter must not contain NUL characters")
     if (not isinstance(script_name, str) or not script_name
             or script_name in (".", "..")
             or "/" in script_name or "\\" in script_name

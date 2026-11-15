@@ -66,9 +66,15 @@ def connect_wrapper():
         with opener.open(req, timeout=10) as response:
             return json.load(response)
     try:
-        health = read('/health')
+        try:
+            health = read('/health')
+        except urllib.error.HTTPError as exc:      # 503: degraded (catalog stale, Discovery not built) but a Wrapper
+            if exc.code != 503:
+                raise
+            health = json.load(exc)
+        # a degraded Wrapper is connected too: it says who it is, and its models appear once its Discovery has built
         if (not isinstance(health, dict) or health.get('service') not in ('hugpy-wrapper', 'hugpy-wrapper-sql')
-                or health.get('status') != 'ok' or not isinstance(health.get('worker'), str)
+                or health.get('status') not in ('ok', 'degraded') or not isinstance(health.get('worker'), str)
                 or not health['worker'].strip()):
             return jsonify(error='This endpoint is not a healthy Hugpy Wrapper.'), 400
         # /health is public. Verify the credentials used by intake before saving.

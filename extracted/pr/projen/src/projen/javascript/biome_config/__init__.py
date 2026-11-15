@@ -6305,7 +6305,7 @@ class Source:
         :param use_sorted_interface_members: (experimental) Sort named members of a TypeScript interface. See https://biomejs.dev/assist/actions/use-sorted-interface-members
         :param use_sorted_keys: (experimental) Sort keys in a JSON object. See https://biomejs.dev/assist/actions/use-sorted-keys
         :param use_sorted_package_json: (experimental) Organize package.json fields according to established conventions. See https://biomejs.dev/assist/actions/use-sorted-package-json.
-        :param use_sorted_properties: (experimental) Sort CSS properties and nested rules into a consistent order. See https://biomejs.dev/assist/actions/use-sorted-properties
+        :param use_sorted_properties: (experimental) Sort CSS properties into a consistent order. See https://biomejs.dev/assist/actions/use-sorted-properties
         :param use_sorted_selection_set: (experimental) Sort selections inside GraphQL operations and fragments. See https://biomejs.dev/assist/actions/use-sorted-selection-set
         :param use_sorted_type_fields: (experimental) Sort fields in GraphQL type definitions by name. See https://biomejs.dev/assist/actions/use-sorted-type-fields
 
@@ -6509,7 +6509,7 @@ class Source:
 
     @builtins.property
     def use_sorted_properties(self) -> typing.Any:
-        '''(experimental) Sort CSS properties and nested rules into a consistent order.
+        '''(experimental) Sort CSS properties into a consistent order.
 
         See https://biomejs.dev/assist/actions/use-sorted-properties
 

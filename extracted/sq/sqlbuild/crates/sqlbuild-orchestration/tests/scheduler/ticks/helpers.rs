@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::credentials::tests::location_helpers::create_location;
 use crate::scheduler::tests::contracts::ticks::test_types::{
-    FaultAnomalies, FaultStep, IdleLauncher, TransactionFault,
+    CycleRecorder, FaultAnomalies, FaultStep, RecordedCycle, TransactionFault,
 };
 use crate::store::tests::fault_helpers::{install_fault, remove_fault};
 use crate::store::tests::helpers::read_recall_events;
@@ -406,28 +406,30 @@ pub(crate) async fn shift_schedule(store: &ControlStore, trigger_id: Uuid, days:
 }
 
 /// A later covered tick, as if another due time arrived while the requested run still waited.
-pub(crate) async fn append_covered_tick(
+pub(crate) async fn append_covered_ticks(
     store: &ControlStore,
     trigger_id: Uuid,
-    scheduled_for: DateTime<Utc>,
+    scheduled_for: &[DateTime<Utc>],
 ) {
-    let transaction = begin(store, TransactionMode::Write)
+    let mut transaction = begin(store, TransactionMode::Write)
         .await
-        .expect("covered tick");
-    let (transaction, _) = query(
-        transaction,
-        "INSERT INTO sqb_ticks (tick_id, trigger_id, scheduled_for, evaluated_at, epoch, outcome, \
-         run_id, covered_by_run_id) SELECT $1, trigger_id, $2, evaluated_at, epoch, \
-         'covered', NULL, run_id FROM sqb_ticks WHERE trigger_id=$3 AND outcome='requested'",
-        vec![
-            Parameter::Id(Uuid::now_v7()),
-            Parameter::Time(scheduled_for),
-            Parameter::Id(trigger_id),
-        ],
-    )
-    .await
-    .expect("append covered tick");
-    commit(transaction).await.expect("commit covered tick");
+        .expect("covered ticks");
+    for time in scheduled_for {
+        (transaction, _) = query(
+            transaction,
+            "INSERT INTO sqb_ticks (tick_id, trigger_id, scheduled_for, evaluated_at, epoch, outcome, \
+             run_id, covered_by_run_id) SELECT $1, trigger_id, $2, evaluated_at, epoch, \
+             'covered', NULL, run_id FROM sqb_ticks WHERE trigger_id=$3 AND outcome='requested'",
+            vec![
+                Parameter::Id(Uuid::now_v7()),
+                Parameter::Time(*time),
+                Parameter::Id(trigger_id),
+            ],
+        )
+        .await
+        .expect("append covered tick");
+    }
+    commit(transaction).await.expect("commit covered ticks");
 }
 
 /// Rewrite one trigger-state column the way an earlier build or a past start would have left it.
@@ -729,12 +731,13 @@ async fn triggers_behind(store: &ControlStore, latest: DateTime<Utc>) -> i64 {
     rows[0]["behind"].as_i64().expect("count")
 }
 
-/// Run one real scheduler loop until `deadline`, then stop it and return the trigger's ticks.
+/// Run one real scheduler loop until `deadline`, then return the trigger's ticks and cycle timings.
 pub(crate) async fn run_scheduler_until(
     store: &ControlStore,
     trigger_id: Uuid,
-    deadline: DateTime<Utc>,
-) -> Vec<TickRecord> {
+    (deadline, poll_delay): (DateTime<Utc>, std::time::Duration),
+) -> (Vec<TickRecord>, Vec<RecordedCycle>) {
+    let mut cycles = Vec::new();
     let (stop, shutdown) = tokio::sync::watch::channel(false);
     let stopping = async {
         tokio::time::sleep((deadline - Utc::now()).to_std().unwrap_or_default()).await;
@@ -745,12 +748,33 @@ pub(crate) async fn run_scheduler_until(
             store,
             SchedulerState::new(Uuid::now_v7()),
             shutdown,
-            IdleLauncher
+            CycleRecorder {
+                cycles: &mut cycles,
+                poll_delay,
+                launching: false,
+            }
         ),
         stopping
     );
     finished.expect("scheduler loop");
-    list_ticks(store, trigger_id, 100).await.expect("ticks")
+    let ticks = list_ticks(store, trigger_id, 100).await.expect("ticks");
+    (ticks, cycles)
+}
+
+/// How late the cycle that made a decision woke: after `ready` or the previous poll, whichever is later.
+pub(crate) fn decision_wake(
+    cycles: &[RecordedCycle],
+    decided_at: DateTime<Utc>,
+    ready: DateTime<Utc>,
+) -> (TimeDelta, &RecordedCycle) {
+    let index = cycles
+        .iter()
+        .rposition(|cycle| cycle.timings.started_at <= decided_at)
+        .expect("a cycle started before the decision");
+    let free = index
+        .checked_sub(1)
+        .map_or(ready, |previous| ready.max(cycles[previous].polled_at));
+    (cycles[index].timings.started_at - free, &cycles[index])
 }
 
 pub(crate) async fn queued_times(

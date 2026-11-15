@@ -69,7 +69,7 @@ def choose(*, task: Optional[str] = None, route: Optional[str] = None, messages=
     refused = {}
     for key in keys:
         try:
-            worker = pick(key, pool=pool, pin=pin, workers=workers, source="central")
+            worker = pick(key, pool=pool, pin=pin, workers=workers, source="central", copy=False)  # an auto choice copies nothing
         except NoWorker as exc:
             refused[key] = str(exc)
             continue

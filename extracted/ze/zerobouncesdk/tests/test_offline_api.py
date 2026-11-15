@@ -107,6 +107,11 @@ def _parse_multipart(content_type, body):
     return form, files
 
 
+def credits_for(key):
+    """A credit balance (an integer string, as documented) that differs per key, so answers can be told apart."""
+    return str(int.from_bytes(key.encode(), "big"))
+
+
 class FakeTransport:
     def __init__(self):
         self.requests = []
@@ -192,7 +197,7 @@ class FakeTransport:
             # Replaced below with CSV bytes. Marker keeps the branch obvious.
             return {"__csv__": key}
         if path.endswith("/getcredits"):
-            return {"Credits": key}
+            return {"Credits": credits_for(key)}
         if path.endswith("/getapiusage"):
             return {"total": 1, "start_date": "1/1/2024", "end_date": "1/2/2024", **echo}
         if path.endswith("/activity"):
@@ -235,6 +240,8 @@ class FakeTransport:
                 "other_domain_formats": [],
                 **echo,
             }
+        if path.endswith("/filters/list"):
+            return [{"rule": "block", "target": "email", "value": "a@example.com", **echo}]
         if "/filters/" in path:
             return {"Message": "Filter successfully added", **echo}
         if path.endswith("/listS3files") and key.startswith("s3files-"):
@@ -557,13 +564,13 @@ class OfflineApiTest(TestCase):
         self.assertEqual(self.client.list_s3files()[0]["name"], "uploads/a.csv")
 
     def test_query_values_are_percent_encoded(self):
-        client = ZeroBounce("key with space&plus")
+        client = ZeroBounce("key+plus&x")
         client.validate("a b@ex.com")
         recorded = self._only()
         self.assertNotIn(" ", recorded.url)
-        self.assertIn("key+with+space%26plus", recorded.url)
+        self.assertIn("key%2Bplus%26x", recorded.url)
         self.assertIn("a+b%40ex.com", recorded.url)
-        self.assertEqual(recorded.api_key, "key with space&plus")
+        self.assertEqual(recorded.api_key, "key+plus&x")
         self.assertEqual(recorded.query["email"], "a b@ex.com")
 
     def test_column_zero_is_sent_and_unset_columns_are_left_out(self):
@@ -823,7 +830,7 @@ class OfflineApiTest(TestCase):
                     self.assertNotIn(other, blob)
         self.assertEqual(len(seen), 12)
         for key, credits, echo in results:
-            self.assertEqual(credits, key)
+            self.assertEqual(credits, credits_for(key))
             self.assertEqual(echo, key)
             for other, _, _ in results:
                 if other != key:

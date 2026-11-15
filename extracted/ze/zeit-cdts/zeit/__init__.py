@@ -35,6 +35,9 @@ from ._profile import ErrorProfile, error_profile
 from ._hotspots import emerging_hotspots
 from .segmentation import snic_grid, snic_to_polygons
 from ._snic_api import snic
+from ._fields import fields, edge_gradient, stochastic_watershed, watershed, fields_to_polygons
+from ._fields_tiled import fields_tiled
+from ._segacc import segmentation_accuracy
 from ._texture_api import texture
 from ._som_api import som, clean_samples
 from ._smooth import smooth
@@ -51,9 +54,11 @@ from ._specadjust import spectral_adjust
 from ._tasseled import tasseled_cap
 from ._improphe import improphe
 from ._resmerge import sentinel2_resmerge
+from ._starfm import starfm
 from ._pansharpen import pansharpen
 from ._parallax import buffer_mask, cloud_displacement_index, parallax_clouds
 from ._level2 import level2
+from ._level2_cube import load_level2_series, level2_series
 from ._s2fetch import find_l1c, download_l1c, download_dem
 from ._topocorr import topographic_correction
 from ._coreg import coregister, coregister_local
@@ -127,6 +132,8 @@ __all__ = [
     "error_profile", "ErrorProfile",
     "emerging_hotspots",
     "snic_grid", "snic_to_polygons",
+    "fields", "fields_tiled", "edge_gradient", "stochastic_watershed", "watershed", "fields_to_polygons",
+    "segmentation_accuracy",
     "extract_water_mask",
     "qc_modis_summary", "qc_modis_state", "qc_sentinel2_scl", "qa_mask", "qa_to_fmask",
     "build_time_series",
@@ -137,11 +144,14 @@ __all__ = [
     "tasseled_cap",
     "improphe",
     "sentinel2_resmerge",
+    "starfm",
     "pansharpen",
     "cloud_displacement_index",
     "parallax_clouds",
     "buffer_mask",
     "level2",
+    "level2_series",
+    "load_level2_series",
     "find_l1c",
     "download_l1c",
     "download_dem",

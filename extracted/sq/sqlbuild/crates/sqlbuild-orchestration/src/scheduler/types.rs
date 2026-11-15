@@ -1,6 +1,6 @@
 //! Compound scheduler return values.
 
-use crate::scheduler::models::SchedulerLease;
+use crate::scheduler::models::{SchedulerCycle, SchedulerLease};
 use crate::store::errors::ControlError;
 use crate::store::models::ControlStore;
 
@@ -18,6 +18,9 @@ pub trait RunLauncher {
         lease: Option<&SchedulerLease>,
     ) -> impl Future<Output = Result<(), ControlError>> + Send;
 
-    /// Hears each transient store failure the scheduler retries instead of stopping.
+    /// Hears each completed cycle, with its phase timings, before the launcher polls.
+    fn cycled(&mut self, _cycle: &SchedulerCycle) {}
+
+    /// Hears each transient store failure or lost lease the scheduler retries instead of stopping.
     fn retrying(&mut self, _error: &ControlError) {}
 }

@@ -10,7 +10,7 @@ from probe.sdk.routes import WriteOp, path_for
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "crashed", "canceled", "untracked"})
 
 
-def _status_for_system_exit(code: object, in_flight: BaseException | None) -> tuple[str, int]:
+def status_for_system_exit(code: object, in_flight: BaseException | None) -> tuple[str, int]:
     """(run status, process exit status) for ``sys.exit(code)`` / ``SystemExit(code)``.
 
     The exit status is what the OS will report: None and False are 0, an int

@@ -8,12 +8,16 @@ from django.contrib.staticfiles import finders
 from django.core.files import File
 from django.core.files.images import ImageFile
 
+from post_office.attachments import parse_mime_part
+from post_office.settings import PRE_DJANGO_6
+
 register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
 def inline_image(context, file):
-    assert hasattr(context.template, '_attached_images'), (
+    attached_images = getattr(context, '_post_office_attached_images', None)
+    assert attached_images is not None, (
         "You must use template engine 'post_office' when rendering images using templatetag 'inline_image'."
     )
     if isinstance(file, ImageFile):
@@ -35,5 +39,5 @@ def inline_image(context, file):
     md5sum = hashlib.md5(raw_data).hexdigest()
     image.add_header('Content-Disposition', 'inline', filename=md5sum)
     image.add_header('Content-ID', f'<{md5sum}>')
-    context.template._attached_images.append(image)
+    attached_images.append(image if PRE_DJANGO_6 else parse_mime_part(image.as_bytes()))
     return f'cid:{md5sum}'

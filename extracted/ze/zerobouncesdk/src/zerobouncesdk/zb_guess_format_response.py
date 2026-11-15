@@ -2,11 +2,10 @@ from typing import List
 
 from . import (
     ZBConfidence,
-    ZBApiException,
     ZBValidateStatus,
     ZBValidateSubStatus,
 )
-from ._zb_response import ZBResponse
+from ._zb_response import ARRAY, STRING, ZBResponse, items_as_received
 from ._zb_utils import safe_enum_convert
 
 
@@ -19,6 +18,8 @@ class ZBDomainFormat(ZBResponse):
 
     confidence: ZBConfidence = None
 
+    _FIELD_TYPES = {"format": STRING, "confidence": STRING}
+
     def __init__(self, data=None):
         super().__init__(data)
         self.confidence = safe_enum_convert(ZBConfidence, self.confidence, "confidence", lowercase=True)
@@ -28,7 +29,6 @@ class ZBGuessFormatResponse(ZBResponse):
     """This is the response for the GET /guessformat request."""
 
     # A body made only of message keys is a rejected request, not a result.
-    _MESSAGE_ONLY_IS_ERROR = True
 
     email: str = None
 
@@ -48,16 +48,17 @@ class ZBGuessFormatResponse(ZBResponse):
 
     other_domain_formats: List[ZBDomainFormat] = []
 
+    _FIELD_TYPES = {
+        "email": STRING, "domain": STRING, "format": STRING, "status": STRING, "sub_status": STRING,
+        "confidence": STRING, "failure_reason": STRING, "did_you_mean": STRING, "other_domain_formats": ARRAY,
+    }
+    _ITEMS = {"other_domain_formats": ZBDomainFormat}
+
     def __init__(self, data):
         super().__init__(data)
-        if "Message" in data or "message" in data:
-            message = data.get("message") or data.get("Message")
-            raise ZBApiException(message)
 
         self.status = safe_enum_convert(ZBValidateStatus, self.status, "status", lowercase=True)
         self.sub_status = safe_enum_convert(ZBValidateSubStatus, self.sub_status, "sub_status", lowercase=True)
         self.confidence = safe_enum_convert(ZBConfidence, self.confidence, "confidence", lowercase=True)
 
-        self.other_domain_formats = [
-            ZBDomainFormat(df_data) for df_data in data.get("other_domain_formats", [])
-        ]
+        self.other_domain_formats = items_as_received(data, "other_domain_formats", ZBDomainFormat)

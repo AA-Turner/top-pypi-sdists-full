@@ -135,9 +135,24 @@ def requested_worker_names(alloc) -> Optional[list[str]]:
     return list(dict.fromkeys(name.strip() for name in names))
 
 
+def _provided(model_key, candidates, rank=None):
+    """A worker given the model from another host's central drive (registry/fleet_central.provide), or None."""
+    from hugpy_core.registry import fleet_central
+    try:
+        return fleet_central.provide(model_key, candidates, rank)
+    except fleet_central.CopyPending as exc:
+        err = NoWorker(str(exc))
+        err.status = 503
+        raise err from None
+    except (LookupError, RuntimeError) as exc:
+        raise NoWorker(str(exc)) from None
+
+
 def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
-         source: str = "routing", workers: Optional[list[str]] = None) -> Dict[str, Any]:
-    """Serve a model through an assignment or an opted-in wildcard worker."""
+         source: str = "routing", workers: Optional[list[str]] = None, copy: bool = True) -> Dict[str, Any]:
+    """Serve a model through an assignment or an opted-in wildcard worker. ``copy``: when no eligible worker has
+    it but a connected host's central drive does, copy it to the worker routing chooses and serve it there
+    (operator 2026-11-15)."""
     selected = None if workers is None else set(workers)
     if selected == set():
         raise NoWorker('No workers selected for this request')
@@ -194,7 +209,8 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
         # legacy demand path: a box that lacks the model is still routed the call
         # when central holds it — the box pulls it (agent._ensure_present)
         if not _serves(w, model_key, wanted) and not _central_has(model_key):
-            raise NoWorker(f"requested worker {pin!r} does not have {model_key!r}")
+            if not (copy and _provided(model_key, [w])):
+                raise NoWorker(f"requested worker {pin!r} does not have {model_key!r}")
     else:
         from hugpy_core.relay.admission import is_blocked
         from hugpy_core.models.modeldb import blocked_worker_ids
@@ -223,6 +239,12 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
                     central_has = _central_has(model_key)
                 if central_has:
                     cands = group  # central has it; the selected box pulls it
+            if not cands and copy:
+                # another host's central drive holds it: copied to the worker routing would choose, served there
+                given = _provided(model_key, group, lambda box: _routing_rank(box, model_key, wanted, pairs))
+                if given is not None:
+                    w = given
+                    break
             if not cands:
                 # Wildcard means this worker is a valid route even when its
                 # catalog has not seen the model yet. The worker's front door

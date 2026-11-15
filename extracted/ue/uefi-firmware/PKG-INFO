@@ -1,221 +1,251 @@
 Metadata-Version: 2.4
 Name: uefi_firmware
-Version: 1.16
+Version: 1.17
 Summary: Various data structures and parsing tools for UEFI firmware.
 Home-page: https://github.com/theopolis/uefi-firmware-parser
 Author: UEFI Firmware Parser developers
 Author-email: 
-License: BSD-3-Clause
+License: MIT
 Keywords: security uefi firmware parsing bios
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: System Administrators
 Classifier: Topic :: Security
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: future
 Provides-Extra: tests
 Requires-Dist: dictdiffer; extra == "tests"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
-Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-UEFI Firmware Parser
-====================
+# UEFI Firmware Parser
 
-.. image:: https://travis-ci.org/theopolis/uefi-firmware-parser.svg?branch=master
-    :target: https://travis-ci.org/theopolis/uefi-firmware-parser
+[![CI status](https://github.com/theopolis/uefi-firmware-parser/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/theopolis/uefi-firmware-parser/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/uefi_firmware.svg)](https://pypi.org/project/uefi_firmware/)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/uefi_firmware.svg)](https://pypi.org/project/uefi_firmware/)
 
+`uefi_firmware` is a Python module and command-line tool for parsing, extracting,
+and recreating UEFI firmware. Beyond UEFI firmware volumes and capsules, it also
+parses Intel flash descriptors, Intel ME modules, Dell PFS updates, and AMI Aptio
+capsules.
 
-The UEFI firmware parser is a simple module and set of scripts for parsing, extracting, 
-and recreating UEFI firmware volumes.
-This includes parsing modules for BIOS, OptionROM, Intel ME and other formats too. 
-Please use the example scripts for parsing tutorials.
+## Installation
 
-Installation
-------------
+The package is published on PyPI as [`uefi_firmware`](https://pypi.org/project/uefi_firmware/)
+and requires Python 3.10 or newer.
 
-This module is available through PyPi as `uefi_firmware <https://pypi.python.org/pypi/uefi_firmware>`_
+```sh
+pip install uefi_firmware
+```
 
-::
+Pre-built wheels are available for Linux, macOS, and Windows. On other platforms pip
+builds the bundled C compression extension from source, which needs a C compiler and
+the Python development headers (the `python3-dev` package on Debian and Ubuntu).
 
-  $ sudo pip install uefi_firmware
+To install from a checkout of this repository:
 
-To install from Github, checkout this repo and use:
+```sh
+git clone https://github.com/theopolis/uefi-firmware-parser
+cd uefi-firmware-parser
+pip install .
+```
 
-::
+## Command-line usage
 
-  $ sudo python ./setup.py install
+Installing the package adds a `uefi-firmware-parser` command:
 
-**Requirements**
+```console
+$ uefi-firmware-parser -h
+usage: uefi-firmware-parser [-h] [-b] [--superbrute] [--depex] [-q]
+                            [--color {always,never,auto}] [-p] [-o OUTPUT]
+                            [-O] [-c] [-e] [-g GENERATE] [-j] [--test]
+                            [--verbose]
+                            file [file ...]
 
-- Python development headers, usually found in the ``python-dev`` package.
-- The compression/decompression features will use the python headers and ``gcc``.
+Parse, and optionally output, details and data on UEFI-related firmware.
 
-Usage
------
+positional arguments:
+  file                  The file(s) to work on
 
-The simplest way to use the module to detect or parse firmware is through the ``AutoParser`` class.
+options:
+  -h, --help            show this help message and exit
+  -b, --brute           The input is a blob and may contain FV headers.
+  --superbrute          The input is a blob and may contain any sort of
+                        firmware object
+  --depex               The input is a DEPEX blob
+  -q, --quiet           Do not show info.
+  --color {always,never,auto}
+                        Control the use of ANSI colors in the output. (auto is
+                        default)
+  -p, --nocolor         Plain text output. Do not use ANSI colors. (Alias for
+                        --color=never)
+  -o, --output OUTPUT   Dump firmware objects to this folder.
+  -O, --outputfolder    Dump firmware objects to a folder based on filename
+                        ${FILENAME}_output/
+  -c, --echo            Echo the filename before parsing or extracting.
+  -e, --extract         Extract all files/sections/volumes.
+  -g, --generate GENERATE
+                        Generate a FDF, implies extraction (volumes only)
+  -j, --json            Output in JSON format
+  --test                Test file parsing, output name/success.
+  --verbose             Enable verbose logging while parsing
+```
 
-::
+Use `--test` to identify the format of one or more files without parsing them fully:
 
-  import uefi_firmware
-  with open('/path/to/firmware.rom', 'r') as fh:
-    file_content = fh.read()
-  parser = uefi_firmware.AutoParser(file_content)
-  if parser.type() != 'unknown':
+```console
+$ uefi-firmware-parser --test ~/firmware/*
+~/firmware/E5X70-1.3.6.pfs: DellPFS
+~/firmware/MBP111_0138_B16_LOCKED.scap: EFICapsule
+~/firmware/Latitude-E6410-A10.flash: FlashDescriptor
+~/firmware/ESX70-1.3.6.me: IntelME
+~/firmware/MINNOW1.fd: UEFIFirmwareVolume
+~/firmware/Dell-A02.rom: unknown
+```
+
+Run without `--test` to print the full object hierarchy, add `-j` for JSON instead
+of the tree view, or add `-e -o DIR` to extract every volume, file, and section
+into `DIR`.
+
+A few options help with larger jobs:
+
+- `-O` writes each input's output to its own `${FILENAME}_output/` folder, which is
+  convenient when extracting many files at once.
+- `--echo` prints each input filename before parsing, which helps when you grep the
+  combined output.
+- `-g FOLDER` dumps each firmware volume into `FOLDER`, with an FDF named after the
+  volume (`volume-0.fdf`, for example) that refers to the dumped files. Sections the
+  generator cannot describe appear in the FDF as comments.
+- If `--test` reports `unknown`, the format checker did not find a known header at
+  the start of the file. Try `-b` to search the blob for firmware volume headers, or
+  `--superbrute` to try every known format at every byte offset. The latter is slow
+  on large images.
+
+```console
+$ uefi-firmware-parser --test ~/firmware/Dell-A02.rom
+~/firmware/Dell-A02.rom: unknown
+$ uefi-firmware-parser --superbrute ~/firmware/Dell-A02.rom
+[...]
+```
+
+## Python usage
+
+The simplest way to detect and parse a file is the `AutoParser` class:
+
+```python
+import uefi_firmware
+
+with open("/path/to/firmware.rom", "rb") as fh:
+    data = fh.read()
+
+parser = uefi_firmware.AutoParser(data)
+if parser.type() != "unknown":
     firmware = parser.parse()
     firmware.showinfo()
+```
 
-There are several classes within the **uefi**, **pfs**, **me**, and **flash** packages that
-accept file contents in their constructor. In all cases there are abstract methods implemented:
+The `uefi`, `pfs`, `me`, and `flash` modules contain classes for each format. Each
+class takes the raw file contents in its constructor and implements:
 
-- ``process()`` performs parsing work and returns a ``True`` or ``False``
-- ``showinfo()`` print a hierarchy of information about the structure
-- ``dump()`` walk the hierarchy and write each to a file
+- `process()` parses the data and returns `True` on success, `False` otherwise.
+- `showinfo()` prints the object hierarchy.
+- `to_dict()` returns the object hierarchy as a JSON-serializable `dict`.
+- `dump()` walks the hierarchy and writes each object to a file.
 
-Scripts
--------
+## Features
 
-A Python script is installed ``uefi-firmware-parser``
+Supported formats:
 
-::
+- UEFI firmware volumes, capsules, file systems, files, and sections
+- AMI Aptio signed and unsigned capsules
+- Intel PCH flash descriptors and regions
+- Intel ME modules and partition manifests (ME, TXE, and others)
+- Dell PFS (HDR) updates
+- DEPEX (dependency expression) blobs
 
-  $ uefi-firmware-parser -h
-  usage: uefi-firmware-parser [-h] [-b] [--superbrute] [-q] [-o OUTPUT] [-O]
-                              [-c] [-e] [-g GENERATE] [--test]
-                              file [file ...]
+Other capabilities:
 
-  Parse, and optionally output, details and data on UEFI-related firmware.
+- Tiano/EFI and LZMA compression and decompression, implemented in a bundled C extension
+- JSON output of the parsed object hierarchy
+- FDF (flash description file) generation from parsed firmware volumes
+- Replacement of sections and files in a firmware volume by GUID
 
-  positional arguments:
-    file                  The file(s) to work on
+## Helper scripts
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -b, --brute           The input is a blob and may contain FV headers.
-    --superbrute          The input is a blob and may contain any sort of
-                          firmware object
-    -q, --quiet           Do not show info.
-    -o OUTPUT, --output OUTPUT
-                          Dump firmware objects to this folder.
-    -O, --outputfolder    Dump firmware objects to a folder based on filename
-                          ${FILENAME}_output/
-    -c, --echo            Echo the filename before parsing or extracting.
-    -e, --extract         Extract all files/sections/volumes.
-    -g GENERATE, --generate GENERATE
-                          Generate a FDF, implies extraction (volumes only)
-    --test                Test file parsing, output name/success.
+The `scripts/` directory in the repository contains a few tools that are not
+installed with the package.
 
-To test a file or directory of files:
+**GUID injection.** `scripts/fv_injector.py` replaces a section within a UEFI
+firmware file, or a file within a firmware file system, identified by GUID. It can
+only replace objects; it cannot add or remove them. When injecting into a firmware
+file (`-f`), the script prompts you to choose which section to replace, so this mode
+cannot be scripted yet.
 
-::
+The input is a firmware volume unless you pass `-c` for a capsule or `-p` for a Dell
+PFS. The payload replaces the whole file, so it must include its FFS file header.
+Compressed sections that contain the file are recompressed, and PFS sizes and
+checksums are updated. Signatures are not, so a signed image will no longer verify.
 
-  $ uefi-firmware-parser --test ~/firmware/*
-  ~/firmware/970E32_1.40: UEFIFirmwareVolume
-  ~/firmware/CO5975P.BIO: EFICapsule
-  ~/firmware/me-03.obj: IntelME
-  ~/firmware/O990-A03.exe: None
-  ~/firmware/O990-A03.exe.hdr: DellPFS
+```sh
+python scripts/fv_injector.py --guid GUID --injection payload.efi -o patched.rom firmware.rom
+```
 
-If you need to parse and extract a large number of firmware files check out the ``-O`` option to auto-generate an output folder per file. If parsing and searching for internals in a shell the ``--echo`` option will print the input filename before parsing.
+**IDA labels.** `scripts/uefi_guids.py` lists the GUIDs found in a firmware image.
+With `-g LABEL` it prints them as a Python dictionary that you can import into IDA
+using Snare's plugins.
 
-The firmware-type checker will decide how to best parse the file. If the ``--test`` option fails to identify the type, or calls it ``unknown``, try to use the ``-b`` or ``--superbrute`` option. The later performs a byte-by-byte type checker.
-::
+Run any script with `-h` for its full options.
 
-  $ uefi-firmware-parser --test ~/firmware/970E32_1.40
-  ~/firmware/970E32_1.40: unknown
-  $ uefi-firmware-parser --superbrute ~/firmware/970E32_1.40
-  [...]
+## Tested vendors
 
-**Features**
+The parser has been tested on BIOS, UEFI, and firmware updates from ASRock, Apple,
+Dell, Gigabyte, HP, Intel, Lenovo, MSI, Qualcomm, and VMware. Not every update for
+every product will parse. Some updates are wrapped in a vendor installer (usually a
+PE executable) and need to be extracted or decompressed before the parser can read
+them. The parser does unwrap Dell BIOS update executables, finding and
+decompressing the PFS inside them.
 
-- UEFI Firmware Volumes, Capsules, FileSystems, Files, Sections parsing
-- Intel PCH Flash Descriptors
-- Intel ME modules parsing (ME, TXE, etc)
-- Dell PFS (HDR) updates parsing
-- Tiano/EFI, and native LZMA (7z) [de]compression
+## Development
 
-- Complete UEFI Firmware volume object hierarchy display
-- Firmware descriptor [re]generation using the parsed input volumes
-- Firmware File Section injection
+Install the package in editable mode with the test dependencies:
 
-**GUID Injection**
+```sh
+pip install -e '.[tests]'
+```
 
-Injection or GUID replacement (no addition/subtraction yet) can be performed on sections within a UEFI firmware file, or on UEFI firmware files within a firmware filesystem.
+Run the unit tests the same way CI does:
 
-:: 
+```sh
+cd tests
+python -bb -m unittest discover
+```
 
-  $ python ./scripts/fv_injector.py -h
-  usage: fv_injector.py [-h] [-c] [-p] [-f] [--guid GUID] --injection INJECTION
-                        [-o OUTPUT]
-                        file
+CI also runs the parser against the sample files in
+[uefi-firmware-samples](https://github.com/theopolis/uefi-firmware-samples):
 
-  Search a file for UEFI firmware volumes, parse and output.
+```sh
+git clone https://github.com/theopolis/uefi-firmware-samples samples
+cd samples
+python -bb ./test_samples.py
+```
 
-  positional arguments:
-    file                  The file to work on
+Releases are published to PyPI automatically when a version tag is pushed. The
+package version comes from the git tag through `setuptools-scm`.
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -c, --capsule         The input file is a firmware capsule.
-    -p, --pfs             The input file is a Dell PFS.
-    -f, --ff              Inject payload into firmware file.
-    --guid GUID           GUID to replace (inject).
-    --injection INJECTION
-                          Pre-generated EFI file to inject.
-    -o OUTPUT, --output OUTPUT
-                          Name of the output file.
+## License
 
-Note: when injecting into a firmware file the user will be prompted for which section to replace. At the moment this is not-yet-scriptable. 
+MIT. See [LICENSE](https://github.com/theopolis/uefi-firmware-parser/blob/main/LICENSE).
 
-**IDA Python support**
-
-There is an included script to generate additional GUID labels to import into IDA Python
-using Snare's plugins. Using the ``-g LABEL`` the script will generate a Python dictionary-formatted output. This project will try to keep up-to-date with popular vendor GUIDs automatically.
-
-::
-
-  $ python ./scripts/uefi_guids.py -h
-  usage: uefi_guids.py [-h] [-c] [-b] [-d] [-g GENERATE] [-u] file
-
-  Output GUIDs for files, optionally write GUID structure file.
-
-  positional arguments:
-    file                  The file to work on
-
-  optional arguments:
-    -h, --help            show this help message and exit
-    -c, --capsule         The input file is a firmware capsule, do not search.
-    -b, --brute           The input file is a blob, search for firmware volume
-                          headers.
-    -d, --flash           The input file is a flash descriptor.
-    -g GENERATE, --generate GENERATE
-                          Generate a behemoth-style GUID output.
-    -u, --unknowns        When generating also print unknowns.
-
-**Supported Vendors**
-
-This module has been tested on BIOS/UEFI/firmware updates from the following vendors.
-Not every update for every product will parse, some may required a-priori decompression
-or extraction from the distribution update mechanism (typically a PE). 
-
-- ASRock
-- Dell
-- Gigabyte
-- Intel
-- Lenovo
-- HP
-- MSI
-- VMware
-- Apple
-- Qualcomm
+The bundled Tiano and LZMA compression code in `uefi_firmware/compression` keeps
+its original licenses, which are given in each source file.

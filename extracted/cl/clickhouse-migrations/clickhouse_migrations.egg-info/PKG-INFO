@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clickhouse-migrations
-Version: 0.16.2
+Version: 0.16.3
 Summary: Simple file-based migrations for clickhouse
 Author-email: Aleh Strakachuk <zifter.ai+clickhouse.migrations@gmail.com>
 License: MIT
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -23,7 +24,7 @@ Requires-Dist: clickhouse-driver>=0.2.9
 Provides-Extra: connect
 Requires-Dist: clickhouse-connect>=0.7.9; extra == "connect"
 Provides-Extra: testing
-Requires-Dist: pytest==9.1.1; extra == "testing"
+Requires-Dist: pytest==9.2.0; extra == "testing"
 Requires-Dist: pytest-cov==7.1.0; extra == "testing"
 Requires-Dist: clickhouse-connect>=0.7.9; extra == "testing"
 Dynamic: license-file

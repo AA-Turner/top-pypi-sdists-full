@@ -1,18 +1,32 @@
 """Resolve input names against immutable alignment reference vocabularies.
 
-Varcode owns spelling rules. This module excludes known incompatible reference
-sequences and owns alignment-context lifetime and unresolved-name diagnostics.
-Name resolution does not establish sequence identity or perform liftover.
+Varcode owns spelling rules, including keeping GRCh37's two mitochondria apart
+(``ContigResolver``, varcode 11.14.0). This module owns alignment-context
+lifetime and unresolved-name diagnostics. Name resolution does not establish
+sequence identity or perform liftover.
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import asdict, replace
+from dataclasses import asdict
 import os
 
 from pysam import AlignmentFile
 from varcode import ContigResolution, ContigResolver, Variant, normalize_contig_name
+
+
+def alignment_contig_lengths(alignment_file) -> dict[str, int] | None:
+    """Header lengths by contig name, or None when the reader lists no lengths.
+
+    BAM and CRAM headers always carry them (``@SQ LN``); header-less reader
+    adapters that expose only ``references`` do not.
+    """
+    references = getattr(alignment_file, "references", None)
+    lengths = getattr(alignment_file, "lengths", None)
+    if references is None or lengths is None or len(references) != len(lengths):
+        return None
+    return dict(zip(references, lengths))
 
 
 def variant_reference_name(variant: Variant) -> str | None:
@@ -73,22 +87,12 @@ def resolve_reference_contig(resolver: ContigResolver, name: str | int) -> Conti
     Notes
     -----
     UCSC documents the distinct hg19 sequences at
-    https://genome.ucsc.edu/FAQ/FAQgenes.html. A GRCh37 chrM
-    already using rCRS coordinates needs an explicitly reconciled source name;
-    a name or length alone does not establish sequence identity.
+    https://genome.ucsc.edu/FAQ/FAQgenes.html. Unless the resolver was given
+    ``contig_lengths``, a GRCh37 chrM already using rCRS coordinates needs an
+    explicitly reconciled source name; a name alone does not establish
+    sequence identity.
     """
-    result = resolver.resolve(name)
-    group = _grch37_mitochondrial_group(name, resolver.reference_name)
-    if group is None:
-        return result
-    result = replace(result, normalized_name=group)
-    if result.status not in ("alias", "ambiguous"):
-        return result
-    candidates = tuple(candidate for candidate in result.candidates
-                       if _grch37_mitochondrial_group(candidate, resolver.reference_name) == group)
-    status = "alias" if len(candidates) == 1 else "ambiguous" if candidates else "missing"
-    return replace(result, candidates=candidates, status=status,
-                   resolved_name=candidates[0] if status == "alias" else None)
+    return resolver.resolve(name)
 
 
 class UnresolvedContigError(ValueError):
@@ -125,6 +129,9 @@ def require_resolved_contig(resolution: ContigResolution, alignment_file: Alignm
 class AlignmentContigCache:
     """Reuse Varcode indexes for up to eight active header/assembly contexts.
 
+    With ``mitochondrion_by_length``, header lengths are passed to Varcode, so
+    under GRCh37 a ``chrM``/``M`` of 16,569 bp is the rCRS and matches ``MT``.
+
     Pysam headers are immutable and have stable identity, including when two
     open files have different vocabularies. The cache retains headers, not file
     handles. Reopening a file supplies a new header and therefore a new index.
@@ -133,7 +140,8 @@ class AlignmentContigCache:
     prevents a long-lived collector from retaining every historical header.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, mitochondrion_by_length: bool = False) -> None:
+        self._mitochondrion_by_length = mitochondrion_by_length
         self._indexes: OrderedDict[tuple[int, str | None], tuple[object, ContigResolver]] = OrderedDict()
 
     def resolver(self, alignment_file: AlignmentFile, reference_name: str | None) -> ContigResolver:
@@ -146,7 +154,9 @@ class AlignmentContigCache:
         if key in self._indexes:
             self._indexes.move_to_end(key)
             return self._indexes[key][1]
-        resolver = ContigResolver(getattr(alignment_file, "references", None), reference_name=reference_name)
+        resolver = ContigResolver(
+            getattr(alignment_file, "references", None), reference_name=reference_name,
+            contig_lengths=alignment_contig_lengths(alignment_file) if self._mitochondrion_by_length else None)
         self._indexes[key] = (identity, resolver)
         if len(self._indexes) > 8:
             self._indexes.popitem(last=False)

@@ -66,7 +66,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_CREATE_GITHUB_APP_TOKEN")
     @builtins.classmethod
     def ACTIONS_CREATE_GITHUB_APP_TOKEN(cls) -> builtins.str:
-        '''(experimental) actions/create-github-app-token at v3.2.0 (immutable).
+        '''(experimental) actions/create-github-app-token at v3.3.0 (immutable).
 
         :stability: experimental
         '''
@@ -86,7 +86,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_DOWNLOAD_ARTIFACT")
     @builtins.classmethod
     def ACTIONS_DOWNLOAD_ARTIFACT(cls) -> builtins.str:
-        '''(experimental) actions/download-artifact at v8.0.1.
+        '''(experimental) actions/download-artifact at v8.0.2.
 
         :stability: experimental
         '''
@@ -106,7 +106,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_DOTNET")
     @builtins.classmethod
     def ACTIONS_SETUP_DOTNET(cls) -> builtins.str:
-        '''(experimental) actions/setup-dotnet at v6.0.0 (immutable).
+        '''(experimental) actions/setup-dotnet at v6.1.0 (immutable).
 
         :stability: experimental
         '''
@@ -126,7 +126,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_JAVA")
     @builtins.classmethod
     def ACTIONS_SETUP_JAVA(cls) -> builtins.str:
-        '''(experimental) actions/setup-java at v6.0.0 (immutable).
+        '''(experimental) actions/setup-java at v6.2.0 (immutable).
 
         :stability: experimental
         '''
@@ -136,7 +136,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_NODE")
     @builtins.classmethod
     def ACTIONS_SETUP_NODE(cls) -> builtins.str:
-        '''(experimental) actions/setup-node at v7.0.0 (immutable).
+        '''(experimental) actions/setup-node at v7.1.0 (immutable).
 
         :stability: experimental
         '''
@@ -146,7 +146,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_SETUP_PYTHON")
     @builtins.classmethod
     def ACTIONS_SETUP_PYTHON(cls) -> builtins.str:
-        '''(experimental) actions/setup-python at v7.0.0 (immutable).
+        '''(experimental) actions/setup-python at v7.1.0 (immutable).
 
         :stability: experimental
         '''
@@ -166,7 +166,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="ACTIONS_UPLOAD_ARTIFACT")
     @builtins.classmethod
     def ACTIONS_UPLOAD_ARTIFACT(cls) -> builtins.str:
-        '''(experimental) actions/upload-artifact at v7.0.1.
+        '''(experimental) actions/upload-artifact at v7.0.2.
 
         :stability: experimental
         '''
@@ -176,7 +176,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="AMANNN_ACTION_SEMANTIC_PULL_REQUEST")
     @builtins.classmethod
     def AMANNN_ACTION_SEMANTIC_PULL_REQUEST(cls) -> builtins.str:
-        '''(experimental) amannn/action-semantic-pull-request at v6.1.1.
+        '''(experimental) amannn/action-semantic-pull-request at v6.1.2 (immutable).
 
         :stability: experimental
         '''
@@ -186,7 +186,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS")
     @builtins.classmethod
     def AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS(cls) -> builtins.str:
-        '''(experimental) aws-actions/configure-aws-credentials at v6.2.3 (immutable).
+        '''(experimental) aws-actions/configure-aws-credentials at v6.3.0 (immutable).
 
         :stability: experimental
         '''
@@ -196,7 +196,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="CODECOV_CODECOV_ACTION")
     @builtins.classmethod
     def CODECOV_CODECOV_ACTION(cls) -> builtins.str:
-        '''(experimental) codecov/codecov-action at v7.0.0 (immutable).
+        '''(experimental) codecov/codecov-action at v7.1.1 (immutable).
 
         :stability: experimental
         '''
@@ -226,7 +226,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="PNPM_ACTION_SETUP")
     @builtins.classmethod
     def PNPM_ACTION_SETUP(cls) -> builtins.str:
-        '''(experimental) pnpm/action-setup at v6.0.10 (immutable).
+        '''(experimental) pnpm/action-setup at v6.1.1 (immutable).
 
         :stability: experimental
         '''
@@ -1236,6 +1236,7 @@ class CheckoutSubmodules(enum.Enum):
     jsii_type="projen.github.CheckoutWith",
     jsii_struct_bases=[],
     name_mapping={
+        "allow_unsafe_pr_checkout": "allowUnsafePrCheckout",
         "fetch_depth": "fetchDepth",
         "lfs": "lfs",
         "path": "path",
@@ -1249,6 +1250,7 @@ class CheckoutWith:
     def __init__(
         self,
         *,
+        allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
         fetch_depth: typing.Optional[jsii.Number] = None,
         lfs: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
@@ -1259,6 +1261,7 @@ class CheckoutWith:
     ) -> None:
         '''(experimental) Options for ``checkout``.
 
+        :param allow_unsafe_pr_checkout: (experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow. Only enable this if the workflow never executes the checked out code. Default: false
         :param fetch_depth: (experimental) Number of commits to fetch. 0 indicates all history for all branches and tags. Default: 1
         :param lfs: (experimental) Whether LFS is enabled for the GitHub repository. Default: false
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
@@ -1271,6 +1274,7 @@ class CheckoutWith:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__57379070911f0df36ef38a23c138780de73f270c4e64ea8e6b7f4f128eb8ac6a)
+            check_type(argname="argument allow_unsafe_pr_checkout", value=allow_unsafe_pr_checkout, expected_type=type_hints["allow_unsafe_pr_checkout"])
             check_type(argname="argument fetch_depth", value=fetch_depth, expected_type=type_hints["fetch_depth"])
             check_type(argname="argument lfs", value=lfs, expected_type=type_hints["lfs"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -1279,6 +1283,8 @@ class CheckoutWith:
             check_type(argname="argument submodules", value=submodules, expected_type=type_hints["submodules"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_unsafe_pr_checkout is not None:
+            self._values["allow_unsafe_pr_checkout"] = allow_unsafe_pr_checkout
         if fetch_depth is not None:
             self._values["fetch_depth"] = fetch_depth
         if lfs is not None:
@@ -1293,6 +1299,19 @@ class CheckoutWith:
             self._values["submodules"] = submodules
         if token is not None:
             self._values["token"] = token
+
+    @builtins.property
+    def allow_unsafe_pr_checkout(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow.
+
+        Only enable this if the workflow never executes the checked out code.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_unsafe_pr_checkout")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def fetch_depth(self) -> typing.Optional[jsii.Number]:
@@ -1392,6 +1411,7 @@ class CheckoutWith:
     jsii_type="projen.github.CheckoutWithPatchOptions",
     jsii_struct_bases=[CheckoutWith],
     name_mapping={
+        "allow_unsafe_pr_checkout": "allowUnsafePrCheckout",
         "fetch_depth": "fetchDepth",
         "lfs": "lfs",
         "path": "path",
@@ -1406,6 +1426,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
     def __init__(
         self,
         *,
+        allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
         fetch_depth: typing.Optional[jsii.Number] = None,
         lfs: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
@@ -1417,6 +1438,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
     ) -> None:
         '''(experimental) Options for ``checkoutWithPatch``.
 
+        :param allow_unsafe_pr_checkout: (experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow. Only enable this if the workflow never executes the checked out code. Default: false
         :param fetch_depth: (experimental) Number of commits to fetch. 0 indicates all history for all branches and tags. Default: 1
         :param lfs: (experimental) Whether LFS is enabled for the GitHub repository. Default: false
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
@@ -1430,6 +1452,7 @@ class CheckoutWithPatchOptions(CheckoutWith):
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7405ea05e49b1f743e00dc103618fbd659c979bbec234492b8928ed6cf37e9b)
+            check_type(argname="argument allow_unsafe_pr_checkout", value=allow_unsafe_pr_checkout, expected_type=type_hints["allow_unsafe_pr_checkout"])
             check_type(argname="argument fetch_depth", value=fetch_depth, expected_type=type_hints["fetch_depth"])
             check_type(argname="argument lfs", value=lfs, expected_type=type_hints["lfs"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -1439,6 +1462,8 @@ class CheckoutWithPatchOptions(CheckoutWith):
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
             check_type(argname="argument patch_file", value=patch_file, expected_type=type_hints["patch_file"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_unsafe_pr_checkout is not None:
+            self._values["allow_unsafe_pr_checkout"] = allow_unsafe_pr_checkout
         if fetch_depth is not None:
             self._values["fetch_depth"] = fetch_depth
         if lfs is not None:
@@ -1455,6 +1480,19 @@ class CheckoutWithPatchOptions(CheckoutWith):
             self._values["token"] = token
         if patch_file is not None:
             self._values["patch_file"] = patch_file
+
+    @builtins.property
+    def allow_unsafe_pr_checkout(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow.
+
+        Only enable this if the workflow never executes the checked out code.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_unsafe_pr_checkout")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def fetch_depth(self) -> typing.Optional[jsii.Number]:
@@ -8781,6 +8819,7 @@ class PullRequestLintTrigger(enum.Enum):
     jsii_type="projen.github.PullRequestPatchSource",
     jsii_struct_bases=[CheckoutWithPatchOptions],
     name_mapping={
+        "allow_unsafe_pr_checkout": "allowUnsafePrCheckout",
         "fetch_depth": "fetchDepth",
         "lfs": "lfs",
         "path": "path",
@@ -8797,6 +8836,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
     def __init__(
         self,
         *,
+        allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
         fetch_depth: typing.Optional[jsii.Number] = None,
         lfs: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
@@ -8809,6 +8849,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         output_name: builtins.str,
     ) -> None:
         '''
+        :param allow_unsafe_pr_checkout: (experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow. Only enable this if the workflow never executes the checked out code. Default: false
         :param fetch_depth: (experimental) Number of commits to fetch. 0 indicates all history for all branches and tags. Default: 1
         :param lfs: (experimental) Whether LFS is enabled for the GitHub repository. Default: false
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
@@ -8824,6 +8865,7 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3c9a28aa8266154d9a36adad571b3695e958b931e79b9eaff4a7dc55e95dec8)
+            check_type(argname="argument allow_unsafe_pr_checkout", value=allow_unsafe_pr_checkout, expected_type=type_hints["allow_unsafe_pr_checkout"])
             check_type(argname="argument fetch_depth", value=fetch_depth, expected_type=type_hints["fetch_depth"])
             check_type(argname="argument lfs", value=lfs, expected_type=type_hints["lfs"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -8838,6 +8880,8 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
             "job_id": job_id,
             "output_name": output_name,
         }
+        if allow_unsafe_pr_checkout is not None:
+            self._values["allow_unsafe_pr_checkout"] = allow_unsafe_pr_checkout
         if fetch_depth is not None:
             self._values["fetch_depth"] = fetch_depth
         if lfs is not None:
@@ -8854,6 +8898,19 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
             self._values["token"] = token
         if patch_file is not None:
             self._values["patch_file"] = patch_file
+
+    @builtins.property
+    def allow_unsafe_pr_checkout(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow.
+
+        Only enable this if the workflow never executes the checked out code.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_unsafe_pr_checkout")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def fetch_depth(self) -> typing.Optional[jsii.Number]:
@@ -11712,6 +11769,7 @@ class WorkflowActions(
         cls,
         *,
         patch_file: typing.Optional[builtins.str] = None,
+        allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
         fetch_depth: typing.Optional[jsii.Number] = None,
         lfs: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
@@ -11723,6 +11781,7 @@ class WorkflowActions(
         '''(experimental) Checks out a repository and applies a git patch that was created using ``uploadGitPatch``.
 
         :param patch_file: (experimental) The name of the artifact the patch is stored as. Default: ".repo.patch"
+        :param allow_unsafe_pr_checkout: (experimental) Allow checking out code from a fork pull request in a ``workflow_run`` workflow. Only enable this if the workflow never executes the checked out code. Default: false
         :param fetch_depth: (experimental) Number of commits to fetch. 0 indicates all history for all branches and tags. Default: 1
         :param lfs: (experimental) Whether LFS is enabled for the GitHub repository. Default: false
         :param path: (experimental) Relative path under $GITHUB_WORKSPACE to place the repository. Default: - $GITHUB_WORKSPACE
@@ -11737,6 +11796,7 @@ class WorkflowActions(
         '''
         options = CheckoutWithPatchOptions(
             patch_file=patch_file,
+            allow_unsafe_pr_checkout=allow_unsafe_pr_checkout,
             fetch_depth=fetch_depth,
             lfs=lfs,
             path=path,
@@ -12481,6 +12541,7 @@ def _typecheckingstub__a17b4445d77135e079ad1d957d41f1a5ade398e6b6ba84b471b26b6ad
 
 def _typecheckingstub__57379070911f0df36ef38a23c138780de73f270c4e64ea8e6b7f4f128eb8ac6a(
     *,
+    allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
     fetch_depth: typing.Optional[jsii.Number] = None,
     lfs: typing.Optional[builtins.bool] = None,
     path: typing.Optional[builtins.str] = None,
@@ -12494,6 +12555,7 @@ def _typecheckingstub__57379070911f0df36ef38a23c138780de73f270c4e64ea8e6b7f4f128
 
 def _typecheckingstub__c7405ea05e49b1f743e00dc103618fbd659c979bbec234492b8928ed6cf37e9b(
     *,
+    allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
     fetch_depth: typing.Optional[jsii.Number] = None,
     lfs: typing.Optional[builtins.bool] = None,
     path: typing.Optional[builtins.str] = None,
@@ -13318,6 +13380,7 @@ def _typecheckingstub__753ecd53f4dea89ebcc13327977e141a051588fef5185d3f14e06f44f
 
 def _typecheckingstub__c3c9a28aa8266154d9a36adad571b3695e958b931e79b9eaff4a7dc55e95dec8(
     *,
+    allow_unsafe_pr_checkout: typing.Optional[builtins.bool] = None,
     fetch_depth: typing.Optional[jsii.Number] = None,
     lfs: typing.Optional[builtins.bool] = None,
     path: typing.Optional[builtins.str] = None,

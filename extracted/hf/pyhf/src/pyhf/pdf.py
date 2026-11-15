@@ -1,21 +1,20 @@
 """The main module of pyhf."""
 
+from __future__ import annotations
+
 import copy
 import logging
-from typing import List, Union
 
-import pyhf.parameters
 import pyhf
-from pyhf.tensor.manager import get_backend
-from pyhf import exceptions
-from pyhf import schema
-from pyhf import events
+import pyhf.parameters
+from pyhf import events, exceptions, schema
 from pyhf import probability as prob
 from pyhf.constraints import gaussian_constraint_combined, poisson_constraint_combined
-from pyhf.parameters import reduce_paramsets_requirements, ParamViewer
-from pyhf.tensor.common import _TensorViewer, _tensorviewer_from_sizes
 from pyhf.mixins import _ChannelSummaryMixin
 from pyhf.modifiers import histfactory_set
+from pyhf.parameters import ParamViewer, reduce_paramsets_requirements
+from pyhf.tensor.common import _TensorViewer, _tensorviewer_from_sizes
+from pyhf.tensor.manager import get_backend
 
 log = logging.getLogger(__name__)
 
@@ -30,15 +29,15 @@ def _finalize_parameters_specs(user_parameters, _paramsets_requirements):
     # build up a dictionary of the parameter configurations provided by the user
     _paramsets_user_configs = {}
     for parameter in user_parameters:
-        if parameter['name'] in _paramsets_user_configs:
-            raise exceptions.InvalidModel(
+        if parameter["name"] in _paramsets_user_configs:
+            msg = (
                 f"Multiple parameter configurations for {parameter['name']} were found."
             )
-        _paramsets_user_configs[parameter.get('name')] = parameter
-    _reqs = reduce_paramsets_requirements(
+            raise exceptions.InvalidModel(msg)
+        _paramsets_user_configs[parameter.get("name")] = parameter
+    return reduce_paramsets_requirements(
         _paramsets_requirements, _paramsets_user_configs
     )
-    return _reqs
 
 
 def _create_parameters_from_spec(_reqs):
@@ -46,7 +45,7 @@ def _create_parameters_from_spec(_reqs):
     auxdata = []
     auxdata_order = []
     for param_name, paramset_requirements in _reqs.items():
-        paramset_type = getattr(pyhf.parameters, paramset_requirements['paramset_type'])
+        paramset_type = getattr(pyhf.parameters, paramset_requirements["paramset_type"])
         paramset = paramset_type(**paramset_requirements)
         if paramset.constrained:  # is constrained
             auxdata += paramset.auxdata
@@ -62,28 +61,27 @@ class _nominal_builder:
         self.config = config
 
     def append(self, channel, sample, defined_samp):
-        self.mega_samples.setdefault(sample, {'name': f'mega_{sample}', 'nom': []})
+        self.mega_samples.setdefault(sample, {"name": f"mega_{sample}", "nom": []})
         nom = (
-            defined_samp['data']
+            defined_samp["data"]
             if defined_samp
             else [0.0] * self.config.channel_nbins[channel]
         )
-        if not len(nom) == self.config.channel_nbins[channel]:
-            raise exceptions.InvalidModel(
-                f'expected {self.config.channel_nbins[channel]} size sample data but got {len(nom)}'
-            )
-        self.mega_samples[sample]['nom'].append(nom)
+        if len(nom) != self.config.channel_nbins[channel]:
+            msg = f"expected {self.config.channel_nbins[channel]} size sample data but got {len(nom)}"
+            raise exceptions.InvalidModel(msg)
+        self.mega_samples[sample]["nom"].append(nom)
 
     def finalize(self):
         default_backend = pyhf.default_backend
 
         nominal_rates = default_backend.astensor(
             [
-                default_backend.concatenate(self.mega_samples[sample]['nom'])
+                default_backend.concatenate(self.mega_samples[sample]["nom"])
                 for sample in self.config.samples
             ]
         )
-        _nominal_rates = default_backend.reshape(
+        return default_backend.reshape(
             nominal_rates,
             (
                 1,  # modifier dimension.. nominal_rates is the base
@@ -92,7 +90,6 @@ class _nominal_builder:
                 sum(list(self.config.channel_nbins.values())),
             ),
         )
-        return _nominal_rates
 
 
 def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
@@ -117,25 +114,23 @@ def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
     # 2. make a helper that maps channel-name/sample-name to pairs of channel-sample structs
     helper = {}
     _keys_seen = set()
-    for c in spec['channels']:
-        for s in c['samples']:
+    for c in spec["channels"]:
+        for s in c["samples"]:
             moddict = {}
-            for x in s['modifiers']:
-                if x['type'] not in modifier_set:
-                    raise exceptions.InvalidModifier(
-                        f'{x["type"]} not among {list(modifier_set.keys())}'
-                    )
+            for x in s["modifiers"]:
+                if x["type"] not in modifier_set:
+                    msg = f"{x['type']} not among {list(modifier_set)}"
+                    raise exceptions.InvalidModifier(msg)
                 key = f"{x['type']}/{x['name']}"
                 # check if the modifier to be built is allowed to be shared
-                if not modifiers_builders[x['type']].is_shared and (
+                if not modifiers_builders[x["type"]].is_shared and (
                     key in _keys_seen or key in moddict
                 ):
-                    raise exceptions.InvalidModel(
-                        f"Trying to add paramset {key} on {s['name']} sample in {c['name']} channel but other paramsets exist with the same name."
-                    )
+                    msg = f"Trying to add paramset {key} on {s['name']} sample in {c['name']} channel but other paramsets exist with the same name."
+                    raise exceptions.InvalidModel(msg)
 
                 moddict[key] = x
-            helper.setdefault(c['name'], {})[s['name']] = (s, moddict)
+            helper.setdefault(c["name"], {})[s["name"]] = (s, moddict)
             # add in all keys seen
             _keys_seen.update(moddict)
 
@@ -143,12 +138,10 @@ def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
     for c in config.channels:
         for s in config.samples:
             helper_data = helper.get(c, {}).get(s)
-            defined_samp, defined_mods = (
-                (None, None) if not helper_data else helper_data
-            )
+            defined_samp, defined_mods = helper_data or (None, None)
             nominal.append(c, s, defined_samp)
             for m, mtype in config.modifiers:
-                key = f'{mtype}/{m}'
+                key = f"{mtype}/{m}"
                 # this is None if modifier doesn't affect channel/sample.
                 thismod = defined_mods.get(key) if defined_mods else None
                 modifiers_builders[mtype].append(key, c, s, thismod, defined_samp)
@@ -156,7 +149,7 @@ def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
     # 4. finalize nominal & modifier builders
     nominal_rates = nominal.finalize()
     finalizd_builder_data = {}
-    for k, (builder, applier) in modifier_set.items():
+    for k, (builder, applier) in modifier_set.items():  # noqa: B007
         finalizd_builder_data[k] = modifiers_builders[k].finalize()
 
     # 5. collect parameters from spec and from user.
@@ -167,7 +160,7 @@ def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
             _required_paramsets.setdefault(pname, [])
             _required_paramsets[pname] += req_list
 
-    user_parameters = spec.get('parameters', [])
+    user_parameters = spec.get("parameters", [])
 
     _required_paramsets = _finalize_parameters_specs(
         user_parameters,
@@ -178,14 +171,15 @@ def _nominal_and_modifiers_from_spec(modifier_set, config, spec, batch_size):
     )
 
     if not _required_paramsets:
-        raise exceptions.InvalidModel('No parameters specified for the Model.')
+        msg = "No parameters specified for the Model."
+        raise exceptions.InvalidModel(msg)
 
     config.set_parameters(_prameter_objects)
     config.set_auxinfo(_auxdata, _auxdata_order)
 
     # 6. use finalized modifier data to build reparametrization function for main likelihood part
     the_modifiers = {}
-    for k, (builder, applier) in modifier_set.items():
+    for k, (builder, applier) in modifier_set.items():  # noqa: B007
         the_modifiers[k] = applier(
             modifiers=[
                 x for x in config.modifiers if x[1] == k
@@ -216,21 +210,20 @@ class _ModelConfig(_ChannelSummaryMixin):
         Args:
             spec (:obj:`jsonable`): The HistFactory JSON specification.
         """
-        super().__init__(channels=spec['channels'])
+        super().__init__(channels=spec["channels"])
 
         default_modifier_settings = {
-            'normsys': {'interpcode': 'code4'},
-            'histosys': {'interpcode': 'code4p'},
+            "normsys": {"interpcode": "code4"},
+            "histosys": {"interpcode": "code4p"},
         }
 
         self.modifier_settings = config_kwargs.pop(
-            'modifier_settings', default_modifier_settings
+            "modifier_settings", default_modifier_settings
         )
 
         if config_kwargs:
-            raise exceptions.Unsupported(
-                f"Unsupported options were passed in: {list(config_kwargs.keys())}."
-            )
+            msg = f"Unsupported options were passed in: {list(config_kwargs)}."
+            raise exceptions.Unsupported(msg)
 
         # prefixed with underscore are documented via @property
         self._par_order = []
@@ -291,7 +284,7 @@ class _ModelConfig(_ChannelSummaryMixin):
         """
         self._create_and_register_paramsets(_required_paramsets)
         self.npars = len(self.suggested_init())
-        self.parameters = sorted(k for k in self.par_map.keys())
+        self.parameters = sorted(k for k in self.par_map)
 
     def set_auxinfo(self, auxdata, auxdata_order):
         """
@@ -317,7 +310,7 @@ class _ModelConfig(_ChannelSummaryMixin):
         """
         init = []
         for name in self.par_order:
-            init = init + self.par_map[name]['paramset'].suggested_init
+            init = init + self.par_map[name]["paramset"].suggested_init
         return init
 
     def suggested_bounds(self):
@@ -337,7 +330,7 @@ class _ModelConfig(_ChannelSummaryMixin):
         """
         bounds = []
         for name in self.par_order:
-            bounds = bounds + self.par_map[name]['paramset'].suggested_bounds
+            bounds = bounds + self.par_map[name]["paramset"].suggested_bounds
         return bounds
 
     def par_slice(self, name):
@@ -356,7 +349,7 @@ class _ModelConfig(_ChannelSummaryMixin):
             >>> model.config.par_slice("uncorr_bkguncrt")
             slice(1, 3, None)
         """
-        return self.par_map[name]['slice']
+        return self.par_map[name]["slice"]
 
     @property
     def par_names(self):
@@ -374,7 +367,7 @@ class _ModelConfig(_ChannelSummaryMixin):
             >>> model.config.par_names
             ['mu', 'uncorr_bkguncrt[0]', 'uncorr_bkguncrt[1]']
 
-        .. versionchanged:: 0.7.0 Changed from method to property attribute.
+        .. version-changed:: 0.7.0 Changed from method to property attribute.
         """
         _names = []
         for name in self.par_order:
@@ -384,7 +377,7 @@ class _ModelConfig(_ChannelSummaryMixin):
                 continue
 
             _names.extend(
-                [f'{name}[{index}]' for index in range(param_set.n_parameters)]
+                [f"{name}[{index}]" for index in range(param_set.n_parameters)]
             )
         return _names
 
@@ -404,9 +397,9 @@ class _ModelConfig(_ChannelSummaryMixin):
             >>> param_set.pdf_type
             'poisson'
         """
-        return self.par_map[name]['paramset']
+        return self.par_map[name]["paramset"]
 
-    def suggested_fixed(self) -> List[bool]:
+    def suggested_fixed(self) -> list[bool]:
         """
         Identify the fixed parameters in the model.
 
@@ -436,7 +429,7 @@ class _ModelConfig(_ChannelSummaryMixin):
         """
         fixed = []
         for name in self.par_order:
-            paramset = self.par_map[name]['paramset']
+            paramset = self.par_map[name]["paramset"]
             fixed += paramset.suggested_fixed
         return fixed
 
@@ -461,14 +454,12 @@ class _ModelConfig(_ChannelSummaryMixin):
             return
 
         if name not in self.parameters:
-            raise exceptions.InvalidModel(
-                f"The parameter of interest '{name:s}' cannot be fit as it is not declared in the model specification."
-            )
+            msg = f"The parameter of interest '{name:s}' cannot be fit as it is not declared in the model specification."
+            raise exceptions.InvalidModel(msg)
         if self.param_set(name).n_parameters > 1:
             # multi-parameter modifiers are not supported as POIs
-            raise exceptions.InvalidModel(
-                f"The parameter '{name:s}' contains multiple components and is not currently supported as parameter of interest."
-            )
+            msg = f"The parameter '{name:s}' contains multiple components and is not currently supported as parameter of interest."
+            raise exceptions.InvalidModel(msg)
         self._poi_name = name
         self._poi_index = self.par_slice(name).start
 
@@ -476,7 +467,7 @@ class _ModelConfig(_ChannelSummaryMixin):
         next_index = 0
         for param_name, paramset in required_paramsets.items():
             log.info(
-                'adding modifier %s (%s new nuisance parameters)',
+                "adding modifier %s (%s new nuisance parameters)",
                 param_name,
                 paramset.n_parameters,
             )
@@ -485,7 +476,7 @@ class _ModelConfig(_ChannelSummaryMixin):
             next_index = next_index + paramset.n_parameters
 
             self._par_order.append(param_name)
-            self.par_map[param_name] = {'slice': sl, 'paramset': paramset}
+            self.par_map[param_name] = {"slice": sl, "paramset": paramset}
 
 
 class _ConstraintModel:
@@ -553,8 +544,8 @@ class _ConstraintModel:
             pdfobjs.append(poisson_pdf)
 
         if pdfobjs:
-            simpdf = prob.Simultaneous(pdfobjs, self.constraints_tv, self.batch_size)
-            return simpdf
+            return prob.Simultaneous(pdfobjs, self.constraints_tv, self.batch_size)
+        return None
 
     def logpdf(self, auxdata, pars):
         """
@@ -581,8 +572,8 @@ class _MainModel:
         modifiers,
         nominal_rates,
         batch_size=None,
-        clip_sample_data: Union[float, None] = None,
-        clip_bin_data: Union[float, None] = None,
+        clip_sample_data: float | None = None,
+        clip_bin_data: float | None = None,
     ):
         default_backend = pyhf.default_backend
 
@@ -597,11 +588,12 @@ class _MainModel:
 
         if self.clip_sample_data is not None:
             log.warning(
-                f"Clipping expected data per-bin for each sample below {self.clip_sample_data}"
+                "Clipping expected data per-bin for each sample below %s",
+                self.clip_sample_data,
             )
 
         if self.clip_bin_data is not None:
-            log.warning(f"Clipping expected data per-bin below {self.clip_bin_data}")
+            log.warning("Clipping expected data per-bin below %s", self.clip_bin_data)
 
         self._nominal_rates = default_backend.tile(
             nominal_rates, (1, 1, self.batch_size or 1, 1)
@@ -616,7 +608,7 @@ class _MainModel:
                 self._factor_mods.append(modifier_applier.name)
 
         self._precompute()
-        events.subscribe('tensorlib_changed')(self._precompute)
+        events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         tensorlib, _ = get_backend()
@@ -633,7 +625,7 @@ class _MainModel:
         return True
 
     def make_pdf(self, pars):
-        lambdas_data = self.expected_data(pars)
+        lambdas_data = self._expected_data_unchecked(pars)
         return prob.Independent(prob.Poisson(lambdas_data))
 
     def logpdf(self, maindata, pars):
@@ -650,7 +642,21 @@ class _MainModel:
         """
         return self.make_pdf(pars).log_prob(maindata)
 
-    def _modifications(self, pars):
+    def modifications(self, pars):
+        """
+        Obtain the additive and multiplicative modifications to the expected
+        event rates for the model parameters.
+
+        Args:
+            pars (:obj:`tensor`): The model parameters
+
+        Returns:
+            Tuple of additive and multiplicative modifications:
+                - deltas (:obj:`list`) is the result of an ``apply(pars)`` of combined modifiers
+                  with ``"addition"`` ``op_code``
+                - factors (:obj:`list`) is the result of ``apply(pars)`` of combined modifiers
+                  with ``"multiplication"`` ``op_code``
+        """
         deltas = list(
             filter(
                 lambda x: x is not None,
@@ -665,6 +671,46 @@ class _MainModel:
         )
 
         return deltas, factors
+
+    def _expected_data_unchecked(self, pars, return_by_sample=False):
+        """
+        Compute the expected rates for given values of parameters without
+        input validation. For internal use in performance-critical paths.
+
+        See :meth:`expected_data` for full documentation.
+        """
+        tensorlib, _ = get_backend()
+        pars = tensorlib.astensor(pars)
+        deltas, factors = self.modifications(pars)
+
+        allsum = tensorlib.concatenate(deltas + [self.nominal_rates])
+
+        nom_plus_delta = tensorlib.sum(allsum, axis=0)
+        nom_plus_delta = tensorlib.reshape(
+            nom_plus_delta, (1,) + tensorlib.shape(nom_plus_delta)
+        )
+
+        allfac = tensorlib.concatenate(factors + [nom_plus_delta])
+
+        newbysample = tensorlib.product(allfac, axis=0)
+        if self.clip_sample_data is not None:
+            newbysample = tensorlib.clip(
+                newbysample, self.clip_sample_data, max_value=None
+            )
+
+        if return_by_sample:
+            batch_first = tensorlib.einsum("ij...->ji...", newbysample)
+            if self.batch_size is None:
+                return batch_first[0]
+            return batch_first
+
+        newresults = tensorlib.sum(newbysample, axis=0)
+        if self.clip_bin_data is not None:
+            newresults = tensorlib.clip(newresults, self.clip_bin_data, max_value=None)
+
+        if self.batch_size is None:
+            return newresults[0]
+        return newresults
 
     def expected_data(self, pars, return_by_sample=False):
         """
@@ -695,36 +741,10 @@ class _MainModel:
         """
         tensorlib, _ = get_backend()
         pars = tensorlib.astensor(pars)
-        deltas, factors = self._modifications(pars)
-
-        allsum = tensorlib.concatenate(deltas + [self.nominal_rates])
-
-        nom_plus_delta = tensorlib.sum(allsum, axis=0)
-        nom_plus_delta = tensorlib.reshape(
-            nom_plus_delta, (1,) + tensorlib.shape(nom_plus_delta)
-        )
-
-        allfac = tensorlib.concatenate(factors + [nom_plus_delta])
-
-        newbysample = tensorlib.product(allfac, axis=0)
-        if self.clip_sample_data is not None:
-            newbysample = tensorlib.clip(
-                newbysample, self.clip_sample_data, max_value=None
-            )
-
-        if return_by_sample:
-            batch_first = tensorlib.einsum('ij...->ji...', newbysample)
-            if self.batch_size is None:
-                return batch_first[0]
-            return batch_first
-
-        newresults = tensorlib.sum(newbysample, axis=0)
-        if self.clip_bin_data is not None:
-            newresults = tensorlib.clip(newresults, self.clip_bin_data, max_value=None)
-
-        if self.batch_size is None:
-            return newresults[0]
-        return newresults
+        if pars.shape[-1] != self.config.npars:
+            msg = f"Evaluation failed as parameters have length {pars.shape[-1]} but model requires {self.config.npars}."
+            raise exceptions.InvalidPdfParameters(msg)
+        return self._expected_data_unchecked(pars, return_by_sample)
 
 
 class Model:
@@ -736,8 +756,8 @@ class Model:
         modifier_set=None,
         batch_size=None,
         validate: bool = True,
-        clip_sample_data: Union[float, None] = None,
-        clip_bin_data: Union[float, None] = None,
+        clip_sample_data: float | None = None,
+        clip_bin_data: float | None = None,
         **config_kwargs,
     ):
         """
@@ -761,14 +781,16 @@ class Model:
         self.batch_size = batch_size
         # deep-copy "spec" as it may be modified by config
         self.spec = copy.deepcopy(spec)
-        self.schema = config_kwargs.pop('schema', 'model.json')
-        self.version = config_kwargs.pop('version', None)
+        self.schema = config_kwargs.pop("schema", "model.json")
+        self.version = config_kwargs.pop("version", None)
         # run jsonschema validation of input specification against the (provided) schema
         if validate:
-            log.info(f"Validating spec against schema: {self.schema:s}")
+            log.info("Validating spec against schema: %s", self.schema)
             schema.validate(self.spec, self.schema, version=self.version)
         # build up our representation of the specification
-        poi_name = config_kwargs.pop('poi_name', 'mu')
+        # Default to no POI name
+        # https://github.com/scikit-hep/pyhf/issues/2327
+        poi_name = config_kwargs.pop("poi_name", None)
         self._config = _ModelConfig(self.spec, **config_kwargs)
 
         modifiers, _nominal_rates = _nominal_and_modifiers_from_spec(
@@ -799,7 +821,7 @@ class Model:
         if self.constraint_model.has_pdf():
             sizes.append(self.config.nauxdata)
         self.fullpdf_tv = _tensorviewer_from_sizes(
-            sizes, ['main', 'aux'], self.batch_size
+            sizes, ["main", "aux"], self.batch_size
         )
 
     @property
@@ -822,10 +844,19 @@ class Model:
         """
         tensorlib, _ = get_backend()
         pars = tensorlib.astensor(pars)
+        # Verify parameter shapes
+        if pars.shape[-1] != self.config.npars:
+            msg = f"Evaluation failed as parameters have length {pars.shape[-1]} but model requires {self.config.npars}."
+            raise exceptions.InvalidPdfParameters(msg)
+
         return self.make_pdf(pars)[1].expected_data()
 
-    def _modifications(self, pars):
-        return self.main_model._modifications(pars)
+    def modifications(self, pars):
+        """
+        The modifications applied to the :class:`~pyhf.pdf._MainModel`. See
+        :func:`pyhf.pdf._MainModel.modifications` for details.
+        """
+        return self.main_model.modifications(pars)
 
     @property
     def nominal_rates(self):
@@ -845,7 +876,12 @@ class Model:
         """
         tensorlib, _ = get_backend()
         pars = tensorlib.astensor(pars)
-        return self.make_pdf(pars)[0].expected_data()
+        # Verify parameter shapes
+        if pars.shape[-1] != self.config.npars:
+            msg = f"Evaluation failed as parameters have length {pars.shape[-1]} but model requires {self.config.npars}."
+            raise exceptions.InvalidPdfParameters(msg)
+
+        return self.main_model._expected_data_unchecked(pars)
 
     def expected_data(self, pars, include_auxdata=True):
         """
@@ -860,8 +896,13 @@ class Model:
         """
         tensorlib, _ = get_backend()
         pars = tensorlib.astensor(pars)
+        # Verify parameter shapes
+        if pars.shape[-1] != self.config.npars:
+            msg = f"Evaluation failed as parameters have length {pars.shape[-1]} but model requires {self.config.npars}."
+            raise exceptions.InvalidPdfParameters(msg)
+
         if not include_auxdata:
-            return self.make_pdf(pars)[0].expected_data()
+            return self.main_model._expected_data_unchecked(pars)
         return self.make_pdf(pars).expected_data()
 
     def constraint_logpdf(self, auxdata, pars):
@@ -911,8 +952,7 @@ class Model:
         if constraintpdf:
             pdfobjs.append(constraintpdf)
 
-        simpdf = prob.Simultaneous(pdfobjs, self.fullpdf_tv, self.batch_size)
-        return simpdf
+        return prob.Simultaneous(pdfobjs, self.fullpdf_tv, self.batch_size)
 
     def logpdf(self, pars, data):
         """
@@ -931,16 +971,14 @@ class Model:
             pars, data = tensorlib.astensor(pars), tensorlib.astensor(data)
             # Verify parameter and data shapes
             if pars.shape[-1] != self.config.npars:
-                raise exceptions.InvalidPdfParameters(
-                    f'eval failed as pars has len {pars.shape[-1]} but {self.config.npars} was expected'
-                )
+                msg = f"eval failed as pars has len {pars.shape[-1]} but {self.config.npars} was expected"
+                raise exceptions.InvalidPdfParameters(msg)
 
             if data.shape[-1] != self.nominal_rates.shape[-1] + len(
                 self.config.auxdata
             ):
-                raise exceptions.InvalidPdfData(
-                    f'eval failed as data has len {data.shape[-1]} but {self.config.nmaindata + self.config.nauxdata} was expected'
-                )
+                msg = f"eval failed as data has len {data.shape[-1]} but {self.config.nmaindata + self.config.nauxdata} was expected"
+                raise exceptions.InvalidPdfData(msg)
 
             result = self.make_pdf(pars).log_prob(data)
 
@@ -950,9 +988,10 @@ class Model:
                 return tensorlib.reshape(result, (1,))
             return result
         except Exception:
-            log.error(
-                f"Eval failed for data {tensorlib.tolist(data)} pars: {tensorlib.tolist(pars)}",
-                exc_info=True,
+            log.exception(
+                "Eval failed for data %s pars: %s",
+                tensorlib.tolist(data),
+                tensorlib.tolist(pars),
             )
             raise
 

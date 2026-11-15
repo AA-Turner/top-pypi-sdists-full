@@ -34,26 +34,26 @@ class NavCounts:
     under `bots`, the rest under `pullRequests`). Always present, with
     zeros when there is nothing. A client hides a page's whole nav item at
     zero total, and a state's number at zero. Every page except Issues also
-    carries `running` and `passed`. The Branches badge isn't here: a
+    carries `running`, `passed` and `cancelled`. The Branches badge isn't here: a
     client counts the rows of `mainBranchPage`.
 
         Attributes:
-            pull_requests (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
-                `passed` count the pull requests whose CI is pending, failing and
-                succeeded, and `noChecks` those with no checks at all. One held for
-                workflow approval is in `total` only, so the numbers need not add up.
-                All five are always present.
+            pull_requests (NavPullRequestCount): A pull request page's numbers. `running`, `failed`, `passed` and
+                `cancelled` count the pull requests whose CI is pending, failing,
+                succeeded and cancelled, and `noChecks` those with no checks at all.
+                One held for workflow approval is in `total` only, so the numbers
+                need not add up. All six are always present.
             issues (NavIssueCount):
-            releases (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
-                `passed` count the pull requests whose CI is pending, failing and
-                succeeded, and `noChecks` those with no checks at all. One held for
-                workflow approval is in `total` only, so the numbers need not add up.
-                All five are always present.
-            bots (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
-                `passed` count the pull requests whose CI is pending, failing and
-                succeeded, and `noChecks` those with no checks at all. One held for
-                workflow approval is in `total` only, so the numbers need not add up.
-                All five are always present.
+            releases (NavPullRequestCount): A pull request page's numbers. `running`, `failed`, `passed` and
+                `cancelled` count the pull requests whose CI is pending, failing,
+                succeeded and cancelled, and `noChecks` those with no checks at all.
+                One held for workflow approval is in `total` only, so the numbers
+                need not add up. All six are always present.
+            bots (NavPullRequestCount): A pull request page's numbers. `running`, `failed`, `passed` and
+                `cancelled` count the pull requests whose CI is pending, failing,
+                succeeded and cancelled, and `noChecks` those with no checks at all.
+                One held for workflow approval is in `total` only, so the numbers
+                need not add up. All six are always present.
      """
 
     pull_requests: NavPullRequestCount

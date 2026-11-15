@@ -9,6 +9,7 @@ import shlex
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 from time import monotonic, sleep, time
 from types import SimpleNamespace
@@ -272,6 +273,23 @@ def test_tee_command():
             os.remove(f.name)
     except Exception as e:
         print(f"An error occurred while attempting to delete the file: {e}")
+
+
+def test_tee_and_once_files_are_opened_as_utf8(tmp_path: Path) -> None:
+    tee_path = tmp_path / 'tee.out'
+    once_path = tmp_path / 'once.out'
+    try:
+        mycli.packages.special_commands.execute(None, f'tee {tee_path}')
+        assert io_commands.tee_file.encoding.lower().replace('_', '-') == 'utf-8'
+        io_commands.write_tee('日本語 🙂')
+        mycli.packages.special_commands.execute(None, 'notee')
+
+        io_commands._set_once_file(str(once_path), 'w')
+        assert io_commands.once_file.encoding.lower().replace('_', '-') == 'utf-8'
+    finally:
+        io_commands.unset_once_if_written('')
+        io_commands.close_tee()
+    assert '日本語 🙂' in tee_path.read_text(encoding='utf-8')
 
 
 @pytest.mark.skipif('wsl2' in platform.uname().release.lower(), reason='todo: unknown')
@@ -604,6 +622,28 @@ def test_open_external_editor_filename_paths(monkeypatch, tmp_path: Path) -> Non
 
     assert query == ''
     assert message == f'Error reading file: {filename}'
+
+
+def test_open_external_editor_filename_does_not_use_locale_encoding(tmp_path: Path) -> None:
+    # EncodingWarning is raised for any open() that falls back to the locale encoding.
+    filename = tmp_path / 'query.sql'
+    filename.write_text('select "caf\u00e9";\n', encoding='utf-8')
+    script = '\n'.join((
+        'import sys',
+        'import click',
+        'click.edit = lambda filename: None',
+        'from mycli.packages.special_commands import io_commands',
+        'query, message = io_commands.open_external_editor(filename=sys.argv[1])',
+        'assert message is None, message',
+        'assert query == \'select "caf\\u00e9";\', query',
+    ))
+    result = subprocess.run(
+        [sys.executable, '-X', 'warn_default_encoding', '-W', 'error::EncodingWarning', '-c', script, str(filename)],
+        capture_output=True,
+        encoding='utf8',
+        errors='replace',
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_open_external_editor_without_filename(monkeypatch) -> None:

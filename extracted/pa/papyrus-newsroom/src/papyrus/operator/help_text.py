@@ -5,7 +5,7 @@ import argparse
 VERSION = "0.1.0"
 
 TOP_LEVEL_HELP = """\
-Usage: papyrus [--help] [--version] [--backend local|cloud] <group> <command> [options]
+Usage: papyrus [--help] [--version] [--site SITE] [--auth iam] [--backend local|cloud] <group> <command> [options]
 
 Agents: run `papyrus guide` (or `papyrus guide --list`) for task-first recipes with exact syntax. Every command has `--help`.
 
@@ -44,6 +44,13 @@ Operator groups:
   logout        Remove the local user session and attempt provider revocation
   whoami        Renew and identify the selected newsroom user
   auth status   Inspect the selected user session without opening a browser
+
+Signing in (which lane a command calls the site with):
+  Signed in (the default): `papyrus login SITE` once, then every command runs as you. With no session a command refuses.
+  --site SITE   Choose one of your signed-in sites for this command (or PAPYRUS_SITE).
+  --auth iam    The operator lane: this process's own AWS credentials. Never chosen by itself; a worker, deploy or CI step that
+                runs as its own AWS role declares it (or sets PAPYRUS_GRAPHQL_AUTH=iam).
+  A CLI newer than the site's backend refuses what that backend cannot do; upgrade the site rather than switching lanes.
 
 Backend selection:
   Use --backend local|cloud, PAPYRUS_BACKEND, or .papyrus/operator-cli.config.yaml.
@@ -158,6 +165,15 @@ def build_editorial_parser() -> argparse.ArgumentParser:
   subparsers.add_parser("pack", help="Print the site's effective policy pack for a desk")
   subparsers.add_parser("import", help="Add a style profile's controls as editorial policies")
   subparsers.add_parser("policies", help="List policies, import a starter pack, ensure the default packs, add policies from a policy-pack file (add), or export them (export)")
+  languages = subparsers.add_parser("languages", help="Show how the site serves its languages, or set which are public, their URL prefixes and slug policies")
+  languages.add_argument("--set-public", help="Comma-separated languages the public site serves besides the primary.")
+  languages.add_argument("--set-prefix", action="append", help="TAG=PREFIX: the URL prefix of one language.")
+  languages.add_argument("--set-slug", action="append", help="TAG=POLICY: translated, characters, pinyin or primary.")
+  languages.add_argument("--auto", choices=("on", "off"), help="Translate every Story into every enabled language when it is published.")
+  languages.add_argument("--auto-automation", help="The Automation that runs the translation procedure.")
+  languages.add_argument("--auto-publish", choices=("on", "off"), help="Publish the translations a run saved cleanly.")
+  languages.add_argument("--dry-run", action="store_true")
+  languages.add_argument("--json", action="store_true")
   version = subparsers.add_parser("check-version", help="Check one saved version and store the result with it")
   version.add_argument("--item", required=True)
   version.add_argument("--json", action="store_true")

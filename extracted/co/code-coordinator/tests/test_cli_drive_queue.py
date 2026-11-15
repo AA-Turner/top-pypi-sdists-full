@@ -1499,6 +1499,64 @@ def test_a_well_formed_files_heading_does_not_trigger_the_malformed_warning(
     assert "#3258" not in result.output
 
 
+# ── #4008: `## Files` naming a coordinator-owned doc warns at enqueue ───────
+
+
+def test_declaring_claude_md_in_files_warns_at_enqueue(cli, declare):
+    declare(430, "coord/review.py", "CLAUDE.md")
+
+    result = cli("add", REPO, "430")
+
+    assert result.exit_code == 0, result.output
+    assert "warning:" in result.output
+    assert "coordinator-owned doc" in result.output
+    assert "`CLAUDE.md`" in result.output
+    assert "#2966" in result.output
+    # ORDER/ADVISE, never REFUSE — the entry still queues.
+    assert queued(430) is not None
+
+
+def test_a_files_heading_with_no_coordinator_doc_does_not_warn(cli, declare):
+    declare(431, "coord/review.py", "coord/dispatch.py")
+
+    result = cli("add", REPO, "431")
+
+    assert result.exit_code == 0, result.output
+    assert "coordinator-owned doc" not in result.output
+
+
+def test_no_predict_overlap_does_not_silence_the_coordinator_doc_warning(cli, declare):
+    """`--no-predict-overlap`'s own help text promises only to skip #2247's
+    file-overlap ORDERING — the coordinator-owned-doc warning is an
+    unrelated signal and must still fire."""
+    declare(432, "coord/review.py", "CLAUDE.md")
+
+    result = cli("add", REPO, "432", "--no-predict-overlap")
+
+    assert result.exit_code == 0, result.output
+    assert "coordinator-owned doc" in result.output
+    assert "`CLAUDE.md`" in result.output
+
+
+def test_coordinator_doc_warning_still_fires_for_a_repo_the_config_cant_resolve(
+    monkeypatch,
+):
+    """#4008 review: `coordinator_owned_docs(None)` deliberately still
+    returns the fleet-wide default even when the repo can't be resolved
+    (its own #1388-style fail-open posture) — the enqueue-time warning must
+    not go silent in exactly the case the review gate would still reject."""
+    from coord.commands.drive_queue import _coordinator_doc_declared_warning
+    from coord.config import Config
+
+    monkeypatch.setattr(Config, "repo", lambda self, name: None)
+    cfg = Config(repos=[], machines=[])
+
+    note = _coordinator_doc_declared_warning(cfg, "unknown-repo", "## Files\n- `CLAUDE.md`\n")
+
+    assert note != ""
+    assert "CLAUDE.md" in note
+
+
 def test_editing_the_issue_live_narrows_a_stale_bare_directory_declaration(
     cli, declare, monkeypatch,
 ):

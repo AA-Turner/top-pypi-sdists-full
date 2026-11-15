@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pigeon-home-runner"
-version = "3.16.25.25"
+version = "3.16.26.21"
 description = "Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -221,6 +221,7 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_hosting_providers.py",
     "runner/tests/test_hosting_queue_edges.py",
     "runner/tests/test_hybrid_fuzz.py",
+    "runner/tests/test_identity.py",
     "runner/tests/test_ids_feeds_e2e.py",
     "runner/tests/test_inference_config_overflow.py",
     "runner/tests/test_install_box.py",
@@ -426,6 +427,8 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_senses_limit_overflow_again.py",
     "runner/tests/test_service_watch.py",
     "runner/tests/test_setup.py",
+    "runner/tests/test_setup_canoe.py",
+    "runner/tests/test_setup_client_secret.py",
     "runner/tests/test_setup_gaps.py",
     "runner/tests/test_setup_poison.py",
     "runner/tests/test_signed_body_bounds.py",
@@ -452,6 +455,7 @@ pytest_add_cli_args_test_selection = [
     "runner/tests/test_watchers.py",
     "runner/tests/test_windows_cli_sim.py",
     "runner/tests/test_windows_confine.py",
+    "runner/tests/test_windows_confine_fuzz.py",
     "runner/tests/test_windows_extensions_negative.py",
     "runner/tests/test_windows_platform_proofs.py",
     "runner/tests/test_windows_run_as.py",

@@ -28,7 +28,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Protocol
 
-from .blocks import Block, PlaceholderError, Protected, blocks_of, join_body, protect, protect_like
+from .blocks import FIELD_PREFIX, Block, PlaceholderError, Protected, blocks_of, join_body, protect, protect_like
 from .budget import Prediction
 from .checks import BlockChecker, Finding, apply_fixes, closing_emphasis, faithfulness_worse, tally
 from .models import PROMPT_VERSION, LocalizeModels, Spend, StructuredOutputMissing
@@ -67,6 +67,7 @@ class SourceVersion:
     deck: str
     body: str
     section: str | None = None
+    fields: tuple[tuple[str, str], ...] = ()   # (front matter key, text) of the reader-facing fields (blocks.FRONT_MATTER_FIELDS) the Story has
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,8 @@ class LocalizeRequest:
     run_key: str
     glossary: Any
     checker: BlockChecker
+    #: How the localization's slug is drafted at its first save (``language_serving.localized_slug``): the site's ``languages.slugs`` for this language.
+    slug_policy: str
     register_notes: list[str] = field(default_factory=list)
     previous: list[AlignedBlock] | None = None
     previous_source_hash: str | None = None
@@ -169,7 +172,7 @@ class Localizer:
         finished = self.stages.get(f"run/{request.run_key}")
         if finished is not None:
             return {**finished, "repeated": True}
-        source_blocks = blocks_of(request.source.body, title=request.source.title, deck=request.source.deck)
+        source_blocks = blocks_of(request.source.body, title=request.source.title, deck=request.source.deck, fields=request.source.fields)
         slots = plan_slots(source_blocks, request.previous)
         to_translate = [slot for slot in slots if slot.translate]
         characters = sum(len(slot.source.text) for slot in to_translate)
@@ -290,10 +293,14 @@ class Localizer:
     def _proposals(self, candidates: list[_Slot]) -> dict[str, str]:
         """Each candidate's next text: certain repairs applied by code, then the model's repair for findings that may drive a rewrite."""
         proposals: dict[str, str] = {}
+        remaining: dict[str, list[Finding]] = {}
         for slot in candidates:
             fixed, applied = apply_fixes(slot.text, slot.findings)
             proposals[slot.source.id] = self._normalize(fixed) if applied else slot.text
-        needing = [slot for slot in candidates if any(f.drives_rewrite for f in slot.findings)]
+            # A repair by code can settle a finding that would otherwise ask the model (the glossary's "IA" for a kept "AI"): the model is asked
+            # only about what the repaired text still has. The check of that text is stored, so the round's own check of it costs nothing more.
+            remaining[slot.source.id] = self._findings(slot.source.text, proposals[slot.source.id]) if applied else slot.findings
+        needing = [slot for slot in candidates if any(f.drives_rewrite for f in remaining[slot.source.id])]
         if not needing:
             return proposals
         pending = {slot.source.id: slot for slot in needing}
@@ -304,7 +311,7 @@ class Localizer:
                 current = protect_like(slot.protected, proposals[block_id])
                 entry = {"id": block_id, "source": slot.protected.text, "current": current.text,
                          "problems": [f"{f.message}" + (f" (translation: {f.excerpt!r})" if f.excerpt else "") + (f" (source: {f.source_excerpt!r})" if f.source_excerpt else "")
-                                      for f in slot.findings if f.drives_rewrite]}
+                                      for f in remaining[block_id] if f.drives_rewrite]}
                 if block_id in problems:
                     entry["problem"] = f"Your previous repair of this block was refused: {problems[block_id]}."
                 blocks.append(entry)
@@ -351,7 +358,8 @@ class Localizer:
         request = self.request
         title = next((slot.text for slot in slots if slot.source.kind == "title"), "")
         deck = next((slot.text for slot in slots if slot.source.kind == "deck"), "")
-        body_slots = [slot for slot in slots if slot.source.kind not in ("title", "deck")]
+        translated_fields = {slot.source.kind[len(FIELD_PREFIX):]: slot.text for slot in slots if slot.source.kind.startswith(FIELD_PREFIX)}
+        body_slots = [slot for slot in slots if slot.source.kind not in ("title", "deck") and not slot.source.kind.startswith(FIELD_PREFIX)]
         body = join_body([slot.text for slot in body_slots])
         findings = [f for slot in slots for f in slot.findings]
         document: list[Finding] = []
@@ -392,7 +400,7 @@ class Localizer:
         result = {"story": request.localization_lineage, "language": request.language, "hold": outcome == "held", "reason": provenance["reason"],
                   "outcome": outcome, "published": False, "rounds": len(self.rounds), "revertedBlocks": self.reverted, "costUsd": round(cost, 6),
                   "findings": provenance["findings"], "runKey": request.run_key,
-                  "translation": {"title": title, "deck": deck, "body": body, "blocks": [s.text for s in slots]},
+                  "translation": {"title": title, "deck": deck, "fields": translated_fields, "body": body, "blocks": [s.text for s in slots]},
                   "provenance": provenance}
         return result
 

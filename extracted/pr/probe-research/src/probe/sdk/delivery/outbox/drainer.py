@@ -51,6 +51,18 @@ class Drainer:
         except Exception:  # noqa: BLE001 -- best-effort; finish() waits for the drain
             pass
 
+    def start_for_close(self) -> None:
+        """A close is seconds away (a SIGTERM's grace): the service's drain starts now, so the close
+        finds one running. Never past a custom transport; never raises."""
+        if not self.can_fork:
+            return
+        from .drainers import detached
+
+        try:
+            detached.start_drain_now(self.directory, **_with_credential(self.credential_env))
+        except Exception:  # noqa: BLE001 -- best-effort; the close kicks again
+            pass
+
     def close(self, timeout: float | None = None) -> bool:
         """Stop delivering through this process; True when something was stopped."""
         return False

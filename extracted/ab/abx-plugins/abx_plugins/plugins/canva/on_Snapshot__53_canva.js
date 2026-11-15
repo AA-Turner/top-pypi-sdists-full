@@ -88,10 +88,15 @@ async function main() {
       chromeSessionDir: path.join(snapshotDir, "chrome"),
       timeoutMs: remaining(),
     });
-    await page.goto(sourcePage.url(), {
+    const exportResponse = await page.goto(sourcePage.url(), {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
+    console.error("Canva export navigation:", JSON.stringify({
+      status: exportResponse?.status(),
+      path: new URL(page.url()).pathname,
+      title: (await page.title()).slice(0, 200),
+    }));
     const reportControls = async (frame, selector, target = null) => {
       try {
         const state = await frame.evaluate((selector, target) => {
@@ -99,6 +104,10 @@ async function main() {
             '[role="combobox"][aria-label="File type"]',
           );
           return {
+            title: document.title,
+            path: location.pathname,
+            readyState: document.readyState,
+            text: document.body?.innerText.slice(0, 1000),
             selectedFormat: control?.innerText.slice(0, 100),
             expanded: control?.getAttribute("aria-expanded"),
             viewport: { width: innerWidth, height: innerHeight },
@@ -139,7 +148,10 @@ async function main() {
               }),
           };
         }, selector, target);
-        console.error("Canva export controls:", JSON.stringify(state));
+        console.error("Canva export controls:", JSON.stringify({
+          navigationStatus: exportResponse?.status(),
+          ...state,
+        }));
       } catch (error) {
         console.error("Canva menu diagnostics unavailable:", error.message);
       }
@@ -264,11 +276,26 @@ async function main() {
       current.searchParams.get("mode") === "preview"
     ) {
       await click("button", "View template");
-      const iframe = await page.waitForSelector(
-        'iframe[title="Open template"]',
-        { visible: true, timeout: remaining() },
-      );
-      const frame = await iframe.contentFrame();
+      // Like the controls above, this frame can appear in an export tab that
+      // is not painting under Xvfb. Visible-selector waits poll with RAF;
+      // use the same timer polling while retaining the visibility check.
+      const iframe = await page.waitForFunction(
+        () => {
+          const element = document.querySelector('iframe[title="Open template"]');
+          // Canva also opens template sign-in in the top-level document.
+          // That is the same prerequisite, not a missing iframe to wait out.
+          if (!element) return /Continue with Google|Continue with email|We.ll have you designing again soon|RayID:|verify you are human/i.test(document.body.innerText);
+          const visibility = getComputedStyle(element).visibility;
+          const bounds = element.getBoundingClientRect();
+          return visibility !== "hidden" && visibility !== "collapse" &&
+            bounds.width > 0 && bounds.height > 0 ? element : false;
+        },
+        { polling: 100, timeout: remaining() },
+      ).catch(async (error) => {
+        await reportControls(page, "iframe");
+        throw error;
+      });
+      const frame = iframe.asElement() ? await iframe.asElement().contentFrame() : page;
       if (!frame)
         throw new Error("Canva template sign-in frame is unavailable");
       const state = await frame.waitForFunction(

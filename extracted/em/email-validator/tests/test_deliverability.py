@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 import re
@@ -35,6 +35,7 @@ def test_deliverability_found(domain: str, expected_response: str) -> None:
         # No MX or A/AAAA records, but some other DNS records must
         # exist such that the response is NOANSWER instead of NXDOMAIN.
         ('justtxt.joshdata.me', 'The domain name {domain} does not accept email'),
+        ('ipv6only.joshdata.me', 'The domain name {domain} does not accept email'),
     ],
 )
 def test_deliverability_fails(domain: str, error: str) -> None:
@@ -65,11 +66,16 @@ def test_deliverability_dns_timeout() -> None:
     assert response.get("unknown-deliverability") == "timeout"
 
 
+def test_timeout_and_resolver() -> None:
+    with pytest.raises(ValueError, match="It's not valid to pass both timeout and dns_resolver."):
+        validate_email_deliverability('timeout.com', 'timeout.com', timeout=1, dns_resolver=RESOLVER)
+
+
 @pytest.mark.network
 def test_caching_dns_resolver() -> None:
     class TestCache:
         def __init__(self) -> None:
-            self.cache: Dict[Any, Any] = {}
+            self.cache: dict[Any, Any] = {}
 
         def get(self, key: Any) -> Any:
             return self.cache.get(key)

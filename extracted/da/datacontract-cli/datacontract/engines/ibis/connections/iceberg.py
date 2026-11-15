@@ -4,11 +4,12 @@ The server names the catalog (``catalog``), its REST endpoint (``catalogUrl``),
 and optionally the ``namespace`` and ``warehouse``. Each schema object is one
 table in that namespace. The table is loaded with pyiceberg, scanned to Arrow,
 and registered in DuckDB, where the checks run like they do for file sources.
+``DATACONTRACT_ICEBERG_REF`` reads the tables at a tag, branch, or snapshot ID
+instead of their current snapshot.
 """
 
 from __future__ import annotations
 
-import json
 import re
 from typing import TYPE_CHECKING, Optional
 
@@ -83,7 +84,7 @@ def catalog_properties(server: Server, config: Config | None = None) -> dict[str
             properties["rest.signing-region"] = region
     extra = config.get_iceberg_properties()
     if extra:
-        properties.update(_parse_properties(extra))
+        properties.update(extra)
     return properties
 
 
@@ -100,24 +101,6 @@ def aws_region(catalog_url: str) -> Optional[str]:
     """The region in an AWS-hosted catalog endpoint, else ``None``."""
     match = _AWS_ENDPOINT.match(catalog_url or "")
     return match.group("region") if match else None
-
-
-def _parse_properties(text: str) -> dict[str, str]:
-    """Extra pyiceberg catalog properties: a JSON object, or ``key=value`` pairs separated by commas."""
-    text = text.strip()
-    if text.startswith("{"):
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise DataContractException(
-                type="iceberg-connection",
-                name="invalid_properties",
-                reason=f"DATACONTRACT_ICEBERG_PROPERTIES is not valid JSON: {e}",
-                engine="datacontract-cli",
-            )
-        return {str(k): str(v) for k, v in parsed.items()}
-    pairs = (pair.partition("=") for pair in text.split(",") if pair.strip())
-    return {key.strip(): value.strip() for key, _, value in pairs if key.strip()}
 
 
 def load_iceberg_catalog(server: Server, config: Config | None = None) -> Catalog:
@@ -194,14 +177,37 @@ def read_iceberg_tables(
 
     con = duckdb_connection if duckdb_connection is not None else duckdb.connect(database=":memory:")
     catalog = load_iceberg_catalog(server, config)
+    ref = Config.resolve(config).get_iceberg_ref()
     for schema_obj in data_contract.schema_ or []:
         if schema_name != "all" and schema_obj.name != schema_name:
             continue
         table_name = schema_obj.physicalName or schema_obj.name
-        run.log_info(f"Reading Iceberg table {table_identifier(server, table_name, config)}")
+        identifier = table_identifier(server, table_name, config)
+        run.log_info(f"Reading Iceberg table {identifier}" + (f" at {ref}" if ref else ""))
         try:
             table = load_iceberg_table(catalog, server, table_name, config)
-            arrow_table = table.scan().to_arrow()
+            if not ref:
+                scan = table.scan()
+            else:
+                # The ref is looked up as a tag or branch name first. Only when the table
+                # has no tag or branch by that name is a numeric ref read as a snapshot ID,
+                # so a tag or branch named "123" wins over the snapshot with the ID 123.
+                tag_or_branch = table.snapshot_by_name(ref)
+                if tag_or_branch is not None:
+                    snapshot = tag_or_branch
+                elif ref.isdigit():
+                    snapshot = table.snapshot_by_id(int(ref))
+                else:
+                    snapshot = None
+                if snapshot is None:
+                    raise DataContractException(
+                        type="iceberg-connection",
+                        name="missing_ref",
+                        reason=f"Table '{identifier}' has no tag, branch, or snapshot '{ref}' (DATACONTRACT_ICEBERG_REF).",
+                        engine="datacontract-cli",
+                    )
+                scan = table.scan(snapshot_id=snapshot.snapshot_id)
+            arrow_table = scan.to_arrow()
         except DataContractException:
             raise
         except Exception as e:

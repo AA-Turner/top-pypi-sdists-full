@@ -7,46 +7,52 @@ build-backend = "hatchling.build"
 dynamic = ["version", "readme"]
 name = "stamina"
 description = "Production-grade retries made easy."
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 keywords = ["retry", "retries", "reliability"]
 authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Typing :: Typed",
   "Framework :: AsyncIO",
   "Framework :: Trio",
 ]
-dependencies = ["tenacity"]
+dependencies = ["tenacity >= 8.3.0"]
 
 [dependency-groups]
-tests = ["pytest>=9", "anyio", "dirty-equals"]
-typing = []
-docs = [
-  "sphinx >= 7.2.2",
-  "furo",
-  "myst-parser",
-  "sphinx-notfound-page",
-  "sphinx-copybutton",
-  "structlog",
-  "prometheus-client",
+tests = ["pytest >= 9", "anyio", "dirty-equals"]
+cov = [{ include-group = "tests" }, "coverage"]
+# Optional integrations that stamina detects at runtime.
+instrumentation = ["structlog", "prometheus-client"]
+trio = ["trio"]
+typing = [{ include-group = "instrumentation" }]
+mypy = [{ include-group = "typing" }, "mypy"]
+pyright = [{ include-group = "typing" }, "pyright"]
+pyrefly = [{ include-group = "typing" }, "pyrefly"]
+ty = [{ include-group = "typing" }, "ty"]
+docs = ["mkdocstrings-python", "zensical"]
+lint = ["prek", "ruff"]
+nox = [
+  # First version with parallel support.
+  "nox >= 2026.08.10",
+  "nox-uv"
 ]
 dev = [
-  { include-group = "tests" },
-  { include-group = "typing" },
-  "mypy",
-  # First version with uv support.
-  "nox >= 2024.3.2",
-  "prometheus-client",
-  "structlog",
-  "tomli; python_version < '3.11'",
-  "trio",
+  { include-group = "cov" },
+  { include-group = "instrumentation" },
+  { include-group = "trio" },
+  { include-group = "mypy" },
+  { include-group = "pyright" },
+  { include-group = "pyrefly" },
+  { include-group = "ty" },
+  { include-group = "lint" },
+  { include-group = "nox" },
 ]
 
 [project.urls]
@@ -149,10 +155,6 @@ module = "tests.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "tests.typing.*"
-ignore_errors = false
-
-[[tool.mypy.overrides]]
 module = "tenacity.*"
 follow_imports = "skip"
 
@@ -161,8 +163,18 @@ module = "noxfile"
 disallow_untyped_decorators = false
 
 
+[[tool.ty.overrides]]
+rules.all = "ignore"
+include = ["conftest.py", "docs", "tests"]
+
+
+[tool.pyrefly]
+project-includes = ["src", "typing_tests"]
+replace-imports-with-any = ["tenacity.*"]
+
+
 [tool.ruff]
-src = ["src", "tests", "noxfile.py", "docs/conf.py"]
+src = ["src", "tests", "noxfile.py"]
 line-length = 79
 
 [tool.ruff.lint]
@@ -173,6 +185,7 @@ ignore = [
   "ANN",     # Mypy is better at this
   "ARG001",  # unused arguments are normal when implementing interfaces
   "COM",     # Formatter takes care of our commas
+  "CPY",     # they expect a very specific shape of a copyright notice
   "D",       # We prefer our own docstring style.
   "E501",    # leave line-length enforcement to formatter
   "FBT",     # we have one function that takes one bool; c'mon!
@@ -181,6 +194,8 @@ ignore = [
   "ISC001",  # conflicts with formatter
   "PLC0415", # we do lazy imports
   "PLR0913", # yes, many arguments, but most have defaults
+  "PLR0915", # leave complexity to me
+  "PLR0917", # leave complexity to me
   "PLR2004", # numbers are sometimes fine
   "SLF001",  # private members are accessed by friendly functions
   "TC",      # TYPE_CHECKING blocks break autodocs
@@ -199,6 +214,13 @@ ignore = [
   "TRY002",   # stock exceptions are fine in tests
 ]
 
+"typing_tests/*" = [
+  "F841",   # unused variables are fine in type checks
+  "F842",   # unused variables are fine in type checks
+  "RUF059", # unused variables are fine in type checks
+  "SLOT",   # we don't care about slots in type checks
+]
+
 
 [tool.ruff.lint.isort]
 lines-between-types = 1
@@ -206,5 +228,5 @@ lines-after-imports = 2
 
 
 [tool.uv]
-# Ensure Nox always gets a fresh package.
-reinstall-package = ["stamina"]
+# Dependency cooldown
+exclude-newer = "1 week"

@@ -263,6 +263,21 @@ def _previous_in_scope() -> "_Binding | None":
     return None
 
 
+def _start_delivery_for_preemption() -> None:
+    """A SIGTERM's grace began (`preempt`, on a thread of its own): each run this process has open
+    starts its delivery for the close to come. Lock-free, as `_has_open_run`; never raises."""
+    pid = os.getpid()
+    seen: set = set()
+    for binding in (_current.get(), _process_default, *list(_unbound)):
+        if binding is None or binding.closed or binding.owner[0] != pid or id(binding.run) in seen:
+            continue
+        seen.add(id(binding.run))
+        try:
+            binding.run._start_delivery_for_close()
+        except Exception:  # noqa: BLE001 -- the close kicks delivery again
+            pass
+
+
 def _has_open_run() -> bool:
     """Whether this process has a run of its own still open (a close in
     progress counts). Lock-free: the SIGTERM handler calls it, and the frame it

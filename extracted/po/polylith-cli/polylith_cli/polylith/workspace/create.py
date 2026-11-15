@@ -3,7 +3,7 @@ import tomlkit
 from polylith_cli.polylith import readme, repo
 from polylith_cli.polylith.development import create_development
 from polylith_cli.polylith.dirs import create_dir
-template = '[tool.polylith]\nnamespace = "{namespace}"\ngit_tag_pattern = "stable-*"\n\n[tool.polylith.structure]\ntheme = "{theme}"\n\n[tool.polylith.tag.patterns]\nstable = "stable-*"\nrelease = "v[0-9]*"\n\n[tool.polylith.resources]\nbrick_docs_enabled = false\n\n[tool.polylith.test]\nenabled = true\n'
+template = '[tool.polylith]\nnamespace = "{namespace}"\n\n[tool.polylith.structure]\ntheme = "{theme}"\n\n[tool.polylith.tag.patterns]\nstable = "stable-*"\nrelease = "v[0-9]*"\n\n[tool.polylith.resources]\nbrick_docs_enabled = false\n\n[tool.polylith.test]\nenabled = true\n'
 
 def create_workspace_config(path: Path, namespace: str, theme: str) -> None:
     formatted = template.format(namespace=namespace, theme=theme)

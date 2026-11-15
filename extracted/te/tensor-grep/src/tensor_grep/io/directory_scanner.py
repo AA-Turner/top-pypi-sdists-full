@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tensor_grep.core.config import SearchConfig
+from tensor_grep.core.config import SearchConfig, configured_positive_int
 from tensor_grep.io.file_types import TYPE_ALIASES, TYPE_EXTENSIONS
 
 # perf (+10% campaign #6 / F2.4): the 5 broad-scan-guard constants below (plus the private
@@ -76,15 +76,7 @@ DEFAULT_GITIGNORE_MAX_BYTES = 1024 * 1024  # 1 MiB is generous for a real .gitig
 _MAX_UNREADABLE_PATH_SAMPLE = 5
 
 
-def _configured_positive_int(env_var: str, default: int) -> int:
-    raw_value = os.environ.get(env_var)
-    if raw_value is None:
-        return default
-    try:
-        value = int(raw_value)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
+_configured_positive_int = configured_positive_int
 
 
 class DirectoryScanner:
@@ -351,7 +343,7 @@ class DirectoryScanner:
         # Check explicit globs
         if self.config.glob:
             saw_include = False
-            matched_glob = False
+            matched_glob: bool | None = None
             candidates = [file_path.name, str(file_path), file_path.as_posix()]
             if relative_path is not None:
                 candidates.append(relative_path.as_posix())
@@ -366,12 +358,9 @@ class DirectoryScanner:
                     pattern = pattern.lower()
 
                 if any(fnmatch.fnmatch(candidate, pattern) for candidate in candidates):
-                    if is_exclude:
-                        return False
-                    matched_glob = True
+                    matched_glob = not is_exclude
 
-            # If globs were provided and none matched, exclude
-            if saw_include and not matched_glob:
+            if matched_glob is False or (matched_glob is None and saw_include):
                 return False
 
         # Check explicit types (extensions)

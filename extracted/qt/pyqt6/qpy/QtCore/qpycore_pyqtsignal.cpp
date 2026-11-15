@@ -56,7 +56,7 @@ static bool is_signal_name(const char *sig, const QByteArray &name);
 
 // Doc-strings.
 PyDoc_STRVAR(pyqtSignal_doc,
-"pyqtSignal(*types, name: str = ..., revision: int = ..., arguments: Sequence = ...) -> PYQT_SIGNAL\n"
+"pyqtSignal(*types, name: str = ..., revision: int = ..., arguments: Sequence[str] = ...) -> PYQT_SIGNAL\n"
 "\n"
 "types is normally a sequence of individual types.  Each type is either a\n"
 "type object or a string that is the name of a C++ type.  Alternatively\n"

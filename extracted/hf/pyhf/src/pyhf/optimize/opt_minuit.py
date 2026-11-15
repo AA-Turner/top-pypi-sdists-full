@@ -1,8 +1,10 @@
 """Minuit Optimizer Class."""
+
+import iminuit
+import scipy
+
 from pyhf import exceptions
 from pyhf.optimize.mixins import OptimizerMixin
-import scipy
-import iminuit
 
 
 class minuit_optimizer(OptimizerMixin):
@@ -10,7 +12,7 @@ class minuit_optimizer(OptimizerMixin):
     Optimizer that minimizes via :meth:`iminuit.Minuit.migrad`.
     """
 
-    __slots__ = ['name', 'errordef', 'steps', 'strategy', 'tolerance']
+    __slots__ = ["errordef", "name", "steps", "strategy", "tolerance"]
 
     def __init__(self, *args, **kwargs):
         """
@@ -36,11 +38,11 @@ class minuit_optimizer(OptimizerMixin):
               See specific optimizer for detailed meaning.
               Default is ``0.1``.
         """
-        self.name = 'minuit'
-        self.errordef = kwargs.pop('errordef', 1)
-        self.steps = kwargs.pop('steps', 1000)
-        self.strategy = kwargs.pop('strategy', None)
-        self.tolerance = kwargs.pop('tolerance', 0.1)
+        self.name = "minuit"
+        self.errordef = kwargs.pop("errordef", 1)
+        self.steps = kwargs.pop("steps", 1000)
+        self.strategy = kwargs.pop("strategy", None)
+        self.tolerance = kwargs.pop("tolerance", 0.1)
         super().__init__(*args, **kwargs)
 
     def _get_minimizer(
@@ -61,8 +63,8 @@ class minuit_optimizer(OptimizerMixin):
 
         # Minuit requires jac=callable
         if do_grad:
-            wrapped_objective = lambda pars: objective_and_grad(pars)[0]  # noqa: E731
-            jac = lambda pars: objective_and_grad(pars)[1]  # noqa: E731
+            wrapped_objective = lambda pars: objective_and_grad(pars)[0]
+            jac = lambda pars: objective_and_grad(pars)[1]
         else:
             wrapped_objective = objective_and_grad
             jac = None
@@ -77,12 +79,12 @@ class minuit_optimizer(OptimizerMixin):
     def _minimize(
         self,
         minimizer,
-        func,
-        x0,
+        func,  # noqa: ARG002
+        x0,  # noqa: ARG002
         do_grad=False,
-        bounds=None,
-        fixed_vals=None,
-        options={},
+        bounds=None,  # noqa: ARG002
+        fixed_vals=None,  # noqa: ARG002
+        options=None,
     ):
         """
         Same signature as :func:`scipy.optimize.minimize`.
@@ -101,7 +103,9 @@ class minuit_optimizer(OptimizerMixin):
         Returns:
             fitresult (scipy.optimize.OptimizeResult): the fit result
         """
-        maxiter = options.pop('maxiter', self.maxiter)
+        if options is None:
+            options = {}
+        maxiter = options.pop("maxiter", self.maxiter)
         # do_grad value results in iminuit.Minuit.strategy of either:
         #   0: Fast. Does not check a user-provided gradient.
         #   1: Default. Checks user-provided gradient against numerical gradient.
@@ -110,11 +114,10 @@ class minuit_optimizer(OptimizerMixin):
         # passing strategy=None as options kwarg
         if strategy is None:
             strategy = 0 if do_grad else 1
-        tolerance = options.pop('tolerance', self.tolerance)
+        tolerance = options.pop("tolerance", self.tolerance)
         if options:
-            raise exceptions.Unsupported(
-                f"Unsupported options were passed in: {list(options.keys())}."
-            )
+            msg = f"Unsupported options were passed in: {list(options)}."
+            raise exceptions.Unsupported(msg)
 
         minimizer.strategy = strategy
         minimizer.tol = tolerance
@@ -137,7 +140,7 @@ class minuit_optimizer(OptimizerMixin):
             # Extra call to hesse() after migrad() is always needed for good error estimates. If you pass a user-provided gradient to MINUIT, convergence is faster.
             minimizer.hesse()
             hess_inv = minimizer.covariance
-            corr = hess_inv.correlation()
+            corr = hess_inv.correlation() if hess_inv is not None else None
             unc = minimizer.errors
 
         return scipy.optimize.OptimizeResult(

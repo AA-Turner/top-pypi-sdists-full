@@ -50,7 +50,6 @@ from akshare.stock.board.stock_comment_em import (
     stock_comment_detail_zlkp_jgcyd_em,
     stock_comment_em,
 )
-from akshare.stock.board.stock_concept_futu import stock_concept_cons_futu
 from akshare.stock.board.stock_hk_hot_rank_em import (
     stock_hk_hot_rank_detail_em,
     stock_hk_hot_rank_detail_realtime_em,
@@ -173,10 +172,8 @@ from akshare.stock.flow.stock_fund_flow import (
 )
 from akshare.stock.flow.stock_hsgt_em import (
     stock_hk_ggt_components_em,
-    stock_hsgt_board_rank_em,
     stock_hsgt_fund_flow_summary_em,
     stock_hsgt_hist_em,
-    stock_hsgt_hold_stock_em,
     stock_hsgt_individual_detail_em,
     stock_hsgt_individual_em,
     stock_hsgt_institution_statistics_em,
@@ -328,7 +325,6 @@ from akshare.stock.issue.stock_restricted_em import (
     stock_restricted_release_stockholder_em,
     stock_restricted_release_summary_em,
 )
-from akshare.stock.issue.stock_stop import stock_staq_net_stop
 from akshare.stock.issue.stock_tfp_em import stock_tfp_em
 from akshare.stock.issue.stock_zf_pg import stock_pg_em, stock_qbzf_em
 
@@ -389,7 +385,7 @@ from akshare.stock.quote.stock_hk_comparison_em import (
     stock_hk_valuation_comparison_em,
 )
 from akshare.stock.quote.stock_hk_famous import stock_hk_famous_spot_em
-from akshare.stock.quote.stock_hk_sina import stock_hk_daily_sina, stock_hk_spot_sina
+from akshare.stock.quote.stock_hk_sina import stock_hk_hist_sina, stock_hk_spot_sina
 from akshare.stock.quote.stock_hsgt_spot_em import (
     stock_hsgt_sh_hk_spot_em,
     stock_zh_ah_spot_em,
@@ -413,14 +409,14 @@ from akshare.stock.quote.stock_summary import (
 from akshare.stock.quote.stock_us_famous import stock_us_famous_spot_em
 from akshare.stock.quote.stock_us_pink import stock_us_pink_spot_em
 from akshare.stock.quote.stock_us_sina import (
-    stock_us_daily_sina,
+    stock_us_hist_sina,
     stock_us_name_sina,
     stock_us_spot_sina,
 )
 from akshare.stock.quote.stock_xq import stock_individual_spot_xq
 from akshare.stock.quote.stock_zh_a_sina import (
-    stock_zh_a_cdr_daily_sina,
-    stock_zh_a_daily_sina,
+    stock_zh_a_cdr_hist_sina,
+    stock_zh_a_hist_sina,
     stock_zh_a_hist_min_sina,
     stock_zh_a_spot_sina,
 )
@@ -438,7 +434,7 @@ from akshare.stock.quote.stock_zh_ah_tx import (
     stock_zh_ah_spot_tx,
 )
 from akshare.stock.quote.stock_zh_b_sina import (
-    stock_zh_b_daily_sina,
+    stock_zh_b_hist_sina,
     stock_zh_b_hist_min_sina,
     stock_zh_b_spot_sina,
 )
@@ -450,7 +446,7 @@ from akshare.stock.quote.stock_zh_comparison_em import (
 )
 from akshare.stock.quote.stock_zh_kcb_report import stock_zh_kcb_report_em
 from akshare.stock.quote.stock_zh_kcb_sina import (
-    stock_zh_kcb_daily_sina,
+    stock_zh_kcb_hist_sina,
     stock_zh_kcb_spot_sina,
 )
 from akshare.stock.quote.stock_ztb_em import (
@@ -857,7 +853,6 @@ from akshare.fund.fund_position_lg import (
 from akshare.fund.fund_rank_em import (
     fund_exchange_rank_em,
     fund_hk_rank_em,
-    fund_lcx_rank_em,
     fund_money_rank_em,
     fund_open_fund_rank_em,
 )
@@ -907,7 +902,6 @@ from akshare.index.index_cflp import index_price_cflp, index_volume_cflp
 from akshare.index.index_cni import (
     index_all_cni,
     index_detail_cni,
-    index_detail_hist_adjust_cni,
     index_detail_hist_cni,
     index_hist_cni,
 )
@@ -920,13 +914,11 @@ from akshare.index.index_cons import (
 )
 from akshare.index.index_csindex import index_all_csindex
 from akshare.index.index_drewry import index_wci_drewry
-from akshare.index.index_eri import index_eri
 from akshare.index.index_global_em import index_global_hist_em, index_global_spot_em
 from akshare.index.index_global_sina import (
     index_global_hist_sina,
     index_global_name_table,
 )
-from akshare.index.index_kq_fz import index_kq_fz
 from akshare.index.index_kq_ss import index_kq_fashion
 from akshare.index.index_option_qvix import (
     index_option_1000index_min_qvix,
@@ -992,8 +984,6 @@ from akshare.index.index_sw import (
     index_third_cons_sw,
     index_third_info_sw,
 )
-from akshare.index.index_yw import index_yw
-from akshare.index.index_zh_a_scope import index_news_sentiment_scope
 from akshare.index.index_zh_em import (
     index_code_id_map_em,
     index_zh_hist_em,
@@ -1177,13 +1167,6 @@ from akshare.fx.fx_quote import fx_pair_quote, fx_spot_quote, fx_swap_quote
 from akshare.fx.fx_quote_baidu import fx_quote_baidu
 from akshare.fx.fx_safe import fx_central_parity_safe
 from akshare.fx.fx_sentiment_jin10 import fx_sentiment_js
-from akshare.fx.fx_currencyscoop import (
-    fx_convert_currencyscoop,
-    fx_currencies_currencyscoop,
-    fx_hist_currencyscoop,
-    fx_latest_currencyscoop,
-    fx_time_series_currencyscoop,
-)
 
 
 # ---- 利率（akshare/interest_rate） ----
@@ -1229,10 +1212,7 @@ from akshare.spot.spot_sge_js import (
 # ---- 能源（akshare/energy） ----
 from akshare.energy.energy_carbon import (
     energy_carbon_bj,
-    energy_carbon_eu,
-    energy_carbon_gz,
     energy_carbon_hb,
-    energy_carbon_sz,
 )
 from akshare.energy.energy_oil_em import energy_oil_detail, energy_oil_hist
 
@@ -1320,8 +1300,6 @@ from .exceptions import (
     NetworkError,
     RateLimitError,
 )
-from akshare.pro.data_pro import pro_api
-from akshare.utils.token_process import set_token, get_token
 from akshare.utils.context import (
     ProxyContext,
     get_proxies,
@@ -1329,7 +1307,28 @@ from akshare.utils.context import (
     set_proxies,
     set_timeout,
 )
-from akshare.registry import search, interface_info, list_categories
+from akshare.registry import (
+    search,
+    interface_info,
+    list_categories,
+    renamed_info,
+)
+
+
+def __getattr__(name: str):
+    """
+    访问不存在的名称时给出线索：旧接口名提示新名称或移除的版本，拼写错误提示相近的接口
+
+    只在名称查找失败后才会调用，对正常的接口调用没有开销
+    :param name: 被访问的名称
+    :type name: str
+    """
+    if name.startswith("_"):
+        raise AttributeError(f"module 'akshare' has no attribute '{name}'")
+    from akshare.registry import missing_attribute_message
+
+    raise AttributeError(missing_attribute_message(name))
+
 
 # === __all__ 开始：由 scripts/build_registry.py 生成，请勿手工编辑 ===
 __all__ = [
@@ -1420,10 +1419,7 @@ __all__ = [
     "crypto_bitcoin_hold_report",
     "crypto_realtime_js",
     "energy_carbon_bj",
-    "energy_carbon_eu",
-    "energy_carbon_gz",
     "energy_carbon_hb",
-    "energy_carbon_sz",
     "energy_oil_detail",
     "energy_oil_hist",
     "fund_abs_amac",
@@ -1471,7 +1467,6 @@ __all__ = [
     "fund_individual_profit_probability_xq",
     "fund_info_index_em",
     "fund_info_ths",
-    "fund_lcx_rank_em",
     "fund_linghuo_position_lg",
     "fund_lof_hist_em",
     "fund_lof_hist_min_em",
@@ -1614,11 +1609,7 @@ __all__ = [
     "fx_boc_rate_sina",
     "fx_c_swap_cm",
     "fx_central_parity_safe",
-    "fx_convert_currencyscoop",
-    "fx_currencies_currencyscoop",
-    "fx_hist_currencyscoop",
     "fx_hist_em",
-    "fx_latest_currencyscoop",
     "fx_pair_map_investing",
     "fx_pair_quote",
     "fx_quote_baidu",
@@ -1626,10 +1617,8 @@ __all__ = [
     "fx_sentiment_js",
     "fx_spot_quote",
     "fx_swap_quote",
-    "fx_time_series_currencyscoop",
     "get_proxies",
     "get_timeout",
-    "get_token",
     "index_all_cni",
     "index_all_csindex",
     "index_analysis_daily_sw",
@@ -1640,9 +1629,7 @@ __all__ = [
     "index_commodity_price_sina",
     "index_component_sw",
     "index_detail_cni",
-    "index_detail_hist_adjust_cni",
     "index_detail_hist_cni",
-    "index_eri",
     "index_first_info_sw",
     "index_global_hist_em",
     "index_global_hist_sina",
@@ -1658,9 +1645,7 @@ __all__ = [
     "index_hk_spot_sina",
     "index_inner_quota_sugar_msweet",
     "index_kq_fashion",
-    "index_kq_fz",
     "index_min_sw",
-    "index_news_sentiment_scope",
     "index_option_1000index_min_qvix",
     "index_option_1000index_qvix",
     "index_option_100etf_min_qvix",
@@ -1698,7 +1683,6 @@ __all__ = [
     "index_value_csindex",
     "index_volume_cflp",
     "index_wci_drewry",
-    "index_yw",
     "index_zh_daily_em",
     "index_zh_daily_sina",
     "index_zh_daily_tx",
@@ -1900,7 +1884,7 @@ __all__ = [
     "option_value_analysis_em",
     "option_vol_gfex",
     "option_vol_shfe",
-    "pro_api",
+    "renamed_info",
     "research_epu_index",
     "research_ff_crr",
     "research_fred_md",
@@ -1912,7 +1896,6 @@ __all__ = [
     "search",
     "set_proxies",
     "set_timeout",
-    "set_token",
     "spot_corn_price_soozhu",
     "spot_golden_benchmark_sge",
     "spot_hist_sge",
@@ -1987,7 +1970,6 @@ __all__ = [
     "stock_comment_detail_zhpj_lspf_em",
     "stock_comment_detail_zlkp_jgcyd_em",
     "stock_comment_em",
-    "stock_concept_cons_futu",
     "stock_cy_a_spot_em",
     "stock_cyq_em",
     "stock_deal_daily_sse",
@@ -2054,7 +2036,6 @@ __all__ = [
     "stock_history_dividend",
     "stock_history_dividend_detail",
     "stock_hk_company_profile_em",
-    "stock_hk_daily_sina",
     "stock_hk_dividend_payout_em",
     "stock_hk_famous_spot_em",
     "stock_hk_fhpx_detail_ths",
@@ -2064,6 +2045,7 @@ __all__ = [
     "stock_hk_gxl_lg",
     "stock_hk_hist_em",
     "stock_hk_hist_min_em",
+    "stock_hk_hist_sina",
     "stock_hk_hot_rank_detail_em",
     "stock_hk_hot_rank_detail_realtime_em",
     "stock_hk_hot_rank_em",
@@ -2093,11 +2075,9 @@ __all__ = [
     "stock_hot_search_baidu",
     "stock_hot_tweet_xq",
     "stock_hot_up_em",
-    "stock_hsgt_board_rank_em",
     "stock_hsgt_fund_flow_summary_em",
     "stock_hsgt_fund_min_em",
     "stock_hsgt_hist_em",
-    "stock_hsgt_hold_stock_em",
     "stock_hsgt_individual_detail_em",
     "stock_hsgt_individual_em",
     "stock_hsgt_institution_statistics_em",
@@ -2246,7 +2226,6 @@ __all__ = [
     "stock_share_hold_change_szse",
     "stock_shareholder_change_ths",
     "stock_sns_sseinfo",
-    "stock_staq_net_stop",
     "stock_summary_sse",
     "stock_summary_szse",
     "stock_sy_em",
@@ -2257,10 +2236,10 @@ __all__ = [
     "stock_sz_a_spot_em",
     "stock_target_price_js",
     "stock_tfp_em",
-    "stock_us_daily_sina",
     "stock_us_famous_spot_em",
     "stock_us_hist_em",
     "stock_us_hist_min_em",
+    "stock_us_hist_sina",
     "stock_us_name_sina",
     "stock_us_pink_spot_em",
     "stock_us_spot_em",
@@ -2278,8 +2257,7 @@ __all__ = [
     "stock_zcfz_bj_em",
     "stock_zcfz_em",
     "stock_zdhtmx_em",
-    "stock_zh_a_cdr_daily_sina",
-    "stock_zh_a_daily_sina",
+    "stock_zh_a_cdr_hist_sina",
     "stock_zh_a_disclosure_relation_cninfo",
     "stock_zh_a_disclosure_report_cninfo",
     "stock_zh_a_gbjg_em",
@@ -2289,6 +2267,7 @@ __all__ = [
     "stock_zh_a_hist_min_em",
     "stock_zh_a_hist_min_sina",
     "stock_zh_a_hist_pre_min_em",
+    "stock_zh_a_hist_sina",
     "stock_zh_a_hist_tx",
     "stock_zh_a_new",
     "stock_zh_a_new_em",
@@ -2303,13 +2282,13 @@ __all__ = [
     "stock_zh_ah_name_tx",
     "stock_zh_ah_spot_em",
     "stock_zh_ah_spot_tx",
-    "stock_zh_b_daily_sina",
     "stock_zh_b_hist_min_sina",
+    "stock_zh_b_hist_sina",
     "stock_zh_b_spot_em",
     "stock_zh_b_spot_sina",
     "stock_zh_dupont_comparison_em",
     "stock_zh_growth_comparison_em",
-    "stock_zh_kcb_daily_sina",
+    "stock_zh_kcb_hist_sina",
     "stock_zh_kcb_report_em",
     "stock_zh_kcb_spot_sina",
     "stock_zh_scale_comparison_em",

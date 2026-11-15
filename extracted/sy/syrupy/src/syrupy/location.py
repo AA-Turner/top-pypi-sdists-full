@@ -137,6 +137,10 @@ class PyTestLocation:
     def matches_snapshot_name(self, snapshot_name: str) -> bool:
         return self.__parse(self.snapshot_name) == self.__parse(snapshot_name)
 
+    def matches_snapshot_site(self, snapshot_location: str) -> bool:
+        """Whether ``snapshot_location`` belongs to this test file's snapshot site."""
+        return self._matches_test_site(Path(snapshot_location))
+
     def matches_snapshot_location(self, snapshot_location: str) -> bool:
         loc = Path(snapshot_location)
         if not self._matches_snapshot_basename(loc):
@@ -152,7 +156,9 @@ class PyTestLocation:
             return False
         if not self.is_item_parametrized:
             return True
-        # Parametrized single-file snapshots (see PR #965).
+        # Parametrized single-file snapshots (see PR #965). Truncation stores a
+        # prefix of this id; SingleFileSnapshotExtension.matches_test_location
+        # accepts that prefix because it knows the extension length.
         return (
             loc.stem == self.snapshot_name_parametrized
             or loc.stem.startswith(f"{self.snapshot_name_parametrized}.")
@@ -218,6 +224,35 @@ class PyTestLocation:
         return None
 
     @staticmethod
+    def module_path_key(path: Path) -> str:
+        """
+        Canonical identity of a test module path.
+
+        Pytest records collector paths with ``os.path.abspath``, which keeps
+        directory symlinks. Snapshot ownership resolves the snapshot directory's
+        parent. Resolve the parent here too so those spellings compare equal.
+        The filename itself is not resolved: a symlinked module stays the path
+        pytest collected.
+        """
+        return str(path.parent.resolve() / path.name)
+
+    @staticmethod
+    def owning_test_modules(snapshot_location: str) -> list[Path]:
+        """
+        The test modules on disk that could own this snapshot collection.
+        """
+        path = Path(snapshot_location)
+        test_dir = PyTestLocation._snapshot_collection_test_dir(path)
+        basename = PyTestLocation._owning_test_basename(path)
+        if test_dir is None or basename is None:
+            return []
+        return [
+            module
+            for suffix in (".py", ".pyi")
+            if (module := test_dir / f"{basename}{suffix}").is_file()
+        ]
+
+    @staticmethod
     def owning_test_module_exists(snapshot_location: str) -> bool:
         """
         True when a test module that could own this snapshot collection still
@@ -226,14 +261,7 @@ class PyTestLocation:
         Used to distinguish deleted-test orphans (safe to clean under a directory
         selection) from ignored-but-present tests (must keep their snapshots).
         """
-        path = Path(snapshot_location)
-        test_dir = PyTestLocation._snapshot_collection_test_dir(path)
-        basename = PyTestLocation._owning_test_basename(path)
-        if test_dir is None or basename is None:
-            return False
-        return any(
-            (test_dir / f"{basename}{suffix}").is_file() for suffix in (".py", ".pyi")
-        )
+        return bool(PyTestLocation.owning_test_modules(snapshot_location))
 
     @staticmethod
     def _is_snapshot_dir(path: Path) -> bool:

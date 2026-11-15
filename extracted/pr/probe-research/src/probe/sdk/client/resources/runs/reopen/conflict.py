@@ -113,7 +113,7 @@ def _attach_jitter_seconds(world_size: object) -> float:
 
 def _writer_lease(role: str, session_id: str) -> dict:
     """Who this process is, as a lease (sent on create/attach/reopen and on
-    every lease beat). Rank fields come from the launcher's environment."""
+    every lease beat). Rank fields and the launch come from the launcher's environment."""
     from .....run.closing.heartbeat import _heartbeat_interval
 
     lease: dict[str, Any] = {
@@ -126,6 +126,10 @@ def _writer_lease(role: str, session_id: str) -> dict:
     interval = _heartbeat_interval()
     if interval > 0:
         lease["interval_seconds"] = float(interval)
+    from .....settings.settings import read_launch_id
+
+    if launch_id := read_launch_id():
+        lease["launch_id"] = launch_id  # its launcher releases it when the job ends (0502)
     launched = read_process_rank(os.environ)
     if launched is not None:
         lease["rank"] = launched.rank

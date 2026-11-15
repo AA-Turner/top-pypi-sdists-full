@@ -5116,7 +5116,19 @@ def _create_db_instance_impl(p):
 
     # Inherit credentials from cluster when instance is a cluster member.
     cluster_id_param = _p(p, "DBClusterIdentifier")
-    parent = _resolve_cluster_in_request_region(cluster_id_param) if cluster_id_param else None
+    parent = None
+    if cluster_id_param:
+        # AWS joins a cluster only by its plain id. A cluster ARN, even of an
+        # existing cluster, and an id that names no cluster are not found.
+        if not _parse_rds_arn(cluster_id_param):
+            parent = _resolve_cluster_in_request_region(cluster_id_param)
+        if parent is None:
+            return _error(
+                "DBClusterNotFoundFault",
+                "The source cluster could not be found or cannot be accessed: "
+                f"{_esc(cluster_id_param)}",
+                404,
+            )
     if parent:
         if parent.get("_shared_legacy_migration_in_progress"):
             return _error(
@@ -5153,16 +5165,13 @@ def _create_db_instance_impl(p):
         master_user = parent.get("MasterUsername", master_user)
         master_pass = parent.get("_MasterUserPassword", master_pass)
         db_name = parent.get("DatabaseName") or "mydb"
-    elif _parse_rds_arn(cluster_id_param):
-        wrong_region = _invalid_cluster_identifier_error(cluster_id_param)
-        if wrong_region:
-            return wrong_region
-        return _error("DBClusterNotFoundFault", f"DBCluster {cluster_id_param} not found.", 404)
     if not db_name:
         db_name = "mydb"
     allocated_storage = int(_p(p, "AllocatedStorage") or "20")
     storage_type = _p(p, "StorageType") or "gp2"
-    subnet_group_name = _p(p, "DBSubnetGroupName") or "default"
+    subnet_group_name = (_p(p, "DBSubnetGroupName")
+                         or (parent.get("DBSubnetGroup") if parent else None)
+                         or "default")
     explicit_pg = _p(p, "DBParameterGroupName")
     # Validate every request field before shared compute can start or restart.
     # Otherwise an invalid member request can make an empty cluster reachable
@@ -5382,6 +5391,12 @@ def _create_db_instance_impl(p):
 
     vpc_sgs = _parse_member_list(p, "VpcSecurityGroupIds")
     vpc_sg_list = [{"VpcSecurityGroupId": sg, "Status": "active"} for sg in vpc_sgs] if vpc_sgs else []
+    if not vpc_sg_list and parent:
+        vpc_sg_list = [
+            {"VpcSecurityGroupId": sg["VpcSecurityGroupId"], "Status": sg.get("Status", "active")}
+            for sg in parent.get("VpcSecurityGroups") or []
+            if sg.get("VpcSecurityGroupId")
+        ]
 
     subnet_group = _subnet_groups.get(subnet_group_name, {
         "DBSubnetGroupName": subnet_group_name,
@@ -5738,7 +5753,8 @@ def _create_db_instance_impl(p):
         _tags[arn] = req_tags
         instance["TagList"] = req_tags
 
-    return _single_instance_response("CreateDBInstanceResponse", "CreateDBInstanceResult", instance)
+    return _single_instance_response("CreateDBInstanceResponse", "CreateDBInstanceResult", instance,
+                                     create_response=True)
 
 
 def _delete_db_instance(p):
@@ -6672,6 +6688,12 @@ def _create_db_cluster_impl(p):
         return _error("DBClusterParameterGroupNotFound",
                       f"DBClusterParameterGroup {explicit_cpg} not found.", 404)
 
+    explicit_subnet_group = _p(p, "DBSubnetGroupName")
+    if (explicit_subnet_group and explicit_subnet_group != "default"
+            and explicit_subnet_group not in _subnet_groups):
+        return _error("DBSubnetGroupNotFoundFault",
+                      f"DB subnet group '{explicit_subnet_group}' does not exist.", 404)
+
     engine = _p(p, "Engine") or "aurora-postgresql"
     if global_cluster:
         expected_engine = global_cluster.get("Engine")
@@ -7601,6 +7623,12 @@ def _describe_param_groups(p):
 def _describe_db_parameters(p):
     name = _p(p, "DBParameterGroupName")
     pg = _param_groups.get(name)
+    if not pg and _is_default_cluster_param_group(name):
+        pg = {
+            "DBParameterGroupName": name,
+            "DBParameterGroupFamily": name[len("default."):],
+            "Parameters": {},
+        }
     if not pg:
         return _error("DBParameterGroupNotFound", f"Parameter group {name} not found.", 404)
 
@@ -9107,6 +9135,10 @@ def _remove_from_global_cluster(p):
     invalid_id = _invalid_global_cluster_identifier_error(gc_id)
     if invalid_id:
         return invalid_id
+    parsed_member = _parse_rds_arn(db_cluster_id or "")
+    if parsed_member and parsed_member[1] == "cluster" and len(parsed_member[2]) > 63:
+        return _error("InvalidParameterValue",
+            f"Invalid database cluster identifier:  {db_cluster_id}", 400)
     gc = _resolve_global_cluster(gc_id)
     if not gc:
         return _error("GlobalClusterNotFoundFault",
@@ -9123,6 +9155,12 @@ def _remove_from_global_cluster(p):
             None,
         )
         if not member:
+            if (not cluster and parsed_member and parsed_member[1] == "cluster"
+                    and parsed_member[0].account_id == get_account_id()
+                    and parsed_member[0].region == get_region()):
+                return _error("InvalidParameterValue",
+                    f"Cluster {db_cluster_arn} is not found in global cluster "
+                    f"{gc['GlobalClusterIdentifier']}", 400)
             return _error("DBClusterNotFoundFault",
                 f"DBCluster {db_cluster_id} is not a member of global cluster {gc_id}.", 404)
         if member.get("IsWriter") and len(members) > 1:
@@ -10214,12 +10252,13 @@ def _failover_global_cluster(p):
         return _error("GlobalClusterNotFoundFault",
             f"Global cluster {gc_id} not found.", 404)
 
-    both_failover_modes_specified = "AllowDataLoss" in p and "Switchover" in p
     allow_data_loss = str(_p(p, "AllowDataLoss")).lower() == "true"
-    if both_failover_modes_specified:
+    switchover = str(_p(p, "Switchover")).lower() == "true"
+    if allow_data_loss and switchover:
         return _error(
-            "InvalidParameterCombination",
-            "AllowDataLoss and Switchover cannot both be specified.",
+            "InvalidParameterValue",
+            "Parameter combination isn't valid. For a global switchover, specify "
+            "Switchover. For a global failover, specify AllowDataLoss.",
             400,
         )
     if allow_data_loss:
@@ -10443,7 +10482,7 @@ def _describe_orderable_options(p):
 # XML helpers
 # ---------------------------------------------------------------------------
 
-def _instance_xml(i):
+def _instance_xml(i, create_response=False):
     """Render an instance dict to XML fields — no wrapping element."""
     ep = i.get("Endpoint", {})
     subnet = i.get("DBSubnetGroup", {})
@@ -10503,9 +10542,27 @@ def _instance_xml(i):
     if i.get("Iops") is not None:
         iops_xml = f"<Iops>{i['Iops']}</Iops>"
 
+    aurora_member = bool(i.get("DBClusterIdentifier")) and i.get("Engine") == "aurora-mysql"
+    status = i.get("DBInstanceStatus")
+
+    def _member_list_xml(xml, values):
+        return "" if aurora_member and not values else xml
+
+    features = "".join(
+        f"<ProcessorFeature><Name>{_esc(f['Name'])}</Name><Value>{_esc(f['Value'])}</Value></ProcessorFeature>"
+        for f in i.get("ProcessorFeatures") or []
+    )
+    processor_xml = _member_list_xml(f"<ProcessorFeatures>{features}</ProcessorFeatures>", features)
+
+    endpoint_xml = "" if aurora_member and create_response else f"""<Endpoint>
+            <Address>{ep.get('Address','localhost')}</Address>
+            <Port>{ep.get('Port',5432)}</Port>
+            <HostedZoneId>{ep.get('HostedZoneId','Z2R2ITUGPM61AM')}</HostedZoneId>
+        </Endpoint>"""
+
     cert_xml = ""
     cert = i.get("CertificateDetails")
-    if cert:
+    if cert and not (aurora_member and status == "deleting"):
         cert_xml = f"""<CertificateDetails>
             <CAIdentifier>{cert.get('CAIdentifier','')}</CAIdentifier>
             <ValidTill>{cert.get('ValidTill','')}</ValidTill>
@@ -10518,11 +10575,7 @@ def _instance_xml(i):
         <DBInstanceStatus>{i['DBInstanceStatus']}</DBInstanceStatus>
         <MasterUsername>{i['MasterUsername']}</MasterUsername>
         <DBName>{i.get('DBName','')}</DBName>
-        <Endpoint>
-            <Address>{ep.get('Address','localhost')}</Address>
-            <Port>{ep.get('Port',5432)}</Port>
-            <HostedZoneId>{ep.get('HostedZoneId','Z2R2ITUGPM61AM')}</HostedZoneId>
-        </Endpoint>
+        {endpoint_xml}
         <AllocatedStorage>{i['AllocatedStorage']}</AllocatedStorage>
         <InstanceCreateTime>{i.get('InstanceCreateTime','')}</InstanceCreateTime>
         <PreferredBackupWindow>{i.get('PreferredBackupWindow','03:00-04:00')}</PreferredBackupWindow>
@@ -10546,13 +10599,13 @@ def _instance_xml(i):
         <AutoMinorVersionUpgrade>{str(i.get('AutoMinorVersionUpgrade',True)).lower()}</AutoMinorVersionUpgrade>
         <ReadReplicaDBInstanceIdentifiers>{read_replica_xml}</ReadReplicaDBInstanceIdentifiers>
         <ReadReplicaSourceDBInstanceIdentifier>{i.get('ReadReplicaSourceDBInstanceIdentifier','')}</ReadReplicaSourceDBInstanceIdentifier>
-        <ReadReplicaDBClusterIdentifiers/>
+        {_member_list_xml("<ReadReplicaDBClusterIdentifiers/>", i.get("ReadReplicaDBClusterIdentifiers"))}
         <ReplicaMode>{i.get('ReplicaMode','')}</ReplicaMode>
         <LicenseModel>{i.get('LicenseModel','general-public-license')}</LicenseModel>
         {iops_xml}
         <OptionGroupMemberships>{option_xml}</OptionGroupMemberships>
         <PubliclyAccessible>{str(i.get('PubliclyAccessible',False)).lower()}</PubliclyAccessible>
-        <StatusInfos/>
+        {_member_list_xml("<StatusInfos/>", i.get("StatusInfos"))}
         <StorageType>{i.get('StorageType','gp2')}</StorageType>
         <DbInstancePort>{i.get('DbInstancePort',0)}</DbInstancePort>
         <DBClusterIdentifier>{i.get('DBClusterIdentifier','')}</DBClusterIdentifier>
@@ -10571,8 +10624,8 @@ def _instance_xml(i):
         <PerformanceInsightsEnabled>{str(i.get('PerformanceInsightsEnabled',False)).lower()}</PerformanceInsightsEnabled>
         {_performance_insights_details_xml(i)}
         {_database_insights_mode_xml(i)}
-        {_logs_exports_xml(i, always=True)}
-        <ProcessorFeatures>{"".join(f"<ProcessorFeature><Name>{_esc(f['Name'])}</Name><Value>{_esc(f['Value'])}</Value></ProcessorFeature>" for f in i.get('ProcessorFeatures') or [])}</ProcessorFeatures>
+        {_logs_exports_xml(i, always=not aurora_member)}
+        {processor_xml}
         <DeletionProtection>{str(i.get('DeletionProtection',False)).lower()}</DeletionProtection>
         <AssociatedRoles/>
         {f"<MaxAllocatedStorage>{i['MaxAllocatedStorage']}</MaxAllocatedStorage>" if i.get('MaxAllocatedStorage') else ""}
@@ -10620,6 +10673,16 @@ def _performance_insights_details_xml(resource):
         f"<PerformanceInsightsRetentionPeriod>{resource.get('PerformanceInsightsRetentionPeriod', 7)}</PerformanceInsightsRetentionPeriod>"
         f"<PerformanceInsightsKMSKeyId>{_esc(resource.get('PerformanceInsightsKMSKeyId', ''))}</PerformanceInsightsKMSKeyId>"
     )
+
+
+def _aurora_cluster_empty_lists_xml(c):
+    if c.get("Engine") != "aurora-mysql":
+        return ""
+    replicas = "".join(
+        f"<ReadReplicaIdentifier>{_esc(r)}</ReadReplicaIdentifier>"
+        for r in c.get("ReadReplicaIdentifiers") or []
+    )
+    return f"<ReadReplicaIdentifiers>{replicas}</ReadReplicaIdentifiers><DomainMemberships/>"
 
 
 def _cluster_xml(c):
@@ -10723,6 +10786,7 @@ def _cluster_xml(c):
         <DbClusterResourceId>{c.get('DbClusterResourceId','')}</DbClusterResourceId>
         <HostedZoneId>{c.get('HostedZoneId','Z2R2ITUGPM61AM')}</HostedZoneId>
         <AssociatedRoles/>
+        {_aurora_cluster_empty_lists_xml(c)}
         <TagList>{tag_xml}</TagList>
         <AllocatedStorage>{c.get('AllocatedStorage',1)}</AllocatedStorage>
         <ActivityStreamStatus>{c.get('ActivityStreamStatus','stopped')}</ActivityStreamStatus>
@@ -10835,9 +10899,9 @@ def _option_group_xml(og):
         <OptionGroupArn>{og.get('OptionGroupArn','')}</OptionGroupArn>"""
 
 
-def _single_instance_response(root_tag, result_tag, instance):
+def _single_instance_response(root_tag, result_tag, instance, create_response=False):
     return _xml(200, root_tag,
-        f"<{result_tag}><DBInstance>{_instance_xml(instance)}</DBInstance></{result_tag}>")
+        f"<{result_tag}><DBInstance>{_instance_xml(instance, create_response)}</DBInstance></{result_tag}>")
 
 
 # ---------------------------------------------------------------------------

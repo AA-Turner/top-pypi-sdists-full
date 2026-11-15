@@ -873,7 +873,11 @@ class TracesClient:
         return result["scenario"]
 
     def generate_scenario(
-        self, trace_id: str, *, regenerate: bool | None = None
+        self,
+        trace_id: str,
+        *,
+        regenerate: bool | None = None,
+        force: bool | None = None,
     ) -> ScenarioGeneration:
         """Start building the scenario for a trace and return at once.
 
@@ -885,7 +889,11 @@ class TracesClient:
         cleared and built over, and the organization's scenario callback, when
         one is set up, is asked again. Its categories, review status, labels,
         and assertions are kept, and asking while it is generating starts
-        nothing more. A replay, a trace
+        nothing more. Add ``force=True`` to ``regenerate=True`` to start over
+        even while the scenario is generating or the scenario callback is
+        still working on it (waiting for its answer, or it answered 202 less
+        than a day ago), and ``force`` without ``regenerate`` is
+        refused. A replay, a trace
         outside the organization, or a trace Bitfab cannot build a scenario for
         (not ``noah-agent-turn`` and no scenario callback) raises
         ``requests.HTTPError``. Adding a trace to a dataset starts the same
@@ -894,6 +902,8 @@ class TracesClient:
         payload: dict[str, Any] = {}
         if regenerate is not None:
             payload["regenerate"] = regenerate
+        if force is not None:
+            payload["force"] = force
         result = self._http_client.request(
             f"{_trace_scenario_path(trace_id)}/generate", payload
         )

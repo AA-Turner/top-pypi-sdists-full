@@ -873,7 +873,7 @@ EXAMPLES = {
     "model-choice": AppKind.DECISION,
     "support-desk": AppKind.CHAT,
     "web-research": AppKind.CHAT,
-    # The Marketer (the user, 7 November 2026): X, Bluesky and LinkedIn, with a memory.
+    # The Marketer (the user, 7 November 2026): X, Bluesky and Discord, with a memory.
     "marketer": AppKind.CHAT,
     "decide": AppKind.CHAT,
     "sales": AppKind.CHAT,
@@ -920,6 +920,7 @@ EXAMPLES = {
     "demo-marketer": AppKind.CHAT,
     "demo-shopper": AppKind.CHAT,
     "demo-terra": AppKind.CHAT,
+    "demo-voyager": AppKind.CHAT,
     "demo-accountant": AppKind.CHAT,
     "demo-aws-steward": AppKind.CHAT,
 }

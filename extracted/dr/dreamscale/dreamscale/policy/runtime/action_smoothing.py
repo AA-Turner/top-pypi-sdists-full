@@ -11,11 +11,16 @@ from dreamscale.policy.types import ActionSmoothingMode, RunStrategy
 
 Action = tuple[float, ...]
 
+# The experimental crossfade's default window, in seconds of actions.
+CROSSFADE_WINDOW_S = 0.4
+
 
 @dataclass(frozen=True)
 class ResolvedActionSmoothing:
     requested_mode: ActionSmoothingMode
-    mode: Literal["output", "motion", "motion_handover", "motion_speed", "continuation"]
+    mode: Literal[
+        "output", "motion", "motion_handover", "motion_speed", "continuation", "crossfade"
+    ]
     new_weight: float
     correction_steps: int | None
     normalized_gripper_indices: tuple[int, ...] = ()
@@ -23,6 +28,8 @@ class ResolvedActionSmoothing:
     reference_speed: float = 1.0
     joint_groups: tuple[tuple[int, ...], ...] = ()
     gripper_indices: tuple[int, ...] = ()
+    # crossfade: the sigmoid's time scale in action steps (None: an eighth of the window).
+    time_scale: float | None = None
 
 
 @dataclass(frozen=True)
@@ -36,6 +43,7 @@ class SmoothingResolution:
     effective_new_weight: float | None = None
     correction_gain: float | None = None
     correction_rate_ratio: float | None = None
+    time_scale: float | None = None
 
 
 def resolve_action_smoothing(
@@ -53,14 +61,17 @@ def resolve_action_smoothing(
         mode = (own or "motion") if absolute_action_space else "output"
     else:
         mode = requested_mode
-    if mode != "output" and not absolute_action_space:
+    # A crossfade averages action values, as output does, so it needs no joint targets.
+    if mode not in ("output", "crossfade") and not absolute_action_space:
         raise ValueError(
             "action smoothing mode 'motion' requires "
             "action_space='absolute_joint_position' or 'raw_absolute_joint'; "
             f"resolved action space is {contract.action_space!r}"
         )
     if mode == "output" and strategy.smoothing_correction_steps is not None:
-        raise ValueError("smoothing_correction_steps requires action smoothing mode 'motion'")
+        raise ValueError(
+            "smoothing_correction_steps requires action smoothing mode 'motion' or 'crossfade'"
+        )
     adaptive = mode in {"motion_handover", "motion_speed"}
     if adaptive and not (
         contract.joint_groups and contract.joint_unit == "rad" and absolute_action_space
@@ -75,6 +86,12 @@ def resolve_action_smoothing(
         or strategy.smoothing_correction_steps is not None
     ):
         raise ValueError("continuation takes no smoothing_new_weight or correction steps")
+    if mode == "crossfade" and contract.action_space == "model_defined":
+        raise ValueError("crossfade averages action values; a model-defined space has none")
+    if mode == "crossfade" and strategy.smoothing_new_weight is not None:
+        raise ValueError("crossfade takes no smoothing_new_weight: its sigmoid sets the weight")
+    if strategy.smoothing_time_scale is not None and mode != "crossfade":
+        raise ValueError("smoothing_time_scale requires action smoothing mode 'crossfade'")
     if strategy.smoothing_reference_speed is not None and not adaptive:
         raise ValueError("smoothing_reference_speed requires an adaptive smoothing mode")
     if mode == "motion_handover" and strategy.smoothing_new_weight is not None:
@@ -87,6 +104,10 @@ def resolve_action_smoothing(
     if new_weight is None:
         new_weight = 0.7 if mode == "output" else 0.85
     correction_steps = strategy.smoothing_correction_steps
+    if mode == "crossfade" and correction_steps is None:
+        # CROSSFADE_WINDOW_S of actions at the run's rate (12 steps at 30 Hz); the merge caps it
+        # at the steps both plans cover.
+        correction_steps = max(3, round(CROSSFADE_WINDOW_S * contract.action_hz))
     if mode not in ("output", "continuation") and correction_steps is None:
         correction_steps = max(3, (contract.execution_chunk_size + 4) // 5)
     return ResolvedActionSmoothing(
@@ -99,6 +120,7 @@ def resolve_action_smoothing(
         reference_speed=strategy.smoothing_reference_speed or 1.0,
         joint_groups=contract.joint_groups,
         gripper_indices=contract.gripper_indices,
+        time_scale=strategy.smoothing_time_scale,
     )
 
 

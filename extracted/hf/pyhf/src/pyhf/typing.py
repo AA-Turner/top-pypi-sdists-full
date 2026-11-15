@@ -1,41 +1,41 @@
 import os
-import sys
-from typing import Any, MutableSequence, Sequence, Tuple, Union
-
-if sys.version_info >= (3, 8):
-    from typing import Literal, Protocol, SupportsIndex, TypedDict
-else:
-    from typing_extensions import Literal, Protocol, SupportsIndex, TypedDict
+from collections.abc import MutableSequence, Sequence
+from typing import (
+    Any,
+    Literal,
+    Protocol,
+    SupportsIndex,
+    TypedDict,
+)
 
 __all__ = (
-    "PathOrStr",
-    "ParameterBase",
-    "Parameter",
-    "Measurement",
-    "ModifierBase",
-    "NormSys",
-    "NormFactor",
-    "HistoSys",
-    "StatError",
-    "ShapeSys",
-    "ShapeFactor",
-    "LumiSys",
-    "Modifier",
-    "Sample",
     "Channel",
-    "Observation",
-    "Workspace",
+    "HistoSys",
     "Literal",
-    "TypedDict",
+    "LumiSys",
+    "Measurement",
+    "Modifier",
+    "ModifierBase",
+    "NormFactor",
+    "NormSys",
+    "Observation",
+    "Parameter",
+    "ParameterBase",
+    "PathOrStr",
     "Protocol",
+    "Sample",
+    "ShapeFactor",
+    "ShapeSys",
+    "StatError",
+    "TypedDict",
+    "Workspace",
 )
 
 
-# TODO: Switch to os.PathLike[str] once Python 3.8 support dropped
-PathOrStr = Union[str, "os.PathLike[str]"]
+PathOrStr = str | os.PathLike[str]
 
-Shape = Tuple[int, ...]
-ShapeLike = Union[SupportsIndex, Sequence[SupportsIndex]]
+Shape = tuple[int, ...]
+ShapeLike = SupportsIndex | Sequence[SupportsIndex]
 
 
 class ParameterBase(TypedDict, total=False):
@@ -70,12 +70,12 @@ class NormSysData(TypedDict):
 
 
 class NormSys(ModifierBase):
-    type: Literal['normsys']
+    type: Literal["normsys"]
     data: NormSysData
 
 
 class NormFactor(ModifierBase):
-    type: Literal['normfactor']
+    type: Literal["normfactor"]
     data: None
 
 
@@ -85,34 +85,34 @@ class HistoSysData(TypedDict):
 
 
 class HistoSys(ModifierBase):
-    type: Literal['histosys']
+    type: Literal["histosys"]
     data: HistoSysData
 
 
 class StatError(ModifierBase):
-    type: Literal['staterror']
+    type: Literal["staterror"]
     data: Sequence[float]
 
 
 class ShapeSys(ModifierBase):
-    type: Literal['shapesys']
+    type: Literal["shapesys"]
     data: Sequence[float]
 
 
 class ShapeFactor(ModifierBase):
-    type: Literal['shapefactor']
+    type: Literal["shapefactor"]
     data: None
 
 
 class LumiSys(TypedDict):
-    name: Literal['lumi']
-    type: Literal['lumi']
+    name: Literal["lumi"]
+    type: Literal["lumi"]
     data: None
 
 
-Modifier = Union[
-    NormSys, NormFactor, HistoSys, StatError, ShapeSys, ShapeFactor, LumiSys
-]
+Modifier = (
+    NormSys | NormFactor | HistoSys | StatError | ShapeSys | ShapeFactor | LumiSys
+)
 
 
 class SampleBase(TypedDict, total=False):
@@ -146,8 +146,7 @@ class TensorBackend(Protocol):
     precision: str
     default_do_grad: bool
 
-    def _setup(self) -> None:
-        ...
+    def _setup(self) -> None: ...
 
 
 class Optimizer(Protocol):
@@ -155,8 +154,6 @@ class Optimizer(Protocol):
 
 
 class PDF(Protocol):
-    def sample(self, sample_shape: Shape) -> Any:
-        ...
+    def sample(self, sample_shape: Shape) -> Any: ...
 
-    def log_prob(self, value: Any) -> Any:
-        ...
+    def log_prob(self, value: Any) -> Any: ...

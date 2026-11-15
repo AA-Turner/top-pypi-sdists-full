@@ -3,11 +3,13 @@ cannot store, NUL check, redact), into the sink the client's mode picks."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import warnings
 from typing import Any
 
 from .. import errors
+from ...foundation.durable import removal
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from . import sink as _sink
 from .. import routes
@@ -37,6 +39,32 @@ def _warn_unstorable(reasons: list[str]) -> None:
             f"probe: dropped metric point(s) with {what}: the server cannot store them. "
             "Later ones are dropped without a warning."
         )
+
+
+#: What a run says once when Probe was uninstalled under it.
+UNINSTALLED_WARNING = (
+    "probe: Probe was uninstalled from this computer while this run went on; it keeps running, "
+    "and nothing more of it is recorded."
+)
+
+
+_HAS_WARNED_UNINSTALL = False
+
+
+def _warn_uninstalled(client: Any) -> None:
+    """Count the dropped write; say why once per process."""
+    global _HAS_WARNED_UNINSTALL
+    with contextlib.suppress(Exception):
+        client.dropped_writes += 1
+    if not _HAS_WARNED_UNINSTALL:
+        _HAS_WARNED_UNINSTALL = True
+        _diagnostics.warn(UNINSTALLED_WARNING)
+
+
+def _get_watched_folders() -> list:
+    """What an uninstall removes and nothing else does (`removal.get_watched_folder`)."""
+    folder = removal.get_watched_folder()
+    return [folder] if folder is not None else []
 
 
 #: The `PROBE_ASYNC` spellings: the only parser (the CLI delegates here).
@@ -85,6 +113,16 @@ class Delivery:
         self.sender = Sender(client)
         self.queued = QueuedSink(client)
         self.fanout = FanOutSink(client)
+        #: Seen now, as the client starts (vespper U-D5): a run whose first write comes after an
+        #: uninstall still knows Probe was there.
+        self._watched = _get_watched_folders()
+        for folder in self._watched:
+            removal.is_removed(folder)
+
+    def _is_uninstalled(self) -> bool:
+        """Was Probe removed under this process (`foundation.durable.removal`): the service
+        folder, seen here before, gone or replaced now?"""
+        return removal.was_removed() or any(removal.is_removed(folder) for folder in self._watched)
 
     @property
     def sink(self) -> Sink:
@@ -105,6 +143,14 @@ class Delivery:
     ):
         """`Client.write`'s pipeline; its docstring says what every flag means."""
         client = self._client
+        if self._is_uninstalled():
+            # Probe was uninstalled under this run (vespper U-D5): it keeps training, and nothing
+            # of Probe's is made again here, sent or queued. A strict write raises: its caller
+            # keeps its own copy.
+            if resolve_policy(client, strict=strict, sync=sync, durable=durable, raise_permanent=raise_permanent).strict:
+                raise errors.ProbeUninstalled(UNINSTALLED_WARNING)
+            _warn_uninstalled(client)
+            return None
         # Renew a DETACHED run's auto-update lease off its own traffic: every SDK write
         # passes here. A detached run (heartbeat=False) holds no flock, so its 30-minute
         # lease would expire under a longer job and an upgrade land mid-run. Process-bound

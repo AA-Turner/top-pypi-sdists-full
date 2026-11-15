@@ -406,6 +406,8 @@ namespace sogen
                 return kernel_object_type{.index = 36, .generic_all = 0xF0001};
             case handle_types::worker_factory:
                 return kernel_object_type{.index = 30, .generic_all = 0xF00FF};
+            case handle_types::token:
+                return kernel_object_type{.index = 5, .generic_all = 0xF01FF};
             case handle_types::job:
                 return kernel_object_type{.index = 6, .generic_all = 0x1F003F};
             case handle_types::private_namespace:
@@ -425,15 +427,21 @@ namespace sogen
         {
             handle guest_handle{};
             handle_types::type type{};
-            const ref_counted_object* object{}; // none for the process's fixed interactive window station
+            // The object's identity; the interactive window station lives in no store and keeps a pseudo reference.
+            object_reference reference{};
+            handle_attributes attributes{};
         };
 
         template <handle_types::type Type, typename T>
         void collect_kernel_handles(std::vector<kernel_handle>& handles, const handle_store<Type, T>& store)
         {
-            for (const auto& [index, object] : store)
+            for (const auto& entry : store.handle_entries())
             {
-                handles.push_back({.guest_handle = store.make_handle(index), .type = Type, .object = &object});
+                const auto handle = entry.first;
+                handles.push_back({.guest_handle = handle,
+                                   .type = Type,
+                                   .reference = store.reference_of(handle).value_or(object_reference{}),
+                                   .attributes = store.attributes_of(handle)});
             }
         }
 
@@ -460,12 +468,16 @@ namespace sogen
             collect_kernel_handles(handles, proc.processes);
             collect_kernel_handles(handles, proc.managed_threads);
             collect_kernel_handles(handles, proc.threads);
+            collect_kernel_handles(handles, proc.tokens);
 
             // Until the process sets another one, NtUserGetProcessWindowStation returns the interactive window station as
             // the fixed handle 1. It is the process's window station handle like any other, but it lives in no store.
             if (proc.process_window_station != 0 && make_handle(proc.process_window_station).value.type != handle_types::window_station)
             {
-                handles.push_back({.guest_handle = make_handle(proc.process_window_station), .type = handle_types::window_station});
+                handles.push_back({.guest_handle = make_handle(proc.process_window_station),
+                                   .type = handle_types::window_station,
+                                   .reference = object_reference{.type = handle_types::window_station,
+                                                                 .pseudo = make_pseudo_handle(1, handle_types::window_station)}});
             }
 
             std::ranges::sort(handles, {}, [](const kernel_handle& h) { return static_cast<uint32_t>(h.guest_handle.bits); });
@@ -474,9 +486,16 @@ namespace sogen
 
         constexpr uint64_t FAKE_KERNEL_OBJECT_BASE = 0xFFFFB00000000000ULL;
 
-        uint64_t get_fake_kernel_object_address(const handle h)
+        uint64_t get_fake_kernel_object_address(const object_reference& reference)
         {
-            const auto object_key = (static_cast<uint64_t>(h.value.type) << 21) | h.value.id;
+            // ObpCaptureHandleInformationEx takes Object from the handle table entry's object header, so every handle to one
+            // object reports the same address: key by the object's identity, not by the handle value. The key stays compact
+            // (a per-store ordinal plus the type) so the shifted address does not overflow the fake kernel range.
+            constexpr uint64_t first_object_index = 1ULL << 32;
+            constexpr uint64_t ordinal_mask = (1ULL << 30) - 1;
+            // The interactive station lives in no store; a reserved ordinal keeps it apart from any real station.
+            const auto ordinal = reference.is_pseudo() ? ordinal_mask : (reference.index - first_object_index) & ordinal_mask;
+            const auto object_key = (static_cast<uint64_t>(reference.object_type()) << 30) | ordinal;
             return FAKE_KERNEL_OBJECT_BASE + (object_key << 6);
         }
 
@@ -548,13 +567,13 @@ namespace sogen
                 }
 
                 entry_t entry{};
-                entry.Object = get_fake_kernel_object_address(h.guest_handle);
+                entry.Object = get_fake_kernel_object_address(h.reference);
                 entry.UniqueProcessId = c.proc.process_id;
                 entry.HandleValue = static_cast<uint32_t>(h.guest_handle.bits);
                 entry.GrantedAccess = type.generic_all;
                 entry.ObjectTypeIndex = type.index;
                 entry.HandleAttributes =
-                    h.object ? ((h.object->protect_from_close ? OBJ_PROTECT_CLOSE : 0) | (h.object->inherit ? OBJ_INHERIT : 0)) : 0;
+                    (h.attributes.protect_from_close ? OBJ_PROTECT_CLOSE : 0) | (h.attributes.inherit ? OBJ_INHERIT : 0);
                 c.emu.write_memory(next_entry, &entry, offsetof(entry_t, Reserved));
                 next_entry += sizeof(entry_t);
             }
@@ -748,6 +767,14 @@ namespace sogen
 
             case SystemProcessInformation:
                 return handle_system_process_information(c, system_information, system_information_length, return_length);
+
+            case SystemHandleCountInformation:
+                return handle_query<SYSTEM_HANDLECOUNT_INFORMATION>(
+                    c.emu, system_information, system_information_length, return_length, [&](SYSTEM_HANDLECOUNT_INFORMATION& info) {
+                        info.ProcessCount = 1;
+                        info.ThreadCount = static_cast<ULONG>(std::max<size_t>(c.proc.get_live_thread_count(), 1));
+                        info.HandleCount = static_cast<ULONG>(c.proc.handle_count());
+                    });
 
             case SystemHypervisorSharedPageInformation:
                 // ntdll keeps this address and computes QueryPerformanceCounter from the page in user mode.

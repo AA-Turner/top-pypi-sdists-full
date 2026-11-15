@@ -1,0 +1,22 @@
+name: Question
+description: A question that is not a bug report or a feature request
+title: "[QUESTION]: <short description>"
+labels:
+  - question
+assignees:
+  - orbingol
+
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Anything that helps answer the question

@@ -168,12 +168,12 @@ namespace sogen::test
             request.output_buffer_length = sizeof(payload);
             request.io_status_block = {emu.memory, storage + 16};
             const auto event = emu.process.events.store(sogen::event{});
-            request.event = event;
+            request.event = emu.process.reference_of(event);
             EXPECT_EQ(STATUS_SUCCESS, device->execute_ioctl(emu, request));
             EXPECT_EQ(expected, emu.memory.read_memory<uint32_t>(storage + 8));
             EXPECT_EQ(STATUS_SUCCESS, request.io_status_block.read().Status);
             EXPECT_EQ(sizeof(payload), request.io_status_block.read().Information);
-            EXPECT_TRUE(emu.process.events.get(event)->signaled);
+            EXPECT_TRUE(emu.process.events.get(event)->is_signaled());
         }
     }
 

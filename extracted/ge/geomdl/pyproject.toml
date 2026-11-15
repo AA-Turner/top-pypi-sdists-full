@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>8", "cython>=3.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geomdl"
+description = "Object-oriented B-Spline and NURBS evaluation library"
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+authors = [
+    { "name" = "Onur R. Bingol", "email" = "contact@onurbingol.net" }
+]
+maintainers = [
+    { "name" = "Onur R. Bingol", "email" = "contact@onurbingol.net" }
+]
+keywords = ["NURBS", "B-Spline", "curve", "surface", "volume", "CAD", "modeling", "geometry"]
+readme = { file = "README.rst", content-type = "text/x-rst" }
+requires-python = ">= 3.11"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3"
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/orbingol/NURBS-Python"
+Documentation = "http://nurbs-python.readthedocs.io/"
+Repository = "https://github.com/orbingol/NURBS-Python.git"
+Issues = "https://github.com/orbingol/NURBS-Python/issues"
+
+[project.optional-dependencies]
+vis = ["numpy>=2.0, <3.0", "matplotlib>=3.9.0", "plotly>=6.0.0", "vtk>=9.7.0"]
+test = ["pytest>=8.0.0"]
+docs = ["sphinx>=8.3.0", "sphinx-rtd-theme>=3.0.0"]
+
+[tool.setuptools]
+# package-dir = {"" = "src"}
+packages = ["geomdl", "geomdl.visualization"]
+
+[tool.setuptools_scm]
+version_file = "geomdl/VERSION.txt"
+
+[tool.cibuildwheel]
+archs = ["auto"]
+build = ["cp311-*"]
+skip = "*-musllinux*"
+test-requires = ["pytest>=8.0.0"]
+test-command = "pytest"

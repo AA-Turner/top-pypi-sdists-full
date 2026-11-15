@@ -72,6 +72,9 @@ class VerlLauncher:
                     result = run_ppo(config, *args, **kwargs)
                 status = "completed"
                 return result
+            except BaseException as exc:
+                status = _rl_owner.get_ending_status(exc)
+                raise
             finally:
                 stop.close_once(lambda: self.guard.call("the run's end", self.close_run, run, status, is_owner))
                 stop.uninstall()
@@ -103,20 +106,23 @@ class VerlLauncher:
         return run, is_owner
 
     def close_run(self, run: Any, status: str, is_owner: bool, *, is_stopping: bool = False) -> None:
-        """The terminal manifest (the `verl` producer wrote its last step), the barrier, the run's own status. On a
-        SIGTERM (``is_stopping``) the workers are going down too: no wait for their last seals, and the run is
+        """The terminal manifest (the `verl` producer wrote its last step), the barrier, the leases verl's Ray workers
+        still hold released with ``status`` (Ray stops them before they can: the run would wait minutes for the
+        server's sweep), the run's own status. On a SIGTERM (``is_stopping``) the workers are going down too: no wait for their last seals, and the run is
         finished here even when joined (the SDK's own close at exit runs after Ray's: too late), unless `probe exec`
         closes it from the exit code; delivery is bounded by `PROBE_SIGTERM_FLUSH_SECONDS`."""
         samples = run.samples.as_producer(OWNER_PRODUCER)
         if not is_stopping:
-            _rl_owner.close_run(run, samples, final_step=None, should_finish=is_owner, status=status)
+            _rl_owner.close_run(run, samples, final_step=None, should_finish=is_owner, status=status,
+                                should_release_workers=True)
             return
         from probe.sdk.run.launch import preempt
         from probe.sdk.run.launch.execute import EXEC_FINALIZES_ENV
 
         is_closed_by_exec = os.environ.get(EXEC_FINALIZES_ENV, "").strip() == str(run.id)
         _rl_owner.close_run(run, samples, final_step=None, should_finish=is_owner or not is_closed_by_exec,
-                            status=status, wait_seconds=0, flush_timeout=preempt.budget_seconds())
+                            status=status, wait_seconds=0, flush_timeout=preempt.budget_seconds(),
+                            should_release_workers=True)
 
 
 class SigtermClose:

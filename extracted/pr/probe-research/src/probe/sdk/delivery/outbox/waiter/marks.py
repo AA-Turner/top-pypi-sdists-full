@@ -1,6 +1,8 @@
-"""Want markers (R2): a waiting `finish()` names its run in the outbox root; every worker of that
-outbox sends those runs' writes first. Not the `.drain.want` flock: holding that makes each pass
-give its drain lock away between ops, to a waiter that never takes it."""
+"""Want markers (R2): a waiting `finish()`, or a SIGTERM's close announced at its grace's start
+(`Run._start_delivery_for_close`), names its run in the outbox root; every worker of that outbox
+sends those runs' writes first, and every drain of the root lingers while any marker is fresh
+(`linger._is_close_announced`). Not the `.drain.want` flock: holding that makes each pass give its
+drain lock away between ops, to a waiter that never takes it."""
 
 from __future__ import annotations
 
@@ -16,7 +18,8 @@ from probe.foundation.durable.durable import SYNC_NONE, write_text_atomic
 
 WAITING_DIR = ".waiting-runs"
 #: A marker its waiter has not touched this long is dropped (a waiter in another pid namespace,
-#: or one killed without cleanup). A waiter touches its marker every poll.
+#: or one killed without cleanup). A waiter touches its marker every `waiter._MARK_EVERY_SECONDS`
+#: (30 s); a SIGTERM's marker goes stale 5 s after its process's deadline.
 MARK_STALE_SECONDS = 120.0
 
 
@@ -29,16 +32,20 @@ def _mark_path(outbox_root: str | Path, run_ref: str, pid: int) -> Path:
     return _marks_dir(outbox_root) / f"{digest}-{pid}.json"
 
 
-def touch_mark(outbox_root: str | Path, run_ref: str) -> None:
-    """Say (again) that this process waits on ``run_ref``. Best-effort."""
+def touch_mark(outbox_root: str | Path, run_ref: str, *, fresh_for: float | None = None) -> None:
+    """Say (again) that this process waits on ``run_ref``. Best-effort. ``fresh_for`` (seconds,
+    under `MARK_STALE_SECONDS`) ages the marker so it goes stale that soon unless touched again."""
     path = _mark_path(outbox_root, run_ref, os.getpid())
     try:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if path.exists():
             os.utime(path)
-            return
-        body = {"run_ref": run_ref, "pid": os.getpid(), "since": time.time()}
-        write_text_atomic(path, json.dumps(body) + "\n", mode=0o600, sync=SYNC_NONE)
+        else:
+            body = {"run_ref": run_ref, "pid": os.getpid(), "since": time.time()}
+            write_text_atomic(path, json.dumps(body) + "\n", mode=0o600, sync=SYNC_NONE)
+        if fresh_for is not None and fresh_for < MARK_STALE_SECONDS:
+            aged = time.time() - MARK_STALE_SECONDS + fresh_for
+            os.utime(path, (aged, aged))
     except OSError:
         pass
 
@@ -61,7 +68,8 @@ def mark_waiting(outbox_root: str | Path, run_ref: str) -> Iterator[None]:
 
 
 def waited_runs(outbox_root: str | Path, *, now: float | None = None) -> list[str]:
-    """The runs a live `finish()` waits on, longest-waiting first. Stale markers are removed."""
+    """The runs a live `finish()` waits on, or a SIGTERM's close announced, longest-waiting first.
+    Stale markers are removed."""
     now = time.time() if now is None else now
     folder = _marks_dir(outbox_root)
     try:

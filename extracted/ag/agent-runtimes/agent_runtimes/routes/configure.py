@@ -363,6 +363,83 @@ async def give_inference_token_endpoint(
     }
 
 
+class SocialTokenRequest(BaseModel):
+    """The runtime's social token, as the companion gives it (14 November 2026)."""
+
+    token: str
+
+
+@router.put("/social/token")
+async def give_social_token_endpoint(
+    request: Request, body: SocialTokenRequest
+) -> dict[str, Any]:
+    """Give this runtime its social token, and read which accounts the person linked.
+
+    The companion calls it as the runtime is assigned to its person, with
+    their token narrowed by IAM to its social routes and to this runtime
+    (``agent_runtimes.tools.social``). Only the pod itself may. The linked
+    accounts are read with it at once: an optional posting tool counts in its
+    group when its account is linked.
+    """
+    from agent_runtimes.apps.callers import POD_SECRET_HEADER, is_the_pod
+    from agent_runtimes.tools.social import (
+        give_social_token,
+        refresh_linked_accounts,
+    )
+
+    if not is_the_pod(
+        request.client.host if request.client else None,
+        request.headers.get(POD_SECRET_HEADER),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the runtime's own pod gives it its social token.",
+        )
+    if not body.token.strip():
+        raise HTTPException(status_code=422, detail="The token is empty.")
+    expires_at = give_social_token(body.token)
+    accounts = await refresh_linked_accounts()
+    linked = sorted(
+        key for key, value in (accounts or {}).items() if value.get("linked")
+    )
+    return {
+        "expiresAt": expires_at,
+        "linked": linked,
+        "note": (
+            f"Linked: {', '.join(linked)}."
+            if linked
+            else "No X, Bluesky or LinkedIn account is linked."
+            if accounts is not None
+            else "The linked accounts could not be read."
+        ),
+    }
+
+
+class MailToMeRequest(BaseModel):
+    """A mail to the person this runtime runs for (the email skill, 15 November 2026)."""
+
+    subject: str
+    text: str
+
+
+@router.post("/mail")
+async def mail_me_endpoint(body: MailToMeRequest) -> dict[str, Any]:
+    """Send one mail to the person this runtime runs for, through Datalayer's mailer.
+
+    The datalayer-skills `email` skill calls it from the sandbox: the runtime
+    sends it with its social token through IAM's ``/social/mail``, to the
+    person alone (never another address), a few a day; no mail credential is in
+    the runtime or the sandbox. A runtime given no social token (a visitor's, a
+    deployment's) sends none.
+    """
+    from agent_runtimes.tools.social import send_mail
+
+    sent = await send_mail("me", body.subject, body.text)
+    if isinstance(sent, str):
+        raise HTTPException(status_code=409, detail=sent)
+    return sent
+
+
 class AgentCoreWorkloadRequest(BaseModel):
     """The workload token a pod is given for AgentCore Identity, as the companion gives it."""
 

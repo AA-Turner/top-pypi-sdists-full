@@ -8,7 +8,7 @@ from __future__ import annotations
 # Monads
 from .cont import Cont
 from .do import do, guard, let
-from .either import Either, Left, Right
+from .either import Either, Left, Right, or_else
 from .identity import Identity
 from .ioaction import IO, Get, Put, ReadFile, Return, get_line, put_line, read_file
 from .list import List
@@ -23,10 +23,11 @@ from .state import State
 # Protocols
 from .typing import Applicative, Functor, Monad, Monoid
 from .util import Unit, compose, fmap, identity, indent
+from .validation import Validation
 from .writer import MonadWriter, StringWriter, Writer
 
 # Version will be managed by release-please
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 __all__ = [
     "IO",
@@ -54,6 +55,7 @@ __all__ = [
     "State",
     "StringWriter",
     "Unit",
+    "Validation",
     "Writer",
     "compose",
     "do",
@@ -64,6 +66,7 @@ __all__ = [
     "indent",
     "let",
     "monadic_compose",
+    "or_else",
     "put_line",
     "read_file",
 ]

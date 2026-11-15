@@ -2,15 +2,14 @@
 This package defines firmware structures for unpacking, decompressing,
 extracting, and rebuilding UEFI data.
 '''
-from __future__ import print_function
-
 import gzip
 import logging
 import os
 import struct
 import zlib
 
-from .base import FirmwareObject, StructuredObject, RawObject, AutoRawObject
+from .base import FirmwareObject, StructuredObject, RawObject, AutoRawObject, \
+    PaddingObject
 from .utils import *
 from .guids import get_guid_name
 from .structs.uefi_structs import *
@@ -70,6 +69,41 @@ def parse_depex(input_data):
 
     return depex
 
+def build_sections(sections, original, generate_checksum=False):
+    '''Build and join sections, 4-byte aligning each but the last.
+
+    Vendors fill the alignment with 0x00 or 0xFF, so a section that kept
+    its size keeps the padding it had in original. The bytes in original
+    after the last section, too few for a header, are kept too.
+    '''
+    data = b""
+    if sections:
+        start, parsed_size = getattr(sections[-1], "parsed_extent", (None, None))
+        tail = original[start + parsed_size:] if start is not None else b""
+    for i, section in enumerate(sections):
+        # Sections return their size and data; volumes and raw objects
+        # return only their data.
+        built = section.build(generate_checksum)
+        if isinstance(built, tuple):
+            size, section_data = built
+        else:
+            size, section_data = len(built), built
+        data += section_data
+        if i + 1 == len(sections):
+            data += tail
+            break
+        padding = ((size + 3) & (~3)) - size
+        fill = b"\x00" * padding
+        # Where the section was parsed from, and its size then.
+        start, parsed_size = getattr(section, "parsed_extent", (None, None))
+        if start is not None and size == parsed_size:
+            kept = original[start + size:start + size + padding]
+            if len(kept) == padding:
+                fill = kept
+        data += fill
+    return data
+
+
 def dlog(kls, name, msg=""):
     logging.info("%s %s %s" % (str(kls.__class__.__name__), name, msg))
 
@@ -110,8 +144,27 @@ def compare(data1, data2):
     return True
 
 
+# efi_compressor refuses (before decoding) any output larger than this; see
+# MAX_DSTSZ in compression/EfiCompressor.c.
+_MAX_EXTENSION_OUTPUT = 100000000
+
+
+def _claimed_size(algorithm, compressed_data):
+    '''The output size a compressed header claims, which bounds the work an
+    efi_compressor call does whether or not it succeeds.'''
+    if algorithm is efi_compressor.LzmaDecompress:
+        header = compressed_data[5:13]
+        size = struct.unpack("<Q", header)[0] if len(header) == 8 else 0
+    else:
+        header = compressed_data[4:8]
+        size = struct.unpack("<I", header)[0] if len(header) == 4 else 0
+    return size if size <= _MAX_EXTENSION_OUTPUT else 0
+
+
 def decompress(algorithms, compressed_data):
     '''Attempt to decompress using a set of algorithms.
+
+    Each attempt is charged against the parse's decompression budget.
 
     Args:
         algorithms (list): A set of decompression methods.
@@ -121,6 +174,9 @@ def decompress(algorithms, compressed_data):
         pair (int, binary): Return the algorithm index, and decompressed stream.
     '''
     for i, algorithm in enumerate(algorithms):
+        if not reserve_decompression(
+                _claimed_size(algorithm, compressed_data)):
+            return None
         try:
             data = algorithm(compressed_data, len(compressed_data))
             if data:
@@ -150,47 +206,87 @@ def find_volumes(data, process=True):
         list: The set of discovered firmware objects.
     '''
     objects = []
+    view = memoryview(data)
+    # Bytes before raw_start are already covered by an object.
+    raw_start = 0
+    search_start = 0
     while True:
-        volume_index = data.find(b"_FVH")
-        if volume_index < 0:
+        magic = data.find(b"_FVH", search_start)
+        if magic < 0:
             break
-        volume_index -= (8 + 16 * 2)
-        fv = FirmwareVolume(data[volume_index:])
-        if not fv.valid_header:
-            data = data[16 * 3:]
+        search_start = magic + 4
+        volume_start = magic - (8 + 16 * 2)
+        if volume_start < raw_start:
             continue
-        if volume_index > 0:
-            objects.append(RawObject(data[:volume_index]))
+        # Name each volume by its offset, so they dump to different paths.
+        fv = FirmwareVolume(view[volume_start:], volume_start)
+        if not fv.valid_header:
+            continue
+        if volume_start > raw_start:
+            objects.append(RawObject(data[raw_start:volume_start]))
         if process:
             fv.process()
         objects.append(fv)
-        data = data[volume_index + fv.size:]
-    if len(data) > 0:
-        objects.append(RawObject(data))
+        raw_start = volume_start + fv.size
+        search_start = max(search_start, raw_start)
+    if raw_start < len(data):
+        objects.append(RawObject(data[raw_start:]))
     return objects
 
-def calculate_checksum8(data):
-      sum_val = 0x100
-      for byte in data:
-          sum_val = (sum_val - byte) & 0xFF
+# A brute-force search parses a volume at every '_FVH' magic, including the
+# volumes inside other volumes, and each header can claim the rest of the
+# data. The search stops once the volumes it parsed hold this many times the
+# size of the data.
+BRUTE_FORCE_RATIO = 16
 
-      return sum_val
+
+@limit_nesting(None)
+def brute_force_volumes(data, found):
+    '''Parse a volume at each '_FVH' magic in data, as a single parse.
+
+    Unlike find_volumes, volumes inside other volumes are parsed again on
+    their own. The volumes share one decompression budget.
+
+    Args:
+        data (binary): The data to search.
+        found (callable): Called with each volume that processes, named by
+            its offset in data.
+    '''
+    view = memoryview(data)
+    remaining = BRUTE_FORCE_RATIO * len(data)
+    for index in search_firmware_volumes(data):
+        # The '_FVH' signature is 40 bytes into the volume header.
+        if index < 40:
+            continue
+        volume = FirmwareVolume(view[index - 40:], index - 40)
+        if not volume.valid_header:
+            continue
+        remaining -= len(volume._data)
+        if remaining < 0:
+            print_error(
+                "Error: stopped searching, the volumes found hold more than "
+                "%d times the data." % BRUTE_FORCE_RATIO)
+            return
+        if volume.process():
+            found(volume)
+
+
+def calculate_checksum8(data):
+    '''Return the byte that makes the 8-bit sum of data and it zero.'''
+    return -sum(data) & 0xFF
+
 
 def calculate_checksum16(data):
-      if len(data) % 2 != 0:
-          raise ValueError("Buffer length must be even for 16-bit checksum")
-
-      sum_val = 0x10000
-      for word, in struct.iter_unpack('<H', data):
-          sum_val = (sum_val - word) & 0xFFFF
-
-      return sum_val
+    '''Return the word that makes the 16-bit sum of data and it zero.'''
+    if len(data) % 2 != 0:
+        raise ValueError("Buffer length must be even for 16-bit checksum")
+    return -sum(word for word, in struct.iter_unpack('<H', data)) & 0xFFFF
 
 
 class FirmwareVariableStore(FirmwareObject, StructuredObject):
 
     '''An firmware-related variable storage structure (think NVRAM).'''
-    variables = []
+    variables = ()
 
     @property
     def objects(self):
@@ -200,7 +296,7 @@ class FirmwareVariableStore(FirmwareObject, StructuredObject):
 class FirmwareVariable(FirmwareObject, StructuredObject):
 
     '''A firmware-related variable, found in a variable store.'''
-    subsections = []
+    subsections = ()
 
     @property
     def objects(self):
@@ -216,13 +312,18 @@ class NVARVariable(FirmwareVariable):
         return True
 
     def _get_name(self, data, is_ascii=False):
-        tail = b"\x00" if is_ascii else b"\x00\x00"
-        size = data.find(tail)
-        if not is_ascii:
-            name = uefi_name(data[:size])
-        else:
-            name = data[:size]
-        return (name, size + len(tail))
+        if is_ascii:
+            size = data.find(b"\x00")
+            if size < 0:
+                return (None, 0)
+            return (data[:size], size + 1)
+
+        # The UTF-16 terminator is a zero code unit. Search only at even
+        # offsets, or the high byte of the last character would match.
+        for size in range(0, len(data) - 1, 2):
+            if data[size:size + 2] == b"\x00\x00":
+                return (uefi_name(data[:size]), size + 2)
+        return (None, 0)
 
     def __init__(self, data):
         self.subsections = []
@@ -236,10 +337,15 @@ class NVARVariable(FirmwareVariable):
             return False
         self.parse_structure(self.data, NVARVariableHeaderType)
         self.size = self.structure.TotalSize
+        if self.size < self.structure_size:
+            # A variable cannot be smaller than its own header. Stop here,
+            # or the store would never advance past it.
+            return False
         self.attrs = {"attrs": self.structure.Attributes}
 
-        # Now with structure parsed, set bounds on the data
-        self.data = self.data[:self.size]
+        # Now with structure parsed, set bounds on the data. The store passes
+        # a memoryview of the rest of its data, so keep only this variable.
+        self.data = bytes(self.data[:self.size])
         offset = self.structure_size
         if bit_set(self.structure.Attributes, NVRAM_ATTRIBUTES["GUID"]):
             self.guid = self.data[offset:offset + 16]
@@ -258,9 +364,8 @@ class NVARVariable(FirmwareVariable):
             self.data[offset:],
             bit_set(self.structure.Attributes, NVRAM_ATTRIBUTES["DESC_ASCII"])
         )
-        if var_name is not None:
-            self.name = var_name
-            offset += var_name_size
+        self.name = var_name
+        offset += var_name_size
 
         # The variable's meta-data is the value.
         self.data_offset = offset
@@ -310,9 +415,10 @@ class NVARVariableStore(FirmwareVariableStore):
     def __init__(self, data):
         self.variables = []
         self.valid_header = False
+        self.data = data
+        self.free_space = b""
         if not NVARVariable.valid_nvar(data):
             return
-        self.data = data
         self.valid_header = True
 
     def process(self):
@@ -320,26 +426,29 @@ class NVARVariableStore(FirmwareVariableStore):
         if not self.valid_header:
             return False
 
-        var_offset = self.data
+        view = memoryview(self.data)
         total_size = 0
-        while len(var_offset) > 4:
-            nvar = NVARVariable(var_offset)
+        while len(self.data) - total_size > 4:
+            nvar = NVARVariable(view[total_size:])
             if not nvar.process():
                 break
             total_size += nvar.size
             self.variables.append(nvar)
-            var_offset = var_offset[nvar.size:]
 
-        # Scope data to just the parsed variables
+        # Scope data to just the parsed variables, and keep the rest so the
+        # store builds to its original size.
+        self.free_space = self.data[total_size:]
         self.data = self.data[:total_size]
         self.attrs = {"variables": len(self.variables)}
         return True
 
     def build(self, generate_checksum=False, debug=False):
+        if not self.valid_header:
+            return self.data
         data = b""
         for variable in self.variables:
             data += variable.build(generate_checksum, debug)
-        return data
+        return data + self.free_space
 
     def dump(self, parent, index=0):
         if not self.valid_header:
@@ -372,7 +481,9 @@ class NVARVariableStore(FirmwareVariableStore):
 
 
 class EfiSection(FirmwareObject):
-    subsections = []
+    # Immutable so that a subclass which appends without creating its own
+    # list fails loudly, rather than sharing children across every instance.
+    subsections = ()
 
     @property
     def objects(self):
@@ -384,24 +495,27 @@ class EfiSection(FirmwareObject):
         if self.data is None:
             return False
 
+        view = memoryview(self.data)
         subsection_offset = 0
         status = True
         while subsection_offset < len(self.data):
             if subsection_offset % 4:
                 subsection_offset += 4 - (subsection_offset % 4)
-            if subsection_offset >= len(self.data):
+            if len(self.data) - subsection_offset < 4:
+                # No room for a section header; FirmwareFile.process also
+                # stops here.
                 break
 
-            try:
-                subsection = FirmwareFileSystemSection(
-                    self.data[subsection_offset:],
-                    self.guid
-                )
-            except struct.error as e:
-                dlog(self, 'subsections', 'Exception: %s' % (str(e)))
+            subsection = FirmwareFileSystemSection(
+                view[subsection_offset:],
+                self.guid
+            )
+            if not subsection.valid_header:
+                dlog(self, 'subsections', 'Invalid section header')
                 return False
             if subsection.size == 0:
                 break
+            subsection.parsed_extent = (subsection_offset, subsection.size)
             sub_status = subsection.process()
             if not sub_status:
                 dlog(self, 'subsections', 'Could not parse subsection')
@@ -434,19 +548,16 @@ class EfiSection(FirmwareObject):
             subsection.dump(parent, i)
 
     def _build_subsections(self, generate_checksum=False):
-        data = b""
-        for i, section in enumerate(self.subsections):
-            subsection_size, subsection_data = section.build(generate_checksum)
-            data += subsection_data
-            if (i + 1 < len(self.subsections)):
-                # Nibble-align inter-section subsections
-                data += b"\x00" * \
-                    (((subsection_size + 3) & (~3)) - subsection_size)
+        if len(self.subsections) == 0:
+            # Nothing was parsed from the data, so it is kept as it is.
+            return self.data
+
+        data = build_sections(self.subsections, self.data, generate_checksum)
 
         # Pad the pre-compression data
         trailling_bytes = len(self.data) - len(data)
         if trailling_bytes > 0:
-            data += '\x00' * trailling_bytes
+            data += b'\x00' * trailling_bytes
         return data
 
 
@@ -461,6 +572,7 @@ class CompressedSection(EfiSection):
         self.guid = guid
         self.data = None
         self.parsed_objects = []
+        self.subsections = []
 
         # http://dox.ipxe.org/PiFirmwareFile_8h_source.html
         self.decompressed_size, self.type = struct.unpack("<Ic", data[:5])
@@ -470,9 +582,13 @@ class CompressedSection(EfiSection):
 
         # Advance the byte pointer through the header
         self.compressed_data = data[5:]
+        # The bytes before an Intel type 2 stream, and the section as parsed.
+        self.prefix = b""
+        self._body = bytes(data)
         self.attrs = {
             "decompressed_size": self.decompressed_size, "type": self.type}
 
+    @limit_nesting(False)
     def process(self):
         dlog(self, sguid(self.guid))
         def bf_decompress(data):
@@ -500,6 +616,8 @@ class CompressedSection(EfiSection):
                 # The type=2 is not spec-defined, may have an additional int
                 # (Intel).
                 results = bf_decompress(self.compressed_data[4:])
+                if results is not None:
+                    self.prefix = self.compressed_data[:4]
 
         if self.type > 0x00:
             if results is not None:
@@ -526,21 +644,28 @@ class CompressedSection(EfiSection):
         pass
 
     def build(self, generate_checksum=False, debug=False):
+        if self.data is None:
+            # The data could not be decompressed, so it cannot have changed.
+            return self._body
         data = self._build_subsections(generate_checksum)
+        if data == self.data:
+            # Recompressing unchanged data would not give the same bytes.
+            return self._body
 
+        # The subtype is the index of the decompressor that worked, plus 1.
+        compressed = data
         if self.type == 0x01:
-            if self.subtype == 0x01:
-                data = efi_compressor.EfiCompress(data, len(data))
-            elif self.subtype == 0x02:
-                data = efi_compressor.TianoCompress(data, len(data))
+            compress = [efi_compressor.EfiCompress,
+                        efi_compressor.TianoCompress][self.subtype - 1]
+            compressed = compress(data, len(data))
         elif self.type == 0x02:
-            data = efi_compressor.LzmaCompress(data, len(data))
-        elif self.type == 0x00:
-            pass
+            compress = [efi_compressor.LzmaCompress,
+                        efi_compressor.TianoCompress,
+                        efi_compressor.EfiCompress][self.subtype - 1]
+            compressed = self.prefix + compress(data, len(data))
 
-        header = struct.pack("<Ic", self.decompressed_size, chr(self.type))
-        return header + data
-        pass
+        header = struct.pack("<IB", len(data), self.type)
+        return header + compressed
 
     def showinfo(self, ts):
         if self.name is not None:
@@ -561,6 +686,7 @@ class CompressedSection(EfiSection):
 class VersionSection(EfiSection):
 
     def __init__(self, data):
+        self.subsections = []
         self.data = data
         self.build_number = struct.unpack("<16s", self.data[:16])
 
@@ -574,6 +700,7 @@ class FreeformGuidSection(EfiSection):
     name = None
 
     def __init__(self, data):
+        self.subsections = []
         self.guid = struct.unpack("<16s", data[:16])[0]
         self.data = data[16:]
 
@@ -619,20 +746,24 @@ class GuidDefinedSection(EfiSection):
         # including the common header, which was already stripped before passing
         # data here. Subtract it from the offset to get the correct data_start
         common_header_size = 8 if large_header else 4
-        data_start = self.offset - common_header_size
+        # An offset inside this header would give an empty or negative
+        # preamble, and a negative start slices from the end of the data.
+        data_start = max(self.offset - common_header_size, 20)
         self.preamble = data[20:data_start]
         self.data = data[data_start:]
         self.attrs = {"attrs": self.attr_mask}
         self.subsections = []
+        self._body = bytes(data)
 
     @property
     def objects(self):
         return self.subsections
 
+    @limit_nesting(False)
     def process(self):
         dlog(self, sguid(self.guid))
         def parse_volume():
-            fv = FirmwareVolume(self.data)
+            fv = FirmwareVolume(self.data, None)
             if fv.valid_header:
                 fv.process()
                 self.subsections = [fv]
@@ -667,7 +798,7 @@ class GuidDefinedSection(EfiSection):
                 dlog(self, sguid(self.guid), 'error, invalid AMD zlib section header')
                 return False
             try:
-                data = zlib.decompress(compressed_data)
+                data = zlib_decompress(compressed_data)
                 if data:
                     self.subtype = 0
                     self.data = data
@@ -680,7 +811,8 @@ class GuidDefinedSection(EfiSection):
                 dlog(self, sguid(self.guid), 'zlib error: %s' % str(err))
         elif sguid(self.guid) == FIRMWARE_GUIDED_GUIDS["GZIP_COMPRESSED_QC"]:
             try:
-                data = gzip.decompress(self.preamble + self.data)
+                data = zlib_decompress(
+                    self.preamble + self.data, wbits=16 + zlib.MAX_WBITS)
                 if data:
                     self.subtype = 0
                     self.data = data
@@ -714,14 +846,38 @@ class GuidDefinedSection(EfiSection):
 
     def build(self, generate_checksum=False, debug=False):
         data = self._build_subsections(generate_checksum)
+        if data == self.data:
+            # Recompressing unchanged data would not give the same bytes.
+            return self._body
 
-        if sguid(self.guid) in [FIRMWARE_GUIDED_GUIDS["LZMA_COMPRESSED"], FIRMWARE_GUIDED_GUIDS["LZMA_COMPRESSED_HP"]]:
+        guid = sguid(self.guid)
+        preamble = self.preamble
+        if guid in [FIRMWARE_GUIDED_GUIDS["LZMA_COMPRESSED"],
+                    FIRMWARE_GUIDED_GUIDS["LZMA_COMPRESSED_HP"]]:
             data = efi_compressor.LzmaCompress(data, len(data))
-            pass
+        elif guid == FIRMWARE_GUIDED_GUIDS["TIANO_COMPRESSED"]:
+            data = efi_compressor.TianoCompress(data, len(data))
+        elif guid == FIRMWARE_GUIDED_GUIDS["ZLIB_COMPRESSED_AMD"]:
+            # The 0x100-byte AMD header, which holds the compressed size,
+            # starts in the preamble.
+            data = zlib.compress(data)
+            header = EfiAmdZlibSectionHeader.from_buffer_copy(
+                self._body[20:20 + 0x100])
+            header.CompressedSize = len(data)
+            data = bytes(header) + data
+            preamble, data = data[:len(preamble)], data[len(preamble):]
+        elif guid == FIRMWARE_GUIDED_GUIDS["GZIP_COMPRESSED_QC"]:
+            # The gzip stream starts in the preamble.
+            data = gzip.compress(data, mtime=0)
+            preamble, data = data[:len(preamble)], data[len(preamble):]
+        elif guid == FIRMWARE_GUIDED_GUIDS["STATIC_GUID"] and \
+                len(preamble) == 4:
+            # The preamble is a CRC32 of the data.
+            preamble = struct.pack("<I", zlib.crc32(data))
 
         header = struct.pack(
             "<16sHH", self.guid, self.offset, self.attrs["attrs"])
-        return header + self.preamble + data
+        return header + preamble + data
 
     def showinfo(self, ts='', index=0):
         auth_status = "ATTR_UNKNOWN"
@@ -777,6 +933,10 @@ class FirmwareFileSystemSection(EfiSection):
     parsed_object = None
     '''For object sections, keep track of each.'''
 
+    # The fixed headers of the compression, GUID-defined, version and
+    # free-form GUID section bodies.
+    _MIN_BODY_SIZE = {0x01: 5, 0x02: 20, 0x14: 2, 0x18: 16}
+
     def __init__(self, data, guid):
         self.guid = guid
         header = data[:0x4]
@@ -799,11 +959,12 @@ class FirmwareFileSystemSection(EfiSection):
             self.valid_header = False
             return
 
-        self._data = data[:self.size]
+        # data may be a memoryview of the remaining sections; copy this one.
+        self._data = bytes(data[:self.size])
         if self.large_header:
-            self.data = data[0x8:self.size]
+            self.data = self._data[0x8:]
         else:
-            self.data = data[0x4:self.size]
+            self.data = self._data[0x4:]
         self.name = None
 
     @property
@@ -811,15 +972,22 @@ class FirmwareFileSystemSection(EfiSection):
         return [self.parsed_object]
 
     def regen(self, data):
-        # Transitional method, should be adopted by other objects.
-        self._data = data
-        self.data = data[0x4:]
+        '''Replace this section with data, a section and its header.'''
+        self.__init__(data, self.guid)
 
+    @limit_nesting(False)
     def process(self):
         # section types, see PI spec v1.7 Errata A Volume 3, 2.1.5.1, table 3-4
         dlog(self, sguid(self.guid))
         self.parsed_object = None
         raw_object = False
+        self.attrs = {"type": self.type, "size": self.size}
+        self.attrs["type_name"] = _get_section_type(self.type)[0]
+
+        if len(self.data) < self._MIN_BODY_SIZE.get(self.type, 0):
+            print_error("Error: section type 0x%02x is too short (%d bytes)." % (
+                self.type, len(self.data)))
+            return False
 
         if self.type == 0x01:  # compression
             compressed_section = CompressedSection(self.data, self.guid)
@@ -837,10 +1005,10 @@ class FirmwareFileSystemSection(EfiSection):
             self.name = uefi_name(self.data)
 
         elif self.type == 0x17:  # firmware-volume
-            fv = FirmwareVolume(self.data, sguid(self.guid))
+            fv = FirmwareVolume(self.data, None)
             if not fv.valid_header:
                 # Could be a FFSv3 section (Kairos sample)
-                fv = FirmwareVolume(self.data[4:], sguid(self.guid))
+                fv = FirmwareVolume(self.data[4:], None)
             if fv.valid_header:
                 self.parsed_object = fv
 
@@ -852,18 +1020,16 @@ class FirmwareFileSystemSection(EfiSection):
             raw_object = True
             if self.data[:10] == b"123456789A":
                 # HP adds a strange header to nested FVs.
-                fv = FirmwareVolume(self.data[12:], sguid(self.guid))
+                fv = FirmwareVolume(self.data[12:], None)
                 self.parsed_object = fv
             else:
                 # For a raw section, we can cheat and assign the parsed object
-                # as the AutoRawObject's managed object
+                # as the AutoRawObject's managed object. AutoParser has
+                # already processed it.
                 raw = AutoRawObject(self.data)
-                raw.process()
-                if raw.object is not None:
+                if raw.process():
                     self.parsed_object = raw.object
-
-        self.attrs = {"type": self.type, "size": self.size}
-        self.attrs["type_name"] = _get_section_type(self.type)[0]
+                return True
 
         if self.parsed_object is None:
             return True
@@ -886,15 +1052,20 @@ class FirmwareFileSystemSection(EfiSection):
 
     def build(self, generate_checksum=False, debug=False):
         data = b""
-        # Add section data (either raw, or a partitioned section)
-        if self.parsed_object is not None:
+        # Add section data (either raw, or a partitioned section). Objects
+        # found in a raw section, such as ME or flash images, cannot build.
+        if hasattr(self.parsed_object, "build"):
             data = self.parsed_object.build(generate_checksum)
         else:
             data = self.data
+        if data == self.data and not generate_checksum:
+            # Keep the header as parsed, which may claim more data than the
+            # image held.
+            return len(self._data), self._data
 
         size = len(data) + 4 # for the EFI_COMMON_SECTION_HEADER size
 
-        if size >= 0xffffff:
+        if self.large_header or size >= 0xffffff:
             # EFI_COMMON_SECTION_HEADER2
             # 4 additional bytes in size for the ExtendedSize
             size = size + 4
@@ -914,35 +1085,20 @@ class FirmwareFileSystemSection(EfiSection):
         if self.type == 0x15 and self.name is not None:
             print ("%s  Name: %s" % (ts, purple(self.name)))
         if self.type == 0x14 and self.name is not None:
-            print ("%s  Version: %s BuildNum: %d" % (ts, self.name, self.build_number))
+            print ("%s  Version: %s BuildNum: %d" % (
+                ts, printable(self.name), self.build_number))
         # DXE, PEI and SMM DEPEX sections
         if self.type == 0x13 or self.type == 0x1b or self.type == 0x1c:
-            offset = 0
-            while offset < len(self.data):
-                opcode = ord(self.data[offset:offset+1])
-                offset = offset + 1
-                if opcode == 0x02:
-                    guid = self.data[offset:offset+16]
-                    guid_name = get_guid_name(guid)
-                    offset = offset + 16
-                    if guid_name is not None:
-                        print ("%s  PUSH %s (%s)" % (ts, guid_name, sguid(guid)))
-                    else:
-                        print ("%s  PUSH %s" % (ts, sguid(guid)))
-                elif opcode == 0x03:
-                    print ("%s  AND" % (ts))
-                elif opcode == 0x04:
-                    print ("%s  OR" % (ts))
-                elif opcode == 0x05:
-                    print ("%s  NOT" % (ts))
-                elif opcode == 0x06:
-                    print ("%s  TRUE" % (ts))
-                elif opcode == 0x06:
-                    print ("%s  FALSE" % (ts))
-                elif opcode == 0x08:
-                    print ("%s  END" % (ts))
+            for op in parse_depex(self.data):
+                if not isinstance(op['op'], str):
+                    print ("%s  %02x?" % (ts, op['op']))
+                elif 'guid' not in op:
+                    print ("%s  %s" % (ts, op['op']))
+                elif op['name'] is not None:
+                    print ("%s  %s %s (%s)" % (
+                        ts, op['op'], op['name'], op['guid']))
                 else:
-                    print ("%s  %02x?" % (ts, opcode))
+                    print ("%s  %s %s" % (ts, op['op'], op['guid']))
 
         if self.parsed_object is not None:
             '''If this is a specific object, show that object's info.'''
@@ -988,9 +1144,12 @@ class FirmwareFile(FirmwareObject):
         UINT8: Attributes
         UINT8: Size[3]
         UINT8: State
+        UINT64: ExtendedSize (large files only)
     };
     '''
-    _HEADER_SIZE = 0x18  # 24 byte header, always
+    _HEADER_SIZE = 0x18
+    _LARGE_HEADER_SIZE = 0x20
+    _ATTRIB_LARGE_FILE = 0x01
 
     def __init__(self, data):
         header = data[:self._HEADER_SIZE]
@@ -1003,6 +1162,16 @@ class FirmwareFile(FirmwareObject):
             print_error("Error: invalid FirmwareFile header.")
             raise e
 
+        # A file of 16 MiB or more sets the large file attribute and a size
+        # of 0, and stores its size in a 64-bit ExtendedSize field.
+        self.header_size = self._HEADER_SIZE
+        self.large_file = bool(self.attributes & self._ATTRIB_LARGE_FILE) and \
+            self.size == 0 and len(data) >= self._LARGE_HEADER_SIZE
+        if self.large_file:
+            self.header_size = self._LARGE_HEADER_SIZE
+            self.size, = struct.unpack(
+                "<Q", data[self._HEADER_SIZE:self._LARGE_HEADER_SIZE])
+
         self.attrs = {
             "size": self.size,
             "type": self.type,
@@ -1011,18 +1180,16 @@ class FirmwareFile(FirmwareObject):
         }
         self.attrs["type_name"] = _get_file_type(self.type)[0]
 
-        # The size includes the header bytes.
-        self._data = data[:self.size]
-        self.data = data[self._HEADER_SIZE:self.size]
+        # The size includes the header bytes. data may be a memoryview of the
+        # rest of the file system, so copy only this file.
+        self._data = bytes(data[:self.size])
+        self.data = self._data[self.header_size:]
         self.raw_blobs = []
         self.sections = []
 
     @property
     def objects(self):
-        invalid_types = [bytes, str, str]
-        valid_blobs = [
-            b for b in self.raw_blobs if type(b) not in invalid_types]
-        return self.sections + valid_blobs
+        return self.sections + self.raw_blobs
 
     def regen(self, data):
         # Transitional method, should be adopted by other objects.
@@ -1064,10 +1231,12 @@ class FirmwareFile(FirmwareObject):
             self.raw_blobs.append(raw)
             return True
 
-        section_data = self.data
+        view = memoryview(self.data)
+        section_offset = 0
         self.sections = []
-        while len(section_data) >= 4:
-            file_section = FirmwareFileSystemSection(section_data, self.guid)
+        while len(self.data) - section_offset >= 4:
+            file_section = FirmwareFileSystemSection(
+                view[section_offset:], self.guid)
             if not file_section.valid_header:
                 dlog(self, sguid(self.guid), 'Invalid section header')
                 return False
@@ -1077,10 +1246,11 @@ class FirmwareFile(FirmwareObject):
                             file_section.size)
                 return False
 
+            file_section.parsed_extent = (section_offset, file_section.size)
             status = file_section.process() and status
             self.sections.append(file_section)
 
-            section_data = section_data[(file_section.size + 3) & (~3):]
+            section_offset += (file_section.size + 3) & (~3)
         return status
 
     def _find_objects(self):
@@ -1089,7 +1259,7 @@ class FirmwareFile(FirmwareObject):
         status = True
 
         # It may be a firmware volume (Lenovo or HP).
-        fv = FirmwareVolume(self.data, sguid(self.guid))
+        fv = FirmwareVolume(self.data, None)
         if fv.valid_header:
             has_object = True
             status = fv.process() and status
@@ -1112,32 +1282,27 @@ class FirmwareFile(FirmwareObject):
         return status
 
     def build(self, generate_checksum=False, debug=False):
-        data = b""
-        for i, section in enumerate(self.sections):
-            section_size, section_data = section.build(generate_checksum)
-            data += section_data
-            if (i + 1 < len(self.sections)):
-                # Nibble-align inter-file sections
-                data += b"\x00" * (((section_size + 3) & (~3)) - section_size)
+        data = build_sections(self.sections, self.data, generate_checksum)
 
         for blob in self.raw_blobs:
-            if isinstance(blob, FirmwareObject):
-                data += blob.build(generate_checksum)
-            elif isinstance(blob, AutoRawObject) or isinstance(blob, RawObject):
+            if isinstance(blob, (AutoRawObject, RawObject)) or \
+                    not hasattr(blob, "build"):
                 data += blob.data
             else:
-                data += blob
+                data += blob.build(generate_checksum)
 
         # Maining to support ffs-padding
         if len(self.raw_blobs) == 0 and len(self.sections) == 0:
             data = self.data
 
         if generate_checksum:
-            self.size = len(data) + 24
+            self.size = len(data) + self.header_size
             size = self.size
-            string_size = struct.pack("<I", self.size)
+            string_size = self._header_size_field(size)
             if self.attributes & 0x40 == 0:
-                file = 0xaa
+                # Without a file checksum the byte is fixed: 0xAA in PI
+                # (FFS2) volumes and 0x5A in Framework (FFS1) volumes.
+                file = self.checksum >> 8
             else:
                 file = calculate_checksum8(data)
 
@@ -1145,12 +1310,12 @@ class FirmwareFile(FirmwareObject):
                 "<16sHBB3sB",
                 self.guid, 0, self.type, self.attributes,
                 string_size[:3], 0
-            )
+            ) + string_size[3:]
             header = calculate_checksum8(header_data)
             self.checksum = (header | (file << 8)) & 0xffff
         else:
             size = self.size
-            trailling_bytes = size - (len(data) + 24)
+            trailling_bytes = size - (len(data) + self.header_size)
             if trailling_bytes < 0:
                 print ("%s adding %s-bytes to GUID: %s" % (
                     red("Warning"),
@@ -1159,14 +1324,20 @@ class FirmwareFile(FirmwareObject):
                 ))
                 size += (trailling_bytes * -1)
 
-            string_size = struct.pack("<I", size)
+            string_size = self._header_size_field(size)
 
         header = struct.pack(
             "<16sHBB3sB",
             self.guid, self.checksum, self.type, self.attributes,
             string_size[:3], self.state
-        )
+        ) + string_size[3:]
         return size, header + data
+
+    def _header_size_field(self, size):
+        '''Return the 3-byte size, followed by the ExtendedSize if large.'''
+        if self.large_file:
+            return b"\x00" * 3 + struct.pack("<Q", size)
+        return struct.pack("<I", size)[:3]
 
     def showinfo(self, ts='', index="N/A"):
         guid_name = get_guid_name(self.guid)
@@ -1189,10 +1360,7 @@ class FirmwareFile(FirmwareObject):
         ))
 
         for i, blob in enumerate(self.raw_blobs):
-            if type(blob) not in [str, bytes]:
-                blob.showinfo(ts + "  ", index=i)
-            else:
-                self._guessinfo_text(ts + "  ", blob, index=i)
+            blob.showinfo(ts + "  ", index=i)
 
         if self.sections is None:
             # padding file, skip for now
@@ -1208,15 +1376,7 @@ class FirmwareFile(FirmwareObject):
             if s is not None:
                 sections.append(s)
 
-        blobs = []
-        for i, blob in enumerate(self.raw_blobs):
-            if type(blob) not in [str, bytes]:
-                blobs.append(blob.to_dict())
-            else:
-                info = {
-                    'note': self._guessinfo_dict(blob),
-                }
-                blobs.append(info)
+        blobs = [blob.to_dict() for blob in self.raw_blobs]
 
         # file types see PI spec v1.7 Errata A Volume 3, 2.1.4.1, table 3-3
         return {
@@ -1231,20 +1391,14 @@ class FirmwareFile(FirmwareObject):
             'blobs': blobs,
         }
 
-    def _is_ucode(self, data):
-        return data[:4] == "\x01\x00\x00\x00" and data[20:24] == "\x01\x00\x00\x00"
-
-    def _guessinfo_dict(self, data):
-        if self._is_ucode(data):
-            return "Might contain CPU microcodes"
-
-    def _guessinfo_text(self, ts, data, index="N/A"):
-        if self._is_ucode(data):
-            print ("%s Might contain CPU microcodes" % (
-                blue("%sBlob %d:" % (ts, index))))
-
-    def dump(self, parent=""):
-        parent = os.path.join(parent, "file-%s" % sguid(self.guid))
+    def dump(self, parent="", duplicate=0):
+        name = "file-%s" % sguid(self.guid)
+        if duplicate > 0:
+            # Pad files all share the same GUID; keep each one's output.
+            name += "-%d" % duplicate
+        parent = os.path.join(parent, name)
+        # The FDF generator writes a raw file's body here.
+        self.dump_path = parent
 
         dump_data(os.path.join(parent, "file.obj"), self._data)
         if self.raw_blobs is not None:
@@ -1267,7 +1421,7 @@ class FirmwareFileSystem(FirmwareObject):
         self._data = data
 
         # Overflow data is non-file data within the filesystem
-        self.overflow_data = ""
+        self.overflow_data = b""
 
     @property
     def objects(self):
@@ -1277,21 +1431,25 @@ class FirmwareFileSystem(FirmwareObject):
         '''Search for a 24-byte header that does not contain all 0xFF.'''
 
         dlog(self, 'ffs')
-        data = self._data
+        view = memoryview(self._data)
+        offset = 0
         status = True
-        while len(data) >= 24 and data[:24] != (b"\xff" * 24):
-            firmware_file = FirmwareFile(data)
+        while len(self._data) - offset >= 24 and \
+                view[offset:offset + 24] != (b"\xff" * 24):
+            firmware_file = FirmwareFile(view[offset:])
 
-            if firmware_file.size < 24:
+            if firmware_file.size < firmware_file.header_size:
                 # This is a problem, the file was corrupted.
                 break
+            firmware_file.parsed_extent = (offset, len(firmware_file._data))
             ff_status = firmware_file.process()
             if not ff_status:
                 dlog(self, 'ffs', 'Could not parse FF')
                 status = False
             self.files.append(firmware_file)
-            data = data[(firmware_file.size + 7) & (~7):]
+            offset += (firmware_file.size + 7) & (~7)
 
+        data = self._data[offset:]
         if len(data) > 0:
             # There is overflow data
             self.overflow_data = data
@@ -1302,11 +1460,28 @@ class FirmwareFileSystem(FirmwareObject):
         # Generate the file system data as an unstructed set of file data.
         data = b""
         for firmware_file in self.files:
-            file_size, file_data = firmware_file.build(generate_checksum)
+            # A truncated file's header claims more than its data, so align
+            # by the data.
+            _, file_data = firmware_file.build(generate_checksum)
             data += file_data
-            data += b"\xFF" * (((file_size + 7) & (~7)) - file_size)
+            padding = -len(file_data) % 8
+            start, parsed_size = getattr(
+                firmware_file, "parsed_extent", (None, None))
+            if start is not None and len(file_data) == parsed_size:
+                # Keep the padding the file had, which is shorter if the
+                # image ended inside it.
+                end = start + parsed_size
+                data += self._data[end:end + padding]
+            else:
+                data += b"\xFF" * padding
 
-        data += self.overflow_data
+        if is_erased(self.overflow_data):
+            # Free space shrinks or grows so the file system keeps its size,
+            # where the files still fit.
+            erased = self.overflow_data[:1] or b"\xFF"
+            data += erased * (len(self._data) - len(data))
+        else:
+            data += self.overflow_data
 
         if len(data) != len(self._data):
             print ("ffs size mismatch old=%d new=%d %d" % (
@@ -1321,6 +1496,12 @@ class FirmwareFileSystem(FirmwareObject):
     def showinfo(self, ts='', index=None):
         for i, firmware_file in enumerate(self.files):
             firmware_file.showinfo(ts + ' ', index=i)
+        if not is_erased(self.overflow_data):
+            offset = len(self._data) - len(self.overflow_data)
+            print("%s%s offset= 0x%x, size= 0x%x (%d bytes), not erased" % (
+                ts + ' ', blue("Free space:"), offset,
+                len(self.overflow_data), len(self.overflow_data)
+            ))
 
     def to_dict(self):
         res = []
@@ -1328,11 +1509,18 @@ class FirmwareFileSystem(FirmwareObject):
             res.append(firmware_file.to_dict())
         return res
 
-    def dump(self, parent=""):
+    def dump(self, parent="", index=None):
         dump_data(os.path.join(parent, "filesystem.ffs"), self._data)
 
+        seen = {}
         for _file in self.files:
-            _file.dump(parent)
+            guid = sguid(_file.guid)
+            _file.dump(parent, duplicate=seen.get(guid, 0))
+            seen[guid] = seen.get(guid, 0) + 1
+
+        if not is_erased(self.overflow_data):
+            dump_data(os.path.join(parent, "free-space.raw"),
+                      self.overflow_data)
 
 
 class FirmwareVolume(FirmwareObject):
@@ -1378,10 +1566,10 @@ class FirmwareVolume(FirmwareObject):
     block_map = None
     '''list: An empty block set.'''
 
-    firmware_filesystems = []
+    firmware_filesystems = ()
     '''list: Set of FirmwareFileSystems discovered in volume.'''
 
-    raw_objects = []
+    raw_objects = ()
     '''list: Set of RawObjects discovered in volume.'''
 
     def __init__(self, data, name="0"):
@@ -1406,11 +1594,18 @@ class FirmwareVolume(FirmwareObject):
             dlog(self, sguid(self.guid), 'Unrecognized volume GUID')
             return
 
+        # Callers advance past a volume by its size, so a volume smaller than
+        # its own header would never be stepped over.
+        if self.hdrlen < self._HEADER_SIZE or self.size < self.hdrlen:
+            dlog(self, name, 'Invalid header length or volume size')
+            return
+
         self.blocks = []
         self.block_map = ""
 
         try:
-            data = data[:self.size]
+            # data may be a memoryview of a larger image; copy this volume.
+            data = bytes(data[:self.size])
 
             self._data = data
             self.data = data[self.hdrlen:]
@@ -1438,6 +1633,7 @@ class FirmwareVolume(FirmwareObject):
     def objects(self):
         return self.firmware_filesystems or []
 
+    @limit_nesting(False)
     def process(self):
         dlog(self, self.name)
         if self.block_map is None:
@@ -1446,24 +1642,22 @@ class FirmwareVolume(FirmwareObject):
 
         self.blocks = []
 
-        block_data = self.block_map
-        while len(block_data) > 0:
-            block = block_data[:8]
-
-            block_size, block_length = struct.unpack("<II", block)
+        # A trailing partial entry (the header length is not a multiple of 8
+        # past the fixed header) is ignored.
+        for block_offset in range(0, len(self.block_map) - 7, 8):
+            block_size, block_length = struct.unpack_from(
+                "<II", self.block_map, block_offset)
             if (block_size, block_length) == (0, 0):
                 '''The block map ends with a (0, 0) block.'''
                 break
 
             self.blocks.append((block_size, block_length))
-            block_data = block_data[8:]
 
         if len(self.blocks) == 0:
             '''No block in the volume? This is a problem.'''
             dlog(self, self.name, 'No blocks discovered')
             return False
 
-        data = self.data
         self.firmware_filesystems = []
         self.raw_objects = []
         status = True
@@ -1475,58 +1669,56 @@ class FirmwareVolume(FirmwareObject):
             FIRMWARE_VOLUME_GUIDS["PFH1"],
             FIRMWARE_VOLUME_GUIDS["PFH2"],
         ]
-        for block in self.blocks:
-            if sguid(self.guid) in ffs_guids:
-                # FIXME: there may only be a single FFS, which is the FV body
-                # see https://uefi.org/sites/default/files/resources/PI_Spec_1_7_A_final_May1.pdf
-                # Volume 3, section 2.1.2
-                # and https://edk2-docs.gitbook.io/edk-ii-build-specification/2_design_discussion/22_uefipi_firmware_images
-                firmware_filesystem = FirmwareFileSystem(
-                    data[:block[0] * block[1]])
-                ffs_status = firmware_filesystem.process()
-                if not ffs_status:
-                    dlog(self, self.name, 'Could not parse FFS')
-                    status = False
-                self.firmware_filesystems.append(firmware_filesystem)
-            elif sguid(self.guid) == FIRMWARE_VOLUME_GUIDS["NVRAM_EVSA"]:
-                # If this is an NVRAM volume, there are no FFS/FFs.
-                self.raw_objects.append(
-                    NVARVariableStore(data[:block[0] * block[1]]))
-            else:
-                self.raw_objects.append(data[:block[0] * block[1]])
-            data = data[block[0] * block[1]:]
+        # The block map describes the geometry of the whole volume, header
+        # included. The body after the header is a single file system, see
+        # the PI Specification 1.7 Errata A, volume 3, section 2.1.2.
+        if sguid(self.guid) in ffs_guids:
+            firmware_filesystem = FirmwareFileSystem(self.data)
+            if not firmware_filesystem.process():
+                dlog(self, self.name, 'Could not parse FFS')
+                status = False
+            self.firmware_filesystems.append(firmware_filesystem)
+        elif sguid(self.guid) == FIRMWARE_VOLUME_GUIDS["NVRAM_EVSA"]:
+            # If this is an NVRAM volume, there are no FFS/FFs.
+            store = NVARVariableStore(self.data)
+            store.process()
+            self.raw_objects.append(store)
+        else:
+            self.raw_objects.append(self.data)
         return status
 
     def build(self, generate_checksum=False, debug=False):
-        # Generate blocks from FirmwareFileSystems
         data = b""
-        block_map = b""
-        for (filesystem, block) in zip(self.firmware_filesystems, self.blocks):
+        for filesystem in self.firmware_filesystems:
             data += filesystem.build(generate_checksum)
-            if generate_checksum:
-                # The full FV (header + block_map + data) must fit in n_blocks.
-                total = self.hdrlen + len(data)
-                n_blocks = (total + block[1] - 1) // block[1]
+        for raw_object in self.raw_objects:
+            if isinstance(raw_object, bytes):
+                data += raw_object
             else:
-                n_blocks = block[0]
-            padding = (n_blocks * block[1]) - (self.hdrlen + len(data))
-            if padding > 0:
-                print ("%s adding %s-bytes to filesystem" % (
-                    red("Warning"),
-                    red(padding),
-                ))
-                data += b"\xff" * padding
-            elif padding < 0:
-                print ("%s truncating %s-bytes from filesystem" % (
-                    red("Warning"),
-                    red(padding),
-                ))
-                data = data[:padding]
-            block_map += struct.pack("<II", n_blocks, block[1])
-        # Add a trailing-NULL to the block map
-        block_map += b"\x00" * 8
+                data += raw_object.build(generate_checksum)
 
-        size = len(data) + len(block_map) + self._HEADER_SIZE
+        # Without new checksums the volume keeps its block map and size. The
+        # size is the bytes the volume had, which is less than its header
+        # claims when the image was cut short.
+        block_map = self.block_map
+        size = len(self._data)
+        if generate_checksum:
+            block_map, size = self._fit_block_map(self.hdrlen + len(data))
+
+        padding = size - (self.hdrlen + len(data))
+        if padding > 0:
+            # Free space is erased, which sets every bit when the volume's
+            # erase polarity is 1.
+            erased = b"\xff" if self.attributes & 0x800 else b"\x00"
+            data += erased * padding
+        elif padding < 0:
+            print ("%s truncating %s-bytes from FirmwareVolume: %s" % (
+                red("Warning"),
+                red(-padding),
+                red(sguid(self.guid))
+            ))
+            data = data[:padding]
+
         if generate_checksum:
             self.size = size
             header = struct.pack(
@@ -1535,24 +1727,10 @@ class FirmwareVolume(FirmwareObject):
                 self.magic, self.attributes, self.hdrlen,
                 0, self.exthdroff, self.rsvd2, self.revision
             )
-            self.checksum = calculate_checksum16(header + block_map)
-        elif self.size > size:
-            print ("%s adding %s-bytes to FirmwareVolume: %s" % (
-                red("Warning"),
-                red(self.size - size),
-                red(sguid(self.guid))
-            ))
-            trailing_bytes = b"\x00" * (self.size - size)
-            data = data + trailing_bytes
-        elif self.size < size:
-            print ("%s truncating %s-bytes from FirmwareVolume: %s" % (
-                red("Warning"),
-                red(size - self.size),
-                red(sguid(self.guid))
-            ))
-            # self.size - size gives us negative how many bytes to truncate
-            # arr[:-2] gives us arr without last 2 elem
-            data = data[:self.size - size]
+            # A valid header has an even length; pad one that does not.
+            checksummed = header + block_map
+            self.checksum = calculate_checksum16(
+                checksummed + b"\x00" * (len(checksummed) % 2))
 
         header = struct.pack(
             "<16s16sQ4sIHHHsB",
@@ -1561,6 +1739,30 @@ class FirmwareVolume(FirmwareObject):
             self.checksum, self.exthdroff, self.rsvd2, self.revision
         )
         return header + block_map + data
+
+    def _fit_block_map(self, size):
+        '''Return a block map and volume size that hold size bytes.
+
+        Only the count of the last block entry changes, so the block map and
+        header keep their length.
+
+        The block map comes from the image. Unless it describes the bytes the
+        volume has, its counts and lengths are not used, or a crafted map
+        could make the volume gigabytes long.
+        '''
+        blocks = list(self.blocks)
+        total = sum(count * length for count, length in blocks)
+        if total != len(self._data) or \
+                any(count == 0 or length == 0 for count, length in blocks):
+            return self.block_map, max(size, len(self._data))
+        fixed = sum(count * length for count, length in blocks[:-1])
+        length = blocks[-1][1]
+        count = max(1, (size - fixed + length - 1) // length)
+        blocks[-1] = (count, length)
+        block_map = b"".join(
+            struct.pack("<II", count, length) for count, length in blocks)
+        block_map += self.block_map[len(block_map):]
+        return block_map, fixed + count * length
 
     def showinfo(self, ts='', index=None):
         if not self.valid_header or len(self.data) == 0:
@@ -1656,17 +1858,114 @@ class FirmwareVolume(FirmwareObject):
             'ffs': ffs,
         }
 
+    def dump_name(self):
+        '''Return the name of this volume's dump, without an extension.'''
+        # Combine the offset (if any) with the FvName GUID (if any) so that
+        # a recovery copy and its primary volume do not overwrite each other.
+        parts = [str(self.name)] if self.name is not None else []
+        if hasattr(self, 'fvname'):
+            parts.append(sguid(self.fvname))
+        return safe_path_component("volume-%s" % "-".join(parts or ["0"]))
+
     def dump(self, parent="", index=None):
         if len(self.data) == 0:
             return
 
-        path = os.path.join(parent, "volume-%s.fv" % self.name)
-        dump_data(path, self._data)
+        name = self.dump_name()
+        dump_data(safe_path(parent, "%s.fv" % name), self._data)
 
         for _ffs in self.firmware_filesystems:
-            _ffs.dump(os.path.join(parent, "volume-%s" % self.name))
+            _ffs.dump(safe_path(parent, name))
 
-1
+
+class MultiVolumeContainer(FirmwareObject):
+    '''The AutoParser attempts to search for 'stacked' UEFIFirmwareVolumes.
+
+    By default if a volume does not consist of the entire input content the
+    AutoParser will attempt to search for additional volume headers. This can
+    be disabled with the associated 'search' optional parameter.
+
+    If additional volumes are discovered this MultiVolumeContainer is returned
+    instead of a UEFIFirmwareVolume.
+    '''
+
+    def __init__(self, data, start=0):
+        '''Initialize the container with the tail content from a volume.
+
+        Args:
+            start (Optional[int]): Volumes that begin before this offset were
+                already parsed, so they are skipped.
+        '''
+        self.data = data
+        self.start = start
+        self.indexes = search_firmware_volumes(data)
+        self.volumes = []
+        # Volumes and the padding before each one, in order.
+        self.objs = []
+        # Offset of the end of the last volume.
+        self.size = 0
+
+    def has_indexes(self):
+        '''Check if any indexes were discovered.'''
+        return len(self.indexes) > 0
+
+    def append_base(self, volume):
+        '''Set the base volume as the first within the list.'''
+        self.volumes = [volume] + self.volumes
+        self.objs = [volume] + self.objs
+
+    def process(self):
+        view = memoryview(self.data)
+        # Bytes before this offset belong to a volume that was already parsed.
+        parsed_end = self.start
+        for index in self.indexes:
+            start = index - 40
+            if start < max(self.size, parsed_end):
+                # This header is inside a previous volume.
+                continue
+            volume = FirmwareVolume(view[start:], index)
+            if not volume.valid_header:
+                continue
+            # Processing a volume parses the volumes inside it, even when it
+            # fails. Searching its bytes again would parse them again, which
+            # is exponential in the nesting depth. A volume the nesting limit
+            # refuses is not parsed at all.
+            if not nesting_limit_reached():
+                parsed_end = start + volume.size
+            if volume.process():
+                if start > self.size:
+                    self.objs.append(PaddingObject(
+                        self.data[self.size:start], self.size))
+                self.volumes.append(volume)
+                self.objs.append(volume)
+                self.size = start + volume.size
+        valid = len(self.volumes) > 0
+        return valid
+
+    @property
+    def objects(self):
+        return self.objs
+
+    def showinfo(self, ts='', index=None):
+        '''Write structure information to stdout.'''
+        for obj in self.objs:
+            obj.showinfo(ts, index)
+
+    def to_dict(self):
+        return {
+            'firmwareVolumes': [volume.to_dict() for volume in self.volumes],
+        }
+
+    def dump(self, parent, index=None):
+        '''Allow a caller to dump the content of volumes.'''
+        for i, volume in enumerate(self.volumes):
+            path = os.path.join(parent, "volume-%d" % i)
+            volume.dump(path)
+        for obj in self.objs:
+            if isinstance(obj, PaddingObject):
+                obj.dump(parent)
+
+
 class FirmwareCapsule(FirmwareObject):
     '''EFI Capsule Header.
 
@@ -1697,14 +1996,14 @@ class FirmwareCapsule(FirmwareObject):
         self.data = None
 
         self.capsule_guid = data[:16]
-        self.guid = "\x00" * 16
+        self.guid = b"\x00" * 16
         if sguid(self.capsule_guid) not in FIRMWARE_CAPSULE_GUIDS:
             self.valid_header = False
             return
 
         try:
             self.parse_capsule_header(data[16:])
-        except:
+        except struct.error:
             self.valid_header = False
             return
 
@@ -1716,6 +2015,10 @@ class FirmwareCapsule(FirmwareObject):
         self.data = data[self.header_size:]
 
         pass
+
+    def is_aptio(self):
+        return sguid(self.capsule_guid) in (
+            APTIO_SIGNED_CAPSULE_GUID, APTIO_UNSIGNED_CAPSULE_GUID)
 
     def parse_capsule_header(self, data):
         if sguid(self.capsule_guid) == FIRMWARE_CAPSULE_GUIDS[0]:
@@ -1744,27 +2047,24 @@ class FirmwareCapsule(FirmwareObject):
                 "long_desc": long_desc,
                 "compatibility": compatibility
             }
-        elif sguid(self.capsule_guid) == FIRMWARE_CAPSULE_GUIDS[1]:
-            # EFI2Capsule
+        elif self.is_aptio():
+            # AMI Aptio extended capsule:
+            #   EFI_CAPSULE_HEADER + UINT16 RomImageOffset + UINT16 RomLayoutOffset
+            # RomImageOffset points to the ROM image. The body it introduces is a
+            # full SPI flash image (option ROM + several firmware volumes), not a
+            # single firmware volume.
             self.size, self.flags, self.image_size = struct.unpack(
                 "<III", data[:4 * 3])
-            fv_image, oem_header = struct.unpack("<HH", data[12:12 + 4])
+            rom_image_offset, rom_layout_offset = struct.unpack(
+                "<HH", data[12:12 + 4])
             self.offsets = {
-                "capsule_body": fv_image,
-                "oem_header": oem_header,
+                "capsule_body": rom_image_offset,
+                "oem_header": rom_layout_offset,
                 "author_info": 0
             }
-        elif sguid(self.capsule_guid) == FIRMWARE_CAPSULE_GUIDS[2]:
-            # UEFI Capsule
-            self.size, self.flags, self.image_size = struct.unpack(
-                "<III", data[:4 * 3])
-            self.offsets = {
-                "capsule_body": self.size,
-                "oem_header": 0,
-                "author_info": 0
-            }
-        elif sguid(self.capsule_guid) == FIRMWARE_CAPSULE_GUIDS[4]:
-            # AMI Aptio Capsule
+        elif sguid(self.capsule_guid) in FIRMWARE_CAPSULE_GUIDS[2:4]:
+            # UEFI Capsule, or a Firmware Management (FMP) capsule. The FMP
+            # payloads that follow the header are not parsed.
             self.size, self.flags, self.image_size = struct.unpack(
                 "<III", data[:4 * 3])
             self.offsets = {
@@ -1786,16 +2086,25 @@ class FirmwareCapsule(FirmwareObject):
         return [self.capsule_body]
 
     def process(self):
+        if not self.valid_header:
+            # The capsule GUID matched but its header is truncated.
+            return False
+
         # Copy the EOH to capsule into a preamble
         self.preamble = self.data[:self.offsets["capsule_body"]]
         self.parse_sections(None)
 
+        if self.is_aptio():
+            return self.process_rom_image()
+
         fv = FirmwareVolume(self.data[self.offsets["capsule_body"]:])
         if not fv.valid_header:
             # The body could be an offset from the end of the header (Intel
-            # does this).
-            fv = FirmwareVolume(
-                self.data[self.offsets["capsule_body"] - self.header_size:])
+            # does this). A negative offset would slice from the end.
+            body_offset = self.offsets["capsule_body"] - self.header_size
+            if body_offset < 0:
+                return False
+            fv = FirmwareVolume(self.data[body_offset:])
             if not fv.valid_header:
                 return False
 
@@ -1807,7 +2116,24 @@ class FirmwareCapsule(FirmwareObject):
         self.capsule_body = fv
         return True
 
+    def process_rom_image(self):
+        # The body at RomImageOffset is a complete SPI flash image (option ROM,
+        # padding and several firmware volumes), not a single firmware volume.
+        # CapsuleImageSize covers both the capsule header and the ROM image.
+        size = min(self.image_size, len(self._data))
+        volumes = MultiVolumeContainer(
+            self._data[self.offsets["capsule_body"]:size])
+        if not volumes.process():
+            return False
+        self.size = size
+        self.capsule_body = volumes
+        return True
+
     def build(self, generate_checksum=False, debug=False):
+        if self.is_aptio():
+            # The ROM image is not rebuilt from its volumes, keep the raw bytes.
+            return self._data[:self.size]
+
         if self.capsule_body is not None:
             body = self.capsule_body.build(generate_checksum, debug=debug)
         else:
@@ -1864,14 +2190,16 @@ class FirmwareCapsule(FirmwareObject):
         if len(self.data) == 0:
             return
 
-        path = os.path.join(parent, "capsule-%s.cap" % self.name)
-        dump_data(path, self._data)
+        name = "capsule-%s" % self.name
+        if index:
+            # Another capsule may come first in the same file.
+            name += "-%d" % index
+        dump_data(safe_path(parent, "%s.cap" % name), self._data)
 
         if self.capsule_body is not None:
-            self.capsule_body.dump(
-                os.path.join(parent, "capsule-%s" % self.name))
+            self.capsule_body.dump(safe_path(parent, name))
         else:
             # Write the raw image data from the capsule.
-            path = os.path.join(parent, "capsule-%s.image" % self.name)
+            path = safe_path(parent, "%s.image" % name)
             offset = self.offsets["capsule_body"]
             dump_data(path, self.data[offset:offset + self.image_size])

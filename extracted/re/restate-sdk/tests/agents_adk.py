@@ -36,6 +36,7 @@ from support import RESTATE_IMAGE, Gate  # noqa: E402  # pylint: disable=import-
 from restate import HarnessEnvironment, sessions  # noqa: E402
 from restate.agents import adk, tool  # noqa: E402
 from restate.agents._api import Messages  # noqa: E402
+from restate.agents._signals import with_companion  # noqa: E402
 from restate.agents.internal import CANCELLED  # noqa: E402
 
 
@@ -45,6 +46,9 @@ def anyio_backend():
 
 
 pytestmark = [pytest.mark.anyio]
+
+REVISION = b'{"revision": 1}'
+"""What the agent's companion answers a turn's ``start`` and each ``publish`` with: the revision."""
 
 
 class AuthenticationError(Exception):
@@ -606,13 +610,61 @@ async def test_an_answer_stored_before_a_crash_is_not_asked_for_again(
         return await adk.prompt(ctx, text, model=Answering())
 
     backend, invocation = Backend(), request()
-    host = Host(backend, service="asker", answers={"publish": b"null"})
+    host = Host(backend, service="asker", answers={"publish": REVISION})
     with pytest.raises(RuntimeError, match="crashed after storing"):
         await invoke(asker, "ask", host, invocation, "hi")
     # The retry (the same invocation) returns the answer that was stored, without asking the model again.
-    host = Host(backend, service="asker", answers={"publish": b"null"})
+    host = Host(backend, service="asker", answers={"publish": REVISION})
     assert await invoke(asker, "ask", host, invocation, "hi") == "answer 1"
     assert replies == ["asked"]
+
+
+async def test_a_plain_turn_commits_its_final_response_end_of_agent_and_answer_at_once():
+    from google.adk.events import Event  # pylint: disable=import-outside-toplevel
+    from sessions_database import Backend  # pylint: disable=import-error,import-outside-toplevel
+    from sessions_object import Host, request  # pylint: disable=import-error,import-outside-toplevel
+
+    from restate.sessions.internal import invoke  # pylint: disable=import-outside-toplevel
+
+    class Syncing(Host):
+        syncs: int = 0
+
+        async def sync(self) -> None:
+            await super().sync()
+            self.syncs += 1
+
+    host: list[Syncing] = []
+    asked: list[int] = []
+
+    class Answering(BaseLlm):
+        model: str = "answering"
+
+        async def generate_content_async(
+            self, llm_request: LlmRequest, stream: bool = False
+        ) -> AsyncGenerator[LlmResponse, None]:
+            asked.append(host[0].syncs)
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text="hello")]))
+
+    asker = sessions.SessionObject("asker")
+
+    @asker.handler
+    async def ask(ctx: sessions.SessionContext, text: str) -> str:
+        return await adk.prompt(ctx, text, model=Answering())
+
+    @asker.handler
+    async def stored(ctx: sessions.SessionContext) -> list[bool]:
+        rows = await ctx.db.values("SELECT item FROM restate_agent_items ORDER BY n")
+        return [end_of_agent(Event.model_validate_json(str(item))) for [item] in rows]
+
+    backend = Backend()
+    for text in ("first", "second"):
+        host[:] = [Syncing(backend, service="asker", answers={"publish": REVISION})]
+        assert await invoke(asker, "ask", host[0], request(), text) == "hello"
+    # The second turn (the conversation's tables exist): from the model's response on, one commit, which has the
+    # final response, the end of the agent and the answer.
+    assert host[0].syncs - asked[-1] == 1
+    ends = await invoke(asker, "stored", Syncing(backend, service="asker"), request())
+    assert ends.count(True) == 2 and len(ends) == 4
 
 
 async def test_an_app_of_your_own_keeps_its_plugins_and_gets_this_packages_tools():
@@ -643,7 +695,9 @@ async def test_an_app_of_your_own_keeps_its_plugins_and_gets_this_packages_tools
     backend = Backend()
 
     async def asked(text: str) -> Any:
-        return await invoke(asker, "ask", Host(backend, service="asker", answers={"publish": b"null"}), request(), text)
+        return await invoke(
+            asker, "ask", Host(backend, service="asker", answers={"publish": REVISION}), request(), text
+        )
 
     assert await asked("system x") == "system: Mine."
     assert await asked("weather Rome") == "tool said: sunny in Rome"
@@ -670,7 +724,7 @@ def asking(agent: Any = None, backend: Any = None, **options: Any) -> Callable[.
     backend = backend or Backend()
 
     async def asked(text: str, invocation: Any = None) -> Any:
-        host = Host(backend, service="asker", answers={"publish": b"null"})
+        host = Host(backend, service="asker", answers={"publish": REVISION})
         return await invoke(asker, "ask", host, invocation or request(), text)
 
     asked.backend = backend  # type: ignore[attr-defined]
@@ -1007,7 +1061,7 @@ async def test_a_step_after_which_adk_asks_the_model_nothing_takes_no_steered_me
         return await steer_stored(ctx.db, "s1")
 
     backend = Backend()
-    host = Host(backend, service="asker", answers={"publish": b"null"})
+    host = Host(backend, service="asker", answers={"publish": REVISION})
     answer = await invoke(asker, "ask", host, request(), "weather")
     assert answer == ('{"summary": "sunny"}' if output else "")
     # No request after the tool's result: the turn left the message to a turn of its own.
@@ -1026,7 +1080,7 @@ async def test_a_steered_message_starts_an_invocation_of_its_own_which_a_retry_r
     from restate.agents._turn import _INBOX, Inbox  # pylint: disable=import-outside-toplevel
     from restate.sessions.internal import invoke  # pylint: disable=import-outside-toplevel
 
-    inbox = Inbox(revision=0)
+    inbox = Inbox(revision=1)  # as the companion's start returned it, which each publish answers again
     crashed: list[bool] = []
 
     def get_weather(city: str) -> str:  # pylint: disable=redefined-outer-name
@@ -1048,6 +1102,7 @@ async def test_a_steered_message_starts_an_invocation_of_its_own_which_a_retry_r
 
     steps = SequentialAgent(name="steps", sub_agents=[LlmAgent(name="step", model=Crashing(), tools=[get_weather])])
     asker = sessions.SessionObject("asker")
+    with_companion(asker)  # the companion it takes steered messages from, as an agent's
 
     @asker.handler
     async def ask(ctx: sessions.SessionContext, text: str) -> str:
@@ -1058,7 +1113,7 @@ async def test_a_steered_message_starts_an_invocation_of_its_own_which_a_retry_r
     backend, invocation = Backend(), request()
 
     async def attempt() -> Any:
-        host = Host(backend, service="asker", answers={"publish": b"null"})
+        host = Host(backend, service="asker", answers={"publish": REVISION})
         return await invoke(asker, "ask", host, invocation, "weather Rome")
 
     with pytest.raises(RuntimeError, match="crashed after the steered message was stored"):

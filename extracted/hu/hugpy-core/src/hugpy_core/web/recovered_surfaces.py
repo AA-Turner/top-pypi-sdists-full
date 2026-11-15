@@ -391,11 +391,38 @@ def central_connect(path=""):
     return {"ok": True, **central_store.rescan()}
 
 
+_NATIVE_KNOBS = (     # the native Wrapper's box-wide choices (its "*" options row), as the console lists knobs
+    {"key": "alloc_mode", "label": "Placement", "type": "choice",
+     "help": "where models go: auto, gpu-only, gpu-max, ram-only, ram-max, swap-only, disk_mmap-only, moe"},
+    {"key": "limit_gib", "label": "Most per tier (GiB)", "type": "object", "help": "{gpu, ram, swap}: the most a model is given of each"},
+    {"key": "bnb_4bit", "label": "4-bit", "type": "boolean", "help": "load models in 4-bit where their engine can"},
+    {"key": "auto_goal", "label": "Auto goal", "type": "choice", "help": "speed or quality"},
+    {"key": "ctx", "label": "Context, at most", "type": "integer", "help": "tokens"},
+    {"key": "ctx_min", "label": "Context, at least", "type": "integer", "help": "tokens"},
+)
+
+
+def _native_box_settings(name):
+    """A native Wrapper (no /v1/settings/*): its box-wide choices are its "*" options row (GET /v1/models/options
+    ?model=*), the same surface box_settings_post already writes through (intake/wrapper_settings.native_command)."""
+    from hugpy_core.intake.wrapper_settings import _NATIVE_BACK
+    response = _proxy_worker(name, "/v1/models/options?model=%2A")
+    if not (isinstance(response, tuple) and response[1] < 400):
+        return response
+    offered = response[0].get_json() or {}
+    chosen = offered.get("chosen") or {}
+    return {"settings": {_NATIVE_BACK[k]: v for k, v in chosen.items() if k in _NATIVE_BACK},
+            "accepts": [k["key"] for k in _NATIVE_KNOBS], "box_only_accepts": [], "knobs": list(_NATIVE_KNOBS),
+            "box_knobs": [], "sliders": offered.get("sliders") or {}, "schema_source": "wrapper-options"}
+
+
 def box_settings_get(name):
     """The worker's box settings with the worker's OWN schema (its /v1/settings/schema):
     the console shows exactly the settings that wrapper has — labels, ranges and help
     as it reports them. Core keeps no copy of the schema."""
     response = _proxy_worker(name, "/v1/settings/box")
+    if isinstance(response, tuple) and response[1] == 404:
+        return _native_box_settings(name)
     if not (isinstance(response, tuple) and response[1] < 400):
         return response
     data = response[0].get_json()
@@ -609,64 +636,49 @@ def storage_owners():
     return {'owners': owners}
 
 
+def fleet_central_catalog(all=None, **_):
+    """GET /fleet/central/catalog[?all=1]: the fleet's models (each once, with the hosts and drives that hold it);
+    entries no engine serves and Discovery gives no task are left out unless ?all=1."""
+    from hugpy_core.registry import fleet_central
+    models = fleet_central.catalog(include_unservable=str(all or "").lower() in ("1", "true", "yes"))
+    return {"models": models, "hosts": sorted({h["holder"] for m in models for h in m["holders"]})}
+
+
+def fleet_central_copies(limit=200):
+    """GET /fleet/central/copies: the copies Core arranged between hosts' central drives, newest first."""
+    from hugpy_core.registry import fleet_central
+    return {"copies": fleet_central.copies(limit=int(limit or 200))}
+
+
+def fleet_central_copy_cancel(copy_id=None, **_):
+    """POST /fleet/central/copies/<id>/cancel: the destination stops it; the holders' offers are closed."""
+    from hugpy_core.registry import fleet_central
+    try:
+        return fleet_central.cancel(copy_id)
+    except LookupError as exc:
+        return _error(str(exc), 404)
+
+
+def worker_central_fetch(name, model_key=None, key=None, variation=None, holder=None, **_):
+    """POST /fleet/workers/<name>/central-fetch {key, variation, holder?}: Core suggests to <name> a copy of the
+    model onto its central drive from a host that holds it; <name>'s Wrapper pulls it through Core's relay."""
+    from hugpy_core.registry import fleet_central
+    key = key or model_key
+    if not isinstance(key, str) or not key or not isinstance(variation, str) or not variation:
+        return _error("key and variation are required", 400)
+    try:
+        return fleet_central.fetch(name, key, variation, holder=holder), 202
+    except LookupError as exc:
+        return _error(str(exc), 404)
+    except (OSError, RuntimeError, ValueError) as exc:
+        return _error(str(exc), 502)
+
+
 def delegate_transfer(name, **body):
-    """Core chooses an enrolled source; the destination owns all filesystem work."""
-    from hugpy_core.registry import registry
-    key, drive = body.get('model_key'), body.get('destination_drive')
-    if not isinstance(key, str) or not key or not isinstance(drive, str) or not drive:
-        return _error('model_key and destination_drive are required', 400)
-    if _worker(name) is None:
-        return _error('Unknown destination worker', 404)
-    response = _proxy_worker(name, '/v1/drives')
-    if not isinstance(response, tuple) or response[1] != 200:
-        return response
-    report = response[0].get_json()
-    if 'receive-model-v1' not in report.get('transfer_capabilities', []):
-        return _error('Destination wrapper requires the receive-model upgrade', 409)
-    roots = report.get('drives', []) + report.get('central_drives', [])
-    if not any(r.get('drive_id') == drive and r.get('writable') for r in roots):
-        return _error('Destination is not an advertised writable drive', 409)
-    requested = body.get('source_worker')
-    candidates = [w for w in registry.all_workers()
-                  if key in (w.get('models_central') or {}) or key in (w.get('models_discovered') or {})]
-    candidates.sort(key=lambda w: (0 if key in (w.get('models_central') or {}) else 1,
-                                   str(w.get('name') or w.get('id'))))
-    if requested:
-        candidates = [w for w in candidates if (w.get('name') or w.get('id')) == requested]
-    source = next((_worker(w.get('name') or w.get('id')) for w in candidates
-                   if _worker(w.get('name') or w.get('id')) is not None), None)
-    protocol = 'wrapper'
-    # Every byte goes through Core (operator 2026-10-23): the destination pulls from
-    # Core's address, which every worker reaches; Core streams from the source
-    # wrapper (web/transfer_relay.py). The credential is for this transfer only.
-    from hugpy_core.web.transfer_relay import mint
-    core_url = (os.environ.get('HUGPY_CORE_URL') or '').rstrip('/')
-    if not core_url:
-        return _error('Core requires HUGPY_CORE_URL to relay a delegated transfer', 409)
-    if source:
-        owner = source['name']
-        # Core's API lives under /api (bare /fleet/* and /llm/* are the web apps)
-        url = core_url + '/api/fleet/workers/' + urllib.parse.quote(owner, safe='')
-        headers = {'Authorization': 'Bearer ' + mint(owner, key, name)}
-    elif not requested or requested == 'core':
-        from hugpy_core.registry import central_store
-        if not any(r['model_key'] == key for r in central_store.rows()):
-            return _error('No enrolled source reports this model', 409)
-        url = core_url + '/api'
-        headers = {'Authorization': 'Bearer ' + mint('core', key, name)}
-        protocol, owner = 'core', None
-    else:
-        return _error('Requested source does not report this model', 409)
-    # Source credentials are sent only to the destination job, never returned.
-    response = _proxy_worker(name, '/v1/operator/actions', {
-        'action': 'receive-model', 'model_key': key, 'requested_by': 'core transfer',
-        'params': {'source_url': url, 'source_protocol': protocol, 'headers': headers,
-                   'destination_drive': drive, 'file': body.get('file')}})
-    if isinstance(response, tuple) and response[1] < 400:
-        result = response[0].get_json()
-        result.update({'source_worker': owner, 'destination_worker': name, 'destination_drive': drive})
-        return result, response[1]
-    return response
+    """Retired 2026-11-14: it sent the fitevict Wrapper's receive-model action and pulled its /v1/transfer routes,
+    which no Wrapper serves since the rewrite. A copy between hosts is POST /fleet/workers/<name>/central-fetch."""
+    return _error("Retired: copies between hosts are POST /fleet/workers/<name>/central-fetch {key, variation}"
+                  " (one central made of every host's central drive)", 410)
 
 
 def delete_worker_model_files_get(name, model_key=None):
@@ -720,6 +732,11 @@ ALL_CATEGORIES = {
             "drives": [spec(central_drives, "GET", response="native"),      # /fleet/central/drives
                        spec(central_drives_save, "POST", response="native")],
             "connect": spec(central_connect, "POST", response="native"),    # /fleet/central/connect
+            "catalog": spec(fleet_central_catalog, "GET", response="native"),  # every host's central, merged
+            "copies": {
+                "": spec(fleet_central_copies, "GET", response="native"),      # copies between hosts' centrals
+                "<int:copy_id>": {"cancel": spec(fleet_central_copy_cancel, "POST", response="native")},
+            },
         },
         "storage": {
             "owners": spec(storage_owners, "GET", response="native"),       # /fleet/storage/owners
@@ -762,6 +779,7 @@ ALL_CATEGORIES = {
                     "task": spec(worker_station_task, "POST", response="native"),
                 },
                 "transfers": spec(delegate_transfer, "POST", response="native"),
+                "central-fetch": spec(worker_central_fetch, "POST", response="native"),
                 "updates": {
                     # GET lists; POST needs the EXACT approved=True bool (merged
                     # inputs would coerce it to 1), so this stays a raw reader.

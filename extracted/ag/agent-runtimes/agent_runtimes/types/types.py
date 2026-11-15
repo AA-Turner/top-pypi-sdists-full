@@ -93,6 +93,14 @@ class SkillSpec(BaseModel):
     enabled: bool = Field(
         default=False, description="Whether the platform offers this skill today"
     )
+    ui: List["UiChoiceSpec"] = Field(
+        default_factory=list,
+        description=(
+            "The UI plugins it brings to the chat that uses it (agentspecs "
+            "0.0.196): each ``{plugin, renderer}`` of agentspecs ``ui/``, "
+            "injected after the agent's own while it is in use"
+        ),
+    )
     # Variant 1: module-based discovery
     module: Optional[str] = Field(
         default=None, description="Python module path for name-based discovery"
@@ -180,6 +188,14 @@ class BackendToolSpec(BaseModel):
     description: str = Field(default="", description="Tool description")
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
     enabled: bool = Field(default=True, description="Whether the tool is enabled")
+    ui: List["UiChoiceSpec"] = Field(
+        default_factory=list,
+        description=(
+            "The UI plugins it brings to the chat that uses it (agentspecs "
+            "0.0.196): each ``{plugin, renderer}`` of agentspecs ``ui/``, "
+            "injected after the agent's own while it is in use"
+        ),
+    )
     approval: str = Field(
         default="auto",
         description="Approval policy for the tool ('auto' or 'manual')",
@@ -191,6 +207,14 @@ class BackendToolSpec(BaseModel):
     runtime: BackendToolRuntimeSpec = Field(
         ...,
         description="Runtime binding metadata",
+    )
+    linked_accounts: List[str] = Field(
+        default_factory=list,
+        description=(
+            "The accounts the person links in Settings that set it up, one of "
+            "them enough (``x``, ``bluesky``; agentspecs 0.0.189): no secret is "
+            "pasted for it"
+        ),
     )
     icon: Optional[str] = Field(
         default=None,
@@ -369,6 +393,13 @@ class UISpec(BaseModel):
         default_factory=list,
         description="The UI renderers it may be exposed through, ids of `agentspecs/ui-renderers`",
     )
+    placements: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Where in the chat it may go, its default first: header, toolbar, footer, "
+            "banner, panel or message (agentspecs 0.0.197)"
+        ),
+    )
     catalog: str = Field(
         default="", description="The catalog its components are written in"
     )
@@ -404,6 +435,10 @@ class UiChoiceSpec(BaseModel):
     renderer: Optional[str] = Field(
         default=None,
         description="The UI renderer of `agentspecs/ui-renderers` it is exposed through, by id",
+    )
+    placement: Optional[str] = Field(
+        default=None,
+        description="Where in the chat it goes, one of its spec's placements; its default unsaid",
     )
 
     @model_validator(mode="before")
@@ -1606,6 +1641,14 @@ class MCPServer(BaseModel):
         default=None,
         description="Unicode emoji for UI display",
     )
+    ui: List[UiChoiceSpec] = Field(
+        default_factory=list,
+        description=(
+            "The UI plugins it brings to the chat that uses it (agentspecs "
+            "0.0.196): each ``{plugin, renderer}`` of agentspecs ``ui/``, "
+            "injected after the agent's own while it is in use"
+        ),
+    )
     url: str = Field(
         default="",
         description=(
@@ -2065,6 +2108,23 @@ class AppVoiceSpec(BaseModel):
 RUNTIME_ENGINES: tuple[str, ...] = ("datalayer", "kagent", "agentcore")
 
 
+class AgentspecOptional(BaseModel):
+    """What an agent starts without (agentspecs 0.0.188, the user, 14 November 2026).
+
+    MCP servers and skills of the agent's own, by id without version: one
+    whose secrets are not set up is left out, and the agent told which,
+    instead of holding the start back. ``at_least_one`` lists groups of these
+    of which one at least must be set up.
+    """
+
+    mcp_servers: List[str] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
+    #: Backend tools set up by an account the person linked (``linked_accounts``,
+    #: agentspecs 0.0.189): the posting tools, left out while it is not linked.
+    backend_tools: List[str] = Field(default_factory=list)
+    at_least_one: List[List[str]] = Field(default_factory=list)
+
+
 class Agentspec(BaseModel):
     """
     Specification for an AI agent.
@@ -2092,6 +2152,13 @@ class Agentspec(BaseModel):
             "Whether the pickers offer the agent (the new agent page, the chats, "
             "the assign menu, loop's pickers): an enabled agent that is not "
             "listed runs by id and as a default, without being offered"
+        ),
+    )
+    optional: Optional[AgentspecOptional] = Field(
+        default=None,
+        description=(
+            "The MCP servers and skills the agent starts without when their "
+            "secrets are not set up, and groups of which one must be"
         ),
     )
     model: Optional[str] = Field(

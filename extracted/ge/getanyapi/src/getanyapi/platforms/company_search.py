@@ -27,9 +27,9 @@ class CompanySearchAiArkInput(TypedDict, total=False):
     account: NotRequired[dict[str, Any]]
     """AI Ark account filter expression. Nested generic any/all filter objects are accepted as documented by the source and are not further constrained."""
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     lists: NotRequired[dict[str, Any]]
     """AI Ark saved-list filter expression."""
     lookalikeDomains: NotRequired[list[str]]
@@ -43,21 +43,52 @@ class CompanySearchAiArkInput(TypedDict, total=False):
     size: NotRequired[int]
     """Maximum companies to return on this page. Range: 1 to 100. Default: 10."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanySearchAviatoInput(TypedDict, total=False):
+    """Input for Company Search - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    city: NotRequired[str]
+    """Headquarters city, e.g. San Francisco."""
+    country: NotRequired[str]
+    """Headquarters country, e.g. United States."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    industries: NotRequired[list[str]]
+    """Aviato industry labels, any of which matches, e.g. ["Software & SaaS"]. Company Enrichment - Aviato shows a company's labels."""
+    limit: NotRequired[int]
+    """Companies per page. A page costs the same at any size. Range: 1 to 250. Default: 100."""
+    maxHeadcount: NotRequired[int]
+    """Largest current employee count. Minimum: 0."""
+    minHeadcount: NotRequired[int]
+    """Smallest current employee count. Minimum: 0."""
+    offset: NotRequired[int]
+    """Companies to skip before this page, for paging. At most 10000. Range: 0 to 10000. Default: 0."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    query: NotRequired[str]
+    """Words in the company name, matched by full-text search."""
+    region: NotRequired[str]
+    """Headquarters state or region, e.g. California."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanySearchCrustdataInput(TypedDict, total=False):
     """Input for Company Search - Crustdata."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     cursor: NotRequired[str]
     fields: NotRequired[Any]
     """Response groups to return. Omit for the default set: basic_info, headcount, funding, revenue, locations, social_profiles, taxonomy, followers and metadata."""
     filters: Required[dict[str, Any]]
     """Crustdata company-search filter expression. A condition is {"field": <field>, "type": <operator>, "value": <match>}; a group is {"op": "and"|"or", "conditions": [<condition or group>, ...]}. Pass one condition or one group. Operators: = != < =< > => in not_in (.) (fuzzy text) [.] (exact token). Common fields: basic_info.primary_domain, basic_info.name, basic_info.industries, basic_info.employee_count_range, basic_info.year_founded, headcount.total, headcount.growth_percent.12m, locations.country, locations.headquarters, taxonomy.professional_network_industry, funding.last_round_type, funding.total_investment_usd, funding.last_fundraise_date, revenue.estimated.lower_bound_usd, followers.count. An `in` list takes at most 5 values."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
     """Maximum companies to return on this page. Every company returned is billed; the page is capped at 250 to bound the cost of a single call. Range: 1 to 250. Default: 10."""
     preferLatencyUnderMs: NotRequired[int]
@@ -65,34 +96,34 @@ class CompanySearchCrustdataInput(TypedDict, total=False):
     sorts: NotRequired[list[dict[str, Any]]]
     """Sort directives applied in order, each {"field": <field>, "order": "asc"|"desc"}. Sortable fields include basic_info.name, basic_info.year_founded, headcount.total, funding.total_investment_usd, funding.last_fundraise_date, revenue.estimated.lower_bound_usd and followers.count."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanySearchCrustdataV3Input(TypedDict, total=False):
     """Input for Company Search - Crustdata v3 (legacy)."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     cursor: NotRequired[str]
     fields: NotRequired[Any]
     filters: Required[Any]
     """Crustdata company-database filter expression. A leaf condition is {"filter_type": <column>, "type": <operator>, "value": <match>}; a group is {"op": "and"|"or", "conditions": [<leaf>, ...]}. Pass a single leaf, an array of leaves, or a group. See the example for a domain lookup."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
     """Maximum companies to return on this page. Every company returned is billed; the page is capped at 250 to bound the cost of a single call. Range: 1 to 250. Default: 10."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     sorts: NotRequired[list[dict[str, Any]]]
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanySearchFullenrichInput(TypedDict, total=False):
     """Input for Company Search - FullEnrich."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     companyIds: NotRequired[list[dict[str, Any]]]
     """Filter by FullEnrich company id. Each entry is an object taking a `value` string and an optional `exact_match` boolean, e.g. [{"value": "stripe.com", "exact_match": true}]. A bare string is rejected."""
     cursor: NotRequired[str]
@@ -106,7 +137,7 @@ class CompanySearchFullenrichInput(TypedDict, total=False):
     headquartersLocations: NotRequired[list[dict[str, Any]]]
     """Filter by headquarters city, region or country. Each entry is an object taking a `value` string and an optional `exact_match` boolean, e.g. [{"value": "stripe.com", "exact_match": true}]. A bare string is rejected."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     industries: NotRequired[list[dict[str, Any]]]
     """Filter by company industry, e.g. Software Development. Each entry is an object taking a `value` string and an optional `exact_match` boolean, e.g. [{"value": "stripe.com", "exact_match": true}]. A bare string is rejected."""
     keywords: NotRequired[list[dict[str, Any]]]
@@ -122,7 +153,7 @@ class CompanySearchFullenrichInput(TypedDict, total=False):
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     specialties: NotRequired[list[dict[str, Any]]]
     """Filter by company specialty. Each entry is an object taking a `value` string and an optional `exact_match` boolean, e.g. [{"value": "stripe.com", "exact_match": true}]. A bare string is rejected."""
     types: NotRequired[list[dict[str, Any]]]
@@ -133,11 +164,11 @@ class CompanySearchPeopledatalabsInput(TypedDict, total=False):
     """Input for Company Search - People Data Labs."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     dataInclude: NotRequired[str]
     """Comma-separated People Data Labs fields to include, or a leading - list to exclude. Projection changes the payload only; billing still follows companies returned."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     limit: NotRequired[int]
     """Maximum companies to return. Every company returned is billed, so start at 1 to check a query and read total before asking for more. Range: 1 to 83. Default: 10."""
     preferLatencyUnderMs: NotRequired[int]
@@ -145,7 +176,7 @@ class CompanySearchPeopledatalabsInput(TypedDict, total=False):
     query: NotRequired[dict[str, Any]]
     """Elasticsearch-style query over the People Data Labs company dataset, e.g. {"bool": {"must": [{"term": {"website": "posthog.com"}}]}}. Send this or sql, never both."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     sql: NotRequired[str]
     """People Data Labs SQL, in the form SELECT * FROM company WHERE ... . String literals take single quotes, only SELECT * is supported, and field names must be real People Data Labs company fields including nested subfields such as location.country. Do not include a LIMIT clause; People Data Labs rejects it. Use limit instead. Send this or query, never both."""
     titlecase: NotRequired[bool]
@@ -156,7 +187,7 @@ class CompanySearchProspeoInput(TypedDict, total=False):
     """Input for Company Search - Prospeo."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     company: NotRequired[dict[str, Any]]
     """Filter by company names or websites, e.g. {"names": {"include": ["Stripe"]}, "websites": {"include": ["stripe.com"]}}."""
     companyAttributes: NotRequired[dict[str, Any]]
@@ -196,20 +227,20 @@ class CompanySearchProspeoInput(TypedDict, total=False):
     companyType: NotRequired[Literal["Private", "Public", "Non Profit", "Other"]]
     """Filter by ownership type."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     page: NotRequired[int]
     """Page number, one-based. Prospeo returns 25 results per page and charges one flat price per page. Minimum: 1. Default: 1."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanySearchQuickenrichInput(TypedDict, total=False):
     """Input for Company Search - QuickEnrich."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     city: NotRequired[dict[str, Any]]
     """Filter on city name."""
     companyDomain: NotRequired[dict[str, Any]]
@@ -223,7 +254,7 @@ class CompanySearchQuickenrichInput(TypedDict, total=False):
     homePageText: NotRequired[dict[str, Any]]
     """Filter on words found in the company home page text."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     includeFullText: NotRequired[bool]
     """Return the full home page text on each company instead of a snippet."""
     industry: NotRequired[dict[str, Any]]
@@ -241,14 +272,14 @@ class CompanySearchQuickenrichInput(TypedDict, total=False):
     services: NotRequired[dict[str, Any]]
     """Filter on the services a company lists."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanySearchTheirstackInput(TypedDict, total=False):
     """Input for Company Search - TheirStack."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     companyCountryCodeNot: NotRequired[list[str]]
     """Return companies whose HQ country code is not any of the ones passed here, case sensitive. Pass ISO2 country codes."""
     companyCountryCodeOr: NotRequired[list[str]]
@@ -279,9 +310,9 @@ class CompanySearchTheirstackInput(TypedDict, total=False):
     """(Use `property_exists_or / property_exists_and` instead) Only return companies with a LinkedIn URL"""
     companyLinkedinUrlOr: NotRequired[list[str]]
     """Return companies whose LinkedIn URL matches any of the slugs passed here. Can also pass full LinkedIn company URLs."""
-    companyListIdNot: NotRequired[list[str]]
+    companyListIdNot: NotRequired[list[int]]
     """Return companies that don't belong to any of the company lists passed here"""
-    companyListIdOr: NotRequired[list[str]]
+    companyListIdOr: NotRequired[list[int]]
     """Return companies that belong to any of the company lists passed here"""
     companyLocationPatternOr: NotRequired[list[str]]
     """Return companies whose city matches any of the patterns passed here. Case insensitive. For example, if you pass 'san francisco', it will return companies whose city is 'San Francisco', 'San Francisco Bay Area', etc."""
@@ -310,12 +341,12 @@ class CompanySearchTheirstackInput(TypedDict, total=False):
     fundingStageOr: NotRequired[list[str]]
     """Funding stages of companies returned. Possible values: ['angel', 'convertible_note', 'debt_financing', 'equity_crowdfunding', 'other', 'private_equity', 'seed', 'series_a', 'series_b', 'series_c', 'series_d', 'series_e', 'series_f', 'series_g', 'series_h', 'venture_round_not_specified', 'series_i', 'series_j', 'undisclosed', 'series_unknown', 'pre_seed', 'post_ipo_secondary', 'post_ipo_equity', 'post_ipo_debt', 'non_equity_assistance', 'late_vc', 'initial_coin_offering', 'growth_equity_vc', 'grant', 'early_vc', 'corporate_round', 'secondary_market', 'product_crowdfunding']"""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     includeTotalResults: NotRequired[bool]
     """When enabled, calculates and returns `total_results` and `total_companies` fields in the response. WARNING: This significantly slows down responses as it requires reading the entire dataset. Recommended usage: enable only for the initial request to get totals, then disable for subsequent pagination requests."""
-    industryIdNot: NotRequired[list[str]]
-    """Industry ids to exclude.You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
-    industryIdOr: NotRequired[list[str]]
+    industryIdNot: NotRequired[list[int]]
+    """Industry ids to exclude. You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
+    industryIdOr: NotRequired[list[int]]
     """Industry codes. You can use any of LinkedIn's Industry Codes V2 or GET /v0/catalog/industries"""
     industryNot: NotRequired[list[str]]
     """Names of industries, case-insensitive. Results will exclude companies that belong to any of the industries specified in this parameter. Available values: GET /v0/catalog/industries WARNING: Deprecated parameter. Use the industry_id_not field instead."""
@@ -365,7 +396,7 @@ class CompanySearchTheirstackInput(TypedDict, total=False):
     propertyExistsOr: NotRequired[list[str]]
     """Return companies that have any of these fields not null. For example, if you pass ['domain', 'linkedin_url'], it will return companies that have a domain OR a linkedin_url set."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     techFilters: NotRequired[dict[str, Any]]
     """Filter by technologies and buying intent topics detected for the company"""
     technologySlugAnd: NotRequired[list[str]]
@@ -698,6 +729,46 @@ class CompanySearchAiArkTechnologie(BaseModel):
 
     category: str | None = Field(default=None, description="Technology category.")
     name: str | None = Field(default=None, description="Technology name.")
+
+
+class CompanySearchAviatoData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    companies: list[CompanySearchAviatoCompanie] = Field(
+        description="Companies on this page, in Aviato's order."
+    )
+    total_results: int | None = Field(
+        default=None,
+        alias="totalResults",
+        description="Companies matching the filters across all pages.",
+    )
+
+
+class CompanySearchAviatoCompanie(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    city: str | None = Field(default=None, description="Headquarters city.")
+    company_id: str | None = Field(
+        default=None,
+        alias="companyId",
+        description="Aviato company id. Send it back as the companyId input of any Aviato company SKU.",
+    )
+    country: str | None = Field(default=None, description="Headquarters country.")
+    headcount: int | None = Field(default=None, description="Current employee count.")
+    industries: list[str] | None = Field(
+        default=None, description="Aviato industry labels."
+    )
+    linkedin_url: str | None = Field(
+        default=None, alias="linkedinUrl", description="LinkedIn company page URL."
+    )
+    name: str | None = Field(description="Company name.")
+    region: str | None = Field(
+        default=None, description="Headquarters state or region."
+    )
+    twitter_url: str | None = Field(
+        default=None, alias="twitterUrl", description="X (Twitter) profile URL."
+    )
+    website: str | None = Field(default=None, description="Company website URL.")
 
 
 class CompanySearchCrustdataData(BaseModel):
@@ -2548,6 +2619,28 @@ class CompanySearchNamespace:
         )
         return RunResult[CompanySearchAiArkData].model_validate(raw)
 
+    def aviato(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanySearchAviatoInput],
+    ) -> RunResult[CompanySearchAviatoData]:
+        """Company Search - Aviato
+
+        Search Aviato's company database by name, headquarters location, industry
+        and headcount, up to 250 companies per page for one flat price. Aviato
+        allows 10 searches a minute and 300 an hour across all callers.
+
+        Price: $0.003 per request.
+
+        Example:
+            res = client.company_search.aviato(country="United States", industries=["Software & SaaS"], limit=5, minHeadcount=1000)
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_search.aviato", dict(input), options
+        )
+        return RunResult[CompanySearchAviatoData].model_validate(raw)
+
     def crustdata(
         self,
         *,
@@ -2794,6 +2887,28 @@ class AsyncCompanySearchNamespace:
             "company_search.ai_ark", dict(input), options
         )
         return RunResult[CompanySearchAiArkData].model_validate(raw)
+
+    async def aviato(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanySearchAviatoInput],
+    ) -> RunResult[CompanySearchAviatoData]:
+        """Company Search - Aviato
+
+        Search Aviato's company database by name, headquarters location, industry
+        and headcount, up to 250 companies per page for one flat price. Aviato
+        allows 10 searches a minute and 300 an hour across all callers.
+
+        Price: $0.003 per request.
+
+        Example:
+            res = client.company_search.aviato(country="United States", industries=["Software & SaaS"], limit=5, minHeadcount=1000)
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_search.aviato", dict(input), options
+        )
+        return RunResult[CompanySearchAviatoData].model_validate(raw)
 
     async def crustdata(
         self,

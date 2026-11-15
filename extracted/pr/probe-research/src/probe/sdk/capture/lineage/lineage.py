@@ -132,6 +132,7 @@ import uuid
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from ....foundation.durable import removal
 from ...run.launch import open_runs as _open_runs
 from ...recording_rules import recording_rules as _ignore
 from .. import owndirs as _owndirs
@@ -487,7 +488,7 @@ class _RunReads:
         # `internal()`: opening the spool is Probe's own write -- never judged
         # by the hook, which would take this lock again past the write cap.
         with self._io, internal():
-            if self.closed:
+            if self.closed or removal.was_removed():  # removed: Probe was uninstalled under this run
                 raise OSError(f"recording of run {self.run_id} stopped")
             pid = os.getpid()
             if self._fh is None or self._fh_pid != pid:

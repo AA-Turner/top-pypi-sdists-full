@@ -44,6 +44,18 @@ class LongWamUnits(PresetUnits):
             return f"custom robot ({keys})" if keys else "custom robot"
         return super().robot_name(spec)
 
+    def robot_line(self, checkpoint: dict) -> str:
+        """The preset base's line; a custom robot whose row records no rate yet (while it
+        builds, or if its build failed: a create declares none, and a ready row carries its
+        export's) says the rate is its training run's rather than showing the preset's 30 Hz."""
+        spec = checkpoint.get("embodiment") or {}
+        if spec.get("preset") != C.CUSTOM or spec.get("action_hz"):
+            return super().robot_line(checkpoint)
+        executed = spec.get("executed_actions") or self.default_executed or self.action_horizon
+        return " · ".join([self.title or self.label, self.robot_name(spec),
+                           f"{executed} of {self.action_horizon} actions at its training "
+                           "run's rate"])
+
 
 UNITS = LongWamUnits(
     name=NAME, label=C.LONG_WAM_PUBLIC_NAME,

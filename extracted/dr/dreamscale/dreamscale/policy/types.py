@@ -62,7 +62,10 @@ BufferHealth = TypeAliasType(
 )
 ActionSmoothingMode = TypeAliasType(
     "ActionSmoothingMode",
-    Literal["auto", "output", "motion", "motion_handover", "motion_speed", "continuation"],
+    Literal[
+        "auto", "output", "motion", "motion_handover", "motion_speed", "continuation",
+        "crossfade",
+    ],
 )
 RunMode = TypeAliasType("RunMode", Literal["async", "sync"])
 SamplingMode = TypeAliasType(
@@ -171,6 +174,9 @@ class RunStrategy:
     smoothing_new_weight: float | None = None
     smoothing_correction_steps: int | None = None
     smoothing_reference_speed: float | None = None
+    # Experimental "crossfade" only: the sigmoid's time scale in action steps (its window is
+    # smoothing_correction_steps). None: an eighth of the window.
+    smoothing_time_scale: float | None = None
     dreamzero_sampling: SamplingMode | None = None
     dreamzero_commit_prefix_steps: Literal[1, 2] = 2
     # "async" asks for the next chunk while rows remain and joins it to the plan; "sync" runs
@@ -196,6 +202,7 @@ class RunStrategy:
             "motion_handover",
             "motion_speed",
             "continuation",
+            "crossfade",
         }:
             raise ValueError(
                 f"unknown action smoothing mode: {self.action_smoothing!r}"
@@ -235,6 +242,17 @@ class RunStrategy:
             if not isfinite(value) or value <= 0:
                 raise ValueError("smoothing_reference_speed must be finite and positive")
             object.__setattr__(self, "smoothing_reference_speed", value)
+        if self.smoothing_time_scale is not None:
+            value = self.smoothing_time_scale
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise ValueError("smoothing_time_scale must be finite and positive")
+            try:
+                value = float(value)
+            except (ValueError, OverflowError) as exc:
+                raise ValueError("smoothing_time_scale must be finite and positive") from exc
+            if not isfinite(value) or value <= 0:
+                raise ValueError("smoothing_time_scale must be finite and positive")
+            object.__setattr__(self, "smoothing_time_scale", value)
 
     @classmethod
     def realtime(cls) -> RunStrategy:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cylp
-Version: 0.94.2
+Version: 0.94.3
 Summary: A Python interface for CLP, CBC, and CGL
 Author: Mehdi Towhidi
 Author-email: Dominique Orban <dominique.orban@gerad.ca>, Ted Ralphs <ted@lehigh.edu>

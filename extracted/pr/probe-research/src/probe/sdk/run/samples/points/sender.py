@@ -162,7 +162,7 @@ class PointsSender:
 
     @staticmethod
     def _send_now(run: Any, step: int, update: int | None, rows: list, records: list) -> None:
-        if rows:
-            run.samples.log_metrics_many(rows)
-        for record in records:
-            run.samples.log_update(step, update, **record)
+        """One journal write for the update's rows and records: each op is a durable write this thread runs holding the
+        GIL for most of it, which the training loop beside it waits on."""
+        if rows or records:
+            run.samples.log_update_rows(step, update, rows, records)

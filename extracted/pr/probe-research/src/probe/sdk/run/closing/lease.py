@@ -43,7 +43,7 @@ class WriterLeaseMixin:
 
     def _note_lease_answer(self, resp: Any) -> None:
         """What a lease beat's answer says: the lease is registered, which rules
-        the run follows, and -- once -- that something reported this writer
+        the run follows, whether something released it, and -- once -- that something reported this writer
         dead while it still runs (its lease is GONE: its verdict reads
         `crashed` unless its own recovery reopens the run)."""
         self._lease_registered = True
@@ -53,6 +53,11 @@ class WriterLeaseMixin:
             self._lease_protocol = resp["liveness_protocol"]
         if "commands_seq" in resp:
             self._check_sample_commands(resp["commands_seq"])
+        if resp.get("lease") == "released":
+            # Released while this process still runs: its launcher ended the job (a Ray launcher releases the
+            # workers Ray had not stopped yet, `_rl_owner.release_worker_leases`). Quiet: its late writes still
+            # land, and it never reopens the run it no longer holds (`_recover_after_outage`).
+            self._is_lease_released = True
         if resp.get("lease") == "gone" and not getattr(self, "_lease_gone_warned", False):
             self._lease_gone_warned = True
             _diagnostics.warn(

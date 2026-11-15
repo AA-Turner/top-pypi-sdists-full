@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 
+from probe.foundation.durable import removal
 from probe.foundation.durable.durable import SYNC_FULL, file_lock, now_iso, write_text_atomic
 
 #: How many capture-gap records a producer file keeps; `gap_count` keeps the total. The list
@@ -100,8 +101,8 @@ class ProducersMixin:
     def note_capture_gap(self, reason: str) -> None:
         """Burn a sequence for a write that never reached the journal, so the loss is a visible
         hole, not silence (Miles' capture_gaps)."""
-        if self._producer_id is None:
-            return
+        if self._producer_id is None or removal.was_removed():
+            return  # removed: Probe was uninstalled under this process, nothing is written again
         with file_lock(self.append_lock):
             record = self._read_producer_locked(self._producer_id)
             sequence = int(record.get("last_sequence") or 0) + 1

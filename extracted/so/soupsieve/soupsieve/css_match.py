@@ -91,7 +91,34 @@ SHORT_MONTH = 30
 LONG_MONTH = 31
 FEB_MONTH = 28
 FEB_LEAP_MONTH = 29
+
+# The latest value each date and time input type accepts in browsers. The HTML spec puts no upper
+# limit on the year, but browsers store these values as a JavaScript time, which ends at
+# 275760-09-13T00:00:00Z, and reject a value whose period starts after it. Chrome, Firefox and
+# Safari agree on `date` and `datetime-local`; Chrome is the only one with `month` and `week`.
+MAX_INPUT_VALUE: dict[str, tuple[float, ...]] = {
+    'date': (275760, 9, 13),
+    'month': (275760, 9),
+    'week': (275760, 37),
+    'datetime-local': (275760, 9, 13, 0, 0, 0),
+}
 DAYS_IN_WEEK = 7
+
+
+class NthState:
+    """Lazily built positions of the siblings counted by an `nth` selector under one parent."""
+
+    __slots__ = ('pos', 'count', 'positions')
+
+    def __init__(self, pos: int, count: int, positions: dict[int, int]) -> None:
+        """Initialize."""
+
+        # Next position in the parent's contents to scan
+        self.pos = pos
+        # Number of counted siblings found so far
+        self.count = count
+        # 1-based index of each counted sibling, keyed by `id()`
+        self.positions = positions
 
 
 class TreeForms(NamedTuple):
@@ -537,7 +564,26 @@ class Inputs:
 
     @classmethod
     def parse_value(cls, itype: str, value: str | None) -> tuple[float, ...] | None:
-        """Parse the input value."""
+        """
+        Parse an input's `value`, `min` or `max` attribute, returning `None` if it is not valid.
+
+        The same strict syntax is used for all three attributes, which is what browsers do. The HTML
+        spec only requires it for the value. It converts `min` and `max` with more lenient algorithms,
+        but every browser rejects what only those algorithms accept:
+
+        - `number` and `range`: the spec's "rules for parsing floating-point number values" skip
+          leading whitespace, accept a leading `+`, and ignore trailing characters (`20abc`, `20.`,
+          `2e+`). Browsers reject all of these, so a `min` or `max` must be a valid floating-point
+          number. A number that overflows a double (`1e9999`) is an error in the spec too.
+        - `time` and `datetime-local`: the spec's parser accepts any number of fractional second
+          digits, but browsers reject more than three, as in a valid time string.
+        - `date`, `month`, `week` and `datetime-local`: the spec has no upper limit on the year,
+          but browsers reject a value after `MAX_INPUT_VALUE`.
+
+        Dates and times need the whole string to match, with no surrounding whitespace, a year of four
+        or more digits greater than zero, an upper-case `W` in a week, and a `T` or a single space
+        between the date and time of a `datetime-local`. Browsers and the spec agree on these.
+        """
 
         parsed: tuple[float, ...] | None = None
         if value is None:
@@ -592,6 +638,8 @@ class Inputs:
                 number = float(m.group('value'))
                 if isfinite(number):
                     parsed = (number,)
+        if parsed is not None and itype in MAX_INPUT_VALUE and parsed > MAX_INPUT_VALUE[itype]:
+            parsed = None
         return parsed
 
 
@@ -616,7 +664,7 @@ class CSSMatch(_DocumentNav):
         self.namespaces: ct.Namespaces | dict[str, str] = {} if namespaces is None else namespaces
         self.flags = flags
         self.enable_cache = not bool(self.flags & util.NOCACHE)
-        self.nth_cache: dict[Hashable, list[int]] = {}
+        self.nth_cache: dict[Hashable, NthState] = {}
         self.sib_cache: dict[Hashable, int] = {}
         self.anc_cache: dict[tuple[int, int], bool] = {}
         self.desc_cache: dict[tuple[int, int], bool] = {}
@@ -915,11 +963,13 @@ class CSSMatch(_DocumentNav):
     def match_tagname(self, el: bs4.Tag, tag: ct.SelectorTag) -> bool:
         """Match tag name."""
 
-        name = (util.lower(tag.name) if not self.is_xml and tag.name is not None else tag.name)
-        return not (
-            name is not None and
-            name not in (self.get_tag(el), '*')
-        )
+        name = tag.name
+        if name is None or name == '*':
+            return True
+        if self.is_xml:
+            return name == el.name
+        el_name = el.name
+        return util.lower(name) == (util.lower(el_name) if el_name is not None else el_name)
 
     def match_tag(self, el: bs4.Tag, tag: ct.SelectorTag | None) -> bool:
         """Match the tag."""
@@ -1234,112 +1284,96 @@ class CSSMatch(_DocumentNav):
             (self.get_tag_ns(child) == self.get_tag_ns(el))
         )
 
+    def match_nth_candidate(self, el: bs4.Tag, child: bs4.Tag, n: ct.SelectorNth) -> MatchGenerator:
+        """Check if a sibling is counted by the `nth` selector (`of-type` or `of S`)."""
+
+        if n.of_type and not self.match_nth_tag_type(el, child):
+            return False
+        if n.selectors and not (yield child, n.selectors):
+            return False
+        return True
+
+    def get_nth_index(
+        self,
+        el: bs4.Tag,
+        parent: bs4.Tag | bs4.BeautifulSoup | None,
+        n: ct.SelectorNth
+    ) -> Generator[MatchRequest, bool, int]:
+        """
+        Get the 1-based index of `el` among the siblings counted by `n`, or 0 if `el` is not counted.
+
+        When caching is enabled, each sibling is evaluated against `n` at most once per parent.
+        The siblings are scanned lazily in document order and the position of every counted sibling
+        is recorded, so a lookup costs amortized O(1) no matter what order elements are queried in.
+        This matters as an `nth` selector's `of S` may contain other `nth` selectors, which will then
+        be queried in whatever order the outer selector walks its siblings.
+        """
+
+        # No parent, just evaluate the element against the selectors
+        if parent is None:
+            return 1 if (yield from self.match_nth_candidate(el, el, n)) else 0
+
+        # Non-cached handling of parented element
+        if not self.enable_cache:
+            index = 0
+            for child in self.get_children(parent, reverse=n.last, tags=True, template_contents=True):
+                if (yield from self.match_nth_candidate(el, child, n)):
+                    index += 1
+                    if child is el:
+                        return index
+                elif child is el:
+                    break
+            return 0
+
+        key = (
+            (id(parent), id(n), self.get_tag(el), self.get_tag_ns(el))
+            if n.of_type
+            else (id(parent), id(n), None, None)
+        )
+        state = self.nth_cache.get(key)
+        if state is None:
+            # Next content position to scan, number of counted siblings found, and their positions.
+            state = self.nth_cache[key] = NthState(0, 0, {})
+
+        # "Last" selectors need the total count, so scan all siblings, otherwise just scan up to `el`.
+        contents = parent.contents
+        if n.last:
+            end = len(contents)
+        else:
+            pkey = id(parent)
+            if pkey not in self.index_cache:
+                self.index_cache[pkey] = {id(child): i for i, child in enumerate(contents)}
+            end = self.index_cache[pkey][id(el)] + 1
+
+        while state.pos < end:
+            node = contents[state.pos]
+            if self.is_tag(node) and (yield from self.match_nth_candidate(el, cast('bs4.Tag', node), n)):
+                state.count += 1
+                state.positions[id(node)] = state.count
+            state.pos += 1
+
+        index = state.positions.get(id(el), 0)
+        if index and n.last:
+            index = state.count - index + 1
+        return index
+
     def match_nth(self, el: bs4.Tag, nth: tuple[ct.SelectorNth, ...]) -> MatchGenerator:
         """Match `nth` elements."""
 
-        key: tuple[int, int, str | None, str | None] | None = None
-        start = rindex = 0
-        incr = rincr = 0
-
-        # Get the parent and use the ID for the cache key. The top level
-        # contents of a `template` have no parent element, but they do have siblings.
+        # The top level contents of a `template` have no parent element, but they do have siblings.
         parent = self.get_parent(el, no_doc=False, no_template=False)
-        pkey = id(parent) if self.enable_cache and parent else None
 
-        # Test element against the `nth` selectors.
-        matched = True
         for n in nth:
-            matched = False
-            last = n.last
-            key = None
-
-            # Prepare the child iterator and get the starting, real index and the relative index
-            if pkey is not None and parent:
-                # Get last info from the cache
-                if pkey:
-                    key = (
-                        (pkey, id(n), self.get_tag(el), self.get_tag_ns(el))
-                        if n.of_type
-                        else (pkey, id(n), None, None)
-                    )
-
-                valid = False
-                if key and key in self.nth_cache:
-                    start, rindex = self.nth_cache[key]
-                    if self.within(el, parent, start):
-                        last = False
-                        rincr = -1 if n.last else 1
-                        valid = True
-
-                # Start/overwrite the cache if the cache was empty or invalid
-                if not valid:
-                    start, rindex = len(parent) - 1 if last else 0, 0
-                    self.nth_cache[key] = [start, rindex]
-                    rincr = 1
-
-                incr = 1 if not last else -1
-                children = self.get_children(parent, start=start, reverse=last, template_contents=True)
-
-            # Non-cached handling of parented element
-            elif parent:
-                rindex = 0
-                start = len(parent) - 1 if last else 0
-                rincr = incr = 1
-                children = self.get_children(parent, start=start, reverse=last, template_contents=True)
-
-            # No parent, just evaluate the element against the selectors
-            else:
-                start = rindex = 0
-                rincr = incr = 1
-                children = iter([el])
-
-            # Find index of element compared to its siblings and check the index conditions
-            child: bs4.Tag
-            for child in children:
-                start += incr
-
-                # We only care about tags
-                if not self.is_tag(child):
-                    continue
-
-                # Handle `of S` in `nth-child` and handle `of-type`
-                if (
-                    (n.selectors and not (yield child, n.selectors)) or
-                    (n.of_type and not self.match_nth_tag_type(el, child))
-                ):
-                    if child is el:
-                        # Cached "last" lookups count down from `rindex`, so it must be the
-                        # position `el` would have had, even though `el` did not match.
-                        if last:
-                            rindex += 1
-                        break
-                    continue
-
-                # Test the relative index against the `nth` requirement.
-                rindex += rincr
-                if child is el:
-                    if n.a != 0:
-                        v = (rindex - n.b) / n.a
-                        matched = v.is_integer() and v >= 0
-                    else:
-                        matched = rindex == n.b and n.b >= 1
-                    break
-
-            # "Last index" selectors evaluate first from the bottom and then evaluate
-            # from the first found element top-down. Start will be incremented in the
-            # wrong direction, so increment it and step over the current index.
-            if last:
-                start += 2
-
-            # Update the cache
-            if key:
-                self.nth_cache[key] = [start, rindex]
-
-            # If we failed to match any `nth` selectors, quit.
-            if not matched:
-                break
-
-        return matched
+            index = yield from self.get_nth_index(el, parent, n)
+            if not index:
+                return False
+            if n.a != 0:
+                v = (index - n.b) / n.a
+                if not (v.is_integer() and v >= 0):
+                    return False
+            elif index != n.b:
+                return False
+        return True
 
     def match_empty(self, el: bs4.Tag) -> bool:
         """Check if element is empty (if requested)."""
@@ -1811,17 +1845,58 @@ class CSSMatch(_DocumentNav):
 
     def match_range(self, el: bs4.Tag, condition: int) -> bool:
         """
-        Match range.
+        Match `:in-range` or `:out-of-range`.
 
-        Behavior is modeled after what we see in browsers. Browsers seem to evaluate
-        if the value is out of range, and if not, it is in range. So a missing value
-        will not evaluate out of range; therefore, value is in range. Personally, I
-        feel like this should evaluate as neither in or out of range.
+        Policy: follow the HTML spec, except where all browsers agree on something else, in which case
+        follow the browsers and document the difference here or in `Inputs.parse_value()`. Before
+        changing this behavior, check it against the spec and against Chrome, Firefox and Safari. A
+        report that cites only the spec, or only one browser, is not enough. Where browsers disagree
+        with each other, follow the spec. Known cases, all deliberate:
+
+        - A `range` input whose maximum is less than its minimum: Chrome and Safari match `:in-range`,
+          Firefox and the spec `:out-of-range` (see below).
+        - Firefox and Safari do not support `month` or `week` inputs and treat them as text, so Chrome
+          is the only browser to compare them with.
+        - Safari accepts a `number` bound with a trailing `.` (`min="20."`), and Firefox accepts such
+          a value. Neither is a valid floating-point number, and the other browsers reject them.
+
+        https://html.spec.whatwg.org/multipage/semantics-other.html#selector-in-range
+
+        - `:out-of-range` matches an input that is a candidate for constraint validation, has range
+          limitations, and is suffering from an underflow or an overflow. `:in-range` matches one that
+          is a candidate and has range limitations but suffers from neither.
+        - Being a candidate for constraint validation is checked by `CSS_IN_RANGE` and
+          `CSS_OUT_OF_RANGE`, which exclude inputs that are disabled, `readonly` or in a `datalist`.
+        - An input has range limitations if it has a minimum or a maximum. Only `range` has defaults:
+          0 and 100. For the other types, a `min` or `max` that does not parse is ignored, and an input
+          with neither matches neither pseudo-class.
+        - An input suffers from an underflow when its value is below its minimum, and from an overflow
+          when it is above its maximum. An empty or invalid value is sanitized to the empty string,
+          which suffers from neither, so it is in range.
+        - `time` has a periodic domain. When its maximum is less than its minimum, it has a reversed
+          range, such as 22:00 to 02:00 across midnight, and is out of range only when its value is
+          both below the minimum and above the maximum.
+        - The other types do not have a periodic domain. When the maximum is less than the minimum,
+          any value is out of range, but an empty value is still in range.
+        - A `range` input's value is clamped to its minimum and maximum, and an invalid or missing
+          value becomes a default within them, so it is in range unless its maximum is less than its
+          minimum. In that case, the value is raised to the minimum but is not lowered to the maximum,
+          so it is always out of range. Chrome and Safari match it as in range instead, which is a
+          browser bug; Firefox follows the spec, and so do we.
         """
 
         out_of_range = False
 
         itype = util.lower(cast(str, self.get_attribute_by_name(el, 'type', '')))
+
+        # A `range` input always has a minimum and maximum, 0 and 100 by default, and its value
+        # is clamped to them, so it is out of range only when its maximum is less than its minimum.
+        if itype == 'range':
+            mn = Inputs.parse_value(itype, cast(str, self.get_attribute_by_name(el, 'min', None)))
+            mx = Inputs.parse_value(itype, cast(str, self.get_attribute_by_name(el, 'max', None)))
+            out_of_range = (mx or (100.0,)) < (mn or (0.0,))
+            return not out_of_range if condition & ct.SEL_IN_RANGE else out_of_range
+
         mn = Inputs.parse_value(itype, cast(str, self.get_attribute_by_name(el, 'min', None)))
         mx = Inputs.parse_value(itype, cast(str, self.get_attribute_by_name(el, 'max', None)))
 
@@ -1831,7 +1906,7 @@ class CSSMatch(_DocumentNav):
 
         value = Inputs.parse_value(itype, cast(str, self.get_attribute_by_name(el, 'value', None)))
         if value is not None:
-            if itype in ("date", "datetime-local", "month", "week", "number", "range"):
+            if itype in ("date", "datetime-local", "month", "week", "number"):
                 if mn is not None and value < mn:
                     out_of_range = True
                 if not out_of_range and mx is not None and value > mx:
@@ -1884,15 +1959,36 @@ class CSSMatch(_DocumentNav):
         Match placeholder shown according to HTML spec.
 
         - text area should be checked if they have content. A single newline does not count as content.
+        - An input's value is sanitized first, and the placeholder is shown when the result is
+          empty. Text-like inputs drop line breaks, `url` and `email` inputs also drop leading and
+          trailing whitespace, and a `number` input empties a value that is not a valid
+          floating-point number, so `value="abc"` still shows the placeholder.
 
+        https://html.spec.whatwg.org/multipage/input.html#value-sanitization-algorithm
+
+        As in `match_range()`, we follow the spec, except where all browsers agree on something
+        else. Known cases, all deliberate:
+
+        - A `number` value that overflows a double, such as `1e9999`, is emptied, as in Chrome,
+          Firefox and Safari, although the spec's sanitization keeps it as a valid floating-point
+          number.
+        - Firefox keeps `value="1."` for a `number` input, so it hides the placeholder. It is not a
+          valid floating-point number: Chrome, Safari and the spec empty it, and so do we.
         """
 
-        match = False
-        content = self.get_text(el)
-        if content in ('', '\n'):
-            match = True
+        name = self.get_tag(el)
+        if name == 'input':
+            itype = util.lower(cast(str, self.get_attribute_by_name(el, 'type', '')))
+            value = cast(str, self.get_attribute_by_name(el, 'value', ''))
+            value = value.replace('\r', '').replace('\n', '')
+            if itype in ('url', 'email'):
+                value = value.strip(' \t\f')
+            elif itype == 'number' and Inputs.parse_value(itype, value) is None:
+                value = ''
+            return value == ''
 
-        return match
+        # This is checked for every element before the rest of the pattern, so only get the text of a `textarea`.
+        return name == 'textarea' and self.get_text(el) in ('', '\n')
 
     def match_editable(self, el: bs4.Tag) -> bool:
         """

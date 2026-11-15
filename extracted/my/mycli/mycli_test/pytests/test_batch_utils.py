@@ -99,3 +99,32 @@ def test_statements_from_filehandle_continues_when_tokenizer_returns_no_tokens(m
         ('select 1;', 0),
         ('select 2;', 1),
     ]
+
+
+def test_statements_from_filehandle_handles_delimiter_blocks() -> None:
+    statements = collect_statements('DELIMITER //\nCREATE PROCEDURE p1()\nBEGIN\n  SELECT 1;\nEND //\nDELIMITER ;\nCALL p1();\n')
+
+    assert statements == [
+        ('CREATE PROCEDURE p1()\nBEGIN\n  SELECT 1;\nEND', 0),
+        ('CALL p1();', 1),
+    ]
+
+
+def test_statements_from_filehandle_ends_use_at_newline() -> None:
+    statements = collect_statements('select 1;\nuse mysql\nselect database();\n')
+
+    assert statements == [
+        ('select 1;', 0),
+        ('use mysql', 1),
+        ('select database();', 2),
+    ]
+
+
+def test_statements_from_filehandle_ends_slash_use_at_newline() -> None:
+    statements = collect_statements('select 1;\n/use mysql\nselect database();\n')
+
+    assert statements == [
+        ('select 1;', 0),
+        ('/use mysql', 1),
+        ('select database();', 2),
+    ]

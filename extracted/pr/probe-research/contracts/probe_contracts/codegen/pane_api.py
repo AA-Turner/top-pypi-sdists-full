@@ -70,8 +70,6 @@ def render_pane_api_python(contracts: Contracts) -> str:
     preview_pane = (
         _wrap(preview.doc, "#: ")
         + f"PREVIEW_PANE_SLUG = {json.dumps(preview.slug)}\n"
-        + f"PREVIEW_PANE_FLOOR_MARKER = {json.dumps(preview.floor_marker)}\n"
-        + f"PREVIEW_PANE_LINE_MAX_WORDS = {preview.line_max_words}\n"
     )
     return (
         _PY_HEADER

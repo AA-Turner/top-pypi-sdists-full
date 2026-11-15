@@ -14,14 +14,15 @@ from dataclasses import replace
 from typing import Any
 
 from probe.generated.samples import SampleSplit
-from probe.generated.samples.points import ContributionSource, Dtype
+from probe.generated.samples.points import ContributionSource, Dtype, get_rounding_tolerance
+from probe.sdk.run.samples.points import get_lowest_dtype
 
 from ...rows import get_segment_starts, make_sft_key
 from ..declarations import (
     EVAL_KEY_PREFIX, GPU_PROVEN, LOSS_ROUNDED_APPROXIMATE, PACKED_SFT, SFT_CONTEXT_PARALLEL,
     SFT_CONTEXT_PARALLEL_DATA_PARALLEL, SFT_CONTEXT_PARALLEL_DATA_PARALLEL_LOSS, SFT_CONTEXT_PARALLEL_SETTINGS,
     SFT_CONTEXT_PARALLEL_SIZE, SFT_CONTEXT_PARALLEL_UNKNOWN_PROCESSES, SFT_CONTEXT_PARALLEL_UNKNOWN_REPLICAS,
-    SFT_SEQUENCE_PARALLEL, SFT_TENSOR_PARALLEL, SFT_TOKEN_KEYS, make_rollups,
+    SFT_SEQUENCE_PARALLEL, SFT_TENSOR_PARALLEL, SFT_TOKEN_KEYS, count_loss_roundings, make_rollups,
 )
 from ..hook import LossBatch, LossHook, Place, copy_rows_to_host, get_tensor_dtype, is_scaled_for_accumulation
 from .packing import shift_to_targets, to_segments
@@ -51,8 +52,11 @@ class SftLoss(LossHook):
         self._whole: Any = None
         #: How many slices each example is cut into (context parallel size): each row's share of its loss.
         self._fragments = 1
-        #: TRL returned a bf16 / fp16 loss (FSDP2 mixed precision): its logged loss is rounded past the tolerance.
-        self._is_loss_rounded = False
+        #: The precision TRL returned a bf16 / fp16 loss in (FSDP2 mixed precision): its logged loss is rounded past
+        #: the dtype's tolerance. None: an fp32 loss.
+        self._rounded_dtype: Dtype | None = None
+        #: A train call's loss is divided over the accumulation steps after compute_loss (one more rounding).
+        self._is_divided_after = False
 
     def find_unsupported(self) -> list[str]:
         trainer, args = self.trainer, self.trainer.args
@@ -100,7 +104,25 @@ class SftLoss(LossHook):
                     eval_prefixes: Sequence[str] = (EVAL_KEY_PREFIX,)) -> dict[str, dict]:  # fmt: skip
         return make_rollups(SFT_TOKEN_KEYS, dtype=dtype, dtypes=dtypes, logging_window=logging_window,
                             eval_prefixes=eval_prefixes,
-                            loss_approximate=LOSS_ROUNDED_APPROXIMATE if self._is_loss_rounded else None)  # fmt: skip
+                            loss_approximate=LOSS_ROUNDED_APPROXIMATE if self._is_loss_rounded else None,
+                            loss_tolerance=self.get_loss_tolerance())  # fmt: skip
+
+    def get_loss_tolerance(self) -> float | None:
+        """The train `loss` series' bound once TRL returns a bf16 loss (`get_rounding_tolerance`, T18), or None: an
+        fp32 loss (the dtype's own bound), or a rounded path the bound was never checked on (fp16, label smoothing,
+        an MoE auxiliary loss), which stays approximate (D18)."""
+        trainer = self.trainer
+        if (self._rounded_dtype is not Dtype.BF16 or getattr(trainer, "label_smoother", None) is not None
+                or getattr(trainer, "aux_loss_enabled", False)):  # fmt: skip
+            return None
+        processes = (get_process_count(trainer) or 1) // get_tp_size(trainer)
+        roundings = count_loss_roundings(processes, is_divided_after=self._is_divided_after, is_multiplied=bool(
+            getattr(trainer.args, "average_tokens_across_devices", False)))  # fmt: skip
+        return get_rounding_tolerance(Dtype.BF16, roundings)
+
+    @property
+    def _is_loss_rounded(self) -> bool:
+        return self._rounded_dtype is not None
 
     def get_reduction(self) -> str:
         return str(getattr(self.trainer.args, "loss_type", "nll"))
@@ -192,7 +214,8 @@ class SftLoss(LossHook):
         import torch
 
         trainer, args = self.trainer, self.trainer.args
-        self._is_loss_rounded = self._is_loss_rounded or get_tensor_dtype(loss) != Dtype.FP32
+        if (loss_dtype := get_tensor_dtype(loss)) != Dtype.FP32:
+            self._rounded_dtype = get_lowest_dtype([dtype for dtype in (self._rounded_dtype, loss_dtype) if dtype])
         log_probs = captured.log_probs.detach()
         per_token = -log_probs
         if getattr(args, "loss_type", "nll") == "dft":
@@ -241,6 +264,7 @@ class SftLoss(LossHook):
                          1.0)  # fmt: skip
         accumulation = float(trainer.current_gradient_accumulation_steps) if is_train else 1.0
         after = 1.0 if not is_train or is_scaled_for_accumulation(trainer, items) else 1.0 / accumulation
+        self._is_divided_after = self._is_divided_after or after != 1.0
         scale = after
         if getattr(args, "average_tokens_across_devices", False) and items is not None:
             scale *= float(int(trainer.accelerator.num_processes) // get_tp_size(trainer))

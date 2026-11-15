@@ -9,6 +9,7 @@ from typing import Any
 
 import geopandas as gpd
 import networkx as nx
+import numpy as np
 import pandas as pd
 from shapely import LineString
 from shapely import Point
@@ -21,6 +22,25 @@ from ._errors import GraphSimplificationError
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from collections.abc import Iterator
+
+
+def _canonicalize_missing(value: Any) -> Any:  # noqa: ANN401
+    """
+    Convert a floating-point NaN to `None`.
+
+    Parameters
+    ----------
+    value
+        The value to check.
+
+    Returns
+    -------
+    value
+        `None` for NaN; otherwise the original value.
+    """
+    if isinstance(value, (float, np.floating)) and np.isnan(value):
+        return None
+    return value
 
 
 def _is_endpoint(
@@ -44,8 +64,8 @@ def _is_endpoint(
 
     3) Or, it does not have exactly two neighbors and degree of 2 or 4.
 
-    4) Or, if `node_attrs_include` is not None and it has one or more of the
-    attributes in `node_attrs_include`.
+    4) Or, if `node_attrs_include` is not None and it has a non-null value
+    for one or more of the attributes in `node_attrs_include`.
 
     5) Or, if `edge_attrs_differ` is not None and its incident edges have
     different values than each other for any of the edge attributes in
@@ -59,8 +79,9 @@ def _is_endpoint(
         The ID of the node to check.
     node_attrs_include
         Node attribute names for relaxing the strictness of endpoint
-        determination. A node is always an endpoint if it possesses one or
-        more of the attributes in `node_attrs_include`.
+        determination. A node is always an endpoint if it has a non-null value
+        for one or more of the attributes in `node_attrs_include`. Values of
+        `None` and floating-point NaN are treated as null.
     edge_attrs_differ
         Edge attribute names for relaxing the strictness of endpoint
         determination. A node is always an endpoint if its incident edges have
@@ -98,7 +119,10 @@ def _is_endpoint(
 
     # RULE 4
     # non-strict mode: does it contain an attr denoting that it is an endpoint
-    if node_attrs_include is not None and len(set(node_attrs_include) & G.nodes[node].keys()) > 0:
+    # (ignoring attrs with null values)
+    if node_attrs_include is not None and any(
+        _canonicalize_missing(G.nodes[node].get(attr)) is not None for attr in node_attrs_include
+    ):
         return True
 
     # RULE 5
@@ -108,8 +132,12 @@ def _is_endpoint(
     # is an endpoint
     if edge_attrs_differ is not None:
         for attr in edge_attrs_differ:
-            in_values = {v for _, _, v in G.in_edges(node, data=attr, keys=False)}
-            out_values = {v for _, _, v in G.out_edges(node, data=attr, keys=False)}
+            in_values = {
+                _canonicalize_missing(v) for _, _, v in G.in_edges(node, data=attr, keys=False)
+            }
+            out_values = {
+                _canonicalize_missing(v) for _, _, v in G.out_edges(node, data=attr, keys=False)
+            }
             if len(in_values | out_values) > 1:
                 return True
 
@@ -209,8 +237,9 @@ def _get_paths_to_simplify(
         Input graph.
     node_attrs_include
         Node attribute names for relaxing the strictness of endpoint
-        determination. A node is always an endpoint if it possesses one or
-        more of the attributes in `node_attrs_include`.
+        determination. A node is always an endpoint if it has a non-null value
+        for one or more of the attributes in `node_attrs_include`. Values of
+        `None` and floating-point NaN are treated as null.
     edge_attrs_differ
         Edge attribute names for relaxing the strictness of endpoint
         determination. A node is always an endpoint if its incident edges have
@@ -253,8 +282,9 @@ def _remove_rings(
         Input graph.
     node_attrs_include
         Node attribute names for relaxing the strictness of endpoint
-        determination. A node is always an endpoint if it possesses one or
-        more of the attributes in `node_attrs_include`.
+        determination. A node is always an endpoint if it has a non-null value
+        for one or more of the attributes in `node_attrs_include`. Values of
+        `None` and floating-point NaN are treated as null.
     edge_attrs_differ
         Edge attribute names for relaxing the strictness of endpoint
         determination. A node is always an endpoint if its incident edges have
@@ -318,8 +348,9 @@ def simplify_graph(  # noqa: C901, PLR0912
         Input graph.
     node_attrs_include
         Node attribute names for relaxing the strictness of endpoint
-        determination. A node is always an endpoint if it possesses one or
-        more of the attributes in `node_attrs_include`.
+        determination. A node is always an endpoint if it has a non-null value
+        for one or more of the attributes in `node_attrs_include`. Values of
+        `None` and floating-point NaN are treated as null.
     edge_attrs_differ
         Edge attribute names for relaxing the strictness of endpoint
         determination. A node is always an endpoint if its incident edges have
@@ -389,14 +420,17 @@ def simplify_graph(  # noqa: C901, PLR0912
             # and just take the first one.
             edge_data = next(iter(G.get_edge_data(u, v).values()))
             for attr in edge_data:
+                value = _canonicalize_missing(edge_data[attr])
+                if value is None:
+                    continue
                 if attr in path_attributes:
                     # if this key already exists in the dict, append it to the
                     # value list
-                    path_attributes[attr].append(edge_data[attr])
+                    path_attributes[attr].append(value)
                 else:
                     # if this key doesn't already exist, set the value to a list
                     # containing the one value
-                    path_attributes[attr] = [edge_data[attr]]
+                    path_attributes[attr] = [value]
 
         # consolidate the path's edge segments' attribute values
         for attr_name, attr_values in path_attributes.items():
@@ -502,7 +536,7 @@ def consolidate_intersections(
         subsequent overlaps are dissolved into a single node. If scalar, then
         that single value will be used for all nodes. If dict (mapping node
         IDs to individual values), then those values will be used per node and
-        any missing node IDs will not be buffered.
+        any missing node IDs will not be buffered. Values must be positive.
     rebuild_graph
         If True, consolidate the nodes topologically, rebuild the graph, and
         return as MultiDiGraph. Otherwise, consolidate the nodes geometrically
@@ -536,6 +570,11 @@ def consolidate_intersections(
         `rebuild_graph=False`, returns GeoSeries of Points representing the
         centroids of street intersections.
     """
+    tolerances = tolerance.values() if isinstance(tolerance, dict) else (tolerance,)
+    if any(value <= 0 for value in tolerances):
+        msg = "`tolerance` values must be greater than zero."
+        raise ValueError(msg)
+
     # make a copy to not mutate original graph object caller passed in
     G = G.copy()
 

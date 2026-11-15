@@ -36,6 +36,95 @@ impl crate::scheduler::types::RunLauncher for IdleLauncher {
     }
 }
 
+/// A cycle's phase timings and when the launcher poll after it finished, freeing the loop to sleep.
+#[derive(Clone, Debug)]
+pub(crate) struct RecordedCycle {
+    pub(crate) timings: crate::scheduler::models::CycleTimings,
+    pub(crate) polled_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Records cycle timings; polls take `poll_delay` after a cycle that decided a trigger, as launches do.
+pub(crate) struct CycleRecorder<'a> {
+    pub(crate) cycles: &'a mut Vec<RecordedCycle>,
+    pub(crate) poll_delay: std::time::Duration,
+    pub(crate) launching: bool,
+}
+
+impl crate::scheduler::types::RunLauncher for CycleRecorder<'_> {
+    async fn poll(
+        &mut self,
+        _store: &crate::store::models::ControlStore,
+        _lease: Option<&crate::scheduler::models::SchedulerLease>,
+    ) -> Result<(), crate::store::errors::ControlError> {
+        if self.launching {
+            tokio::time::sleep(self.poll_delay).await;
+        }
+        if let Some(cycle) = self.cycles.last_mut() {
+            cycle.polled_at = chrono::Utc::now();
+        }
+        Ok(())
+    }
+
+    async fn shutdown(
+        &mut self,
+        _store: &crate::store::models::ControlStore,
+        _lease: Option<&crate::scheduler::models::SchedulerLease>,
+    ) -> Result<(), crate::store::errors::ControlError> {
+        Ok(())
+    }
+
+    fn cycled(&mut self, cycle: &crate::scheduler::models::SchedulerCycle) {
+        self.cycles.push(RecordedCycle {
+            timings: cycle.timings.clone(),
+            polled_at: cycle.timings.started_at,
+        });
+        self.launching = cycle.evaluated > 0;
+    }
+}
+
+/// Fences the first lease it polls with, and stops the loop once it polls under a newer epoch.
+pub(crate) struct FencingLauncher<'a> {
+    pub(crate) epochs: &'a mut Vec<i64>,
+    pub(crate) stop: &'a tokio::sync::watch::Sender<bool>,
+}
+
+impl crate::scheduler::types::RunLauncher for FencingLauncher<'_> {
+    async fn poll(
+        &mut self,
+        store: &crate::store::models::ControlStore,
+        lease: Option<&crate::scheduler::models::SchedulerLease>,
+    ) -> Result<(), crate::store::errors::ControlError> {
+        let Some(lease) = lease else {
+            return Ok(());
+        };
+        self.epochs.push(lease.epoch);
+        if self.epochs.len() > 1 {
+            if self.epochs.windows(2).any(|pair| pair[1] > pair[0]) {
+                self.stop.send_replace(true);
+            }
+            return Ok(());
+        }
+        crate::store::tests::lease_helpers::expire_lease(store).await;
+        crate::scheduler::main::renew_lease::renew_lease(store, lease)
+            .await
+            .map(drop)
+    }
+
+    async fn shutdown(
+        &mut self,
+        _store: &crate::store::models::ControlStore,
+        _lease: Option<&crate::scheduler::models::SchedulerLease>,
+    ) -> Result<(), crate::store::errors::ControlError> {
+        Ok(())
+    }
+}
+
+pub(crate) struct FencedLoopTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_rejoined: bool,
+}
+
 pub(crate) struct TickRetentionTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
@@ -88,6 +177,8 @@ pub(crate) struct SchedulerLatencyTestCase {
     pub(crate) backend: Backend,
     pub(crate) expected_ticks: usize,
     pub(crate) expected_ticks_after_failover: usize,
-    pub(crate) expected_max_tick_to_decision: chrono::TimeDelta,
-    pub(crate) expected_max_failover_catch_up: chrono::TimeDelta,
+    pub(crate) expected_max_wake_after_due: chrono::TimeDelta,
+    pub(crate) expected_max_failover_wake: chrono::TimeDelta,
+    /// Work after the cycle's next-due read, which must not delay the wake.
+    pub(crate) launcher_poll: std::time::Duration,
 }

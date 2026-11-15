@@ -65,6 +65,68 @@ def next_prompt_id(ctx: SessionContext) -> str:
     return ctx.request.id if n == 1 else f"{ctx.request.id}:{n}"
 
 
+_HELD: ScopeKey[Callable[[], Awaitable[None]]] = ScopeKey("the held rows of the conversation")
+
+
+def holding(ctx: SessionContext, flush: Callable[[], Awaitable[None]]) -> None:
+    """Have ``flush_held`` write, with ``flush``, the rows that the conversation of the attempt's turn holds back."""
+    _HELD.set(ctx, flush)
+
+
+async def flush_held(ctx: SessionContext) -> None:
+    """Write the rows that the conversation of the attempt's turn holds back, if any (see ``_conversation._Ledger``).
+
+    Call it before what another party sees or what outlives the attempt: a
+    publish, a Restate call or send. A held row is lost in a crash, and the
+    retried attempt makes it again; what was seen or called must not
+    depend on it.
+    """
+    flush = _HELD.get(ctx)
+    if flush is not None:
+        await flush()
+
+
+_AFTER_STEPS: ScopeKey[Callable[[], Awaitable[None]]] = ScopeKey("what follows each commit of the turn's steps")
+
+
+def after_steps(ctx: SessionContext, then: Callable[[], Awaitable[None]]) -> None:
+    """Have ``then`` run after each write of the attempt's turn's steps that commits (see ``Conversation.hold``).
+
+    The caller of ``answer_once`` sets it, before the turn runs: an agent's
+    ``chat`` turn publishes there, for the clients that follow it. The
+    conversation itself only stores: without it, a commit is followed by
+    nothing.
+    """
+    _AFTER_STEPS.set(ctx, then)
+
+
+def after_steps_of(ctx: SessionContext) -> Callable[[], Awaitable[None]] | None:
+    """Return what follows each commit of the attempt's turn's steps (``after_steps``), or ``None``."""
+    return _AFTER_STEPS.get(ctx)
+
+
+_AFTER_ANSWER: ScopeKey[Callable[[], Awaitable[None]]] = ScopeKey("what follows the commit of the turn's answer")
+
+
+def after_answer(ctx: SessionContext, then: Callable[[], Awaitable[None]] | None) -> None:
+    """Have ``then`` run after the commit that stores the attempt's turn's answer, or ``None`` for nothing.
+
+    The caller of ``answer_once`` sets it, before the turn runs: a handler of
+    an agent publishes there, so that a follower of the turn hears it end, as
+    it heard each of its steps. A ``chat`` turn sets ``None``: its end is the
+    companion's ``close``, which publishes the turn's last change with it.
+    """
+    if then is None:
+        _AFTER_ANSWER.delete(ctx)
+    else:
+        _AFTER_ANSWER.set(ctx, then)
+
+
+def after_answer_of(ctx: SessionContext) -> Callable[[], Awaitable[None]] | None:
+    """Return what follows the commit of the attempt's turn's answer (``after_answer``), or ``None``."""
+    return _AFTER_ANSWER.get(ctx)
+
+
 MODEL_ENV = "RESTATE_AGENT_MODEL"
 """The environment variable that names the model agents use when none is given."""
 
@@ -271,6 +333,16 @@ class ToolError(Exception):
         super().__init__(f"the tool {tool} failed: {cause}")
         self.tool: str = tool
         self.__cause__ = cause
+
+
+class NeedsAgent(TerminalError):
+    """A step that only an agent takes (waiting for a signal: it needs the agent's companion), from a handler of a
+    session object that is no agent.
+
+    It fails the turn for good, and closes it ``failed``. Unlike another
+    ``TerminalError`` that a tool raises, it is never the tool's result for
+    the model: the model cannot fix how the object is set up.
+    """
 
 
 class ErrorSet:

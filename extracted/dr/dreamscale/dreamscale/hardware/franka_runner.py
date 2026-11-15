@@ -76,6 +76,7 @@ def run_franka(
     smoothing_new_weight=None,
     smoothing_correction_steps=None,
     smoothing_reference_speed=None,
+    smoothing_time_scale=None,
     trace_dir=None,
     trace_images=False,
     hud=False,
@@ -101,6 +102,7 @@ def run_franka(
         smoothing_new_weight=smoothing_new_weight,
         smoothing_correction_steps=smoothing_correction_steps,
         smoothing_reference_speed=smoothing_reference_speed,
+        smoothing_time_scale=smoothing_time_scale,
     )
     resolve_action_smoothing(strategy, contract)
     config = load_config(config_path).validate(complete=True)

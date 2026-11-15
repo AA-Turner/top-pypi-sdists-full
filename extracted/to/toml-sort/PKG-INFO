@@ -1,22 +1,22 @@
 Metadata-Version: 2.4
 Name: toml-sort
-Version: 0.25.0
+Version: 0.26.0
 Summary: Toml sorting library
 License: MIT
 License-File: LICENSE
 Keywords: toml,sort,cli,unix,utility
 Author: Sam Roeca
 Author-email: samuel.roeca@gmail.com
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
@@ -171,7 +171,7 @@ inline_tables = true
 inline_arrays = true
 ```
 
-In the example configuration, `path.to.key` is the key to match. Keys are matched using the [Python fnmatch function](https://docs.python.org/3/library/fnmatch.html), so glob-style wildcards are supported.
+In the example configuration, `path.to.key` is the key to match. Keys are matched using the [Python fnmatchcase function](https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatchcase), so glob-style wildcards are supported. Like TOML keys, patterns are case-sensitive on every platform.
 
 For instance, to disable sorting the table in the following TOML file:
 
@@ -334,6 +334,7 @@ Local development for this project is quite simple.
 
 Install the following tools manually.
 
+- Python 3.11 or newer
 - [Poetry>=1.0](https://github.com/sdispater/poetry#installation)
 - [GNU Make](https://www.gnu.org/software/make/)
 

@@ -45,28 +45,28 @@ class shapesys_builder:
         self.required_parsets = {}
 
     def collect(self, thismod, nom):
-        uncrt = thismod['data'] if thismod else [0.0] * len(nom)
+        uncrt = thismod["data"] if thismod else [0.0] * len(nom)
         mask = [True] * len(nom) if thismod else [False] * len(nom)
-        return {'mask': mask, 'nom_data': nom, 'uncrt': uncrt}
+        return {"mask": mask, "nom_data": nom, "uncrt": uncrt}
 
     def append(self, key, channel, sample, thismod, defined_samp):
         self.builder_data.setdefault(key, {}).setdefault(sample, {}).setdefault(
-            'data', {'uncrt': [], 'nom_data': [], 'mask': []}
+            "data", {"uncrt": [], "nom_data": [], "mask": []}
         )
         nom = (
-            defined_samp['data']
+            defined_samp["data"]
             if defined_samp
             else [0.0] * self.config.channel_nbins[channel]
         )
         moddata = self.collect(thismod, nom)
-        self.builder_data[key][sample]['data']['mask'].append(moddata['mask'])
-        self.builder_data[key][sample]['data']['uncrt'].append(moddata['uncrt'])
-        self.builder_data[key][sample]['data']['nom_data'].append(moddata['nom_data'])
+        self.builder_data[key][sample]["data"]["mask"].append(moddata["mask"])
+        self.builder_data[key][sample]["data"]["uncrt"].append(moddata["uncrt"])
+        self.builder_data[key][sample]["data"]["nom_data"].append(moddata["nom_data"])
 
         if thismod:
             self.required_parsets.setdefault(
-                thismod['name'],
-                [required_parset(defined_samp['data'], thismod['data'])],
+                thismod["name"],
+                [required_parset(defined_samp["data"], thismod["data"])],
             )
 
     def finalize(self):
@@ -87,24 +87,25 @@ class shapesys_builder:
                     _modifier_type, _modifier_name = modifier_name.split("/")
                     _sample_data_len = len(sample["data"]["nom_data"])
                     _uncrt_len = len(sample["data"]["uncrt"])
-                    raise InvalidModifier(
+                    msg = (
                         f"The '{sample_name}' sample {_modifier_type} modifier"
-                        + f" '{_modifier_name}' has data shape inconsistent with the sample.\n"
-                        + f"{sample_name} has 'data' of length {_sample_data_len} but {_modifier_name}"
-                        + f" has 'data' of length {_uncrt_len}."
+                        f" '{_modifier_name}' has data shape inconsistent with the sample.\n"
+                        f"{sample_name} has 'data' of length {_sample_data_len} but {_modifier_name}"
+                        f" has 'data' of length {_uncrt_len}."
                     )
+                    raise InvalidModifier(msg)
         return self.builder_data
 
 
 class shapesys_combined:
-    name = 'shapesys'
-    op_code = 'multiplication'
+    name = "shapesys"
+    op_code = "multiplication"
 
     def __init__(self, modifiers, pdfconfig, builder_data, batch_size=None):
         default_backend = pyhf.default_backend
         self.batch_size = batch_size
 
-        keys = [f'{mtype}/{m}' for m, mtype in modifiers]
+        keys = [f"{mtype}/{m}" for m, mtype in modifiers]
         self._shapesys_mods = [m for m, _ in modifiers]
 
         parfield_shape = (self.batch_size or 1, pdfconfig.npars)
@@ -113,16 +114,16 @@ class shapesys_combined:
         )
 
         self._shapesys_mask = [
-            [[builder_data[m][s]['data']['mask']] for s in pdfconfig.samples]
+            [[builder_data[m][s]["data"]["mask"]] for s in pdfconfig.samples]
             for m in keys
         ]
         self.__shapesys_info = default_backend.astensor(
             [
                 [
                     [
-                        builder_data[m][s]['data']['mask'],
-                        builder_data[m][s]['data']['nom_data'],
-                        builder_data[m][s]['data']['uncrt'],
+                        builder_data[m][s]["data"]["mask"],
+                        builder_data[m][s]["data"]["nom_data"],
+                        builder_data[m][s]["data"]["uncrt"],
                     ]
                     for s in pdfconfig.samples
                 ]
@@ -143,9 +144,9 @@ class shapesys_combined:
         self._reindex_access_field(pdfconfig)
 
         self._precompute()
-        events.subscribe('tensorlib_changed')(self._precompute)
+        events.subscribe("tensorlib_changed")(self._precompute)
 
-    def _reindex_access_field(self, pdfconfig):
+    def _reindex_access_field(self, _pdfconfig):
         default_backend = pyhf.default_backend
 
         for syst_index, syst_access in enumerate(self._access_field):
@@ -165,9 +166,9 @@ class shapesys_combined:
 
                 sample_mask = self._shapesys_mask[syst_index][singular_sample_index][0]
                 access_field_for_syst_and_batch[sample_mask] = selection
-                self._access_field[
-                    syst_index, batch_index
-                ] = access_field_for_syst_and_batch
+                self._access_field[syst_index, batch_index] = (
+                    access_field_for_syst_and_batch
+                )
 
     def _precompute(self):
         tensorlib, _ = get_backend()
@@ -177,7 +178,7 @@ class shapesys_combined:
         self.shapesys_mask = tensorlib.tile(
             self.shapesys_mask, (1, 1, self.batch_size or 1, 1)
         )
-        self.access_field = tensorlib.astensor(self._access_field, dtype='int')
+        self.access_field = tensorlib.astensor(self._access_field, dtype="int")
         self.sample_ones = tensorlib.ones(tensorlib.shape(self.shapesys_mask)[1])
         self.shapesys_default = tensorlib.ones(tensorlib.shape(self.shapesys_mask))
 
@@ -188,18 +189,14 @@ class shapesys_combined:
         """
         tensorlib, _ = get_backend()
         if not self.param_viewer.index_selection:
-            return
+            return None
         tensorlib, _ = get_backend()
-        if self.batch_size is None:
-            flat_pars = pars
-        else:
-            flat_pars = tensorlib.reshape(pars, (-1,))
+        flat_pars = pars if self.batch_size is None else tensorlib.reshape(pars, (-1,))
         shapefactors = tensorlib.gather(flat_pars, self.access_field)
         results_shapesys = tensorlib.einsum(
-            'mab,s->msab', shapefactors, self.sample_ones
+            "mab,s->msab", shapefactors, self.sample_ones
         )
 
-        results_shapesys = tensorlib.where(
+        return tensorlib.where(
             self.shapesys_mask, results_shapesys, self.shapesys_default
         )
-        return results_shapesys

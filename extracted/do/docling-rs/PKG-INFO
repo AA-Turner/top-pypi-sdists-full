@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-rs
-Version: 2.82.1
+Version: 2.84.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -21,6 +21,7 @@ Provides-Extra: agent-framework
 Provides-Extra: autogen
 Provides-Extra: langchain
 Provides-Extra: llamaindex
+License-File: LICENSE-adobe-glyph-list.txt
 License-File: LICENSE-mapping-resources-pdf.txt
 Summary: Fast, local document-to-Markdown for LLMs and RAG: docling in Rust, with docling's, MarkItDown's, Marker's and MinerU's Python APIs. PDF (layout, tables, OCR), DOCX, PPTX, XLSX, HTML, EPUB, email and more.
 Keywords: markitdown,marker,marker-pdf,mineru,docling,markdown,pdf-to-markdown,docx-to-markdown,document-conversion,document-parsing,pdf,docx,pptx,xlsx,ocr,table-extraction,rag,llm,rust

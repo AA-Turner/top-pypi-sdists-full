@@ -96,6 +96,45 @@ query CustomerSmartHome {
       endpointsQueryParams: { paginationParams: { disablePagination: true } }
     ) {
         items {
+            model {
+                type
+                value {
+                    text
+                    locale
+                }
+            }
+            dmsIdentifier {
+                deviceType
+                dsn
+            }
+            legacyAppliance {
+                applianceId
+                applianceTypes
+                friendlyName
+                friendlyDescription
+                manufacturerName
+                connectedVia
+                modelName
+                entityId
+                aliases
+                capabilities
+                customerDefinedDeviceType
+                alexaDeviceIdentifierList
+                driverIdentity
+                additionalApplianceDetails
+            }
+        }
+    }
+}
+"""
+
+# The original query, used when Amazon rejects the expanded query above.
+GQL_SMARTHOME_QUERY_LEGACY = """
+query CustomerSmartHome {
+    endpoints(
+      endpointsQueryParams: { paginationParams: { disablePagination: true } }
+    ) {
+        items {
             legacyAppliance {
                 applianceId
                 applianceTypes

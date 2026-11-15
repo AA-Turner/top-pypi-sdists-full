@@ -1,0 +1,665 @@
+"""One on-demand desktop per workspace, shared by the viewer and model tools."""
+
+import asyncio
+import contextlib
+import logging
+import os
+from pathlib import Path
+import secrets
+import shutil
+import sys
+import importlib.util
+import signal
+import tempfile
+from typing import Literal
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import Response
+from pydantic import BaseModel, Field, model_validator
+
+from open_terminal.desktop.audio import DesktopAudio
+from open_terminal.dependencies import get_filesystem, matches_api_key, verify_api_key
+from open_terminal.env import (
+    BROWSER_NO_SANDBOX, DESKTOP_ENVIRONMENT, DESKTOP_MODE, MULTI_USER,
+    sanitized_environ,
+)
+from open_terminal.utils.fs import UserFS
+
+router = APIRouter(prefix="/desktop", tags=["desktop"])
+WIDTH, HEIGHT = 1280, 800
+desktops = {}
+startup_lock = asyncio.Lock()
+log = logging.getLogger(__name__)
+
+
+def gnome_session():
+    # A Wayland-only GNOME installation cannot run inside TigerVNC's X server.
+    if not all(shutil.which(name) for name in ("gnome-session", "gnome-shell", "xprop")):
+        return None
+    for name in ("ubuntu", "gnome"):
+        if (
+            any(Path(f"/usr/share/xsessions/{name}{suffix}.desktop").is_file()
+                for suffix in ("", "-xorg"))
+            and Path(f"/usr/share/gnome-session/sessions/{name}.session").is_file()
+        ):
+            return name
+    return None
+
+
+def virtual_environment():
+    return "gnome" if DESKTOP_ENVIRONMENT == "gnome" else "xfce"
+
+
+def virtual_backend():
+    return "wayland" if virtual_environment() == "gnome" and not gnome_session() else "vnc"
+
+
+def host_backend():
+    if sys.platform != "linux":
+        return "native"
+    # Xwayland's DISPLAY cannot capture/control a Wayland desktop. SSH without
+    # the graphical session's environment can still use its user-bus portal.
+    if (
+        os.environ.get("DISPLAY", "").startswith(":")
+        and not os.environ.get("WAYLAND_DISPLAY")
+        and os.environ.get("XDG_SESSION_TYPE", "").lower() in ("", "x11")
+    ):
+        return "native"
+    return "portal"
+
+
+def available():
+    if DESKTOP_MODE == "host":
+        if MULTI_USER:
+            return False
+        if host_backend() == "portal":
+            return bool(importlib.util.find_spec("dbus_next") and shutil.which("gst-launch-1.0"))
+        return all(
+            importlib.util.find_spec(name) for name in ("mss", "pyautogui", "pyperclip")
+        )
+    if sys.platform == "linux" and virtual_backend() == "wayland":
+        return not MULTI_USER and bool(importlib.util.find_spec("dbus_next")) and all(
+            shutil.which(name) for name in (
+                "gnome-shell", "dbus-daemon", "pipewire", "wireplumber", "gst-launch-1.0",
+            )
+        )
+    return sys.platform == "linux" and bool(
+        gnome_session() if virtual_environment() == "gnome" else shutil.which("startxfce4")
+    ) and all(
+        shutil.which(name)
+        for name in (
+            "Xtigervnc",
+            "dbus-run-session",
+            "xauth",
+            "xdotool",
+            "scrot",
+            "xclip",
+        )
+    )
+
+
+class Desktop:
+    transport = "vnc"
+    width, height = WIDTH, HEIGHT
+
+    def __init__(self, fs):
+        self.fs = fs
+        self.runtime = Path(tempfile.mkdtemp(prefix="open-terminal-desktop-"))
+        self.processes = []
+        self.audio = DesktopAudio(self)
+        self.actions = asyncio.Lock()
+        self.peers = set()
+        self.env = {
+            "HOME": fs.home,
+            "XDG_RUNTIME_DIR": str(self.runtime),
+            "XAUTHORITY": str(self.runtime / "Xauthority"),
+        }
+        if BROWSER_NO_SANDBOX:
+            self.env["OPEN_TERMINAL_BROWSER_NO_SANDBOX"] = "true"
+
+    @property
+    def command_env(self):
+        return {key: self.env[key] for key in (
+            "DISPLAY", "XAUTHORITY", "PULSE_SERVER", "PULSE_SINK", "PULSE_SOURCE",
+            "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION",
+            "XDG_SESSION_TYPE", "XDG_MENU_PREFIX", "GDK_BACKEND", "QT_QPA_PLATFORM",
+            "TERMINAL", "XDG_CONFIG_DIRS",
+        ) if key in self.env}
+
+    async def spawn(self, *command, **kwargs):
+        if self.fs.username:
+            command = (
+                "sudo",
+                "-H",
+                "-n",
+                "-u",
+                self.fs.username,
+                "--",
+                "env",
+                *(f"{k}={v}" for k, v in self.env.items()),
+                *command,
+            )
+        return await asyncio.create_subprocess_exec(
+            *command,
+            cwd=self.fs.home,
+            env=sanitized_environ(self.env),
+            start_new_session=True,
+            **kwargs,
+        )
+
+    async def stop_process(self, process):
+        if process.returncode is not None:
+            return
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            if self.fs.username and os.getuid() != 0:
+                killer = await asyncio.create_subprocess_exec(
+                    "sudo",
+                    "-n",
+                    "kill",
+                    f"-{sig.name[3:]}",
+                    "--",
+                    f"-{process.pid}",
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await killer.wait()
+            else:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, sig)
+            try:
+                await asyncio.wait_for(process.wait(), 3)
+                return
+            except TimeoutError:
+                pass
+
+    async def run(self, *command, input=None, timeout=10):
+        # xclip forks a clipboard owner; inherited pipes would never reach EOF.
+        output = (
+            asyncio.subprocess.DEVNULL
+            if command[0] == "xclip"
+            else asyncio.subprocess.PIPE
+        )
+        process = await self.spawn(
+            *command,
+            stdin=asyncio.subprocess.PIPE
+            if input is not None
+            else asyncio.subprocess.DEVNULL,
+            stdout=output,
+            stderr=output,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(input), timeout)
+            if process.returncode:
+                raise RuntimeError(
+                    (stderr or b"").decode(errors="replace")[-1000:]
+                    or "Desktop command failed"
+                )
+            return stdout or b""
+        finally:
+            await self.stop_process(process)
+
+    async def start(self, *, shell=True):
+        if shell and virtual_environment() == "xfce":
+            self.configure_xfce()
+        if self.fs.username:
+            import pwd
+
+            account = pwd.getpwnam(self.fs.username)
+            os.chmod(self.runtime, 0o770)
+            process = await asyncio.create_subprocess_exec(
+                "sudo",
+                "-n",
+                "chown",
+                "-R",
+                f"{account.pw_uid}:{os.getegid()}",
+                str(self.runtime),
+            )
+            if await process.wait():
+                raise RuntimeError("Could not create desktop runtime directory")
+        display = next(
+            n
+            for n in range(40, 1040)
+            if not Path(f"/tmp/.X{n}-lock").exists()
+            and not Path(f"/tmp/.X11-unix/X{n}").exists()
+        )
+        self.env["DISPLAY"] = f":{display}"
+        await self.run(
+            "xauth",
+            "-f",
+            self.env["XAUTHORITY"],
+            "add",
+            self.env["DISPLAY"],
+            ".",
+            secrets.token_hex(16),
+        )
+        # VNC is reachable only through the authenticated WebSocket relay.
+        with (self.runtime / "display.log").open("wb") as log:
+            server = await self.spawn(
+                "Xtigervnc",
+                self.env["DISPLAY"],
+                "-geometry",
+                f"{WIDTH}x{HEIGHT}",
+                "-depth",
+                "24",
+                "-rfbport",
+                "-1",
+                "-rfbunixpath",
+                str(self.runtime / "vnc.sock"),
+                "-rfbunixmode",
+                "0660",
+                "-SecurityTypes",
+                "None",
+                "-AlwaysShared",
+                "-AcceptSetDesktopSize=0",
+                "-nolisten",
+                "tcp",
+                "-auth",
+                self.env["XAUTHORITY"],
+                "-desktop",
+                "Desktop",
+                stdout=log,
+                stderr=log,
+            )
+        self.processes.append(server)
+        for _ in range(100):
+            if server.returncode is not None:
+                raise RuntimeError((self.runtime / "display.log").read_text()[-1000:])
+            if (self.runtime / "vnc.sock").exists():
+                break
+            await asyncio.sleep(0.1)
+        else:
+            raise RuntimeError("Desktop display did not start")
+        if not shell:
+            return
+        await self.audio.start()
+        environment = virtual_environment()
+        if environment == "gnome":
+            session = gnome_session()
+            if not session:
+                raise RuntimeError("GNOME needs an installed X11 session for VNC; use --desktop-environment xfce or --desktop-mode host.")
+            self.env.update(
+                XDG_SESSION_TYPE="x11", GDK_BACKEND="x11",
+                XDG_CURRENT_DESKTOP="ubuntu:GNOME" if session == "ubuntu" else "GNOME",
+                GNOME_SHELL_SESSION_MODE="ubuntu" if session == "ubuntu" else "user",
+                LIBGL_ALWAYS_SOFTWARE="1",
+            )
+            # Older releases expose --builtin; newer non-systemd builds omit it.
+            help_text = await self.run("dbus-run-session", "--", "gnome-session", "--help")
+            command = ("gnome-session", *(('--builtin',) if b"--builtin" in help_text else ()), f"--session={session}")
+        else:
+            command = ("startxfce4",)
+        with (self.runtime / "session.log").open("wb") as log:
+            self.processes.append(
+                await self.spawn(
+                    "env", "-u", "SESSION_MANAGER", "-u", "WAYLAND_DISPLAY",
+                    "dbus-run-session", "--", *command, stdout=log, stderr=log
+                )
+            )
+        try:
+            if environment == "gnome":
+                # GNOME's supporting WM window is hidden and has no WM_CLASS.
+                for _ in range(150):
+                    if self.processes[-1].returncode is not None:
+                        raise RuntimeError("GNOME session exited")
+                    check = await self.run("xprop", "-root", "_NET_SUPPORTING_WM_CHECK")
+                    if b"window id # 0x" in check and not check.rstrip().endswith(b"0x0"):
+                        break
+                    await asyncio.sleep(0.2)
+                else:
+                    raise TimeoutError()
+            else:
+                await self.run("xdotool", "search", "--sync", "--onlyvisible", "--class", "xfdesktop", timeout=30)
+        except (TimeoutError, RuntimeError) as exc:
+            raise RuntimeError(f"{environment} desktop did not start: " + (self.runtime / "session.log").read_text(errors="replace")[-2000:]) from exc
+
+    def configure_xfce(self):
+        # startxfce4 preserves inherited GNOME values unless we replace them.
+        self.env.update(
+            XDG_CURRENT_DESKTOP="XFCE", XDG_SESSION_DESKTOP="xfce",
+            DESKTOP_SESSION="xfce", XDG_SESSION_TYPE="x11", XDG_MENU_PREFIX="xfce-",
+            GDK_BACKEND="x11", QT_QPA_PLATFORM="xcb",
+        )
+        config = self.runtime / "config"
+        (config / "xfce4").mkdir(parents=True, exist_ok=True)
+        directories = os.environ.get("XDG_CONFIG_DIRS") or "/etc/xdg"
+        helpers = ""
+        for directory in directories.split(":"):
+            path = Path(directory) / "xfce4/helpers.rc"
+            if path.is_file():
+                helpers = path.read_text()
+                break
+        # Ubuntu's x-terminal-emulator alternative can select systemd-only Ptyxis.
+        helpers = "\n".join(line for line in helpers.splitlines() if line.partition("=")[0].strip() != "TerminalEmulator")
+        if shutil.which("xfce4-terminal"):
+            self.env["TERMINAL"] = "xfce4-terminal"
+            (config / "xfce4/helpers.rc").write_text(helpers + "\nTerminalEmulator=xfce4-terminal\n")
+        autostart = config / "autostart"
+        autostart.mkdir(exist_ok=True)
+        # These manage host hardware or unlock login secrets, not virtual devices.
+        for name in (
+            "nm-applet", "blueman", "xfce4-power-manager", "light-locker", "xfce4-screensaver",
+            "gnome-keyring-pkcs11", "gnome-keyring-secrets", "gnome-keyring-ssh",
+            "org.gnome.SettingsDaemon.Color", "xiccd",
+        ):
+            (autostart / f"{name}.desktop").write_text("[Desktop Entry]\nType=Application\nHidden=true\n")
+        self.env["XDG_CONFIG_DIRS"] = f"{config}:{directories}"
+
+    @property
+    def audio_available(self):
+        return self.audio.available
+
+    async def stream_audio(self, ws):
+        await self.audio.stream(ws)
+
+    async def screenshot(self):
+        path = self.runtime / "screenshot.png"
+        await self.run("scrot", "--overwrite", str(path))
+        return await asyncio.to_thread(path.read_bytes)
+
+    async def stream(self, ws):
+        reader, writer = await asyncio.open_unix_connection(
+            str(self.runtime / "vnc.sock")
+        )
+        self.peers.add(ws)
+
+        async def incoming():
+            while True:
+                writer.write(await ws.receive_bytes())
+                await writer.drain()
+
+        async def outgoing():
+            while data := await reader.read(65536):
+                await ws.send_bytes(data)
+
+        tasks = [asyncio.create_task(incoming()), asyncio.create_task(outgoing())]
+        try:
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            self.peers.discard(ws)
+            writer.close()
+            with contextlib.suppress(OSError):
+                await writer.wait_closed()
+
+    async def close(self):
+        for peer in list(self.peers):
+            with contextlib.suppress(Exception):
+                await peer.close(code=1012)
+        for process in reversed(self.processes):
+            await self.stop_process(process)
+        await self.audio.close()
+        if self.fs.username:
+            await self.run("rm", "-rf", "--", str(self.runtime))
+        else:
+            shutil.rmtree(self.runtime, ignore_errors=True)
+
+
+async def get_desktop(request, fs):
+    if DESKTOP_MODE == "host" and (MULTI_USER or fs.username):
+        raise HTTPException(403, "Host desktop requires single-user operation as the logged-in desktop user.")
+    if not available():
+        raise HTTPException(503, "Desktop dependencies for the selected mode are not installed. See docs/configuration.md#desktop.")
+    if DESKTOP_MODE == "host" and sys.platform == "darwin":
+        from open_terminal.desktop.native import check_permissions
+
+        check_permissions()
+    key = ("host" if DESKTOP_MODE == "host" else request.headers.get("x-user-id", ""), fs.home)
+    async with startup_lock:
+        desktop = desktops.get(key)
+        if desktop and not getattr(desktop, "closed", False) and all(p.returncode is None for p in desktop.processes):
+            return desktop
+        if desktop:
+            await desktop.close()
+            desktops.pop(key, None)
+        if DESKTOP_MODE == "host":
+            if host_backend() == "portal":
+                from open_terminal.desktop.portal import PortalDesktop
+
+                desktop = PortalDesktop(fs)
+            else:
+                from open_terminal.desktop.native import NativeDesktop
+
+                desktop = NativeDesktop(fs)
+        elif virtual_backend() == "wayland":
+            from open_terminal.desktop.wayland import WaylandDesktop
+
+            desktop = WaylandDesktop(fs)
+        else:
+            desktop = Desktop(fs)
+        try:
+            await desktop.start()
+        except BaseException as exc:
+            await desktop.close()
+            if isinstance(exc, (OSError, RuntimeError, TimeoutError)):
+                raise HTTPException(503, str(exc) or "Desktop startup timed out") from exc
+            raise
+        desktops[key] = desktop
+        return desktop
+
+
+async def shutdown():
+    await asyncio.gather(
+        *(desktop.close() for desktop in desktops.values()), return_exceptions=True
+    )
+    desktops.clear()
+
+
+@router.get("", include_in_schema=False, dependencies=[Depends(verify_api_key)])
+async def connect(request: Request, fs: UserFS = Depends(get_filesystem)):
+    desktop = await get_desktop(request, fs)
+    return {
+        "width": desktop.width,
+        "height": desktop.height,
+        "transport": desktop.transport,
+        "platform": sys.platform,
+        "mode": DESKTOP_MODE,
+        "audio": getattr(desktop, "audio_available", False),
+        "clipboard": getattr(desktop, "clipboard", desktop.transport == "vnc"),
+    }
+
+
+@router.get(
+    "/screenshot",
+    operation_id="desktop_screenshot",
+    summary="See the workspace desktop",
+    dependencies=[Depends(verify_api_key)],
+)
+async def screenshot(request: Request, fs: UserFS = Depends(get_filesystem)):
+    """Return an image of the same desktop the user sees. Starts it if needed.
+    Coordinates are pixels in the returned image. Inspect before interacting.
+    Host mode shares the logged-in user's screen across workspaces.
+    Virtual mode uses a separate Linux desktop.
+    """
+    desktop = await get_desktop(request, fs)
+    async with desktop.actions:
+        return Response(await desktop.screenshot(), media_type="image/png")
+
+
+ActionType = Literal["click", "double_click", "move", "drag", "scroll", "type", "key"]
+
+
+class Action(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    action: ActionType
+    x: int | None = Field(default=None, ge=0, le=32767)
+    y: int | None = Field(default=None, ge=0, le=32767)
+    to_x: int | None = Field(default=None, ge=0, le=32767)
+    to_y: int | None = Field(default=None, ge=0, le=32767)
+    button: Literal["left", "middle", "right"] = "left"
+    direction: Literal["up", "down", "left", "right"] = "down"
+    amount: int = Field(default=3, ge=1, le=20)
+    text: str | None = Field(default=None, max_length=20000)
+    key: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9_+]+$",
+        max_length=100,
+        description="Key or combination, e.g. Return, ctrl+c, command+c on macOS, alt+F2 on Linux",
+    )
+
+    @model_validator(mode="after")
+    def required_fields(self):
+        if self.action in ("click", "double_click", "move", "drag") and (
+            self.x is None or self.y is None
+        ):
+            raise ValueError("This action requires x and y")
+        if (self.x is None) != (self.y is None):
+            raise ValueError("Provide both x and y")
+        if self.action == "drag" and (self.to_x is None or self.to_y is None):
+            raise ValueError("Drag requires to_x and to_y")
+        if self.action == "type" and self.text is None:
+            raise ValueError("Type requires text")
+        if self.action == "key" and not self.key:
+            raise ValueError("Key requires a key combination")
+        return self
+
+
+class ActionRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    actions: list[Action] = Field(
+        min_length=1,
+        max_length=50,
+        description="Desktop actions to execute in order, with one final screenshot.",
+    )
+
+
+async def perform_action(desktop, body):
+    if hasattr(desktop, "perform"):
+        try:
+            await desktop.work(desktop.perform, body)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        await asyncio.sleep(0.1)
+        return
+    button = str({"left": 1, "middle": 2, "right": 3}[body.button])
+    if body.x is not None:
+        await desktop.run(
+            "xdotool", "mousemove", "--sync", str(body.x), str(body.y)
+        )
+    if body.action in ("click", "double_click"):
+        await desktop.run(
+            "xdotool",
+            "click",
+            "--repeat",
+            "2" if body.action == "double_click" else "1",
+            "--delay",
+            "100",
+            button,
+        )
+    elif body.action == "drag":
+        try:
+            await desktop.run(
+                "xdotool",
+                "mousedown",
+                button,
+                "mousemove",
+                "--sync",
+                str(body.to_x),
+                str(body.to_y),
+            )
+        finally:
+            await desktop.run("xdotool", "mouseup", button)
+    elif body.action == "scroll":
+        await desktop.run(
+            "xdotool",
+            "click",
+            "--repeat",
+            str(body.amount),
+            "--delay",
+            "50",
+            str({"up": 4, "down": 5, "left": 6, "right": 7}[body.direction]),
+        )
+    elif body.action == "type":
+        for selection in ("clipboard", "primary"):
+            await desktop.run(
+                "xclip", "-selection", selection, input=body.text.encode()
+            )
+        await desktop.run("xdotool", "key", "--clearmodifiers", "shift+Insert")
+    elif body.action == "key":
+        await desktop.run("xdotool", "key", "--clearmodifiers", body.key)
+    await asyncio.sleep(0.15)
+
+
+@router.post(
+    "/action",
+    operation_id="desktop_action",
+    summary="Interact with the workspace desktop",
+    dependencies=[Depends(verify_api_key)],
+)
+async def action(
+    request: Request, body: ActionRequest, fs: UserFS = Depends(get_filesystem)
+):
+    """Batch known steps in one call; stop when you need a fresh observation.
+    Executes 1–50 actions in order and returns one final screenshot.
+    Each item can click, double-click, move, drag, scroll, type, or press a key.
+    Use desktop_screenshot first and work from that image's pixel coordinates.
+    Host mode shares the logged-in desktop. Type enters literal text.
+    Batches stop on failure and report completed_actions and failed_action_index
+    (zero-based, null if only the final screenshot failed). Completed actions are
+    not rolled back; the failed action may also have taken effect. Inspect the
+    desktop before retrying, and do not blindly replay the batch.
+    """
+    desktop = await get_desktop(request, fs)
+    actions = body.actions
+    async with desktop.actions:
+        # Reject invalid coordinates anywhere in the batch before sending input.
+        for item in actions:
+            for x, y in ((item.x, item.y), (item.to_x, item.to_y)):
+                if x is not None and (
+                    x >= desktop.width or y is None or y >= desktop.height
+                ):
+                    raise HTTPException(
+                        400, "Coordinates are outside the current desktop screenshot"
+                    )
+        completed = 0
+        try:
+            for item in actions:
+                await perform_action(desktop, item)
+                completed += 1
+            return Response(await desktop.screenshot(), media_type="image/png")
+        except (HTTPException, OSError, RuntimeError, ValueError) as exc:
+            raise HTTPException(
+                exc.status_code if isinstance(exc, HTTPException) else 502,
+                {
+                    "completed_actions": completed,
+                    "failed_action_index": completed if completed < len(actions) else None,
+                    "error": exc.detail if isinstance(exc, HTTPException) else str(exc),
+                },
+            ) from exc
+
+
+@router.websocket("/audio")
+@router.websocket("/stream")
+async def stream(ws: WebSocket):
+    await ws.accept()
+    try:
+        auth = await asyncio.wait_for(ws.receive_json(), 10)
+        if (
+            not isinstance(auth, dict)
+            or auth.get("type") != "auth"
+            or not matches_api_key(auth.get("token"))
+        ):
+            await ws.close(code=4001)
+            return
+        desktop = await get_desktop(ws, get_filesystem(ws))
+        if ws.url.path.endswith("/audio"):
+            if not getattr(desktop, "audio_available", False):
+                await ws.close(code=4004, reason="Desktop audio unavailable")
+                return
+            await desktop.stream_audio(ws)
+        else:
+            await desktop.stream(ws)
+    except (WebSocketDisconnect, TimeoutError, OSError, ValueError, HTTPException):
+        pass
+    finally:
+        with contextlib.suppress(Exception):
+            await ws.close(code=1011)

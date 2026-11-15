@@ -312,6 +312,14 @@ def catalog_rows(q: str = "", limit: int | None = None, offset: int = 0, *, comp
             if form:
                 central_aliases.setdefault(form, row)
     out = []
+    # the fleet models database (registry/fleet_central.py): every host's Discovery, every drive (operator
+    # 2026-11-15: Core's central is the fleet's models, not a drive of its own)
+    try:
+        from hugpy_core.registry import fleet_central as _fleet_central
+        fleet = _fleet_central.by_key()
+    except Exception:  # noqa: BLE001  no fleet table yet: the rows stand as they were
+        logger.exception("fleet models read failed")
+        fleet = {}
     from hugpy_core.registry.registrations import all as _saved_connections, is_connected as _is_connected
     try:
         connected_names = {c.get("name") for c in _saved_connections() if _is_connected(c)}
@@ -365,7 +373,17 @@ def catalog_rows(q: str = "", limit: int | None = None, offset: int = 0, *, comp
                      or (central_row or {}).get("framework"))
         if not framework and any(str(f.get("file") or "").lower().endswith(".gguf") for f in quant_facts):
             framework = "gguf"
-        out.append({"model_key": key, "name": key,
+        f = fleet.get(key)
+        if f:
+            row_fleet = _fleet_fields(f)
+            primary_task = primary_task or f.get("task")
+            if not tasks and primary_task:
+                tasks = [primary_task]
+            framework = framework or row_fleet["framework"]
+            size = size or row_fleet["size_bytes"]
+        else:
+            row_fleet = {}
+        row = ({"model_key": key, "name": key,
                     "hub_id": (entry.get("hub_id") or db_entry.get("hub_id") or marker.get("hub_id")
                                or (central_row or {}).get("hub_id")),
                     "framework": framework,
@@ -386,7 +404,34 @@ def catalog_rows(q: str = "", limit: int | None = None, offset: int = 0, *, comp
                     "central_canonical_key": (central_row or {}).get("model_key"),
                     "copies": copies, "quants": quant_facts,
                     "worker_assignments": pairs})
+        for k, v in row_fleet.items():          # the fleet fills what the row lacks; its own fields always
+            if k.startswith("fleet_") or row.get(k) in (None, "", [], "unknown"):
+                row[k] = v
+        if row_fleet.get("fleet_hosts"):
+            row["status"], row["on_central"] = "installed", True
+        out.append(row)
     return out
+
+
+def _fleet_fields(f) -> dict:
+    """A console row's fleet columns: where every copy is (host, drive roles, proved), its variations with sizes,
+    and Discovery's facts, so every column says something true about it."""
+    from hugpy_core.registry.fleet_central import framework_of
+    variations = sorted(f["variations"], key=lambda m: (not m.get("content_id"), int(m.get("bytes") or 0)))
+    gguf = [m for m in variations if str(m["variation"]).lower().endswith(".gguf")]
+    smallest = (gguf or variations)[0] if variations else {}
+    where = sorted({f"{h['holder']}:{'+'.join(h.get('roles') or ['central'])}{'' if h.get('verified') else '?'}"
+                    for m in variations for h in m["holders"]})
+    return {"fleet_hosts": f["hosts"], "fleet_where": where,
+            "fleet_variations": [{"variation": m["variation"], "bytes": m.get("bytes"), "content_id": m.get("content_id"),
+                                  "holders": [{"host": h["holder"], "roles": h.get("roles"), "verified": h.get("verified")}
+                                              for h in m["holders"]]} for m in variations],
+            "framework": framework_of(f.get("engine"), smallest.get("variation")),
+            "size_bytes": smallest.get("bytes"),
+            "effective_bytes": smallest.get("bytes") if gguf else None,
+            "effective_gguf": smallest.get("variation") if gguf else None,
+            "model_max_length": f.get("ctx_train"), "arch": f.get("arch"), "layers": f.get("layers"),
+            "engine": f.get("engine")}
 
 
 # ── core HTTP surface as pure functions (register_categories convention) ─────

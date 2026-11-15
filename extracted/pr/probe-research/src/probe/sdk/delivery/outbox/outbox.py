@@ -356,7 +356,8 @@ class _WorkerEpisode:
             self.lanes.forget_all()
 
     def waited_runs(self) -> list[str]:
-        """The runs a `finish()` waits on (R2): their writes go first this pass."""
+        """The runs a `finish()` waits on, or a SIGTERM's close announced (R2, T16j): their writes go
+        first this pass."""
         from .waiter import waited_runs
 
         try:

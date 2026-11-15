@@ -1,6 +1,8 @@
 Metadata-Version: 2.4
 Name: pyromark
-Version: 0.10.4
+Version: 0.10.5
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -12,26 +14,33 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Typing :: Typed
 Requires-Dist: typing-extensions>=4.4.0
 License-File: LICENSE
 License-File: LICENSE-THIRD-PARTY
-Summary: Blazingly fast CommonMark-compliant Markdown pull parser
+Summary: Blazingly fast CommonMark-compliant Markdown pull parser for Python, written in Rust
 Keywords: commonmark,gfm,html,markdown,markdown-parser,markdown-to-html,parser,pull-parser,pulldown-cmark,pyo3,rust,syntax-highlighting
 Author-email: monosans <hsyqixco@protonmail.com>
+License-Expression: MIT
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: changelog, https://github.com/monosans/pyromark/blob/main/CHANGELOG.md
 Project-URL: documentation, https://monosans.github.io/pyromark
+Project-URL: issues, https://github.com/monosans/pyromark/issues
 Project-URL: repository, https://github.com/monosans/pyromark
 
 # <img src="https://raw.githubusercontent.com/monosans/pyromark/main/docs/assets/logo.svg" alt="" width="40" align="top"> pyromark
 
 [![Downloads](https://static.pepy.tech/badge/pyromark)](https://pepy.tech/project/pyromark)
 
-pyromark (stands for Python Rust Optimized Markdown) is a blazingly fast CommonMark-compliant Markdown parser for Python, built on the [pulldown-cmark](https://github.com/pulldown-cmark/pulldown-cmark) Rust crate.
+pyromark (stands for Python Rust Optimized Markdown) is a blazingly fast CommonMark-compliant Markdown pull parser for Python, built on the [pulldown-cmark](https://github.com/pulldown-cmark/pulldown-cmark) Rust crate.
 
 ## Installation
 

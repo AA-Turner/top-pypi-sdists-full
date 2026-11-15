@@ -62,7 +62,7 @@ namespace sogen::test
             {
                 this->port = this->emu->process.io_completions.store(io_completion{});
                 auto& factory = this->pool();
-                factory.io_completion_handle = this->port;
+                factory.io_completion = this->emu->process.io_completions.reference_of(this->port).value_or(object_reference{});
                 factory.start_routine = 0x10000;
                 factory.thread_maximum = thread_maximum;
             }
@@ -160,8 +160,9 @@ namespace sogen::test
 
         auto* worker = this->emu->process.threads.get(this->pool().worker_threads.front());
         ASSERT_NE(nullptr, worker);
-        worker->await_io_completion =
-            pending_io_completion_wait{.io_completion_handle = this->port, .type = io_completion_wait_type::remove_multiple};
+        worker->await_io_completion = pending_io_completion_wait{
+            .io_completion = this->emu->process.io_completions.reference_of(this->port).value_or(object_reference{}),
+            .type = io_completion_wait_type::remove_multiple};
 
         ASSERT_EQ(STATUS_SUCCESS, this->release());
         EXPECT_EQ(1u, this->pool().worker_threads.size());
@@ -210,12 +211,40 @@ namespace sogen::test
         auto& factory = this->pool();
         factory.pending_release_count = 2;
         factory.release_pending = true;
-        ASSERT_TRUE(
-            this->emu->synchronize([&] { return worker_factory_support::enqueue_release_completion(*this->emu, this->factory_handle); }));
+        ASSERT_TRUE(this->emu->synchronize([&] {
+            return worker_factory_support::enqueue_release_completion(
+                *this->emu, *this->emu->process.worker_factories.reference_of(this->factory_handle));
+        }));
 
         EXPECT_FALSE(worker->await_io_completion.has_value());
         EXPECT_EQ(1u, this->emu->process.io_completions.get(this->port)->queue.size());
         EXPECT_EQ(2u, factory.worker_threads.size());
+    }
+
+    TEST_F(WorkerFactoryTest, ReleasePacketStillNamesItsFactoryAfterTheReleasedHandleCloses)
+    {
+        this->make_pool();
+
+        const auto duplicate = this->emu->process.worker_factories.duplicate(this->factory_handle);
+        ASSERT_TRUE(duplicate);
+
+        auto& factory = this->pool();
+        factory.pending_release_count = 2;
+        factory.release_pending = true;
+        ASSERT_TRUE(this->emu->synchronize([&] {
+            return worker_factory_support::enqueue_release_completion(
+                *this->emu, *this->emu->process.worker_factories.reference_of(this->factory_handle));
+        }));
+
+        // The guest closes the handle it released through; the duplicate keeps the factory alive. The queued packet must
+        // still resolve the factory by identity to take the release and queue the next one.
+        ASSERT_TRUE(this->emu->process.worker_factories.erase(this->factory_handle));
+        ASSERT_NE(nullptr, this->emu->process.worker_factories.get(*duplicate));
+
+        this->take_release();
+
+        EXPECT_EQ(1u, factory.pending_release_count);
+        EXPECT_EQ(1u, this->emu->process.io_completions.get(this->port)->queue.size());
     }
 
     TEST_F(WorkerFactoryTest, BindingStartsNoWorkerWhileNothingIsQueued)
@@ -289,6 +318,57 @@ namespace sogen::test
         this->queue_packet();
         EXPECT_EQ(2u, this->pool().worker_threads.size());
         EXPECT_FALSE(this->pool().away_notification);
+    }
+
+    TEST_F(WorkerFactoryTest, ThreadMinimumRaisesTheMaximumAndStartsItsWorkers)
+    {
+        this->make_pool(2);
+
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMinimum, 4));
+        EXPECT_EQ(4u, this->pool().thread_minimum);
+        EXPECT_EQ(4u, this->pool().thread_maximum);
+        EXPECT_EQ(4u, this->pool().worker_threads.size());
+    }
+
+    TEST_F(WorkerFactoryTest, ThreadMaximumLowersTheMinimumAndKeepsRunningWorkers)
+    {
+        this->make_pool();
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMinimum, 3));
+
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMaximum, 1));
+        EXPECT_EQ(1u, this->pool().thread_minimum);
+        EXPECT_EQ(1u, this->pool().thread_maximum);
+        EXPECT_EQ(3u, this->pool().worker_threads.size());
+    }
+
+    TEST_F(WorkerFactoryTest, OnlyARaisedMinimumStartsWorkers)
+    {
+        this->make_pool();
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMinimum, 2));
+        ASSERT_EQ(2u, this->pool().worker_threads.size());
+
+        // A worker is gone: neither the same minimum again nor another setting starts one in its place.
+        this->emu->process.threads.get(this->pool().worker_threads.front())->exit_status = STATUS_SUCCESS;
+        const auto workers = this->pool().worker_threads;
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMinimum, 2));
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMaximum, 8));
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadBasePriority, 1));
+        EXPECT_EQ(workers, this->pool().worker_threads);
+
+        ASSERT_EQ(STATUS_SUCCESS, this->set_limit(WorkerFactoryThreadMinimum, 3));
+        EXPECT_EQ(3u, this->pool().worker_threads.size());
+    }
+
+    TEST_F(WorkerFactoryTest, FactoryBeingShutDownKeepsItsLimits)
+    {
+        this->make_pool(4);
+        this->pool().shutdown = true;
+
+        EXPECT_EQ(STATUS_ABANDONED, this->set_limit(WorkerFactoryThreadMinimum, 2));
+        EXPECT_EQ(STATUS_ABANDONED, this->set_limit(WorkerFactoryThreadMaximum, 1));
+        EXPECT_EQ(0u, this->pool().thread_minimum);
+        EXPECT_EQ(4u, this->pool().thread_maximum);
+        EXPECT_TRUE(this->pool().worker_threads.empty());
     }
 
     TEST_F(WorkerFactoryTest, NewMaximumStartsAWorkerForQueuedWork)

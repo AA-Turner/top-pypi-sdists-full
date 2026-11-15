@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.2.9
+Version: 1.2.10
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Testing
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: typer<0.28,>=0.18.0
+Requires-Dist: typer<0.29,>=0.18.0
 Requires-Dist: click<9.0.0,>=8.1.0
 Requires-Dist: pydantic<2.15.0,>=2.8.2
 Requires-Dist: pydantic-settings<3.0.0,>=2.5.0
@@ -72,8 +72,8 @@ Requires-Dist: pyarrow-hotfix>=0.4; extra == "dataframe"
 Requires-Dist: rich>=12.4.4; extra == "dataframe"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks]<13.0.0,>=10.0.0; extra == "databricks"
-Requires-Dist: databricks-sql-connector<4.7.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.157.0; extra == "databricks"
+Requires-Dist: databricks-sql-connector<4.10.0,>=3.7.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.163.0; extra == "databricks"
 Requires-Dist: packaging<27.0,>=21.3; extra == "databricks"
 Provides-Extra: databricks-runtime
 Requires-Dist: datacontract-cli[databricks]; extra == "databricks-runtime"
@@ -104,7 +104,7 @@ Requires-Dist: datacontract-cli[s3]; extra == "gcs"
 Provides-Extra: azure
 Requires-Dist: datacontract-cli[duckdb]; extra == "azure"
 Requires-Dist: duckdb-extension-azure<1.6.0,>=1.5.0; extra == "azure"
-Requires-Dist: azure-identity<1.27,>=1.17.1; extra == "azure"
+Requires-Dist: azure-identity<1.28,>=1.17.1; extra == "azure"
 Requires-Dist: azure-storage-blob<12.32,>=12.24; extra == "azure"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[pandas]<5.2,>=3.17; extra == "snowflake"
@@ -145,7 +145,7 @@ Requires-Dist: pyarrow>=18.1.0; extra == "parquet"
 Provides-Extra: rdf
 Requires-Dist: rdflib==7.6.0; extra == "rdf"
 Provides-Extra: api
-Requires-Dist: fastapi<0.162.0,>=0.115.0; extra == "api"
+Requires-Dist: fastapi<0.163.0,>=0.115.0; extra == "api"
 Requires-Dist: uvicorn<0.55.0,>=0.44.0; extra == "api"
 Provides-Extra: protobuf
 Requires-Dist: proto-schema-parser<3.0,>=1.0; extra == "protobuf"
@@ -158,17 +158,17 @@ Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: kafka-python; extra == "dev"
 Requires-Dist: minio==7.2.20; extra == "dev"
-Requires-Dist: moto==5.2.4; extra == "dev"
+Requires-Dist: moto==5.2.5; extra == "dev"
 Requires-Dist: openapi-spec-validator<0.10,>=0.7; extra == "dev"
 Requires-Dist: pandas>=2.1.0; extra == "dev"
 Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pymssql==2.4.5; extra == "dev"
+Requires-Dist: pymssql==2.4.6; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<26.11.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.17.2; extra == "dev"
+Requires-Dist: ruff==0.17.4; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.15.0; extra == "dev"
 Requires-Dist: trino==0.340.0; extra == "dev"
 Dynamic: license-file
@@ -196,6 +196,8 @@ It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a P
 ![Main features of the Data Contract CLI](datacontractcli.png)
 
 > 📖 **Full documentation: [cli.datacontract.com](https://cli.datacontract.com)**
+>
+> 🎓 **Learn it hands-on: [Data Contracts in Practice](https://learn.datacontract.com/en/?utm_source=github&utm_medium=referral&utm_campaign=datacontract-cli-readme)**, a free, self-paced tutorial (about 6 hours, in English and German)
 >
 > Quick links: [Quickstart](https://cli.datacontract.com/quickstart) · [Commands](https://cli.datacontract.com/commands) · [Best Practices](https://cli.datacontract.com/best-practices) · [Custom Export and Import](https://cli.datacontract.com/extending) · [Release Notes](https://cli.datacontract.com/release-notes) · [Development Setup](#development-setup)
 >
@@ -486,6 +488,7 @@ A list of available extras:
 It covers everything in depth, including the complete command reference:
 
 - [Quickstart](https://cli.datacontract.com/quickstart) — install and run your first test
+- [Data Contracts in Practice](https://learn.datacontract.com/en/?utm_source=github&utm_medium=referral&utm_campaign=datacontract-cli-readme) — free hands-on tutorial: write, test, evolve, and automate data contracts
 - [Open Data Contract Standard](https://cli.datacontract.com/open-data-contract-standard) — the contract format
 - [Test your Data](https://cli.datacontract.com/testing) — schema & quality tests against 18+ data sources
 - [Define your Quality Rules](https://cli.datacontract.com/quality-rules) — SQL, library, text, and custom checks

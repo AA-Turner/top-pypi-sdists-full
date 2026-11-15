@@ -9,7 +9,6 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    Optional,
 )
 
 from syrupy.constants import (
@@ -57,9 +56,9 @@ class SnapshotSerializer(ABC):
         self,
         data: "SerializableData",
         *,
-        exclude: Optional["PropertyFilter"] = None,
-        include: Optional["PropertyFilter"] = None,
-        matcher: Optional["PropertyMatcher"] = None,
+        exclude: "PropertyFilter | None" = None,
+        include: "PropertyFilter | None" = None,
+        matcher: "PropertyMatcher | None" = None,
     ) -> "SerializedData":
         """
         Serializes a python object / data structure into a string
@@ -101,6 +100,13 @@ class SnapshotCollectionStorage(ABC):
                 f"{basename}{fileext}"
             )
         )
+
+    @classmethod
+    def matches_test_location(
+        cls, *, test_location: "PyTestLocation", snapshot_location: str
+    ) -> bool:
+        """Whether this extension stores ``test_location`` at ``snapshot_location``."""
+        return test_location.matches_snapshot_location(snapshot_location)
 
     def is_snapshot_location(self, *, location: str) -> bool:
         """Checks if supplied location is valid for this snapshot extension"""
@@ -203,7 +209,9 @@ class SnapshotCollectionStorage(ABC):
             snapshot = Snapshot(name=snapshot_name, data=data)
             snapshot_collection.add(snapshot)
 
-            if not test_location.matches_snapshot_location(snapshot_location):
+            if not cls.matches_test_location(
+                test_location=test_location, snapshot_location=snapshot_location
+            ):
                 warning_msg = gettext(
                     "{line_end}Can not relate snapshot location '{}' "
                     "to the test location.{line_end}"
@@ -256,7 +264,7 @@ class SnapshotCollectionStorage(ABC):
     @abstractmethod
     def read_snapshot_data_from_location(
         self, *, snapshot_location: str, snapshot_name: str, session_id: str
-    ) -> Optional["SerializedData"]:
+    ) -> "SerializedData | None":
         """
         Get only the snapshot data from location for assertion
         """

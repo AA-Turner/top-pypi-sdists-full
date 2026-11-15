@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import datetime as dt
 import random
 import warnings
@@ -30,6 +29,7 @@ from typing import (
 import tenacity as _t
 
 from ._config import CONFIG, _Config, _Testing
+from .exceptions import TryAgain
 from .instrumentation._data import RetryDetails, guess_name
 
 
@@ -59,9 +59,9 @@ async def _smart_sleep(delay: float) -> None:
 
 T = TypeVar("T")
 P = ParamSpec("P")
-BackoffHook: TypeAlias = Callable[[Exception], bool | float | dt.timedelta]
+BackoffHook: TypeAlias = Callable[[BaseException], bool | float | dt.timedelta]
 ExcOrBackoffHook: TypeAlias = (
-    type[Exception] | tuple[type[Exception], ...] | BackoffHook
+    type[BaseException] | tuple[type[BaseException], ...] | BackoffHook
 )
 
 # Attribute used to store custom backoff in RetryCallState
@@ -124,15 +124,25 @@ def retry_context(
     wait_max: float | dt.timedelta = 5.0,
     wait_jitter: float | dt.timedelta = 1.0,
     wait_exp_base: float = 2,
+    *,
+    name: str = "<context block>",
 ) -> _RetryContextIterator:
     """
     Iterator that yields context managers that can be used to retry code
     blocks.
 
-    Arguments have the same meaning as for :func:`stamina.retry`.
+    Arguments have the same meaning as for [`stamina.retry()`][stamina.retry].
 
-    .. versionadded:: 23.1.0
-    .. versionadded:: 23.3.0 `Trio <https://trio.readthedocs.io/>`_ support.
+    *name* identifies this operation in retry instrumentation, including the
+    Prometheus callable label. Use a stable name rather than per-request IDs.
+
+    !!! version-added "Added in 23.1.0"
+
+    !!! version-added "Added in 23.3.0"
+        [Trio](https://trio.readthedocs.io/) support.
+
+    !!! version-added "Added in 26.2.0"
+        The *name* parameter.
     """
 
     return _RetryContextIterator.from_params(
@@ -143,7 +153,7 @@ def retry_context(
         wait_max=wait_max,
         wait_jitter=wait_jitter,
         wait_exp_base=wait_exp_base,
-        name="<context block>",
+        name=name,
         args=(),
         kw={},
     )
@@ -153,9 +163,10 @@ class Attempt:
     """
     A context manager that can be used to retry code blocks.
 
-    Instances are yielded by the :func:`stamina.retry_context` iterator.
+    Instances are yielded by the
+    [`stamina.retry_context()`][stamina.retry_context] iterator.
 
-    .. versionadded:: 23.2.0
+    !!! version-added "Added in 23.2.0"
     """
 
     __slots__ = ("_next_wait_fn", "_t_attempt")
@@ -186,14 +197,15 @@ class Attempt:
         The number of seconds of backoff before the *next* attempt if *this*
         attempt fails.
 
-        .. warning::
+        !!! warning
             This value does **not** include a possible random jitter and is
             therefore just a *lower bound* of the actual value.
 
-        .. versionadded:: 24.3.0
-        .. versionchanged:: 25.2.0
-           Fixed off-by-one error when passing the attempt number to the
-           next_wait_fn.
+        !!! version-added "Added in 24.3.0"
+
+        !!! version-changed "Changed in 25.2.0"
+            Fixed off-by-one error when passing the attempt number to the
+            `next_wait_fn`.
         """
         return (
             # The next wait time is computed based on the current attempt number.
@@ -211,9 +223,34 @@ class Attempt:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
+        if isinstance(exc_value, _t.TryAgain) and traceback is not None:
+            _warn_tenacity_try_again(traceback)
+
         return self._t_attempt.__exit__(  # type: ignore[no-any-return]
             exc_type, exc_value, traceback
         )
+
+
+def _warn_tenacity_try_again(tb: TracebackType) -> None:
+    """
+    Warn that raising Tenacity's TryAgain is deprecated.
+    """
+    # Apply best effort to get the actual line number that raised it.
+    while tb.tb_next is not None:
+        tb = tb.tb_next
+
+    module_globals = tb.tb_frame.f_globals
+
+    warnings.warn_explicit(
+        "Raising tenacity.TryAgain to force a retry is deprecated and will "
+        "stop working in a future version. Raise "
+        "stamina.exceptions.TryAgain instead.",
+        DeprecationWarning,
+        filename=tb.tb_frame.f_code.co_filename,
+        lineno=tb.tb_lineno,
+        module=module_globals.get("__name__"),
+        registry=module_globals.setdefault("__warningregistry__", {}),
+    )
 
 
 class RetryKWs(TypedDict):
@@ -223,6 +260,7 @@ class RetryKWs(TypedDict):
     wait_max: float | dt.timedelta
     wait_jitter: float | dt.timedelta
     wait_exp_base: float
+    name: str
 
 
 class BaseRetryingCaller:
@@ -243,6 +281,8 @@ class BaseRetryingCaller:
         wait_max: float | dt.timedelta = 5.0,
         wait_jitter: float | dt.timedelta = 1.0,
         wait_exp_base: float = 2,
+        *,
+        name: str = "<context block>",
     ):
         self._context_kws = {
             "attempts": attempts,
@@ -251,6 +291,7 @@ class BaseRetryingCaller:
             "wait_max": wait_max,
             "wait_jitter": wait_jitter,
             "wait_exp_base": wait_exp_base,
+            "name": name,
         }
 
     def __repr__(self) -> str:
@@ -258,6 +299,9 @@ class BaseRetryingCaller:
             f"{k}={self._context_kws[k]!r}"  # type: ignore[literal-required]
             for k in sorted(self._context_kws)
             if k != "on"
+            and not (
+                k == "name" and self._context_kws["name"] == "<context block>"
+            )
         )
         return f"<{self.__class__.__name__}({kws})>"
 
@@ -266,13 +310,52 @@ class RetryingCaller(BaseRetryingCaller):
     """
     Call your callables with retries.
 
-    Arguments have the same meaning as for :func:`stamina.retry`.
+    Arguments have the same meaning as for [`stamina.retry()`][stamina.retry].
+
+    For example:
+
+    ```python
+    def do_something_with_url(url, some_kw):
+        resp = httpx2.get(url).raise_for_status()
+        ...
+
+    rc = stamina.RetryingCaller(attempts=5)
+
+    rc(
+        httpx2.HTTPError,
+        do_something_with_url,
+        "https://httpbin.org/status/404",
+        some_kw=42,
+    )
+
+    # Equivalent:
+    bound_rc = rc.on(httpx2.HTTPError)
+
+    bound_rc(do_something_with_url, "https://httpbin.org/status/404", some_kw=42)
+    ```
+
+    Both calls to `rc` and `bound_rc` run
+
+    ```python
+    do_something_with_url("https://httpbin.org/status/404", some_kw=42)
+    ```
+
+    and retry on [`httpx2.HTTPError`][].
+
+    *name* identifies the operation in retry instrumentation, as in
+    [`retry_context()`][stamina.retry_context]. It also applies to callers
+    bound with [`on()`][stamina.RetryingCaller.on] and defaults to
+    `<context block>`.
 
     Tip:
-        Instances of ``RetryingCaller`` may be reused because they internally
-        create a new :func:`retry_context` iterator on each call.
+        Instances of `RetryingCaller` may be reused because they internally
+        create a new [`retry_context()`][stamina.retry_context] iterator on
+        each call.
 
-    .. versionadded:: 24.2.0
+    !!! version-added "Added in 24.2.0"
+
+    !!! version-added "Added in 26.2.0"
+        The *name* parameter.
     """
 
     def __call__(
@@ -283,17 +366,17 @@ class RetryingCaller(BaseRetryingCaller):
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> T:
-        r"""
-        Call ``callable_(*args, **kw)`` with retries if *on* is raised.
+        """
+        Call `callable_(*args, **kwargs)` with retries if *on* is raised.
 
         Args:
             on: Exception(s) to retry on.
 
-            callable\_: Callable to call.
+            callable_: Callable to call.
 
             args: Positional arguments to pass to *callable_*.
 
-            kw: Keyword arguments to pass to *callable_*.
+            kwargs: Keyword arguments to pass to *callable_*.
         """
         for attempt in retry_context(on, **self._context_kws):
             with attempt:
@@ -303,10 +386,11 @@ class RetryingCaller(BaseRetryingCaller):
 
     def on(self, on: ExcOrBackoffHook, /) -> BoundRetryingCaller:
         """
-        Create a new instance of :class:`BoundRetryingCaller` with the same
+        Create a new instance of
+        [`BoundRetryingCaller`][stamina.BoundRetryingCaller] with the same
         parameters, but bound to a specific exception type.
 
-        .. versionadded:: 24.2.0
+        !!! version-added "Added in 24.2.0"
         """
         # This should be a `functools.partial`, but unfortunately it's
         # impossible to provide a nicely typed API with it, so we use a
@@ -316,13 +400,14 @@ class RetryingCaller(BaseRetryingCaller):
 
 class BoundRetryingCaller:
     """
-    Same as :class:`RetryingCaller`, but pre-bound to a specific exception
-    type.
+    Same as [`RetryingCaller`][stamina.RetryingCaller], but pre-bound to a
+    specific exception type.
 
     Caution:
-        Returned by :meth:`RetryingCaller.on` -- do not instantiate directly.
+        Returned by [`RetryingCaller.on()`][stamina.RetryingCaller.on] -- do
+        not instantiate directly.
 
-    .. versionadded:: 24.2.0
+    !!! version-added "Added in 24.2.0"
     """
 
     __slots__ = ("_caller", "_on")
@@ -347,17 +432,21 @@ class BoundRetryingCaller:
         self, callable_: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
     ) -> T:
         """
-        Same as :func:`RetryingCaller.__call__`, except retry on the exception
-        that is bound to this instance.
+        Same as [`RetryingCaller.__call__()`][stamina.RetryingCaller.__call__],
+        except retry on the exception that is bound to this instance.
         """
         return self._caller(self._on, callable_, *args, **kwargs)
 
 
 class AsyncRetryingCaller(BaseRetryingCaller):
     """
-    Same as :class:`RetryingCaller`, but for async callables.
+    Same as [`RetryingCaller`][stamina.RetryingCaller], but for async
+    callables.
 
-    .. versionadded:: 24.2.0
+    !!! version-added "Added in 24.2.0"
+
+    !!! version-added "Added in 26.2.0"
+        The *name* parameter.
     """
 
     async def __call__(
@@ -369,7 +458,8 @@ class AsyncRetryingCaller(BaseRetryingCaller):
         **kwargs: P.kwargs,
     ) -> T:
         """
-        Same as :meth:`RetryingCaller.__call__`, but *callable_* is awaited.
+        Same as [`RetryingCaller.__call__()`][stamina.RetryingCaller.__call__],
+        but *callable_* is awaited.
         """
         async for attempt in retry_context(on, **self._context_kws):
             with attempt:
@@ -379,23 +469,25 @@ class AsyncRetryingCaller(BaseRetryingCaller):
 
     def on(self, on: ExcOrBackoffHook, /) -> BoundAsyncRetryingCaller:
         """
-        Create a new instance of :class:`BoundAsyncRetryingCaller` with the
+        Create a new instance of
+        [`BoundAsyncRetryingCaller`][stamina.BoundAsyncRetryingCaller] with the
         same parameters, but bound to a specific exception type.
 
-        .. versionadded:: 24.2.0
+        !!! version-added "Added in 24.2.0"
         """
         return BoundAsyncRetryingCaller(self, on)
 
 
 class BoundAsyncRetryingCaller:
     """
-    Same as :class:`BoundRetryingCaller`, but for async callables.
+    Same as [`BoundRetryingCaller`][stamina.BoundRetryingCaller], but for
+    async callables.
 
     Caution:
-        Returned by :meth:`AsyncRetryingCaller.on` -- do not instantiate
-        directly.
+        Returned by [`AsyncRetryingCaller.on()`][stamina.AsyncRetryingCaller.on]
+        -- do not instantiate directly.
 
-    .. versionadded:: 24.2.0
+    !!! version-added "Added in 24.2.0"
     """
 
     __slots__ = ("_caller", "_on")
@@ -422,13 +514,15 @@ class BoundAsyncRetryingCaller:
         **kwargs: P.kwargs,
     ) -> T:
         """
-        Same as :func:`AsyncRetryingCaller.__call__`, except retry on the
-        exception that is bound to this instance.
+        Same as
+        [`AsyncRetryingCaller.__call__()`][stamina.AsyncRetryingCaller.__call__],
+        except retry on the exception that is bound to this instance.
         """
         return await self._caller(self._on, callable_, *args, **kwargs)
 
 
 _STOP_NO_RETRY = _t.stop_after_attempt(1)
+_RETRY_ON_TRY_AGAIN = _t.retry_if_exception_type(TryAgain)
 
 
 class _LazyNoAsyncRetry:
@@ -452,7 +546,6 @@ class _RetryContextIterator:
     __slots__ = (
         "_args",
         "_attempts",
-        "_cms_to_exit",
         "_kw",
         "_name",
         "_t_a_retrying",
@@ -473,8 +566,6 @@ class _RetryContextIterator:
     _wait_initial: float
     _wait_max: float
     _wait_exp_base: float
-
-    _cms_to_exit: list[AbstractContextManager[None]]
 
     @classmethod
     def from_params(
@@ -526,7 +617,8 @@ class _RetryContextIterator:
             _wait_max=wait_max,
             _wait_exp_base=wait_exp_base,
             _t_kw={
-                "retry": _retry,
+                # TryAgain forces a retry, whatever *on* says.
+                "retry": _t.retry_any(_RETRY_ON_TRY_AGAIN, _retry),
                 "stop": _make_stop(
                     attempts=attempts,
                     timeout=timeout,
@@ -534,7 +626,6 @@ class _RetryContextIterator:
                 "reraise": True,
             },
             _t_a_retrying=_LAZY_NO_ASYNC_RETRY,
-            _cms_to_exit=[],
         )
 
         inst._t_kw["wait"] = inst._jittered_backoff_for_rcs
@@ -563,23 +654,35 @@ class _RetryContextIterator:
 
         return t_kw
 
-    def _exit_cms(self, _: _t.RetryCallState | None) -> None:
-        for cm in reversed(self._cms_to_exit):
-            cm.__exit__(None, None, None)
-
     def __iter__(self) -> Iterator[Attempt]:
+        try:
+            yield from self._iter_attempts()
+        except TryAgain as e:
+            if e.__cause__ is None:
+                raise
+
+            cause = e.__cause__
+        else:
+            return
+
+        # Out of attempts: raise what TryAgain was raised from. We do it
+        # outside of the except block, so Python doesn't make TryAgain its
+        # context.
+        raise cause
+
+    def _iter_attempts(self) -> Iterator[Attempt]:
         if not CONFIG.is_active:
             for r in _t.Retrying(reraise=True, stop=_STOP_NO_RETRY):
                 yield Attempt(r, None)
 
             return
 
-        before_sleep = _make_before_sleep(
-            self._name, CONFIG, self._args, self._kw, self._cms_to_exit
+        before_attempt, before_sleep = _make_hook_callbacks(
+            self._name, CONFIG, self._args, self._kw
         )
 
         for r in _t.Retrying(
-            before=self._exit_cms,
+            before=before_attempt,
             before_sleep=before_sleep,
             **self._apply_maybe_test_mode_to_tenacity_kw(CONFIG.testing),
         ):
@@ -587,12 +690,13 @@ class _RetryContextIterator:
 
     def __aiter__(self) -> AsyncIterator[Attempt]:
         if CONFIG.is_active:
+            before_attempt, before_sleep = _make_hook_callbacks(
+                self._name, CONFIG, self._args, self._kw
+            )
             self._t_a_retrying = _t.AsyncRetrying(
                 sleep=_smart_sleep,
-                before=self._exit_cms,
-                before_sleep=_make_before_sleep(
-                    self._name, CONFIG, self._args, self._kw, self._cms_to_exit
-                ),
+                before=before_attempt,
+                before_sleep=before_sleep,
                 **self._apply_maybe_test_mode_to_tenacity_kw(CONFIG.testing),
             )
 
@@ -601,10 +705,18 @@ class _RetryContextIterator:
         return self
 
     async def __anext__(self) -> Attempt:
-        return Attempt(
-            await self._t_a_retrying.__anext__(),
-            self._backoff_for_attempt_number,
-        )
+        try:
+            t_attempt = await self._t_a_retrying.__anext__()
+        except TryAgain as e:
+            if e.__cause__ is None:
+                raise
+
+            cause = e.__cause__
+        else:
+            return Attempt(t_attempt, self._backoff_for_attempt_number)
+
+        # Same as in __iter__.
+        raise cause
 
     def _backoff_for_attempt_number(self, num: int) -> float:
         """
@@ -621,7 +733,8 @@ class _RetryContextIterator:
         Compute the backoff for *rcs*.
 
         If a custom backoff was provided by a backoff hook, use it. Otherwise,
-        use exponential backoff.
+        use exponential backoff, or the jittered *after* of a TryAgain if
+        that's longer.
         """
         if (
             custom_backoff := getattr(rcs, _CUSTOM_BACKOFF_ATTR, None)
@@ -633,13 +746,46 @@ class _RetryContextIterator:
 
             return cast(float, custom_backoff)
 
-        return _compute_backoff(
+        backoff = _compute_backoff(
             rcs.attempt_number,
             self._wait_max,
             self._wait_initial,
             self._wait_exp_base,
             self._wait_jitter,
         )
+
+        exc = rcs.outcome.exception()
+        if (
+            CONFIG.testing is None
+            and isinstance(exc, TryAgain)
+            and exc.after is not None
+        ):
+            return max(
+                backoff,
+                _seconds_until(exc.after) + _jitter(self._wait_jitter),
+            )
+
+        return backoff
+
+
+def _seconds_until(after: float | dt.timedelta | dt.datetime) -> float:
+    """
+    Convert *after* of a TryAgain into seconds from now.
+    """
+    if isinstance(after, dt.datetime):
+        return (after - dt.datetime.now(dt.UTC)).total_seconds()
+
+    if isinstance(after, dt.timedelta):
+        return after.total_seconds()
+
+    return after
+
+
+def _jitter(max_jitter: float) -> float:
+    """
+    Return a random jitter between 0 and *max_jitter*.
+    """
+    return random.uniform(0, max_jitter) if max_jitter else 0  # noqa: S311
 
 
 def _compute_backoff(
@@ -656,31 +802,38 @@ def _compute_backoff(
     if CONFIG.testing is not None:
         return 0.0
 
-    jitter = random.uniform(0, max_jitter) if max_jitter else 0  # noqa: S311
-
     try:
-        return min(max_backoff, initial * (exp_base ** (num - 1)) + jitter)
+        return min(
+            max_backoff,
+            initial * (exp_base ** (num - 1)) + _jitter(max_jitter),
+        )
     except OverflowError:
         return max_backoff
 
 
-def _make_before_sleep(
+def _make_hook_callbacks(
     name: str,
     config: _Config,
     args: tuple[object, ...],
     kw: dict[str, object],
-    hook_cms: list[contextlib.AbstractContextManager[None]],
-) -> Callable[[_t.RetryCallState], None]:
+) -> tuple[
+    Callable[[_t.RetryCallState], None], Callable[[_t.RetryCallState], None]
+]:
     """
-    Create a `before_sleep` callback function that runs our `RetryHook`s with
-    the necessary arguments.
+    Create the `before_attempt` and `before_sleep` callbacks for one retry run.
+    `before_sleep` runs our `RetryHook`s with the necessary arguments.
 
-    If a hook returns a context manager, it's entered before retries start and
-    exited after they finish by keeping track of the context managers in
-    *hook_cms*.
+    If a hook returns a context manager, `before_sleep` enters it when the
+    retry is scheduled and `before_attempt` exits it right before the retry is
+    attempted.
     """
 
+    hook_cms: list[AbstractContextManager[None]] = []
     last_idle_for = 0.0
+
+    def before_attempt(_: _t.RetryCallState) -> None:
+        while hook_cms:
+            hook_cms.pop().__exit__(None, None, None)
 
     def before_sleep(rcs: _t.RetryCallState) -> None:
         nonlocal last_idle_for
@@ -697,6 +850,10 @@ def _make_before_sleep(
             kwargs=kw,
         )
 
+        process_details = config.process_details
+        if process_details is not None:
+            details = process_details(details)
+
         for hook in config.on_retry:
             maybe_cm = hook(details)
 
@@ -706,12 +863,14 @@ def _make_before_sleep(
 
         last_idle_for = rcs.idle_for
 
-    return before_sleep
+    return before_attempt, before_sleep
 
 
 def _make_stop(*, attempts: int | None, timeout: float | None) -> _t.stop_base:
     """
     Combine *attempts* and *timeout* into one stop condition.
+
+    *timeout* also stops if the upcoming backoff would end after it.
     """
     stops = []
 
@@ -719,7 +878,7 @@ def _make_stop(*, attempts: int | None, timeout: float | None) -> _t.stop_base:
         stops.append(_t.stop_after_attempt(attempts))
 
     if timeout is not None:
-        stops.append(_t.stop_after_delay(timeout))
+        stops.append(_t.stop_before_delay(timeout))
 
     if not stops:
         return _t.stop_never
@@ -744,15 +903,15 @@ def retry(  # noqa: C901
 
     The backoff for retry attempt number *attempt* is computed as:
 
-    .. keep in-sync with docs/motivation.md
-    .. math::
+    <!-- keep in-sync with docs/motivation.md -->
+    $$
+    min(wait\_max, wait\_initial * wait\_exp\_base^{attempt - 1} + random(0,
+    wait\_jitter))
+    $$
 
-       min(wait\_max, wait\_initial * wait\_exp\_base^{attempt - 1} + random(0,
-       wait\_jitter))
-
-    Since :math:`x^0` is always 1, the first backoff is within the interval
-    :math:`[wait\_initial,wait\_initial+wait\_jitter]`. Thus, with default
-    values between 0.1 and 1.1 seconds.
+    Since $x^0$ is always 1, the first backoff is within the interval
+    $[wait\_initial,wait\_initial+wait\_jitter]$. Thus, with default values
+    between 0.1 and 1.1 seconds.
 
     If all retries fail, the *last* exception is let through.
 
@@ -760,15 +919,16 @@ def retry(  # noqa: C901
 
     Generators are restarted from the beginning on each retry.
 
-    .. note::
-       Being able to :meth:`~agen.asend` and :meth:`~agen.athrow` into wrapped
-       async generators introduced nontrivial complexity in the implementation
-       and is therefore **provisional**. If supporting these features causes
-       problems, they may be removed again in a future version.
+    !!! note
+        Being able to [`asend()`][agen.asend] and [`athrow()`][agen.athrow]
+        into wrapped async generators introduced nontrivial complexity in the
+        implementation and is therefore **provisional**. If supporting these
+        features causes problems, they may be removed again in a future
+        version.
 
-    .. warning::
-       It is possible to get unbounded retries by passing `None` for *attempts*
-       (= infinite attempts) and *timeout* (= no timeout).
+    !!! warning
+        It is possible to get unbounded retries by passing `None` for
+        *attempts* (= infinite attempts) and *timeout* (= no timeout).
 
     Args:
         on:
@@ -785,10 +945,10 @@ def retry(  # noqa: C901
             client error.
 
             For even more control, the hook may return a float or a
-            :class:`datetime.timedelta` to specify a custom backoff that
+            [`datetime.timedelta`][] to specify a custom backoff that
             overrides the default backoff. This is useful when the error
-            carries information like a `Retry-After
-            <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After>`_
+            carries information like a
+            [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After)
             header. A custom backoff is not part of the exponential backoff
             machinery so none of the other backoff parameters apply to it.
 
@@ -800,8 +960,9 @@ def retry(  # noqa: C901
             `None` means *no* limit to attempts.
 
         timeout:
-            Maximum total time for all retries. Can be combined with
-            *attempts*. `None` means *no* timeout.
+            Maximum total time for all retries. If a backoff would end after
+            it, *stamina* gives up right away instead of waiting. Can be
+            combined with *attempts*. `None` means *no* timeout.
 
         wait_initial: Minimum backoff before the *first* retry.
 
@@ -813,21 +974,33 @@ def retry(  # noqa: C901
 
         wait_exp_base: The exponential base used to compute the retry backoff.
 
-    .. versionchanged:: 23.1.0
-       All time-related parameters can now be specified as a
-       :class:`datetime.timedelta`.
+    !!! version-changed "Changed in 23.1.0"
+        All time-related parameters can now be specified as a
+        [`datetime.timedelta`][].
 
-    .. versionadded:: 23.3.0 `Trio <https://trio.readthedocs.io/>`_ support.
+    !!! version-added "Added in 23.3.0"
+        [Trio](https://trio.readthedocs.io/) support.
 
-    .. versionadded:: 24.3.0 *on* can be a callable now.
+    !!! version-added "Added in 24.3.0"
+        *on* can be a callable now.
 
-    .. versionadded:: 25.2.0
-       Generator functions and async generator functions are now retried, too.
+    !!! version-added "Added in 25.2.0"
+        Generator functions and async generator functions are now retried,
+        too.
 
-    .. versionadded:: 25.2.0
-       An *on* backoff hook can now return a float or a `datetime.timedelta` to
-       specify a custom backoff that overrides the default backoff.
+    !!! version-added "Added in 25.2.0"
+        An *on* backoff hook can now return a float or a
+        [`datetime.timedelta`][] to specify a custom backoff that overrides
+        the default backoff.
 
+    !!! version-changed "Changed in 26.2.0"
+        The type hints of *on* now accept subclasses of [`BaseException`][],
+        and backoff hooks are typed to receive a [`BaseException`][]. This
+        matches the runtime behavior.
+
+    !!! version-changed "Changed in 26.2.0"
+        If a backoff would end after *timeout*, *stamina* gives up right away.
+        Before, it waited past *timeout* and attempted once more.
     """
     retry_ctx = _RetryContextIterator.from_params(
         on=on,
@@ -871,7 +1044,7 @@ def retry(  # noqa: C901
                             while True:
                                 try:
                                     to_send = yield item
-                                except GeneratorExit:  # noqa: PERF203
+                                except GeneratorExit:
                                     await agen.aclose()
                                     raise
                                 except BaseException as thrown:  # noqa: BLE001

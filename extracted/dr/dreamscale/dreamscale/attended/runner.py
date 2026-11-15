@@ -134,6 +134,7 @@ def validate_run_options(
     model, *, label, mode, region, provider, speed, keep_warm, rtc, context, max_actions,
     trace_dir, trace_images, action_smoothing="auto", smoothing_new_weight=None,
     smoothing_correction_steps=None, smoothing_reference_speed=None,
+    smoothing_time_scale=None,
 ):
     """Check every robot-neutral option before any hardware opens; returns the strategy."""
     contract = model_contract(model)
@@ -144,6 +145,7 @@ def validate_run_options(
         smoothing_new_weight=smoothing_new_weight,
         smoothing_correction_steps=smoothing_correction_steps,
         smoothing_reference_speed=smoothing_reference_speed,
+        smoothing_time_scale=smoothing_time_scale,
     )
     task_mode(model, mode, strategy)
     if trace_images and trace_dir is None:

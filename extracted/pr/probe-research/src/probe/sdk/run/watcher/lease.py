@@ -30,12 +30,17 @@ import logging
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 #: What a run spawns: this package's own `__main__` (the old `probe.box` stays an alias).
 WATCHER_MODULE = "probe.sdk.run.watcher"
+#: How long `hold_lease` keeps trying a lock it finds taken, and how often. A probe lets go within
+#: microseconds (a descheduled one within milliseconds); a watcher holds it for its life.
+TAKE_RETRY_S = 0.2
+TAKE_RETRY_EVERY_S = 0.01
 
 
 def lock_path(directory: Path | str | None = None) -> Path:
@@ -50,7 +55,9 @@ def already_running(directory: Path | str | None = None) -> bool:
 
     Probed by trying to take the lock and immediately dropping it, which is the
     only honest test: a pid file can outlive its process, a lock held by a dead
-    process cannot.
+    process cannot. Shared, as the service's `_is_lease_held`: it conflicts
+    only with a holder's exclusive lock, so a probe held up mid-check (stopped,
+    swapped out) never reads to another probe as a watcher.
     """
     import fcntl
 
@@ -61,7 +68,7 @@ def already_running(directory: Path | str | None = None) -> bool:
     except Exception:  # noqa: BLE001 -- an unwritable state dir is not an error
         return True  # assume owned; never spawn into an unknown
     try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(handle.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
     except BlockingIOError:
         return True
     except Exception:  # noqa: BLE001
@@ -78,7 +85,9 @@ def maybe_spawn(directory: Path | str | None = None) -> bool:
     its own, so a run's start never waits on the service's. True when the ask went out.
 
     Cheap by requirement: this runs when a run starts beating, which on a sixty-four rank job
-    means sixty-four calls within a second; the lease probe stops all but the first.
+    means sixty-four calls within a second. The lease probe turns away the calls that come once a
+    watcher holds the lease; the ones before that all ask, and the service's start reservation
+    (`WatcherThreads._starting`) answers all but the first RUNNING.
     """
     try:
         from probe.sdk.run.watcher import watcher as watch
@@ -123,6 +132,10 @@ def hold_lease(directory: Path | str | None = None):
     The handle is returned rather than closed: closing it drops the lock, so
     the caller keeps it alive for exactly as long as it intends to be the
     watcher on this box.
+
+    A lock found taken is tried again for TAKE_RETRY_S: a lease probe
+    (`already_running`, the service's `_is_lease_held`) takes it for an
+    instant, and a taker that met one would step aside with nobody watching.
     """
     import fcntl
 
@@ -130,9 +143,21 @@ def hold_lease(directory: Path | str | None = None):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         handle = path.open("a+")
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except Exception:  # noqa: BLE001 -- somebody else has it, or we cannot write
+    except Exception:  # noqa: BLE001 -- we cannot write
         return None
+    deadline = time.monotonic() + TAKE_RETRY_S
+    while True:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:  # a holder, or a probe about to let go
+            if time.monotonic() >= deadline:
+                handle.close()
+                return None
+            time.sleep(TAKE_RETRY_EVERY_S)
+        except Exception:  # noqa: BLE001 -- a lock we cannot take
+            handle.close()
+            return None
     try:
         handle.seek(0)
         handle.truncate()

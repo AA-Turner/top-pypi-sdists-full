@@ -123,6 +123,7 @@ from coord.drive_queue import (
     validate_apply_gate,
     validate_enqueue,
 )
+from coord.models import coordinator_doc_overlap, coordinator_owned_docs
 from coord.overlap_predict import (
     AUDIT_CATEGORY,
     EVENT_PREDICTED,
@@ -555,6 +556,7 @@ def drive_queue_add(
     prediction = Prediction()
     staleness_note = ""
     malformed_note = ""
+    coordinator_doc_note = ""
     auto_after: list[str] = []
     rejected_after: list[str] = []
     # #3395 rule 2: overlaps against an already-queued, not-yet-dispatched
@@ -565,7 +567,7 @@ def drive_queue_add(
     reverse_candidates: list[tuple[QueueEntry, Overlap]] = []
     reverse_rejected: list[str] = []
     if not no_predict_overlap:
-        prediction, staleness_note, malformed_note = _predict_overlap(
+        prediction, staleness_note, malformed_note, candidate_body = _predict_overlap(
             config_path, repo, issue, existing_entries
         )
         effective_position = _resolve_effective_new_position(position, previous)
@@ -596,6 +598,23 @@ def drive_queue_add(
         auto_after = [k for k in candidate_after if k not in reject_after]
         rejected_after = [k for k in candidate_after if k in reject_after]
         after = [*after, *auto_after]
+    else:
+        candidate_body = _candidate_body_only(config_path, repo, issue)
+
+    # #4008: this candidate's OWN `## Files` naming a coordinator-owned doc
+    # is guaranteed to merge partial — the mechanical review gate
+    # (coord.review's COORDINATOR-OWNED DOC EDITED check) will reject any
+    # diff that edits it, no matter how correct the rest looks. Flagging it
+    # here, at enqueue, is what lets the Work briefing
+    # (`coord.dispatch.post_briefing`) strip it into do-not-touch BEFORE the
+    # worker ever sees it as something to edit. Deliberately OUTSIDE the
+    # `no_predict_overlap` branch above: `--no-predict-overlap`'s own help
+    # text promises only to skip #2247's file-overlap ORDERING, nothing
+    # about this unrelated doc-ownership signal, so passing it must not also
+    # silence this warning.
+    coordinator_doc_note = _coordinator_doc_declared_warning(cfg, repo, candidate_body)
+    if coordinator_doc_note:
+        _record_coordinator_doc_declared(repo, issue, coordinator_doc_note)
 
     enqueue_drive_queue(
         repo,
@@ -702,6 +721,8 @@ def drive_queue_add(
     overlap_notes.extend(fanout_warnings(prediction))
     if malformed_note:
         overlap_notes.append(malformed_note)
+    if coordinator_doc_note:
+        overlap_notes.append(coordinator_doc_note)
     if staleness_note:
         overlap_notes.append(staleness_note)
     overlap_note = ("\n" + "\n".join(overlap_notes)) if overlap_notes else ""
@@ -995,6 +1016,25 @@ def _repo_coordinates(config_path: Path, repo: str) -> tuple[str, str] | None:
     return str(repo_cfg.github or ""), str(getattr(repo_cfg, "default_branch", "") or "main")
 
 
+def _candidate_body_only(config_path: Path, repo: str, issue: int) -> str:
+    """This candidate issue's own body, for a caller that needs its declared
+    files text but not #2247's overlap prediction (#4008).
+
+    `drive_queue_add` skips `_predict_overlap` entirely under
+    `--no-predict-overlap`, but that flag's own help text promises only to
+    skip the predicted file-overlap ORDERING — the coordinator-owned-doc
+    enqueue warning is unrelated and must still see the candidate's body.
+    Fail-open to ``""`` exactly like `_predict_overlap`'s own fallback for
+    the same inputs (unresolvable repo, or no live read available).
+    """
+    coordinates = _repo_coordinates(config_path, repo)
+    if coordinates is None:
+        return ""
+    repo_github, _base_branch = coordinates
+    body, _staleness_note = _candidate_body(repo, issue, repo_github)
+    return body
+
+
 def _existing_pr_match(
     config_path: Path, repo: str, issue: int,
 ) -> "ExistingPrMatch | None":
@@ -1129,9 +1169,84 @@ def _missing_required_gates(config_path: Path, repo: str, issue: int) -> tuple[s
     return tuple(missing)
 
 
+def _coordinator_doc_declared_warning(
+    cfg: Config | None, repo: str, candidate_body: str,
+) -> str:
+    """Warn when THIS candidate's own ``## Files`` names a coordinator-owned
+    doc (#4008).
+
+    Reuses :func:`coord.models.coordinator_doc_overlap` — the exact
+    predicate `coord.review`'s mandatory COORDINATOR-OWNED DOC EDITED gate
+    applies to a real diff — against the paths `## Files` declares, so this
+    enqueue-time warning can never disagree with what review would actually
+    reject later. An issue whose `## Files` names such a path is guaranteed
+    to merge `ISSUE_RESOLUTION: partial` after a wasted request-changes/fix
+    round if nothing catches it earlier.
+
+    Fail-open like every other `## Files` check in this module (#2247's
+    "order/advise, never refuse" posture): an unloadable config or no
+    declared files at all yield ``""``. A repo `coordinator.yml` has never
+    heard of does NOT fail open here — `coordinator_owned_docs(None)`
+    deliberately still returns the fleet-wide `("CLAUDE.md",)` default
+    (its own #1388-style fail-open docstring), and the review gate this
+    warning mirrors applies that same default regardless of whether the
+    repo resolves. Returning early on an unresolved repo would leave this
+    enqueue-time warning silent in exactly the case where the gate would
+    still reject — pass `repo_cfg` through as `None` instead, since
+    `coordinator_owned_docs` already tolerates that.
+    """
+    if cfg is None:
+        return ""
+    repo_cfg = cfg.repo(repo)
+    declared = parse_declared_files(candidate_body)
+    if not declared:
+        return ""
+    touched = coordinator_doc_overlap(declared, coordinator_owned_docs(repo_cfg))
+    if not touched:
+        return ""
+    docs = ", ".join(f"`{p}`" for p in touched)
+    return (
+        f"warning: ## Files declares coordinator-owned doc(s) {docs} — only "
+        "the coordinator writes docs (#2966). The Work briefing strips it "
+        "into do-not-touch; a worker diff that edits it anyway still trips "
+        "review's mandatory COORDINATOR-OWNED DOC EDITED gate (#4008)."
+    )
+
+
+def _record_coordinator_doc_declared(repo: str, issue: int, note: str) -> None:
+    """Record the stripped coordinator-doc slice at enqueue time (#4008) —
+    best-effort, audit-log only.
+
+    Unlike `_record_overlap_prediction`'s two-sink posture, this has exactly
+    one sink: the queue row's `last_reason` is tick-owned and gets
+    overwritten on the entry's first attempt (and, within this same `add`
+    call, by `_record_overlap_prediction` itself), so writing it here would
+    just be clobbered — there is nowhere durable on the row to put it. This
+    is observability only (`coord drive-queue overlap-report`-style
+    after-the-fact scoring of the enqueue-time signal against what review
+    actually rejected); #3945's board-doctor follow-through
+    (`coord/board_doctor_followthrough.py`) does not read the audit log and
+    gets no benefit from this call.
+    """
+    try:
+        from coord.audit import record_audit  # noqa: PLC0415
+
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type="coordinator_doc_declared",
+            actor="drive-queue",
+            summary=note,
+            repo=repo,
+            issue=issue,
+        )
+    except Exception:  # noqa: BLE001 — recording must never fail the enqueue
+        pass
+
+
 def _predict_overlap(
     config_path: Path, repo: str, issue: int, existing_entries: list[QueueEntry],
-) -> tuple[Prediction, str, str]:
+) -> tuple[Prediction, str, str, str]:
     """Compare this issue's declared files against work already in flight.
 
     Same-repo only: two repos' paths cannot collide, and comparing them would
@@ -1139,15 +1254,18 @@ def _predict_overlap(
     checked first (ground truth); a queued entry with no branch yet is
     compared declaration-to-declaration, and only when it has one.
 
-    Returns ``(prediction, staleness_note, malformed_warning)`` — see
-    `_candidate_body` for when the staleness note is non-empty, and
+    Returns ``(prediction, staleness_note, malformed_warning, candidate_body)``
+    — see `_candidate_body` for when the staleness note is non-empty, and
     :func:`coord.overlap_predict.malformed_files_warning` (#3258) for the
     third: a `## Files` heading was present on THIS candidate but parsed to
     zero paths, so the declaration silently carried no ordering signal.
     Computed here (not just where `candidate` ends up empty below) because
     that IS the path a malformed declaration takes — rule 3 treats "no
     heading" and "an unparsed heading" identically for ordering purposes, but
-    the operator reading `add`'s output must not.
+    the operator reading `add`'s output must not. *candidate_body* is
+    returned too (#4008) so a caller that needs this candidate's declared
+    files for a DIFFERENT check (the coordinator-owned-doc warning) doesn't
+    have to re-fetch — `_candidate_body`'s own live re-read is not free.
 
     Every OTHER body this consults (an in-flight branch's own declaration, an
     unrelated queued entry's) still comes from the plain cache: re-reading
@@ -1157,7 +1275,7 @@ def _predict_overlap(
     """
     coordinates = _repo_coordinates(config_path, repo)
     if coordinates is None:
-        return Prediction(), "", ""
+        return Prediction(), "", "", ""
     repo_github, base_branch = coordinates
 
     candidate_body, staleness_note = _candidate_body(repo, issue, repo_github)
@@ -1174,7 +1292,7 @@ def _predict_overlap(
         # is compared, and the add is byte-identical to the pre-#2247 one —
         # except for `malformed_warning`, which fires precisely in this
         # branch when the empty candidate was a parse failure, not silence.
-        return Prediction(), staleness_note, malformed_warning
+        return Prediction(), staleness_note, malformed_warning, candidate_body
 
     key = entry_key(repo, issue)
     footprints = inflight_footprints(
@@ -1200,6 +1318,7 @@ def _predict_overlap(
         predict_overlap(candidate, footprints, exclude_keys={key}),
         staleness_note,
         malformed_warning,
+        candidate_body,
     )
 
 
@@ -3417,6 +3536,9 @@ def drive_queue_sweep(
                             "issue": f.issue_number,
                             "action": f.action,
                             "follow_ups": list(f.follow_ups),
+                            "follow_up_keys": {
+                                str(k): v for k, v in f.follow_up_keys.items()
+                            },
                             "reasons": list(f.reasons),
                             "rendered_plan": f.rendered_plan,
                         }
@@ -3451,9 +3573,16 @@ def drive_queue_sweep(
         if f.rendered_plan:
             for line in f.rendered_plan.splitlines():
                 click.echo(f"  {line}")
-        if f.action == board_doctor_followthrough.ACTION_FILED and f.follow_ups:
+        # `follow_up_keys` over `follow_ups` when both are populated: it
+        # covers a resumed attempt's reused child issues and an
+        # `already_covered_by` dedupe too, not just one freshly created
+        # THIS run. Falls back to `follow_ups` so a caller that only sets
+        # that list (every real `run_followthrough` call sets both) still
+        # prints.
+        filed_numbers = list(f.follow_up_keys.values()) or list(f.follow_ups)
+        if f.action == board_doctor_followthrough.ACTION_FILED and filed_numbers:
             click.echo(
-                "  filed: " + ", ".join(f"#{n}" for n in f.follow_ups)
+                "  filed: " + ", ".join(f"#{n}" for n in filed_numbers)
             )
         for reason in f.reasons:
             click.echo(f"  reason: {reason}")

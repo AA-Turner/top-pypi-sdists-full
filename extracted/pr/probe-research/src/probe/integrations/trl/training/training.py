@@ -144,8 +144,10 @@ class TrainingRecorder:
         #: other tensors (`LossBatch.dtypes`).
         self.dtype: Dtype | None = None
         self.dtypes: dict[str, Dtype] = {}
-        #: A loss call returned a bf16 / fp16 loss: the plan was sent again with its loss rollups approximate.
+        #: A loss call returned a bf16 / fp16 loss: the plan was sent again with its loss bound (or approximate).
         self._is_loss_rounded = False
+        #: The train loss bound the last plan declared (`LossHook.get_loss_tolerance`): a change sends the plan again.
+        self._loss_tolerance: float | None = None
         self._is_started = False
         self._is_training = False
         self._has_trained = False
@@ -317,7 +319,10 @@ class TrainingRecorder:
             self.dtypes[key] = get_lowest_dtype([found for found in (self.dtypes.get(key), dtype) if found is not None])
         is_new_rounding = batch.is_loss_rounded and not self._is_loss_rounded
         self._is_loss_rounded = self._is_loss_rounded or batch.is_loss_rounded
-        if is_new_rounding or (self.dtype, {key: self.dtypes[key] for key in batch.dtypes}) != declared:
+        tolerance = self.hook.get_loss_tolerance()
+        is_new_tolerance, self._loss_tolerance = tolerance != self._loss_tolerance, tolerance
+        is_new_dtype = (self.dtype, {key: self.dtypes[key] for key in batch.dtypes}) != declared
+        if is_new_rounding or is_new_tolerance or is_new_dtype:
             self._send_plan()  # the tensors' own precision, not the mixed-precision flag's guess
 
     def close(self) -> None:

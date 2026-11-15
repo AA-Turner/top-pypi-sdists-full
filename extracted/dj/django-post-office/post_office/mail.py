@@ -3,13 +3,13 @@ import time
 from collections.abc import Sequence
 from email.utils import make_msgid
 from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any, Optional
+from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import connection as db_connection
 from django.db.models import Q, QuerySet
-from django.template import Context, Template
+from django.template import Context, Engine, Template
 from django.utils import timezone
 
 from .connections import connections
@@ -30,6 +30,7 @@ from .settings import (
     get_threads_per_process,
 )
 from .signals import email_queued
+from .template import compile_template
 from .utils import (
     create_attachments,
     get_email_template,
@@ -75,6 +76,7 @@ def create(
         cc = []
     if bcc is None:
         bcc = []
+    has_context = context is not None
     if context is None:
         context = ''
     message_id = make_msgid(domain=get_message_id_fqdn()) if get_message_id_enabled() else None
@@ -99,15 +101,18 @@ def create(
         )
 
     else:
-        if template:
-            subject = template.subject
-            message = template.content
-            html_message = template.html_content
-
         _context = Context(context or {})
-        subject = Template(subject).render(_context)
-        message = Template(message).render(_context)
-        html_message = Template(html_message).render(_context)
+        # Like Django's send_mail(), text is only rendered as a template when templating is requested (#478).
+        if template:
+            # Same engine as django.template.Template; only templates are cached since one-off messages rarely repeat
+            engine = Engine.get_default()
+            subject = compile_template(template.subject, engine).render(_context)
+            message = compile_template(template.content, engine).render(_context)
+            html_message = compile_template(template.html_content, engine).render(_context)
+        elif has_context:
+            subject = Template(subject).render(_context)
+            message = Template(message).render(_context)
+            html_message = Template(html_message).render(_context)
 
         email = Email(
             from_email=sender,
@@ -282,7 +287,7 @@ def attach_templates(emails: list[Email]) -> None:
             email.template = template_map.get(email.template_id)
 
 
-def send_queued(processes: int = 1, log_level: Optional[int] = None) -> tuple[int, int, int]:
+def send_queued(processes: int = 1, log_level: int | None = None) -> tuple[int, int, int]:
     """
     Sends out all queued mails that has scheduled_time less than now or None
     """
@@ -366,7 +371,7 @@ def send_queued(processes: int = 1, log_level: Optional[int] = None) -> tuple[in
 
 
 def _send_bulk(
-    emails: Sequence[Email], uses_multiprocessing: bool = True, log_level: Optional[int] = None
+    emails: Sequence[Email], uses_multiprocessing: bool = True, log_level: int | None = None
 ) -> tuple[int, int, int]:
     # Multiprocessing does not play well with database connection
     # Fix: Close connections on forking process
@@ -515,7 +520,7 @@ def _send_bulk(
 
 
 def send_queued_mail_until_done(
-    lockfile: str = default_lockfile, processes: int = 1, log_level: Optional[int] = None
+    lockfile: str = default_lockfile, processes: int = 1, log_level: int | None = None
 ) -> None:
     """
     Send mail in queue batch by batch, until all emails have been processed.

@@ -13,24 +13,28 @@ the system `ssh`.
 """
 from __future__ import annotations
 
+import signal
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from sequence_ai._core.money import money, per_hour
 from sequence_ai._core.names import segment
-from sequence_ai.errors import Unavailable
+from sequence_ai.errors import InternalError, Unavailable
 
 from seq.clock import stamp
 from seq.deployments_cli import _call
-from seq.errors import GpuCancelled
+from seq.errors import GpuCancelled, GpuNotCancelled
 
 Echo = Callable[..., None]
 EVERYWHERE = "0.0.0.0/0"
 OPEN_TO_ALL = "its ports are open to every address (0.0.0.0/0): authenticate in your server"
 WAIT_SAID_S = 60.0
+STOPPING = ("stopping: the platform is adding it now - what it adds is removed as soon as it answers, in a few seconds "
+            "(Ctrl-C again leaves what it adds as it is)")
 
 
 def _silent(*_args: Any, **_kwargs: Any) -> None:
@@ -60,15 +64,53 @@ def _status(m: dict) -> str:
     return "run failing" if m.get("run") == "failing" else str(m.get("status") or "—")
 
 
+@contextmanager
+def _held(said: str) -> Iterator[Callable[[], bool]]:
+    """A first Ctrl-C held while an add is asked: the platform adds the GPUs all the same once it has the request, and a
+    command stopped then never hears their ids - they would start, and be billed once they run, after it said
+    "cancelled". Held, it is said (`said`) and the add's answer awaited, so what it added can be removed; a second goes
+    through. Where no handler can be set (not the main thread), a Ctrl-C goes through as ever. The handler before is set
+    back. {worker 6 on dev 11-14 20:38Z: a Ctrl-C 2.0 s into the add said "cancelled", and gpu-bff72487feb7 was starting
+    8 s later}"""
+    pressed: list = []
+
+    def hold(_signum: int, _frame: Any) -> None:
+        if pressed:
+            raise KeyboardInterrupt
+        pressed.append(True)
+        _note(said)
+
+    try:
+        before = signal.signal(signal.SIGINT, hold)
+    except ValueError:
+        yield lambda: False
+        return
+    try:
+        yield lambda: bool(pressed)
+    finally:
+        signal.signal(signal.SIGINT, before if before is not None else signal.default_int_handler)
+
+
 
 def _expected_ms(m: dict) -> Any:
     e = m.get("expected_rtt")
     return e.get("ms") if isinstance(e, dict) else None
 
 
-def _line(m: dict) -> str:
+def _price(m: dict, cards: dict) -> str:
+    """What a GPU costs an hour, as its owner reads it: its card's own price, as the price list says it (`cards`,
+    sequence_ai.gpu._card_prices), and its CPU and memory on top - never the one total the platform bills it at, which
+    read as the card's (an L4's "$1.22/h", where the card is $0.80). '—' where the price list could not be read.
+
+"""
+    card = cards.get(str(m.get("gpu")))
+    return f"{per_hour(card)} + CPU and memory" if card is not None else "—"
+
+
+def _line(m: dict, cards: dict | None = None) -> str:
     """One GPU on a line, as `seq gpu add` says it: id, card, the place asked for, status, its address, its ports, the round
-    trip expected from near its place (`expected_rtt`, measured there) and what it costs an hour.
+    trip expected from near its place (`expected_rtt`, measured there) and what it costs an hour (_price, by `cards`).
+    
 """
     bits = [str(m.get("id")), str(m.get("gpu") or "—"), str(m.get("place") or "—"), _status(m)]
     if m.get("host"):
@@ -79,7 +121,7 @@ def _line(m: dict) -> str:
         bits.append("ports " + ",".join(str(p) for p in m["ports"]))
     if isinstance(_expected_ms(m), (int, float)) and not isinstance(_expected_ms(m), bool):
         bits.append(f"expected {_ms(_expected_ms(m))}")
-    bits.append(_usd(m.get("usd_per_hour"), per_hour))
+    bits.append(_price(m, cards or {}))
     return "  ".join(bits)
 
 
@@ -102,43 +144,55 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
     open the machines near `place` and, unless `--no-wait`, wait until each runs - saying so on stderr each minute - then
     say each on a line (_line), and that nothing was measured near its place where nothing was. One that failed to start
     ends the command in its error, those that run said first; Ctrl-C cancels those not running, says which and what each
-    was billed (GpuCancelled), and exits 130, those that run said first. Returns what it said, as sequence_ai.gpu.add
+    was billed (GpuCancelled), and exits 130, those that run said first - one while the add is asked is held until the
+    platform answers, then what it added is cancelled so (_held); a second then stops it, said not cancelled
+    (GpuNotCancelled). Returns what it said, as sequence_ai.gpu.add
     answers it.
 
 """
     import sequence_ai
 
-    machines = sequence_ai.gpu.add(place, gpu, count, snapshot=snapshot, ports=ports, allow=allow, run=run, name=name, wait=False,
-                                   base_url=base_url)
-    if allow and EVERYWHERE in allow:
-        _note(OPEN_TO_ALL)
-    if wait and machines:
-        ids = [str(m.get("id")) for m in machines]
-        one = len(ids) == 1
-        _note(f"{', '.join(ids)} starting: waiting until {'it runs' if one else 'they run'} (--no-wait returns once "
-              f"{'it is' if one else 'each is'} asked for: seconds, not the minute or two {'it takes' if one else 'each takes'}"
-              " to run)")
-        said = [0.0]
+    machines: list = []
+    cards: dict = {}
+    try:
+        with _held(STOPPING) as pressed:
+            machines = sequence_ai.gpu.add(place, gpu, count, snapshot=snapshot, ports=ports, allow=allow, run=run,
+                                           name=name, wait=False, base_url=base_url)
+        if pressed():
+            raise KeyboardInterrupt
+        cards = sequence_ai.gpu._card_prices(base_url=base_url)
+        if allow and EVERYWHERE in allow:
+            _note(OPEN_TO_ALL)
+        if wait and machines:
+            ids = [str(m.get("id")) for m in machines]
+            one = len(ids) == 1
+            _note(f"{', '.join(ids)} starting: waiting until {'it runs' if one else 'they run'} (--no-wait returns once "
+                  f"{'it is' if one else 'each is'} asked for: seconds, not the minute or two "
+                  f"{'it takes' if one else 'each takes'} to run)")
+            said = [0.0]
 
-        def waiting(seconds: float, starting: list) -> None:
-            if seconds - said[0] >= WAIT_SAID_S:
-                said[0] = seconds
-                _note(f"still starting after {seconds / 60:.0f} min: {', '.join(starting)}")
+            def waiting(seconds: float, starting: list) -> None:
+                if seconds - said[0] >= WAIT_SAID_S:
+                    said[0] = seconds
+                    _note(f"still starting after {seconds / 60:.0f} min: {', '.join(starting)}")
 
-        try:
             machines = sequence_ai.gpu._running(machines, said=waiting, base_url=base_url)
-        except KeyboardInterrupt as stop:
-            for m in getattr(stop, "running", None) or []:
-                echo(_line(m))
-            raise GpuCancelled(getattr(stop, "cancelled", None) or [], getattr(stop, "not_cancelled", None) or [],
-                               getattr(stop, "billed", None) or {}) from None
-        except Unavailable as exc:
-            for m in (exc.details or {}).get("gpus") or []:
-                if m.get("status") == "running":
-                    echo(_line(m))
-            raise
+    except KeyboardInterrupt as stop:
+        if not hasattr(stop, "cancelled"):
+            if not machines:
+                raise GpuNotCancelled() from None
+            stop = sequence_ai.gpu._stopped(machines, stop, base_url=base_url)
+        for m in getattr(stop, "running", None) or []:
+            echo(_line(m, cards))
+        raise GpuCancelled(getattr(stop, "cancelled", None) or [], getattr(stop, "not_cancelled", None) or [],
+                           getattr(stop, "billed", None) or {}) from None
+    except (Unavailable, InternalError) as exc:
+        for m in (exc.details or {}).get("gpus") or []:
+            if m.get("status") == "running":
+                echo(_line(m, cards))
+        raise
     for m in machines:
-        echo(_line(m))
+        echo(_line(m, cards))
     unmeasured = _unmeasured(machines[0]) if machines else None
     if unmeasured:
         echo(unmeasured)

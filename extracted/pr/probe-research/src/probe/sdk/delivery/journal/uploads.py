@@ -104,6 +104,7 @@ class UploadQueueMixin:
         does not hold the run's close. ``lane`` (optional on disk; an older drainer uses the run's)
         keeps an upload nothing is ordered after out of the run's lane, so its failures never hold
         the run's other writes. DESIGN.md says why each exists."""
+        _refuse_after_removal()
         # scanning disabled: meta = default_scrub(meta)
         # `scrub_string`, not `scrub_text`: see `Client.upload`.
         # scanning disabled: name = scrub_string(name)
@@ -313,3 +314,4 @@ class UploadQueueMixin:
                     path.unlink(missing_ok=True)
                     removed += 1
         return removed + children_removed
+from probe.sdk.delivery.journal.append import _refuse_after_removal  # noqa: E402 -- pieces need each other; the front door loads this one first

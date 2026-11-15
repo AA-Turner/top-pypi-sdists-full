@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.39
+Version: 0.1.40
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -20,8 +20,8 @@ Requires-Dist: python-dotenv<2.0,>=1.0.0
 Requires-Dist: aiohttp<4.0,>=3.13.5
 Requires-Dist: httpx2<3.0,>=2.13.0
 Requires-Dist: httpx-aiohttp[httpx2]<1.0,>=0.2.0
-Requires-Dist: openai[aiohttp]<4.0,>=3.35.1
-Requires-Dist: anthropic[aiohttp]<3.0,>=2.0.0
+Requires-Dist: openai[aiohttp]<4.0,>=3.41.0
+Requires-Dist: anthropic[aiohttp]<3.0,>=2.3.0
 Requires-Dist: mistralai<4.0,>=3.5.0
 Requires-Dist: ai21<5.0,>=4.3.0
 Requires-Dist: boto3<2.0,>=1.43.106
@@ -30,6 +30,9 @@ Requires-Dist: google-genai[aiohttp]<3.0,>=2.31.0
 Requires-Dist: google-cloud-storage<4.0,>=3.9.0
 Requires-Dist: google-auth<3.0,>=2.62.0
 Requires-Dist: websockets<16.0,>=15.0
+Provides-Extra: tinker
+Requires-Dist: tinker<1.0,>=0.36.0; extra == "tinker"
+Requires-Dist: tinker-cookbook<1.0,>=0.5.9; extra == "tinker"
 Provides-Extra: voice
 Requires-Dist: assemblyai<2.0,>=1.6.1; extra == "voice"
 Requires-Dist: cartesia<5.0,>=4.2.0; extra == "voice"

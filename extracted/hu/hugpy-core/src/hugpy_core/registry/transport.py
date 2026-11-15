@@ -41,6 +41,24 @@ def headers(worker, extra=None):
     return result
 
 
+def health(worker, timeout=5):
+    """A Wrapper's /health document, also when it answers 503: a degraded Wrapper (its catalog stale, Discovery
+    not built yet on a fresh box) still says who it is and what is wrong, and is still a worker to keep polling
+    (2026-11-14: a 503 here failed Core's whole poll of that worker, and connect refused it)."""
+    req = urllib.request.Request(worker['url'].rstrip('/') + '/health', headers=headers(worker, {'Accept': 'application/json'}))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 503:
+            try:
+                return json.load(exc)
+            except ValueError:
+                pass
+        detail = exc.read(2000).decode(errors='replace')
+        raise RuntimeError(f'Worker HTTP {exc.code}: {detail}') from exc
+
+
 def request(worker, path, body=None, *, timeout=30, method=None):
     """Exchange JSON with a Wrapper without passing through Core's own API."""
     if not path.startswith('/') or path.startswith('//'):

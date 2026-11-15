@@ -1,8 +1,8 @@
 import pyhf
-from pyhf.tensor.manager import get_backend
 from pyhf import events
 from pyhf import probability as prob
 from pyhf.parameters import ParamViewer
+from pyhf.tensor.manager import get_backend
 
 __all__ = ["gaussian_constraint_combined", "poisson_constraint_combined"]
 
@@ -24,7 +24,7 @@ class gaussian_constraint_combined:
         pars_constrained_by_normal = [
             constrained_parameter
             for constrained_parameter in pdfconfig.auxdata_order
-            if pdfconfig.param_set(constrained_parameter).pdf_type == 'normal'
+            if pdfconfig.param_set(constrained_parameter).pdf_type == "normal"
         ]
 
         parfield_shape = (self.batch_size or 1, pdfconfig.npars)
@@ -42,7 +42,7 @@ class gaussian_constraint_combined:
             end_index = start_index + parset.n_parameters
             thisauxdata = self.data_indices[start_index:end_index]
             start_index = end_index
-            if not parset.pdf_type == 'normal':
+            if parset.pdf_type != "normal":
                 continue
 
             normal_constraint_data.append(thisauxdata)
@@ -64,7 +64,7 @@ class gaussian_constraint_combined:
         # start preparing constant tensors
         if self.param_viewer.index_selection:
             self._normal_data = default_backend.astensor(
-                default_backend.concatenate(normal_constraint_data), dtype='int'
+                default_backend.concatenate(normal_constraint_data), dtype="int"
             )
 
             _normal_sigmas = default_backend.concatenate(normal_constraint_sigmas)
@@ -80,15 +80,15 @@ class gaussian_constraint_combined:
             self._access_field = access_field
 
         self._precompute()
-        events.subscribe('tensorlib_changed')(self._precompute)
+        events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         if not self.param_viewer.index_selection:
             return
         tensorlib, _ = get_backend()
         self.sigmas = tensorlib.astensor(self._sigmas)
-        self.normal_data = tensorlib.astensor(self._normal_data, dtype='int')
-        self.access_field = tensorlib.astensor(self._access_field, dtype='int')
+        self.normal_data = tensorlib.astensor(self._normal_data, dtype="int")
+        self.access_field = tensorlib.astensor(self._access_field, dtype="int")
 
     def has_pdf(self):
         """
@@ -108,10 +108,7 @@ class gaussian_constraint_combined:
         tensorlib, _ = get_backend()
         if not self.param_viewer.index_selection:
             return None
-        if self.batch_size is None:
-            flat_pars = pars
-        else:
-            flat_pars = tensorlib.reshape(pars, (-1,))
+        flat_pars = pars if self.batch_size is None else tensorlib.reshape(pars, (-1,))
 
         normal_means = tensorlib.gather(flat_pars, self.access_field)
 
@@ -119,10 +116,9 @@ class gaussian_constraint_combined:
         if self.batch_size is None:
             normal_means = normal_means[0]
 
-        result = prob.Independent(
+        return prob.Independent(
             prob.Normal(normal_means, self.sigmas), batch_size=self.batch_size
         )
-        return result
 
     def logpdf(self, auxdata, pars):
         """
@@ -159,7 +155,7 @@ class poisson_constraint_combined:
         pars_constrained_by_poisson = [
             constrained_parameter
             for constrained_parameter in pdfconfig.auxdata_order
-            if pdfconfig.param_set(constrained_parameter).pdf_type == 'poisson'
+            if pdfconfig.param_set(constrained_parameter).pdf_type == "poisson"
         ]
 
         parfield_shape = (self.batch_size or 1, pdfconfig.npars)
@@ -174,7 +170,7 @@ class poisson_constraint_combined:
             end_index = start_index + parset.n_parameters
             thisauxdata = self.data_indices[start_index:end_index]
             start_index = end_index
-            if not parset.pdf_type == 'poisson':
+            if parset.pdf_type != "poisson":
                 continue
 
             poisson_constraint_data.append(thisauxdata)
@@ -185,12 +181,12 @@ class poisson_constraint_combined:
         self._batched_factors = None
         if self.param_viewer.index_selection:
             self._poisson_data = default_backend.astensor(
-                default_backend.concatenate(poisson_constraint_data), dtype='int'
+                default_backend.concatenate(poisson_constraint_data), dtype="int"
             )
 
             _poisson_rate_fac = default_backend.astensor(
                 default_backend.concatenate(poisson_constraint_rate_factors),
-                dtype='float',
+                dtype="float",
             )
             factors = default_backend.reshape(_poisson_rate_fac, (1, -1))
             self._batched_factors = default_backend.tile(
@@ -203,14 +199,14 @@ class poisson_constraint_combined:
             self._access_field = access_field
 
         self._precompute()
-        events.subscribe('tensorlib_changed')(self._precompute)
+        events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         if not self.param_viewer.index_selection:
             return
         tensorlib, _ = get_backend()
-        self.poisson_data = tensorlib.astensor(self._poisson_data, dtype='int')
-        self.access_field = tensorlib.astensor(self._access_field, dtype='int')
+        self.poisson_data = tensorlib.astensor(self._poisson_data, dtype="int")
+        self.access_field = tensorlib.astensor(self._access_field, dtype="int")
         self.batched_factors = tensorlib.astensor(self._batched_factors)
 
     def has_pdf(self):
@@ -231,10 +227,7 @@ class poisson_constraint_combined:
         if not self.param_viewer.index_selection:
             return None
         tensorlib, _ = get_backend()
-        if self.batch_size is None:
-            flat_pars = pars
-        else:
-            flat_pars = tensorlib.reshape(pars, (-1,))
+        flat_pars = pars if self.batch_size is None else tensorlib.reshape(pars, (-1,))
         nuispars = tensorlib.gather(flat_pars, self.access_field)
 
         # similar to expected_data() in constrained_by_poisson

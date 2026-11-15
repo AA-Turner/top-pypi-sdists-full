@@ -63,9 +63,9 @@ def _close_ending_ray_trial(code: object) -> None:
     binding = _binding(required=False)
     if binding is None or binding.owner[:2] != (os.getpid(), threading.get_ident()):
         return
-    from ..run.closing.status import _status_for_system_exit
+    from ..run.closing.status import status_for_system_exit
 
-    status, _ = _status_for_system_exit(code, sys.exc_info()[1])
+    status, _ = status_for_system_exit(code, sys.exc_info()[1])
     with _ray_closing:
         _ray_closes += 1
     try:

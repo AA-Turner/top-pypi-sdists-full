@@ -45,38 +45,80 @@ class WatcherThreads:
         self._cwd = cwd
         self._lock = threading.Lock()
         self._threads: dict[str, WatcherThread] = {}
+        #: Keys whose lease a start is taking (outside the lock): RUNNING to a second ask.
+        self._starting: set[str] = set()
         self._is_closed = False
         self.started = 0
 
     def count(self) -> int:
+        """Live threads, and the starts taking a lease for one."""
         with self._lock:
-            return sum(1 for t in self._threads.values() if t.is_alive())
+            return sum(1 for t in self._threads.values() if t.is_alive()) + len(self._starting)
 
     def start(self, key: str, directory: str, env: Mapping[str, str], *, room: int) -> dict:
-        """STARTED (a new thread), RUNNING (ours runs, or a watcher holds the lease), else refused:
-        STOPPING, or BUSY when `room` (watchers this service may still add besides these threads,
-        counted here under the lock so two starts cannot both take the last place) is spent."""
+        """STARTED (a new thread), RUNNING (ours runs or starts, or a watcher holds the lease), else
+        refused: STOPPING, BUSY when `room` (watchers this service may still add besides these
+        threads, counted here under the lock so two starts cannot both take the last place) is
+        spent or the lease could not be taken from a probe that holds it on.
+
+        The lease is taken outside the lock: `hold_lease` may wait for a probe to let go, and the
+        service's status (`list_rows`) and drain starts (`count`) never wait on that."""
         with self._lock:
             if self._is_closed:
                 return {"accepted": False, "reason": BackgroundRefusal.STOPPING}
             mine = self._threads.get(key)
-            if mine is not None and mine.is_alive():
+            if (mine is not None and mine.is_alive()) or key in self._starting:
                 return {"accepted": True, "state": BackgroundState.RUNNING}
-            if room - sum(1 for t in self._threads.values() if t.is_alive()) <= 0:
+            if room - sum(1 for t in self._threads.values() if t.is_alive()) - len(self._starting) <= 0:
                 return {"accepted": False, "reason": BackgroundRefusal.BUSY}
-            try:
-                from probe.sdk.run.watcher.thread import WatcherThread
-
-                made = WatcherThread.start(directory, env=_get_watcher_settings(env), on_exit=self._forget)
-            except Exception as exc:  # noqa: BLE001 -- no thread: the caller spawns its own
-                self.log(f"background: could not start the watcher thread for {key}: {exc!r}")
-                return {"accepted": False, "reason": BackgroundRefusal.UNUSABLE}
-            if made is None:
-                return {"accepted": True, "state": BackgroundState.RUNNING}
-            self._threads[key] = made
-            self.started += 1
+            self._starting.add(key)
+        # The reservation goes however the take ends (a BaseException too): a key left in
+        # `_starting` would answer RUNNING to every later ask with nothing watching. On success it
+        # goes in the same lock section that books the thread, so the key is never in neither.
+        try:
+            made, is_held = self._take(directory, env)
+        except BaseException as exc:
+            with self._lock:
+                self._starting.discard(key)
+            if not isinstance(exc, Exception):
+                raise
+            self.log(f"background: could not start the watcher thread for {key}: {exc!r}")
+            return {"accepted": False, "reason": BackgroundRefusal.UNUSABLE}
+        with self._lock:
+            self._starting.discard(key)
+            is_closed = self._is_closed
+            if made is not None and not is_closed and made.is_alive():  # one that ended went unbooked
+                self._threads[key] = made
+            if made is not None and not is_closed:
+                self.started += 1
+        if made is None:
+            # Free, yet not ours: a probe paused past `hold_lease`'s retry. Nothing watches; the next
+            # run's ask (its probe no longer reads the lease as held) tries again.
+            return ({"accepted": True, "state": BackgroundState.RUNNING} if is_held
+                    else {"accepted": False, "reason": BackgroundRefusal.BUSY})
+        if is_closed:  # `close` came while the lease was taken: it never saw this thread
+            made.stop(STOP_WAIT_S)
+            if made.has_entries():
+                self._hand_off(key, made)
+            return {"accepted": False, "reason": BackgroundRefusal.STOPPING}
         self.log(f"background: watcher thread started for {key}")
         return {"accepted": True, "state": BackgroundState.STARTED}
+
+    def _take(self, directory: str, env: Mapping[str, str]) -> tuple[WatcherThread | None, bool]:
+        """A thread on `directory`'s lease, or None, and whether a watcher holds that lease. A take
+        refused while the lease reads free (a probe that held on past `hold_lease`'s retry) is tried
+        once more."""
+        from probe.sdk.run.watcher import lease
+        from probe.sdk.run.watcher.thread import WatcherThread
+
+        settings = _get_watcher_settings(env)
+        made = WatcherThread.start(directory, env=settings, on_exit=self._forget)
+        if made is not None:
+            return made, True
+        if lease.already_running(directory):
+            return None, True
+        made = WatcherThread.start(directory, env=settings, on_exit=self._forget)
+        return made, made is not None or lease.already_running(directory)
 
     def list_rows(self) -> list[dict]:
         """`service.status`'s `box_watchers` rows for the threads (the pid is the service's)."""

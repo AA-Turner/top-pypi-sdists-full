@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-polylith-plugin
-Version: 1.54.1
+Version: 1.55.0
 Summary: A Poetry plugin that adds tooling support for the Polylith Architecture
 License: MIT
 Author: David Vujic
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: cleo (>=2.1.0,<3.0.0)
 Requires-Dist: poetry
 Requires-Dist: pyyaml

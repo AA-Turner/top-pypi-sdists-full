@@ -1,26 +1,26 @@
 Metadata-Version: 2.4
 Name: restate-sdk
-Version: 1.5.1
+Version: 1.5.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Dist: google-adk>=2.14.0 ; extra == 'adk'
+Requires-Dist: google-adk>=2.14.1 ; extra == 'adk'
 Requires-Dist: httpx2[http2] ; extra == 'client'
 Requires-Dist: testcontainers ; extra == 'harness'
 Requires-Dist: hypercorn ; extra == 'harness'
 Requires-Dist: httpx2 ; extra == 'harness'
-Requires-Dist: langchain>=1.4.9 ; extra == 'langchain'
-Requires-Dist: langgraph>=1.2.20 ; extra == 'langchain'
-Requires-Dist: langchain-core>=1.7.6 ; extra == 'langchain'
-Requires-Dist: langgraph>=1.2.20,<2 ; extra == 'langgraph'
-Requires-Dist: langchain-core>=1.7.6,<2 ; extra == 'langgraph'
+Requires-Dist: langchain>=1.5.0 ; extra == 'langchain'
+Requires-Dist: langgraph>=1.2.21 ; extra == 'langchain'
+Requires-Dist: langchain-core>=1.8.0 ; extra == 'langchain'
+Requires-Dist: langgraph>=1.2.21,<2 ; extra == 'langgraph'
+Requires-Dist: langchain-core>=1.8.0,<2 ; extra == 'langgraph'
 Requires-Dist: pydantic>=2 ; extra == 'langgraph'
 Requires-Dist: mypy>=1.11.2 ; extra == 'lint'
 Requires-Dist: pyright>=1.1.390 ; extra == 'lint'
 Requires-Dist: ruff>=0.6.9 ; extra == 'lint'
 Requires-Dist: openai-agents>=0.24.0 ; extra == 'openai'
-Requires-Dist: pydantic-ai-slim>=2.66.0,<3 ; extra == 'pydantic-ai'
-Requires-Dist: pydantic-ai-harness>=0.66.0 ; extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-slim>=2.68.0,<3 ; extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-harness>=0.68.0 ; extra == 'pydantic-ai'
 Requires-Dist: pydantic>=2 ; extra == 'pydantic-ai'
 Requires-Dist: dacite ; extra == 'serde'
 Requires-Dist: pydantic ; extra == 'serde'
@@ -101,8 +101,9 @@ app = restate.app(services=[greeter])
 ```
 
 `restate.app` takes services, virtual objects and workflows, and anything else that is a
-`restate.Servable`: session objects, and agents, which bring along the `signals` object their tools
-wait on. Each is served once, however many things bring it along.
+`restate.Servable`: session objects, and agents, each of which brings along its own companion
+(`<agent>.prebuilt.restate`), the object its tools wait on. Each is served once, however many
+things bring it along.
 
 Serve it with `restate.serve`, which needs the `serve` extra (`pip install "restate-sdk[serve]"`).
 It listens on `$PORT`, or 9080, with the HTTP/2 that Restate connects with, and

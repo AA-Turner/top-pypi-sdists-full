@@ -443,6 +443,9 @@ class Key(AccessOp):
         except (IndexError, TypeError):
             return ()
 
+    def access_kind(self):
+        return 'key'
+
     def default(self):
         if self.is_pattern():
             return {}
@@ -609,6 +612,9 @@ class Attr(Key):
             result = self._concrete_fallback(node, result, filtered, settings)
         return result
 
+    def access_kind(self):
+        return 'attr'
+
     def default(self):
         o = types.SimpleNamespace()
         if self.is_pattern():
@@ -706,6 +712,9 @@ class Slot(Key):
             keys = (self.op.value,)
 
         return self._items(node, keys, filtered, settings)
+
+    def access_kind(self):
+        return 'slot'
 
     def default(self):
         if isinstance(self.op, matchers.Numeric) and self.op.is_int():
@@ -900,6 +909,9 @@ class SliceFilter(BaseOp):
     def concrete(cls, val):
         return Slot.concrete(val)
 
+    def access_kind(self):
+        return 'slot'
+
     def is_pattern(self):
         return False
 
@@ -1013,6 +1025,8 @@ class Slice(SimpleOp):
         if step is not None:
             m += [s(step)]
         return '[' + ':'.join(m) + ']'
+    def access_kind(self):
+        return 'slot'
     def is_pattern(self):
         return False
     def is_slice(self):
@@ -1103,7 +1117,19 @@ class Slice(SimpleOp):
     def matchable(self, op):
         return isinstance(op, Slice)
 
+    def is_whole(self):
+        """
+        True if this slice reads the whole list: [], [:], [0:], [::1].
+        """
+        start, stop, step = self.args
+        return start in (None, 0) and stop is None and step in (None, 1)
+
     def match(self, op, specials=False):
+        # a slice filter reads the list narrowed to the items that pass
+        # it, which ones depending on the data: only the whole list
+        # covers it
+        if isinstance(op, SliceFilter):
+            return base.MatchResult(slice(None)) if self.is_whole() else None
         if not isinstance(op, Slice):
             return None
         if self.cardinality() < op.cardinality():

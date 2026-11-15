@@ -333,6 +333,14 @@ class RunSamples:
         raises."""
         self._guard("log_update", lambda: self._get_points().log_update(step, update, level=level, fields=fields))
 
+    def log_update_rows(self, step: int, update: int | None, rows: Iterable[Mapping[str, Any]],
+                        records: Iterable[Mapping[str, Any]]) -> int:  # fmt: skip
+        """One optimizer update's rows (`log_metrics_many`'s) and its records (`log_update`'s keyword arguments,
+        `level` among them) in one write: what a training hook's sender sends per update. Returns how many rows went.
+        Never raises."""
+        return self._guard("log_update_rows", lambda: self._get_points().log_update_rows(step, update, rows,
+                                                                                        records)) or 0  # fmt: skip
+
     def _get_points(self) -> PointWriter:
         with self._lock:
             if self._points is None:

@@ -69,7 +69,7 @@ class Dashboard:
                 under `bots`, the rest under `pullRequests`). Always present, with
                 zeros when there is nothing. A client hides a page's whole nav item at
                 zero total, and a state's number at zero. Every page except Issues also
-                carries `running` and `passed`. The Branches badge isn't here: a
+                carries `running`, `passed` and `cancelled`. The Branches badge isn't here: a
                 client counts the rows of `mainBranchPage`.
             main_branch_page (MainBranches): Every default branch the page lists, in no particular order. There is
                 no tally: a client counts the rows it holds, so the filter pills and

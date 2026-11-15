@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a330
+Version: 0.1.0a332
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a146
+Requires-Dist: dreamscale-transport==0.1.1a147
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -88,7 +88,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a330"
+uv add "dreamscale==0.1.0a332"
 ```
 
 Install the CLI as a standalone tool:
@@ -117,11 +117,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a330"
-uv add "dreamscale[sim]==0.1.0a330"
-uv add "dreamscale[dreamzero]==0.1.0a330"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a330"
-uv add "dreamscale[hud]==0.1.0a330"
+uv add "dreamscale[so101]==0.1.0a332"
+uv add "dreamscale[sim]==0.1.0a332"
+uv add "dreamscale[dreamzero]==0.1.0a332"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a332"
+uv add "dreamscale[hud]==0.1.0a332"
 ```
 
 The `dreamzero` extra installs the pinned H.264 codec used automatically by
@@ -804,6 +804,24 @@ ends a disagreement-dependent correction exactly, and `motion_speed` reduces
 damping for slower intra-chunk arm motion. Their grippers follow incoming targets
 independently of arm-speed adaptation. See the [YAM async guide](dreamscale/guides/yam-async.md)
 for equations, limits, CLI commands and saved Rerun recordings. `auto` is unchanged.
+
+`crossfade` is a third opt-in experimental mode, for any model whose actions can be
+averaged: the test-time smoothing of Flash ALOHA. Over the steps the plan in the buffer
+and a new chunk both cover, the command moves from the old plan to the new chunk along a
+sigmoid, `w = sigmoid((step - window / 2) / sigma)`, and after the window the new chunk
+plays as answered:
+
+```python
+strategy = dreamscale.RunStrategy(action_smoothing="crossfade")
+```
+
+The window is `smoothing_correction_steps` (default 0.4 s of actions: 12 steps at 30 Hz,
+never more than the overlap) and sigma is `smoothing_time_scale` in action steps (default
+an eighth of the window). On the command line: `--action-smoothing crossfade`. It applies
+to async runs with RTC off, as every mode here does. Measured against `output` on paired
+starts, it did better on absolute joint targets replanned every few steps (ABC-VLA on
+ABC's simulator: 54 of 60 worlds against 41) and worse on LIBERO's relative end-effector
+actions (five models: 88.2% against 90.8%), so `auto` never selects it.
 
 Returned actions remain aligned to their original logical timesteps. Expired
 prefix steps are skipped, and a chunk that is entirely stale is discarded; it

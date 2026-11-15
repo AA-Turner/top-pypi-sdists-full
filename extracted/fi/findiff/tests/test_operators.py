@@ -329,6 +329,32 @@ def test_rsub_operator():
     assert val.shape == f.shape
 
 
+def test_rsub_scalar_minus_operator():
+    x = np.arange(5.0)
+    d_dx = Diff(0, 1.0)
+
+    assert_array_almost_equal((3 - d_dx)(x), 3 * x - 1)
+    assert_array_almost_equal((d_dx - 3)(x), 1 - 3 * x)
+
+
+def test_rsub_array_minus_operator():
+    x = np.linspace(0, 1, 30)
+    dx = x[1] - x[0]
+    d_dx = Diff(0, dx)
+    g = np.cos(x)
+    f = x**2
+
+    assert_array_almost_equal((g - d_dx)(f), g * f - 2 * x)
+
+
+def test_rsub_matrix():
+    shape = (10,)
+    d_dx = Diff(0, 0.1)
+    expected = 3 * np.eye(10) - d_dx.matrix(shape).toarray()
+
+    assert_array_almost_equal((3 - d_dx).matrix(shape).toarray(), expected)
+
+
 def test_scalar_operator_invalid_type_raises():
     with pytest.raises(ValueError):
         ScalarOperator("not a number")
@@ -375,3 +401,43 @@ def test_diff_compact_and_scheme_raises():
 def test_diff_compact_even_raises():
     with pytest.raises(ValueError):
         Diff(0, compact=2)
+
+
+class TestSetAccuracyAfterCall:
+    """Changing the accuracy must take effect on operators that were already applied."""
+
+    def setup_method(self):
+        self.x = np.linspace(0, 2 * np.pi, 101)
+        self.dx = self.x[1] - self.x[0]
+        self.f = np.sin(self.x)
+
+    def test_diff(self):
+        d_dx = Diff(0, self.dx)
+        d_dx(self.f)
+        d_dx.set_accuracy(4)
+
+        assert_array_almost_equal(d_dx(self.f), Diff(0, self.dx, acc=4)(self.f))
+
+    def test_diff_matrix(self):
+        shape = self.x.shape
+        d_dx = Diff(0, self.dx)
+        d_dx.matrix(shape)
+        d_dx.set_accuracy(4)
+
+        expected = Diff(0, self.dx, acc=4).matrix(shape).toarray()
+        assert_array_almost_equal(d_dx.matrix(shape).toarray(), expected)
+
+    def test_expression(self):
+        L = Diff(0, self.dx) ** 2 + Diff(0, self.dx)
+        L(self.f)
+        L.set_accuracy(6)
+
+        expected = (Diff(0, self.dx, acc=6) ** 2 + Diff(0, self.dx, acc=6))(self.f)
+        assert_array_almost_equal(L(self.f), expected)
+
+    def test_acc_keyword_after_set_accuracy(self):
+        d_dx = Diff(0, self.dx)
+        d_dx(self.f)
+        d_dx.set_accuracy(4)
+
+        assert_array_almost_equal(d_dx(self.f, acc=2), Diff(0, self.dx)(self.f))

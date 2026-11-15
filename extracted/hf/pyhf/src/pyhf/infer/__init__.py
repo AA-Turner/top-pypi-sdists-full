@@ -1,20 +1,17 @@
 """Inference for Statistical Models."""
 
+from pyhf import exceptions, get_backend
 from pyhf.infer import utils
-from pyhf import get_backend
-from pyhf import exceptions
 
 
-def _check_hypotest_prerequisites(pdf, data, init_pars, par_bounds, fixed_params):
+def _check_hypotest_prerequisites(pdf, data, init_pars, par_bounds, fixed_params):  # noqa: ARG001
     if pdf.config.poi_index is None:
-        raise exceptions.UnspecifiedPOI(
-            'No POI is defined. A POI is required to run a hypothesis test.'
-        )
+        msg = "No POI is defined. A POI is required to run a hypothesis test."
+        raise exceptions.UnspecifiedPOI(msg)
 
     if not utils.all_pois_floating(pdf, fixed_params):
-        raise exceptions.InvalidModel(
-            f'POI at index [{pdf.config.poi_index}] is set as fixed, which makes profile likelihood ratio based inference impossible. Please unfix the POI to continue.'
-        )
+        msg = f"POI at index [{pdf.config.poi_index}] is set as fixed, which makes profile likelihood ratio based inference impossible. Please unfix the POI to continue."
+        raise exceptions.InvalidModel(msg)
 
 
 def hypotest(
@@ -38,6 +35,7 @@ def hypotest(
 
     Example:
         >>> import pyhf
+        >>> import numpy as np
         >>> pyhf.set_backend("numpy")
         >>> model = pyhf.simplemodels.uncorrelated_background(
         ...     signal=[12.0, 11.0], bkg=[50.0, 52.0], bkg_uncertainty=[3.0, 7.0]
@@ -50,8 +48,8 @@ def hypotest(
         ... )
         >>> CLs_obs
         array(0.05251497)
-        >>> CLs_exp_band
-        [array(0.00260626), array(0.01382005), array(0.06445321), array(0.23525644), array(0.57303621)]
+        >>> np.isclose(CLs_exp_band, [0.00260626, 0.01382005, 0.06445321, 0.23525644, 0.57303621])
+        array([ True,  True,  True,  True,  True])
 
     Args:
         poi_test (Number or Tensor): The value of the parameter of interest (POI)
@@ -176,11 +174,11 @@ def hypotest(
             teststat, sig_plus_bkg_distribution, bkg_only_distribution
         )
     )
-    CLsb_exp, CLb_exp, CLs_exp = calc.expected_pvalues(
+    CLsb_exp, _CLb_exp, CLs_exp = calc.expected_pvalues(
         sig_plus_bkg_distribution, bkg_only_distribution
     )
 
-    is_q0 = kwargs.get('test_stat', 'qtilde') == 'q0'
+    is_q0 = kwargs.get("test_stat", "qtilde") == "q0"
 
     _returns = [CLsb_obs if is_q0 else CLs_obs]
     if return_tail_probs:
@@ -206,7 +204,7 @@ def hypotest(
 
 from pyhf.infer import intervals
 
-__all__ = ["hypotest", "calculators", "intervals", "mle", "test_statistics", "utils"]
+__all__ = ["calculators", "hypotest", "intervals", "mle", "test_statistics", "utils"]
 
 
 def __dir__():

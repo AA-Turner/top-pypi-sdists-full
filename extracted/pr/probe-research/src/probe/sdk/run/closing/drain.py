@@ -16,6 +16,9 @@ from probe.sdk.run.handle import _UNSET
 #: bounds a promoter that hung while holding an item.
 WAITING_PROMOTE_TIMEOUT = 300.0
 
+#: A SIGTERM's want marker stays fresh this long past its process's deadline (seconds, T16j).
+_CLOSE_MARK_SLACK_SECONDS = 5.0
+
 #: The DEFAULT deadline for `finish()` (plan 0.2, decision D1), in seconds;
 #: ``flush_timeout=`` or ``PROBE_FINISH_TIMEOUT_SEC`` overrides it.
 #:
@@ -212,6 +215,33 @@ class CloseDrainMixin:
         return bool(getattr(client, "_default_transport", False)) and not getattr(
             client, "_drains_by_hand", False
         )
+
+    def _start_delivery_for_close(self) -> None:
+        """A SIGTERM's close of this run is seconds away (`preempt`): name the run in the outbox's
+        want markers, which keeps a drain from leaving (`outbox.linger`), and start the service's
+        drain now. The marker goes stale as the grace ends, so one the close never clears (a touch
+        after it, a killed process) holds a drain that long, not 120 s. Never raises."""
+        if not self._delivers_by_worker():
+            return
+        from ...delivery.outbox.waiter import touch_mark
+        from ..launch import preempt
+
+        ending = preempt.ending()
+        left = preempt.budget_seconds() if ending is None else max(0.0, ending.deadline - time.monotonic())
+        fresh_for = left + _CLOSE_MARK_SLACK_SECONDS
+        touch_mark(self._client.journal.outbox_root, self.id, fresh_for=fresh_for)
+        self._client._drainer.start_for_close()
+
+    def _clear_close_mark(self) -> None:
+        """No close of this run is on its way any more (it ran, or failed). Never raises."""
+        if not self._delivers_by_worker():
+            return
+        from ...delivery.outbox.waiter import clear_mark
+
+        try:
+            clear_mark(self._client.journal.outbox_root, self.id)
+        except Exception:  # noqa: BLE001 -- a stale marker only keeps a drain a while
+            pass
 
     def _close_through_worker(
         self, status: str, summary: dict | None, *, verdict_sent: bool, should_warn: bool,

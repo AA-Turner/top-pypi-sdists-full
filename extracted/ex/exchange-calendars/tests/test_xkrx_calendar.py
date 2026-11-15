@@ -10,7 +10,8 @@ from .test_utils import T
 
 class TestXKRXCalendar(ExchangeCalendarTestBase):
     @pytest.fixture(scope="class")
-    def calendar_cls(self):
+    @classmethod
+    def calendar_cls(cls):
         yield XKRXExchangeCalendar
 
     @pytest.fixture
@@ -80,6 +81,7 @@ class TestXKRXCalendar(ExchangeCalendarTestBase):
             # Buddha's birthday was on 27th May (Saturday),
             # so the next monday becomes alternative holiday
             "2023-05-29",
+            "2026-05-01",  # Labor Day public holiday from 2026.
         ]
 
     @pytest.fixture
@@ -103,6 +105,7 @@ class TestXKRXCalendar(ExchangeCalendarTestBase):
         yield [
             # Temporary Public Holiday (Added to create a 6-day long holiday period)
             "2025-01-27",
+            "2026-06-03",  # Local election day.
         ]
 
     # TODO: Issue #94

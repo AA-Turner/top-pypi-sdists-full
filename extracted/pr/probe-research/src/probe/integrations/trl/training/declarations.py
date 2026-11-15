@@ -19,12 +19,16 @@ EVAL_LOSS_APPROXIMATE = (
 )
 
 #: Why the run's `loss` is approximate when the loss TRL returns is bf16 / fp16 (FSDP2's mixed precision casts the
-#: outputs it is computed from): TRL sums, divides and accumulates it at that precision.
+#: outputs it is computed from) on a path its bound was never checked on (`SftLoss.get_loss_tolerance` None), and why
+#: `eval_loss` carries it beside its own reason.
 LOSS_ROUNDED_APPROXIMATE = (
-    "TRL returns this loss as a bf16 / fp16 tensor (FSDP2's mixed precision casts the model's outputs) and sums, "
-    "divides and accumulates it at that precision, so the logged value can sit a unit or two of the last place from "
-    "the rows' fp32 sum"
+    "TRL returns this loss as a bf16 / fp16 tensor (FSDP2's mixed precision casts the model's outputs) and sums and "
+    "divides it at that precision; its bound is checked for the bf16 nll / dft train loss alone, not fp16, label "
+    "smoothing, an MoE aux loss or eval"
 )
+#: TRL's bf16 SFT loss rounds 4 times per call (`sft_trainer.py:1655-1660`): FSDP2's cast of each token's log-prob,
+#: the sum's result, the token count (a device int64 cast to bf16; exact on CPU, counted anyway) and the division.
+LOSS_ROUNDINGS = 4
 #: The `unsupported` key a whole-run stop is declared under: a pattern naming every key.
 EVERY_KEY = "*"
 #: What a key no reason names falls back to (a hook's own reasons come first, `LossHook.get_reasons`).
@@ -124,6 +128,14 @@ EVAL_KEY_PREFIX = "eval"
 MAX_EVAL_PREFIXES = 9
 
 
+def count_loss_roundings(processes: int, *, is_multiplied: bool, is_divided_after: bool) -> int:
+    """How many times TRL rounds one call's bf16 SFT loss (`get_rounding_tolerance`, T18): `LOSS_ROUNDINGS`, one more
+    for the multiply by ``processes`` (processes // TP, `average_tokens_across_devices`) unless a power of two, and one
+    for transformers' division over the accumulation steps after the loss (its last, shorter one is any count)."""
+    is_exact = processes > 0 and processes & (processes - 1) == 0
+    return LOSS_ROUNDINGS + int(is_multiplied and not is_exact) + int(is_divided_after)
+
+
 def get_run_key(name: str) -> str:
     """The run's own series of a TRL log key under `report_to="probe"` (`train/loss`, `eval/loss`): the HF callback's
     `rewrite_logs` rule (`integrations/huggingface.py`, which needs transformers to import; the real test pins both)."""
@@ -137,7 +149,7 @@ def make_rollups(train_keys: Iterable[str], *, dtype: Dtype = Dtype.FP32, dtypes
                  has_policy_loss: bool = False, logging_window: int | None = None,
                  eval_prefixes: Sequence[str] = (EVAL_KEY_PREFIX,), extremes: Mapping[str, Reducer] = EXTREME_KEYS,
                  step_reducers: Mapping[str, Reducer] | None = None,
-                 loss_approximate: str | None = None) -> dict[str, dict]:  # fmt: skip
+                 loss_approximate: str | None = None, loss_tolerance: float | None = None) -> dict[str, dict]:  # fmt: skip
     """How TRL computes each logged series, for the train keys and, per `evaluate()` prefix in ``eval_prefixes``,
     their `<prefix>_` twins, as grouping levels (finest first). `loss`: the sum of a process's returned (GA-scaled)
     micro-batch losses, the mean over processes (`trainer.py:2229-2234`); `eval_loss`: the mean of every process's
@@ -149,7 +161,8 @@ def make_rollups(train_keys: Iterable[str], *, dtype: Dtype = Dtype.FP32, dtypes
     it is computed from others (``dtypes``, by train name: `entropy`). An eval key's series is the HF callback's name
     of `<prefix>_<key>`, the name TRL logs the loss under (diagnostics TRL logs as `eval_<key>` whatever the prefix,
     so a dict of eval datasets collides there; the rows' own series keep each dataset apart). ``loss_approximate``:
-    why every `loss` series is approximate (a low-precision loss)."""
+    why every `loss` series is approximate (a low-precision loss); ``loss_tolerance``: the train `loss` series' bound
+    instead (a rounded loss whose bound is checked), its eval twins keep ``loss_approximate``."""
     rollups: dict[str, dict[str, Any]] = {}
     splits = [(SampleSplit.TRAIN, "")] + [(SampleSplit.EVAL, f"{prefix}_") for prefix in eval_prefixes]
     keys = list(dict.fromkeys(train_keys))
@@ -160,9 +173,13 @@ def make_rollups(train_keys: Iterable[str], *, dtype: Dtype = Dtype.FP32, dtypes
             "levels": make_levels((Grouping.RANK, Reducer.SUM), (Grouping.STEP, Reducer.MEAN)) if is_train
             else make_levels((Grouping.MICRO_BATCH, Reducer.SUM), (Grouping.STEP, Reducer.MEAN)),
         }}  # fmt: skip
-        reasons = [reason for reason in (None if is_train else EVAL_LOSS_APPROXIMATE, loss_approximate) if reason]
+        is_bounded = is_train and loss_tolerance is not None
+        reasons = [reason for reason in (None if is_train else EVAL_LOSS_APPROXIMATE,
+                                         None if is_bounded else loss_approximate) if reason]  # fmt: skip
         if reasons:
             found["loss"]["approximate"] = "; ".join(reasons)
+        if is_bounded:
+            found["loss"]["tolerance"] = loss_tolerance
         for key in keys:
             step = (step_reducers or {}).get(key, Reducer.MEAN)
             found[key] = {"levels": make_levels((Grouping.CALL, extremes.get(key, Reducer.WEIGHTED_MEAN)),

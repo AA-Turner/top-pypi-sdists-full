@@ -20,11 +20,11 @@ T = TypeVar("T", bound="NavPullRequestCount")
 
 @_attrs_define
 class NavPullRequestCount:
-    """ A pull request page's numbers. `running`, `failed` and
-    `passed` count the pull requests whose CI is pending, failing and
-    succeeded, and `noChecks` those with no checks at all. One held for
-    workflow approval is in `total` only, so the numbers need not add up.
-    All five are always present.
+    """ A pull request page's numbers. `running`, `failed`, `passed` and
+    `cancelled` count the pull requests whose CI is pending, failing,
+    succeeded and cancelled, and `noChecks` those with no checks at all.
+    One held for workflow approval is in `total` only, so the numbers
+    need not add up. All six are always present.
 
         Attributes:
             total (int): How many pull requests the page lists.
@@ -35,6 +35,8 @@ class NavPullRequestCount:
                 as nothing failed; one with a job that really failed beside a
                 held run still counts.
             passed (int): How many of them have CI that succeeded.
+            cancelled (int): How many of them have CI whose only non-passing runs were
+                cancelled. Not counted as `failed`: nothing broke.
             no_checks (int): How many of them have no checks (CI `none`). Not counted as
                 running: nothing is pending, so there is nothing to wait for
                 that the pull request itself can show.
@@ -44,6 +46,7 @@ class NavPullRequestCount:
     running: int
     failed: int
     passed: int
+    cancelled: int
     no_checks: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -60,6 +63,8 @@ class NavPullRequestCount:
 
         passed = self.passed
 
+        cancelled = self.cancelled
+
         no_checks = self.no_checks
 
 
@@ -70,6 +75,7 @@ class NavPullRequestCount:
             "running": running,
             "failed": failed,
             "passed": passed,
+            "cancelled": cancelled,
             "noChecks": no_checks,
         })
 
@@ -88,6 +94,8 @@ class NavPullRequestCount:
 
         passed = d.pop("passed")
 
+        cancelled = d.pop("cancelled")
+
         no_checks = d.pop("noChecks")
 
         nav_pull_request_count = cls(
@@ -95,6 +103,7 @@ class NavPullRequestCount:
             running=running,
             failed=failed,
             passed=passed,
+            cancelled=cancelled,
             no_checks=no_checks,
         )
 

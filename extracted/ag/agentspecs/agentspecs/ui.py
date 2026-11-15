@@ -58,6 +58,28 @@ class UiInstances(str, Enum):
     UI = "ui"
 
 
+class UiPlacement(str, Enum):
+    """Where a UI goes in the chat (the user, 15 November 2026: "make sure ui can be used to be
+    injected in the chat itself (toolbar, header...) or as chat message (a2ui)").
+
+    The chat's own chrome — ``header`` (beside its title), ``toolbar`` (the input toolbar's
+    controls), ``footer`` (under the prompt), ``banner`` (above the messages), ``panel`` (beside
+    the chat, where it has one) — or ``message``: a card in the conversation, drawn by a tool
+    renderer or the A2UI renderer.
+    """
+
+    HEADER = "header"
+    TOOLBAR = "toolbar"
+    FOOTER = "footer"
+    BANNER = "banner"
+    PANEL = "panel"
+    MESSAGE = "message"
+
+
+#: The placements in the chat's own chrome, every one but `message`.
+CHROME_PLACEMENTS = tuple(p.value for p in UiPlacement if p is not UiPlacement.MESSAGE)
+
+
 class UiContributions(BaseModel):
     """What a UI plugin contributes, as agent-runtimes registers it."""
 
@@ -97,6 +119,13 @@ class UiSpec(BaseModel):
     )
     renderers: List[str] = Field(
         default_factory=list, description="The UI renderers it may be exposed through, ids of `ui-renderers`"
+    )
+    placements: List[UiPlacement] = Field(
+        default_factory=list,
+        description=(
+            "Where in the chat it may go, its default first (0.0.197): `header`, `toolbar`, "
+            "`footer`, `banner`, `panel` or `message`; none for a part of the workspace itself"
+        ),
     )
 
     @model_validator(mode="before")
@@ -160,6 +189,9 @@ class UiChoice(BaseModel):
     plugin: str = Field(min_length=1, description="A UI plugin of `agentspecs/ui`, by id")
     renderer: Optional[str] = Field(
         default=None, description="The UI renderer of `agentspecs/ui-renderers` it is exposed through, by id"
+    )
+    placement: Optional[UiPlacement] = Field(
+        default=None, description="Where in the chat it goes, one of its spec's `placements`; its default unsaid"
     )
 
     @model_validator(mode="before")
@@ -238,6 +270,16 @@ def ui_choices_problems(choices: Sequence[Any], *, to_ship: bool) -> List[str]:
                 )
             )
             continue
+        placement = choice.get("placement")
+        if placement is not None:
+            allowed = [p.value for p in spec.placements]
+            if not allowed:
+                problems.append(f"The UI plugin {spec.name} ({plugin_id!r}) has no place in the chat: it takes no `placement`.")
+            elif str(placement) not in allowed:
+                problems.append(
+                    f"The UI plugin {spec.name} ({plugin_id!r}) does not go in the chat's {placement}: "
+                    f"in its {', '.join(allowed)} only."
+                )
         if renderer_id is None:
             continue
         renderer = UI_RENDERER_CATALOGUE.get(str(renderer_id))
@@ -255,6 +297,23 @@ def ui_choices_problems(choices: Sequence[Any], *, to_ship: bool) -> List[str]:
                 f"The UI renderer {renderer.name} ({renderer.id!r}) is not enabled: an application cannot be exposed through it yet."
             )
     return problems
+
+
+def brought_ui_problems(spec: Mapping[str, Any], what: str) -> List[str]:
+    """What is wrong with the UI plugins an MCP server, a skill or a backend tool brings, in sentences.
+
+    Such a spec says ``ui`` as an agent does (agentspecs 0.0.196): a list of
+    ``{plugin, renderer}``, each a UI plugin of ``ui/``, each once, the renderer
+    one it may be exposed through. The chat that uses it injects them after the
+    agent's own. No ``ui``, nothing wrong.
+    """
+    choices = spec.get("ui")
+    if choices is None:
+        return []
+    name = f"{what} {spec.get('id', '?')!r}"
+    if not isinstance(choices, list):
+        return [f"{name}: `ui` is a list of UI plugins, each as `{{plugin, renderer}}`."]
+    return [f"{name}: {problem}" for problem in ui_choices_problems(choices, to_ship=False)]
 
 
 def plugins() -> List[Dict[str, Any]]:

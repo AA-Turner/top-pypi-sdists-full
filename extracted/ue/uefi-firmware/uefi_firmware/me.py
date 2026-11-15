@@ -26,17 +26,15 @@
 
     3. This notice may not be removed or altered from any source distribution.
 '''
-from __future__ import print_function
-
 import ctypes
 import struct
 import os
-import array
 
 from .structs.intel_me_structs import *
 from .utils import *
 from uefi_firmware import efi_compressor
 from uefi_firmware.base import FirmwareObject, StructuredObject
+from uefi_firmware.uefi import decompress
 
 MeModulePowerTypes = ["POWER_TYPE_RESERVED",
                       "POWER_TYPE_M0_ONLY", "POWER_TYPE_M3_ONLY", "POWER_TYPE_LIVE"]
@@ -49,6 +47,33 @@ MeModuleTypes = ["DEFAULT", "PRE_ME_KERNEL",
                  "VENOM_TPM", "APPS_QST_DT", "APPS_AMT", "TEST"]
 MeApiTypes = ["API_TYPE_DATA", "API_TYPE_ROMAPI",
               "API_TYPE_KERNEL", "<unknown>"]
+
+# Partitions, modules and CPD entries are found by an offset and a size from
+# the image, and each keeps a copy of its bytes. A crafted table can point
+# every entry at the same bytes, so memory and dump output grow with the
+# square of the input. Real tables overlap a little (an update partition can
+# cover others), so the entries of one table may copy up to this many times
+# the table's data.
+MAX_CLAIMED_RATIO = 4
+
+
+class _ClaimLimit(object):
+    '''Count the bytes the entries of one table copy from its data.'''
+
+    def __init__(self, data, entries):
+        self.limit = MAX_CLAIMED_RATIO * len(data)
+        self.claimed = 0
+        self.entries = entries
+
+    def claim(self, entry_data):
+        '''Return False, after reporting it, if entry_data is over the limit.
+        '''
+        self.claimed += len(entry_data)
+        if self.claimed <= self.limit:
+            return True
+        print_error("Error: ME %s claim more than %d times their data." % (
+            self.entries, MAX_CLAIMED_RATIO))
+        return False
 
 
 class MeObject(StructuredObject, FirmwareObject):
@@ -67,18 +92,36 @@ class MeObject(StructuredObject, FirmwareObject):
         else:
             print("")
 
-    def dump_module(self, parent):
+    # The LZMA module's data, decompressed when parsed.
+    decompressed = None
+
+    def decompress_module(self):
+        '''Decompress an LZMA module.
+
+        This happens while parsing, as for compressed sections, so it is
+        charged to the parse's decompression budget. Many entries can point
+        at one small stream that claims a large output.
+        '''
+        self.decompressed = None
+        if self.compression != COMP_TYPE_LZMA:
+            return
+        results = decompress([efi_compressor.LzmaDecompress], self.data)
+        if results is not None:
+            self.decompressed = results[1]
+
+    def dump_module(self, parent, duplicate=0):
+        name = safe_path_component(self.name)
+        if duplicate > 0:
+            # Keep each module that repeats an earlier module's name.
+            name += "-%d" % duplicate
         if self.compression == COMP_TYPE_LZMA:
-            dump_data("%s.module.lzma" %
-                      os.path.join(parent, self.name), self.data)
-            try:
-                data = efi_compressor.LzmaDecompress(self.data, len(self.data))
-                dump_data("%s.module" % os.path.join(parent, self.name), data)
-            except Exception as e:
-                print("Cannot extract (%s), %s" % (self.name, str(e)))
+            dump_data(safe_path(parent, "%s.module.lzma" % name), self.data)
+            if self.decompressed is None:
+                print("Cannot extract (%s), Failed to decompress" % self.name)
                 return
+            dump_data(safe_path(parent, "%s.module" % name), self.decompressed)
         elif self.compression == COMP_TYPE_NOT_COMPRESSED:
-            dump_data("%s.module" % os.path.join(parent, self.name), self.data)
+            dump_data(safe_path(parent, "%s.module" % name), self.data)
 
 
 class MeModule(MeObject):
@@ -127,7 +170,7 @@ class MeModule(MeObject):
 
         # print "Debug: module data 0x%08X - 0x%08X" % (
         #    self.offset, self.offset + self.structure.Size)
-        self.data = data[self.offset:self.offset + self.structure.Size]
+        self.data = bytes(data[self.offset:self.offset + self.structure.Size])
 
     def process(self):
         if self.compression == COMP_TYPE_HUFFMAN:
@@ -136,12 +179,18 @@ class MeModule(MeObject):
             return True
 
         if self.structure_type == MeModuleHeader1Type:
-            # It's possible for type 1 to include LZMA compression
-            if self.data[0x50:0x55] == b'\x5D\x00\x00\x80\x00':
+            # It's possible for type 1 to include LZMA compression. The data
+            # starts with a $MOD header holding the uncompressed size, and the
+            # LZMA properties follow it without the size an LZMA header needs.
+            module_file = MeModuleFile(self.data)
+            if module_file.valid_header and \
+                    self.data[0x50:0x55] == b'\x5D\x00\x00\x80\x00':
                 raw_data = self.data[0x50:0x55]
-                raw_data += struct.pack("<Q", self.structure.UncompressedSize)
+                raw_data += struct.pack(
+                    "<Q", module_file.structure.UncompressedSize)
                 raw_data += self.data[0x55:]
                 self.data = raw_data
+        self.decompress_module()
         return True
 
     @property
@@ -165,8 +214,8 @@ class MeModule(MeObject):
             guid, self.attrs["version"], self.attrs["module_size"]), end=' ')
         self.show_compression()
 
-    def dump(self, parent=""):
-        self.dump_module(parent)
+    def dump(self, parent="", index=None, duplicate=0):
+        self.dump_module(parent, duplicate)
 
 
 class MeVariableModule(MeObject):
@@ -178,7 +227,7 @@ class MeVariableModule(MeObject):
         self.data = None
         self.size = 0
 
-        hdr = data[:self.HEADER_SIZE]
+        hdr = bytes(data[:self.HEADER_SIZE])
         self.valid_header = True
         self.header_blank = False
 
@@ -194,7 +243,13 @@ class MeVariableModule(MeObject):
         self.tag = hdr[:4]
         # Note the elen size includes the header size
         self.size = struct.unpack("<I", hdr[4:])[0] * 4 - self.HEADER_SIZE
-        self.data = data[self.HEADER_SIZE:self.HEADER_SIZE + self.size]
+        if self.size < 0:
+            # A length smaller than the header would move the parser
+            # backwards, so the variable modules would never end.
+            self.valid_header = False
+            return
+        self.data = bytes(
+            data[self.HEADER_SIZE:self.HEADER_SIZE + self.size])
         pass
 
     def add_update(self, tag, name, offset, size):
@@ -206,6 +261,8 @@ class MeVariableModule(MeObject):
 
     def process(self):
         if self.tag == b'$UDC':
+            if len(self.data) < self.type.udc_length:
+                return False
             subtag, _hash, name, offset, size = struct.unpack(
                 self.type.udc_format, self.data[:self.type.udc_length])
             self.add_update(subtag, name, offset, size)
@@ -213,14 +270,11 @@ class MeVariableModule(MeObject):
             # SKU is not handled
             self.values = [0, 0]
             return True
-        if self.size == 3:
-            values = [struct.unpack("<I", self.data[:4])[0]]
-        if self.size == 4:
-            values = struct.unpack("<II", self.data[:8])[0]
-        else:
-            values = array.array("I", self.data)
 
-        self.values = values
+        # The body is a list of 32-bit values. Truncated data may end
+        # part-way through one, which is dropped.
+        count = len(self.data) // 4
+        self.values = list(struct.unpack("<%dI" % count, self.data[:count * 4]))
         return True
 
     def showinfo(self, ts='', index=None):
@@ -235,9 +289,11 @@ class MeVariableModule(MeObject):
 
 
 class MeModuleFile(MeObject):
+    '''The $MOD header that starts the data of a module in a $MAN manifest.'''
+
+    size = ctypes.sizeof(MeModuleFileHeader1Type)
 
     def __init__(self, data):
-        self.size = 0
         tag = data[:4]
 
         self.valid_header = True
@@ -246,9 +302,7 @@ class MeModuleFile(MeObject):
             return
 
         self.parse_structure(data, MeModuleFileHeader1Type)
-        self.name = self.structure.Name.rstrip('\0')
-        self.size = self.structure.Size
-        pass
+        self.name = self.structure.Name.rstrip(b'\0')
 
 
 class MeLLUT(MeObject):
@@ -276,8 +330,12 @@ class MeLLUT(MeObject):
         self.chunksize = self.structure.ChunkSize
         self.decompression_base = self.structure.DecompBase
 
-        self.data = data[
-            self.start - relative_offset:self.start - relative_offset + self.size]
+        data_offset = self.start - relative_offset
+        if data_offset < 0:
+            # The data cannot start before this table.
+            self.valid_header = False
+            data_offset = 0
+        self.data = data[data_offset:data_offset + self.size]
         # The huffman look up table is stored following the header data.
         self.lut_data = data[
             self.structure_size:self.structure_size + self.chunkcount * 4]
@@ -287,7 +345,7 @@ class MeLLUT(MeObject):
             ts, blue("LLUT"),
             self.chunkcount, self.chunksize, self.start, self.size, self.decompression_base))
 
-    def dump(self, parent='PART'):
+    def dump(self, parent='PART', index=None):
         # print "Debug: relative (%d) absolute start (%d) len (%d)." % (
         #    self.offset, self.start, len(self.data))
         dump_data("%s.llut.table" % parent, self.lut_data)
@@ -367,12 +425,19 @@ class MeManifestHeader(MeObject):
     def _parse_mods(self):
         # Parse the module headers (two types of headers, specified by the
         # manifest).
+        view = memoryview(self.data)
         module_offset = 0
         huffman_offset = 0
+        claims = _ClaimLimit(self.data, "modules")
         for module_index in range(self.structure.NumModules):
+            if module_offset >= len(self.data):
+                # NumModules is larger than the module headers present.
+                break
             module = MeModule(
-                self.data[module_offset:],
+                view[module_offset:],
                 self.header_type, module_offset + self.partition_offset)
+            if not claims.claim(module.data):
+                break
             # print "Debug: found me module header (%s) at (%d)." %
             # (module.tag, module_offset)
             if module.compression == COMP_TYPE_HUFFMAN:
@@ -397,10 +462,11 @@ class MeManifestHeader(MeObject):
     def _parse_variable_mods(self, module_offset):
         # Parse additional tagged modules.
         self.partition_end = 0
+        view = memoryview(self.data)
         while module_offset < self.structure.Size * 4:
             # There is more module header to process.
             module = MeVariableModule(
-                self.data[module_offset:], self.header_type)
+                view[module_offset:], self.header_type)
             if not module.valid_header:
                 break
             module_offset += module.HEADER_SIZE
@@ -411,28 +477,14 @@ class MeManifestHeader(MeObject):
             # module.size))
             if not module.process():
                 return False
-            if module.tag == b'$MCP':
+            if module.tag == b'$MCP' and len(module.values) >= 2:
                 # The end of a manifest partition is stored in MCP
                 self.partition_end = module.values[0] + module.values[1]
             self.variable_modules.append(module)
             module_offset += module.size
         return True
 
-    def _parse_module_files(self):
-        file_offset = self.structure.Size * 4
-        # print "Debug: looking for module files at (%08X)." % file_offset
-        while True:
-            module_file = MeModuleFile(self.data[file_offset:])
-            if not module_file.valid_header:
-                break
-            if module_file.name in module_map:
-                # A module file header corresponds to the module header
-                self.module_map[module_file.name].file = module_file
-            # print "Debug: found module file (%s) size (%d)." %
-            # (module_file.name, module_file.size)
-            file_offset += module_file.size
-        return True
-
+    @limit_nesting(False)
     def process(self):
         self.modules = []
         self.variable_modules = []
@@ -453,11 +505,11 @@ class MeManifestHeader(MeObject):
         if self.header_type == MeModuleHeader2Type:
             if not self._parse_variable_mods(self.module_offset):
                 return False
-        if not self._parse_module_files():
-            return False
 
-        # Parse optional huffman LLUT.
+        # Parse the huffman LLUT, if a huffman module gave its offset.
         huffman_offset = self.huffman_offset - self.partition_offset
+        if huffman_offset < 0:
+            return True
         huffman_llut = MeLLUT(
             self.data[huffman_offset:], huffman_offset + self.absolute_offset)
         if huffman_llut.valid_header:
@@ -468,8 +520,9 @@ class MeManifestHeader(MeObject):
         #    huffman_llut.size + huffman_offset, self.partition_end)
         return True
 
-    def dump(self, parent=""):
+    def dump(self, parent="", index=None):
         #huffman_end = self.huffman_llut.size + self.huffman_llut.start
+        seen = {}
         for module in self.modules:
             # if module.compression == COMP_TYPE_HUFFMAN:
                 # print "Huffman module data: %r %08X/%08X" % (
@@ -477,58 +530,63 @@ class MeManifestHeader(MeObject):
             # else:
                 #huffman_end = (min(huffman_end, module.structure.Offset))
                 # print "Debug: decrementing huffman to %d" % huffman_end
-            module.dump(parent)
+            module.dump(parent, duplicate=seen.get(module.name, 0))
+            seen[module.name] = seen.get(module.name, 0) + 1
         if self.huffman_llut is not None:
             self.huffman_llut.dump(
-                os.path.join(parent, utf8_decode_safe(self.structure.PartitionName)))
+                safe_path(
+                    parent, utf8_decode_safe(self.structure.PartitionName)))
 
 
 class CPDEntry(MeObject):
+    # The entry's offset field holds the offset in bits 0-24 and flags above.
+    OFFSET_MASK = 0x01FFFFFF
+    HUFFMAN_FLAG = 0x02000000
 
     def __init__(self, data, header_offset):
-        self.parse_structure(data[header_offset:], MeCpdEntryType)
+        self.parse_structure(
+            data[header_offset:header_offset + MeCpdEntryType.size],
+            MeCpdEntryType)
         self.valid_header = False
-        if self.structure.Offset > len(data):
-            # This is invalid, offset (start) out of bounds
-            return
-        end = self.structure.Offset + self.structure.Size
+        self.offset = self.structure.Offset & self.OFFSET_MASK
+        end = self.offset + self.structure.Size
         if end > len(data):
             # This is invalid, end of data out of bounds
             return
         self.valid_header = True
-        self.data = data[self.structure.Offset:end]
+        self.data = data[self.offset:end]
 
     def process(self):
         if not self.valid_header:
             return False
         self.name = self.structure.Name.rstrip(b'\0')
 
-        # Not sure why the placement of data determines compression type.
+        # The manifest (.man) and metadata (.met) entries are not compressed.
         compression = self.structure.Offset >> 24
-        if self.name.find(".met") > 0:
+        if self.name.endswith((".man", ".met")):
             self.compression = COMP_TYPE_NOT_COMPRESSED
-        elif compression == 0x02:
+        elif self.structure.Offset & self.HUFFMAN_FLAG:
             self.compression = COMP_TYPE_HUFFMAN
         elif compression == 0x00:
             self.compression = COMP_TYPE_LZMA
+            # There is an odd state to check for that includes an additional
+            # \x00\x00\x00 after the initial LZMA header block.
+            if self.data[0x0e:0x11] == b'\x00\x00\x00':
+                self.data = self.data[:0x0e] + self.data[0x11:]
         else:
             self.compression = COMP_TYPE_NOT_COMPRESSED
+        self.decompress_module()
         return True
 
     def showinfo(self, ts='', index=None):
         print("%s%s name= %s offset= 0x%x size= 0x%x (%d bytes) flags= 0x%x" % (
             ts, blue("ME CDP Entry"), purple(self.name),
-            self.structure.Offset, self.structure.Size, self.structure.Size,
+            self.offset, self.structure.Size, self.structure.Size,
             self.structure.Flags), end=' ')
         self.show_compression()
 
-    def dump(self, parent):
-        if self.compression == COMP_TYPE_LZMA:
-            # There is an odd state to check for that includes an additional
-            # \x00\x00\x00 after the initial LZMA header block.
-            if self.data[0x0e:0x11] == b'\x00\x00\x00':
-                self.data = self.data[:0x0e] + self.data[0x11:]
-        self.dump_module(parent)
+    def dump(self, parent, index=None, duplicate=0):
+        self.dump_module(parent, duplicate)
 
 
 class CPDManifestHeader(MeObject):
@@ -551,11 +609,21 @@ class CPDManifestHeader(MeObject):
     def objects(self):
         return self.modules
 
+    @limit_nesting(False)
     def process(self):
-        offset = MeCpdHeaderType.size
-        for i in range(self.structure.NumModules - 1):
-            offset += MeCpdEntryType.size
+        # The third byte of the flags is the header length, 0x10 in version 1
+        # headers and 0x14 in version 2.
+        header_length = max((self.structure.Flags >> 16) & 0xFF,
+                            MeCpdHeaderType.size)
+        claims = _ClaimLimit(self.data, "CPD entries")
+        for i in range(self.structure.NumModules):
+            offset = header_length + i * MeCpdEntryType.size
+            if offset + MeCpdEntryType.size > len(self.data):
+                # NumModules is larger than the entry table.
+                break
             entry = CPDEntry(self.data, offset)
+            if entry.valid_header and not claims.claim(entry.data):
+                break
             if entry.process():
                 self.modules.append(entry)
         return True
@@ -567,9 +635,11 @@ class CPDManifestHeader(MeObject):
         for entry in self.modules:
             entry.showinfo("%s  " % ts)
 
-    def dump(self, parent):
+    def dump(self, parent, index=None):
+        seen = {}
         for entry in self.modules:
-            entry.dump(parent)
+            entry.dump(parent, duplicate=seen.get(entry.name, 0))
+            seen[entry.name] = seen.get(entry.name, 0) + 1
 
 
 class PartitionEntry(MeObject):
@@ -577,7 +647,8 @@ class PartitionEntry(MeObject):
 
     def __init__(self, data, offset):
         self.manifest = None
-        self.parse_structure(data[offset:], MeFptEntryType)
+        self.parse_structure(
+            data[offset:offset + PartitionEntry.size], MeFptEntryType)
 
         self.has_content = True
         if self.structure.Owner == b"\xFF\xFF\xFF\xFF":
@@ -599,7 +670,6 @@ class PartitionEntry(MeObject):
             # This partition is invalid
             self.has_content = False
         self.data = data[self.structure.Offset:partition_end]
-        self.size = len(data)
 
     @property
     def objects(self):
@@ -627,19 +697,24 @@ class PartitionEntry(MeObject):
         if self.manifest is not None:
             self.manifest.showinfo("%s  " % ts)
 
-    def dump(self, parent=""):
+    def dump(self, parent="", index=None, duplicate=0):
+        name = utf8_decode_safe(self.structure.Name)
+        if duplicate > 0:
+            # Keep each partition that repeats an earlier partition's name.
+            name += "-%d" % duplicate
         if self.has_content:
-            dump_data(os.path.join(parent, "%s.partition" % utf8_decode_safe(self.structure.Name)),
-                self.data)
+            dump_data(safe_path(parent, "%s.partition" % name), self.data)
         if self.manifest is not None:
-            self.manifest.dump(os.path.join(parent, utf8_decode_safe(self.structure.Name)))
+            self.manifest.dump(safe_path(parent, name))
 
 class MeContainer(MeObject):
 
     def __init__(self, data):
         self.partitions = []
         self.data = data
-        self.size = len(ME_HEADER)
+        # The partition table does not describe the whole region: data that
+        # no entry points to often follows the last partition. Claim it all.
+        self.size = len(data)
 
         self.valid_header = False
         if data[0x0:len(ME_HEADER)] == ME_HEADER:
@@ -653,15 +728,22 @@ class MeContainer(MeObject):
     def objects(self):
         return self.partitions
 
+    @limit_nesting(False)
     def process(self):
         self.parse_structure(self.data, MePartitionTable)
 
+        claims = _ClaimLimit(self.data, "partitions")
         for i in range(self.structure.Entries):
             offset = self.partition_offset + 0x30
             offset += i * PartitionEntry.size
+            if offset + PartitionEntry.size > len(self.data):
+                # Entries is larger than the partition table.
+                break
             entry = PartitionEntry(self.data, offset)
+            # A partition that ends past the data still copies up to the end.
+            if not claims.claim(getattr(entry, "data", b"")):
+                break
             if entry.process():
-                self.size += entry.size
                 self.partitions.append(entry)
         return True
 
@@ -674,7 +756,11 @@ class MeContainer(MeObject):
         for partition in self.partitions:
             partition.showinfo("  %s" % ts)
 
-    def dump(self, parent=""):
+    def dump(self, parent="", index=None):
         dump_data(os.path.join(parent, "me-container.me"), self.data)
+        seen = {}
         for partition in self.partitions:
-            partition.dump(os.path.join(parent, "partitions"))
+            name = utf8_decode_safe(partition.structure.Name)
+            partition.dump(os.path.join(parent, "partitions"),
+                           duplicate=seen.get(name, 0))
+            seen[name] = seen.get(name, 0) + 1

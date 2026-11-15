@@ -32,12 +32,9 @@ class PaneApiCap:
 
 @dataclass(frozen=True)
 class PanePreviewPane:
-    """A project's one automatic preview pane: its slug, the floor template's root attribute, and the
-    most words its `.about` line holds."""
+    """A project's one automatic preview pane."""
 
     slug: str
-    floor_marker: str
-    line_max_words: int
     doc: str
 
 
@@ -74,7 +71,7 @@ class PaneApi:
     writer_kinds: tuple[PaneApiName, ...]
     #: The `code` of a preview refusal.
     preview_error_codes: tuple[PaneApiName, ...]
-    #: The one automatic preview pane (slug, floor marker, line cap).
+    #: The one automatic preview pane (slug).
     preview_pane: PanePreviewPane
     caps: tuple[PaneApiCap, ...]
 
@@ -103,8 +100,6 @@ class PaneApi:
             preview_error_codes=read_names("preview_error_codes"),
             preview_pane=PanePreviewPane(
                 slug=raw["preview_pane"]["slug"],
-                floor_marker=raw["preview_pane"]["floor_marker"],
-                line_max_words=int(raw["preview_pane"]["line_max_words"]),
                 doc=raw["preview_pane"]["doc"],
             ),
             caps=tuple(PaneApiCap(c["name"], int(c["value"]), c["doc"]) for c in raw["caps"]),

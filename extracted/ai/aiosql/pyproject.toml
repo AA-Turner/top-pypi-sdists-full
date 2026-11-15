@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiosql"
-version = "16.0"
+version = "16.2"
 authors = [
     { name = "William Vaughn", email = "vaughnwilld@gmail.com" },
     { name = "Fabien Coelho", email = "aiosql@coelho.net" },
 ]
 description = "Simple SQL in Python"
 readme = "README.rst"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-2-Clause"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -43,12 +43,14 @@ dev-sqlite = [
 ]
 dev-postgres = [
     "pytest-postgresql",
-    "asyncpg; python_version < '3.13' and implementation_name != 'pypy'",
+    # "asyncpg; python_version < '3.13' and implementation_name != 'pypy'",
+    "asyncpg; implementation_name != 'pypy'",
     "psycopg >= 3",
     # 2.9.10 needed for 3.13
     "psycopg2 >= 2.9.10; implementation_name != 'pypy'",
     "pygresql",
-    "pg8000"
+    "pg8000",
+    "aiopg"
 ]
 dev-mysql = [
     "pytest-mysql",
@@ -60,7 +62,8 @@ dev-mariadb = [
     "mariadb"
 ]
 dev-mssql = [
-    "pymssql"
+    "pymssql",
+    "mssql-python"
 ]
 doc = [
     "sphinx",
@@ -87,7 +90,7 @@ package = "https://pypi.org/project/aiosql/"
 
 [tool.black]
 line-length = 100
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.mypy]
 exclude = ["(build|venv)/", ".*/virtualenvs/.*"]

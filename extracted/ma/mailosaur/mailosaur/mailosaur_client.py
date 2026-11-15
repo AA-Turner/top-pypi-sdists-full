@@ -64,7 +64,7 @@ class MailosaurClient(object):
 
         session = requests.Session()
         session.auth = (api_key, '')
-        session.headers.update({'User-Agent': 'mailosaur-python/8.1.1'})
+        session.headers.update({'User-Agent': 'mailosaur-python/8.1.2'})
 
         if base_url is None:
             base_url = "https://mailosaur.com/"

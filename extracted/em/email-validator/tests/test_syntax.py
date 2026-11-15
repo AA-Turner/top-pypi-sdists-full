@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import pytest
@@ -102,8 +103,33 @@ def MakeValidatedEmail(**kwargs: Any) -> ValidatedEmail:
             ),
         ),
         (
+            '"unnecessary.escaped.\\x.local.part"@example.org',
+            MakeValidatedEmail(
+                local_part='unnecessary.escaped.x.local.part',
+                ascii_local_part='unnecessary.escaped.x.local.part',
+                smtputf8=False,
+                ascii_domain='example.org',
+                domain='example.org',
+                normalized='unnecessary.escaped.x.local.part@example.org',
+                ascii_email='unnecessary.escaped.x.local.part@example.org'
+            ),
+        ),
+        (
+            '"escaped.quote.\\".local.part"@example.org',
+            MakeValidatedEmail(
+                local_part='"escaped.quote.\\".local.part"',
+                ascii_local_part='"escaped.quote.\\".local.part"',
+                smtputf8=False,
+                ascii_domain='example.org',
+                domain='example.org',
+                normalized='"escaped.quote.\\".local.part"@example.org',
+                ascii_email='"escaped.quote.\\".local.part"@example.org'
+            ),
+        ),
+        (
             'MyName <me@example.org>',
             MakeValidatedEmail(
+                original='me@example.org',
                 local_part='me',
                 ascii_local_part='me',
                 smtputf8=False,
@@ -117,6 +143,7 @@ def MakeValidatedEmail(**kwargs: Any) -> ValidatedEmail:
         (
             'My Name <me@example.org>',
             MakeValidatedEmail(
+                original='me@example.org',
                 local_part='me',
                 ascii_local_part='me',
                 smtputf8=False,
@@ -130,6 +157,7 @@ def MakeValidatedEmail(**kwargs: Any) -> ValidatedEmail:
         (
             r'"My.\"Na\\me\".Is" <"me \" \\ me"@example.org>',
             MakeValidatedEmail(
+                original=r'"me \" \\ me"@example.org',
                 local_part=r'"me \" \\ me"',
                 ascii_local_part=r'"me \" \\ me"',
                 smtputf8=False,
@@ -140,9 +168,26 @@ def MakeValidatedEmail(**kwargs: Any) -> ValidatedEmail:
                 display_name='My."Na\\me".Is'
             ),
         ),
+        (
+            'me@גבריאל.xn--4dbrk0ce.il',
+            MakeValidatedEmail(
+                local_part='me',
+                ascii_local_part='me',
+                smtputf8=False,
+                ascii_domain='xn--4dbbc3aq3e.xn--4dbrk0ce.il',
+                ascii_email='me@xn--4dbbc3aq3e.xn--4dbrk0ce.il',
+                domain='גבריאל.ישראל.il',
+                normalized='me@גבריאל.ישראל.il',
+            ),
+        ),
     ],
 )
 def test_email_valid(email_input: str, output: ValidatedEmail) -> None:
+    # Simplfiy hard-coded expected values above by filling
+    # in 'original' when it isn't set.
+    if not hasattr(output, 'original'):
+        output.original = email_input
+
     # These addresses do not require SMTPUTF8. See test_email_valid_intl_local_part
     # for addresses that are valid but require SMTPUTF8. Check that it passes with
     # allow_smtput8 both on and off.
@@ -297,6 +342,7 @@ def test_email_valid(email_input: str, output: ValidatedEmail) -> None:
         (
             '\"s\u0323\u0307\" <s\u0323\u0307@nfc.tld>',
             MakeValidatedEmail(
+                original='s\u0323\u0307@nfc.tld',
                 local_part='\u1E69',
                 smtputf8=True,
                 ascii_domain='nfc.tld',
@@ -315,9 +361,26 @@ def test_email_valid(email_input: str, output: ValidatedEmail) -> None:
                 normalized='＠@fullwidth.at',
             ),
         ),
+        (
+            '\u1FEF@example.com',
+            MakeValidatedEmail(
+                local_part='`',
+                ascii_local_part='`',
+                smtputf8=True,
+                ascii_domain='example.com',
+                ascii_email='`@example.com',
+                domain='example.com',
+                normalized='`@example.com',
+            ),
+        ),
     ],
 )
 def test_email_valid_intl_local_part(email_input: str, output: ValidatedEmail) -> None:
+    # Simplfiy hard-coded expected values above by filling
+    # in 'original' when it isn't set.
+    if not hasattr(output, 'original'):
+        output.original = email_input
+
     # Check that it passes when allow_smtputf8 is True.
     assert validate_email(email_input, check_deliverability=False, allow_display_name=True) == output
 
@@ -338,6 +401,8 @@ def test_email_valid_intl_local_part(email_input: str, output: ValidatedEmail) -
         ('"unnecessarily.quoted.with.unicode.λ"@example.com', 'unnecessarily.quoted.with.unicode.λ'),
         ('"quoted.with..unicode.λ"@example.com', '"quoted.with..unicode.λ"'),
         ('"quoted.with.extraneous.\\escape"@example.com', 'quoted.with.extraneous.escape'),
+        # U+037E (Greek question mark) is valid unquoted but NFC normalizes to a semicolon, which needs the quotes.
+        ('"quoted.after.normalization.\u037e"@example.com', '"quoted.after.normalization.;"'),
     ])
 def test_email_valid_only_if_quoted_local_part(email_input: str, normalized_local_part: str) -> None:
     # These addresses are invalid with the default allow_quoted_local=False option.
@@ -351,6 +416,12 @@ def test_email_valid_only_if_quoted_local_part(email_input: str, normalized_loca
     # Check that the normalized form correctly removed unnecessary backslash escaping
     # and even the quoting if they weren't necessary.
     assert validated.local_part == normalized_local_part
+
+    # If the normalized address is ASCII-only, check that it's reported in ascii_local_part.
+    if normalized_local_part.isascii():
+        assert validated.ascii_local_part == normalized_local_part
+    else:
+        assert not validated.ascii_local_part
 
 
 def test_domain_literal() -> None:
@@ -368,6 +439,22 @@ def test_domain_literal() -> None:
     validated = validate_email("me@[IPv6:0000:0000:0000:0000:0000:0000:0000:0001]", allow_domain_literal=True)
     assert validated.domain == "[IPv6:::1]"
     assert repr(validated.domain_address) == "IPv6Address('::1')"
+
+    # Check that the IPv6 tag is case-insensitive and normalized.
+    for email_input in ("me@[ipv6:::1]", "me@[IPV6:::1]"):
+        validated = validate_email(email_input, allow_domain_literal=True)
+        assert validated.domain == "[IPv6:::1]"
+        assert repr(validated.domain_address) == "IPv6Address('::1')"
+
+    # Check that an IPv4 address in an IPv6 address is accepted.
+    validated = validate_email("me@[IPv6:::ffff:1.2.3.4]", allow_domain_literal=True)
+    assert validated.domain == "[IPv6:::ffff:1.2.3.4]"
+
+    # Check that IPv6 zone indexes are rejected.
+    for email_input in ("me@[IPv6:fe80::1%eth0]", "me@[IPv6:::1%]]"):
+        with pytest.raises(EmailSyntaxError) as exc_info:
+            validate_email(email_input, allow_domain_literal=True)
+        assert str(exc_info.value) == "The IPv6 address in brackets after the @-sign is not valid (It has a zone index)."
 
 
 @pytest.mark.parametrize(
@@ -424,7 +511,7 @@ def test_domain_literal() -> None:
         ('meme@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.com', 'The email address is too long (4 characters too many).'),
         ('my.long.address@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.11111111112222222222333333333344444.info', 'The email address is too long (2 characters too many).'),
         ('my.long.address@λ111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444.info', 'The email address is too long (1-2 characters too many).'),
-        ('my.long.address@\uFB2C111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444.info', 'The email address is too long (1-3 characters too many).'),
+        ('my.long.address@\uFB2C111111111222222222233333333334444444444555555555.a666666666777777777788888888889999999999000000000.a111111111222222222233333333334444444444555555555.a666666666777777777788888888889999999999000000000.a111111111222222222233333333334444.info', 'The email address is too long (1-3 characters too many).'),
         ('my.λong.address@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.111111111122222222223333333333444.info', 'The email address is too long (1 character too many).'),
         ('my.λong.address@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444.info', 'The email address is too long (1-2 characters too many).'),
         ('my.\u0073\u0323\u0307.address@1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444444444555555555.6666666666777777777788888888889999999999000000000.1111111111222222222233333333334444.info', 'The email address is too long (1-2 characters too many).'),
@@ -435,6 +522,11 @@ def test_domain_literal() -> None:
         ('me@bad-tld-1', 'The part after the @-sign is not valid. It should have a period.'),
         ('me@bad.tld-2', 'The part after the @-sign is not valid. It is not within a valid top-level domain.'),
         ('me@xn--0.tld', 'The part after the @-sign is not valid IDNA (Invalid A-label).'),
+        # 1.xn--4dbc.com is 1.אב.com and xn--4dbc.1.com is אב.1.com
+        # (alef bet in Hebrew). Both display as the same string, so both are rejected.
+        ('me@1.xn--4dbc.com', 'The part after the @-sign is not valid IDNA (First codepoint in label \'1\' must be directionality L, R or AL).'),
+        ('me@xn--4dbc.1.com', 'The part after the @-sign is not valid IDNA (First codepoint in label \'1\' must be directionality L, R or AL).'),
+        ('me@1.xn--4dbrk0ce', 'The part after the @-sign is not valid IDNA (First codepoint in label \'1\' must be directionality L, R or AL).'),
         ('me@yy--0.tld', 'An email address cannot have two letters followed by two dashes immediately after the @-sign or after a period, except Punycode.'),
         ('me@yy－－0.tld', 'An email address cannot have two letters followed by two dashes immediately after the @-sign or after a period, except Punycode.'),
         ('me@[127.0.0.1]', 'A bracketed IP address after the @-sign is not allowed here.'),
@@ -448,6 +540,7 @@ def test_domain_literal() -> None:
         ('<me@example.com', 'An open angle bracket at the start of the email address has to be followed by a close angle bracket at the end.'),
         ('<me@example.com> !', 'There can\'t be anything after the email address.'),
         ('<\u0338me@example.com', 'The email address contains invalid characters before the @-sign: \'<\'.'),
+        ('<\u0301\u0338me@example.com', 'The email address contains invalid characters before the @-sign: \'<\'.'),
         ('DisplayName <me@-example.com>', 'An email address cannot have a hyphen immediately after the @-sign.'),
         ('DisplayName <me@example.com>', 'A display name and angle brackets around the email address are not permitted here.'),
         ('Display Name <me@example.com>', 'A display name and angle brackets around the email address are not permitted here.'),
@@ -464,6 +557,28 @@ def test_email_invalid_syntax(email_input: str, error_msg: str) -> None:
     assert str(exc_info.value) == error_msg
 
 
+def test_email_long_input_is_not_quadratic() -> None:
+    # split_email used to NFC-normalize the rest of the string at every
+    # character, so rejecting this took about 15 seconds.
+    start = time.perf_counter()
+    with pytest.raises(EmailSyntaxError, match="unsafe characters"):
+        validate_email("\u0301" * 50000 + "@example.com", check_deliverability=False)
+    assert time.perf_counter() - start < 2
+
+
+def test_email_long_idna_domain_is_not_quadratic() -> None:
+    # Internationalized domains went to idna.alabel without the up-front
+    # length check idna.encode does. idna.ulabel Punycode-decodes the whole
+    # "xn--" label first, so rejecting the first address took about 5 seconds,
+    # and before idna 3.15 the Arabic-Indic digits in the second took about 35.
+    for email in ("me@\u00e9.xn--" + "9" * 200000 + ".com",
+                  "me@" + "\u0660" * 40000 + ".com"):
+        start = time.perf_counter()
+        with pytest.raises(EmailSyntaxError, match="too long after the @-sign"):
+            validate_email(email, check_deliverability=False)
+        assert time.perf_counter() - start < 2
+
+
 @pytest.mark.parametrize(
     'email_input,error_msg',
     [
@@ -478,6 +593,20 @@ def test_email_invalid_syntax_strict(email_input: str, error_msg: str) -> None:
     with pytest.raises(EmailSyntaxError) as exc_info:
         validate_email(email_input, strict=True, check_deliverability=False)
     assert str(exc_info.value) == error_msg
+
+
+@pytest.mark.parametrize(
+    'email_input',
+    [
+        '<me@example.com>>',
+        'Display Name <me@example.com>>',
+        'Display Name <me@example.com>>>',
+    ])
+def test_email_invalid_syntax_display_name(email_input: str) -> None:
+    # Only one close angle bracket may follow the address.
+    with pytest.raises(EmailSyntaxError) as exc_info:
+        validate_email(email_input, check_deliverability=False, allow_display_name=True)
+    assert str(exc_info.value) == "The part after the @-sign contains invalid characters: '>'."
 
 
 @pytest.mark.parametrize(

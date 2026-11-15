@@ -204,13 +204,13 @@ def _note_system_exit(code: object) -> None:
         # so the cell stopping says nothing about how the run ends. The same
         # heuristic outputs.py uses to keep fd capture out of notebooks.
         return
-    from ..run.closing.status import _status_for_system_exit
+    from ..run.closing.status import status_for_system_exit
 
     in_flight = sys.exc_info()[1]
     # Lightning's Ctrl-C (`except KeyboardInterrupt: ... sys.exit(1)`) is
     # canceled: the person stopped it, the 1 is the framework's. The code is
     # what the OS will report -- `sys.exit(-1)` exits 255, never "a signal".
-    status, exit_code = _status_for_system_exit(code, in_flight)
+    status, exit_code = status_for_system_exit(code, in_flight)
     _record_exit(
         status,
         # Hydra: `except Exception as e: ... sys.exit(1)` -- the traceback it

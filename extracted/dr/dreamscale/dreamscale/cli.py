@@ -194,7 +194,8 @@ def _action_smoothing_option():
     return typer.Option(
         "auto",
         "--action-smoothing",
-        help="Chunk joining for async with RTC off: auto, continuation, motion or output.",
+        help="Chunk joining for async with RTC off: auto, continuation, motion, output or "
+        "crossfade (experimental).",
     )
 
 
@@ -208,7 +209,19 @@ def _smoothing_correction_steps_option():
         "--smoothing-correction-steps",
         min=1,
         hidden=True,
-        help="Motion: recurring correction gain. Handover: maximum duration in ticks.",
+        help="Motion: recurring correction gain. Handover: maximum duration in ticks. "
+        "Crossfade: window in action steps.",
+    )
+
+
+def _smoothing_time_scale_option():
+    return typer.Option(
+        None,
+        "--smoothing-time-scale",
+        min=0.000001,
+        hidden=True,
+        help="Experimental crossfade: the sigmoid's time scale in action steps (default: an "
+        "eighth of the window).",
     )
 
 
@@ -259,7 +272,8 @@ def _max_cost_option():
 _POLICY_OPTIONS = (
     "mode", "max_actions", "keep_warm", "region", "provider", "rtc", "checkpoint", "context",
     "action_smoothing", "smoothing_new_weight", "smoothing_correction_steps",
-    "smoothing_reference_speed", "trace_dir", "trace_images", "hud", "hud_job",
+    "smoothing_reference_speed", "smoothing_time_scale", "trace_dir", "trace_images", "hud",
+    "hud_job",
     "steady_send", "steady_send_ms", "engine",
 )
 
@@ -1916,8 +1930,8 @@ def train_deploy(
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
     executed: int | None = typer.Option(
         None, "--executed", min=1,
-        help="Rows the robot executes per chunk (default: the run's, about two thirds of a "
-        "second at its data's rate).",
+        help="Rows the robot executes per chunk (default: the run's; Xiaomi-Robotics-1 about "
+        "two thirds of a second at its data's rate, FLUX.3 Action the whole chunk).",
     ),
     engine: str | None = typer.Option(
         None, "--engine", help=_ENGINE_HELP, hidden=not _engine_bases_listed(),
@@ -2336,6 +2350,7 @@ def _robot_run_command(embodiment):
         ("smoothing_new_weight", float | None, _smoothing_new_weight_option()),
         ("smoothing_correction_steps", int | None, _smoothing_correction_steps_option()),
         ("smoothing_reference_speed", float | None, _smoothing_reference_speed_option()),
+        ("smoothing_time_scale", float | None, _smoothing_time_scale_option()),
         ("trace_dir", Annotated[Path | None, _trace_dir_option()], None),
         ("trace_images", bool, _trace_images_option()),
         ("hud", bool, _hud_options()[0]),

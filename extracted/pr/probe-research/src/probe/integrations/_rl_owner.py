@@ -14,10 +14,12 @@ import weakref
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from probe.generated.enums import ExitStatus
 from probe.generated.records import RunType
 from probe.sdk import errors
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.agent_session import ComposedName
+from probe.sdk.settings.settings import LAUNCH_ID_ENV
 from probe.sdk.settings.settings import env_run_id as _env_run_id
 
 
@@ -167,10 +169,19 @@ def close_run(
     status: str | None,
     wait_seconds: float | None = None,
     flush_timeout: float | None = None,
+    should_release_workers: bool = False,
 ) -> None:
     """The owner's close: the terminal manifest, this producer's held parts journaled, the barrier that
     waits (``wait_seconds``, default `PROBE_SAMPLES_CLOSE_WAIT`; 0 skips it) for every declared producer's last
-    seal, then the run's own finish when this adapter opened it (its delivery bounded by ``flush_timeout``)."""
+    seal, then the run's own finish when this adapter opened it. ``should_release_workers`` (a Ray launcher, whose
+    job has ended): behind the barrier, the leases its workers still hold are released with ``status``
+    (`release_worker_leases`), so the run ends at this close. ``flush_timeout`` bounds the whole close: the release
+    takes at most a quarter of what is left, the finish's delivery the rest."""
+    import time
+
+    # One deadline for the whole close (a SIGTERM's `PROBE_SIGTERM_FLUSH_SECONDS`): the release and the finish
+    # share it, so the close never outlasts the budget a SIGKILL follows.
+    deadline = None if flush_timeout is None else time.monotonic() + max(flush_timeout, 0.0)
     manifest: dict[str, Any] = {"is_closed": True}
     if final_step is not None:
         manifest["final_step"] = final_step
@@ -178,17 +189,99 @@ def close_run(
     samples.close()
     if wait_seconds is None or wait_seconds > 0:
         samples.wait_for_producers(timeout=wait_seconds)
+    if should_release_workers and status is not None:
+        seconds = WORKER_RELEASE_SECONDS
+        if deadline is not None:  # at most a quarter of what is left: the finish delivers the run's own backlog
+            seconds = min(seconds, max(deadline - time.monotonic(), 0.0) / 4)
+        release_worker_leases(run, status, seconds=seconds)
     if should_finish:
         import probe
         from probe.sdk import fluent
 
         args = () if status is None else (status,)
-        kwargs = {} if flush_timeout is None else {"flush_timeout": flush_timeout}
+        kwargs = {} if deadline is None else {"flush_timeout": max(deadline - time.monotonic(), 0.0)}
         if probe.active_run() is run:
             fluent.finish(*args, **kwargs)  # also unbinds it, so the next `probe.init()` opens a new run
         else:
             run.finish(*args, **kwargs)
         OPENED_RUNS.discard(str(run.id))
+
+
+#: The most a launcher's close spends releasing its workers' leases (one request, `release_worker_leases`).
+WORKER_RELEASE_SECONDS = 10.0
+#: The launch id this process's Ray workers carry, by run id (`build_worker_env` -> `PROBE_LAUNCH_ID`): their
+#: leases are stamped with it, so the launcher releases its own workers' leases and nobody else's.
+LAUNCH_IDS: dict[str, str] = {}
+
+
+def get_launch_id(run: Any) -> str:
+    """This launcher's id for its job's workers on ``run``: minted once per run and process."""
+    return LAUNCH_IDS.setdefault(str(run.id), str(uuid.uuid4()))
+
+
+def release_worker_leases(run: Any, status: str, *, seconds: float = WORKER_RELEASE_SECONDS) -> int:
+    """The job ended: release, with its ``status``, the writer leases its Ray workers still hold on ``run``.
+
+    Ray stops a job's workers when its driver exits, before their exit hooks can release anything, and a lease
+    still beating keeps a `leases` run `running` until it expires and the server's sweep closes it, minutes after
+    the job (rl-trajectory-gaps smoke 3: ~4.5 min). So the launcher, which knows the job ended, releases them: one
+    request (`POST /v1/runs/{id}/launches/{launch_id}/release`) that ends, in one transaction, the leases stamped
+    with this launcher's launch id (`build_worker_env`), so a joined run's opener (a notebook) or a sidecar writing
+    the same run is never touched. The server skips this process's own lease, a `probe exec` launcher's, a
+    draining one (its writer releases itself once its backlog is delivered) and every lease once a newer epoch
+    owns the run (409). Call it behind the close barrier, so the workers' last seals are in. Bounded by
+    ``seconds``; a run not on leases, one whose workers this process never started, an offline or a disabled
+    one sends nothing. A failure or a lease left live is a warning, and the server's sweep still ends the run.
+    Never raises. Returns how many it released."""
+    if run is None or status not in set(ExitStatus) or getattr(run, "disabled", False):
+        return 0
+    run_id = str(getattr(run, "id", ""))
+    launch_id = LAUNCH_IDS.get(run_id)
+    lease = getattr(run, "_lease", None)
+    leased = getattr(run, "_leased", None)
+    client = getattr(run, "_client", None)
+    if not launch_id or not lease or not callable(leased) or not leased() or client is None:
+        return 0  # no worker of ours, or not on the lease rules: a worker's release changes nothing there
+    import time
+
+    from probe.sdk.delivery.transport.deadlines import deadline_scope
+
+    body = {"write_epoch": int(getattr(run, "write_epoch", None) or 1), "exit_status": str(status),
+            "session_id": str(lease.get("session_id") or getattr(run, "session_id", "") or "") or None}
+    try:
+        with deadline_scope(time.monotonic() + max(seconds, 0.0)):
+            answer = client.release_launch(run_id, launch_id, body)
+    except errors.ConflictError:
+        logger.debug("probe: a newer attempt owns run %s; its leases are not this job's to end", run_id)
+        return 0
+    except errors.NotFoundError as exc:
+        logger.warning("probe: the server did not release this job's workers on run %s (%s); it ends the run "
+                       "once their leases expire, in a few minutes", run_id, exc)
+        return 0
+    except Exception as exc:  # noqa: BLE001 -- the server's lease sweep still ends the run
+        logger.warning("probe: releasing this job's workers on run %s failed (%s: %s); the server ends the run "
+                       "once their leases expire, in a few minutes", run_id, type(exc).__name__, exc)
+        return 0
+    answer = answer if isinstance(answer, Mapping) else {}
+    if left := int(answer.get("left") or 0):
+        logger.warning("probe: %d of this job's workers on run %s still hold a live lease (delivering what they "
+                       "logged); the run ends once they release it, or at the server's sweep", left, run_id)
+    return int(answer.get("released") or 0)
+
+
+def get_ending_status(exc: BaseException | None) -> str:
+    """A job's verdict from how its trainer call ended, read as `probe.init()`'s exit hooks read a script's: it
+    returned -> completed; Ctrl-C -> canceled; `sys.exit(code)` -> completed for 0, else failed; anything else
+    raised -> failed."""
+    if exc is None:
+        return ExitStatus.completed
+    if isinstance(exc, KeyboardInterrupt):
+        return ExitStatus.canceled
+    if isinstance(exc, SystemExit):
+        from probe.sdk.run import status_for_system_exit
+
+        return status_for_system_exit(exc.code, exc.__context__)[0]
+    return ExitStatus.failed
 
 
 def close_at_exit(tracker: Any) -> None:
@@ -214,7 +307,8 @@ def get_worker_settings(environ: Mapping[str, str]) -> dict[str, str]:
 
 
 def build_worker_env(run: Any, environ: Mapping[str, str], *, worker_token_env: str) -> dict[str, str]:
-    """What a launcher's Ray workers need to join ``run`` as producers: its id and epoch, the server, and a
+    """What a launcher's Ray workers need to join ``run`` as producers: its id and epoch, this launch's id
+    (`get_launch_id`: their leases carry it, so `release_worker_leases` ends theirs only), the server, and a
     credential that can write this one run only (``worker_token_env`` when set, the launcher's own when it is
     already a run token, else a minted one). A Ray runtime env shows in Ray's dashboard, so the researcher's own
     token never goes there: no run token, no worker credential (workers then warn and record nothing)."""
@@ -222,7 +316,8 @@ def build_worker_env(run: Any, environ: Mapping[str, str], *, worker_token_env: 
     if not run_id or getattr(run, "disabled", False):
         return {}
     client = getattr(run, "_client", None)
-    env = {"PROBE_RUN_ID": str(run_id)}
+    # The launch id stamps each worker's lease, so this launcher releases its own workers' and nobody else's.
+    env = {"PROBE_RUN_ID": str(run_id), LAUNCH_ID_ENV: get_launch_id(run)}
     if epoch := getattr(run, "write_epoch", None):
         env["PROBE_RUN_EPOCH"] = str(epoch)
     base_url = getattr(getattr(client, "settings", None), "base_url", None)

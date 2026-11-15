@@ -1,3 +1,5 @@
+import ipaddress
+import typing
 import pytest
 
 from email_validator import validate_email, EmailSyntaxError
@@ -14,6 +16,36 @@ def test_dict_accessor() -> None:
     valid_email = validate_email(input_email, check_deliverability=False)
     assert isinstance(valid_email.as_dict(), dict)
     assert valid_email.as_dict()["original"] == input_email
+
+
+def test_dict_accessor_with_domain_address() -> None:
+    input_email = "me@[127.0.0.1]"
+    valid_email = validate_email(input_email, check_deliverability=False, allow_domain_literal=True)
+    assert valid_email.domain == "[127.0.0.1]"
+    as_dict = valid_email.as_dict()
+    assert isinstance(as_dict, dict)
+    assert as_dict["domain_address"] == "IPv4Address('127.0.0.1')"
+
+
+def test_dict_accessor_does_not_modify_validated_email() -> None:
+    # as_dict() is only for reading: it must not replace the attributes of the
+    # object it is called on. The domain_address attribute is documented to hold
+    # the ipaddress.IPv4Address object.
+    input_email = "me@[127.0.0.1]"
+    valid_email = validate_email(input_email, check_deliverability=False, allow_domain_literal=True)
+    domain_address = valid_email.domain_address
+    assert isinstance(domain_address, ipaddress.IPv4Address)
+
+    first_dict = valid_email.as_dict()
+    assert first_dict["domain_address"] == "IPv4Address('127.0.0.1')"
+
+    # The object the dict was made from is unchanged, ...
+    assert valid_email.domain_address is domain_address
+    assert isinstance(valid_email.domain_address, ipaddress.IPv4Address)
+
+    # ... and asking for the dict again gives the same result rather than
+    # repr() of a string.
+    assert valid_email.as_dict() == first_dict
 
 
 def test_main_single_good_input(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -49,6 +81,43 @@ def test_main_multi_input(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
     assert test_cases[3] in stdout
 
 
+@pytest.mark.parametrize('value', ['false', 'False', 'FALSE', '0', 'no', 'off', ' '])
+def test_main_falsy_boolean_option_from_env(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str) -> None:
+    # Options are set from environment variables of the same name in upper
+    # case. A falsy value there must turn the option off, not on.
+    import json
+    test_email = 'test@xkxufoekjvjfjeodlfmdfjcu.com'  # this domain does not exist in DNS
+    monkeypatch.setenv('CHECK_DELIVERABILITY', value)
+    monkeypatch.setattr('sys.argv', ['email_validator', test_email])
+    validator_command_line_tool(dns_resolver=RESOLVER)
+    stdout, _ = capsys.readouterr()
+    assert json.loads(str(stdout))["normalized"] == test_email
+
+
+@pytest.mark.parametrize('value', ['false', 'False', '0', 'no', 'off', ' '])
+def test_main_falsy_test_environment_from_env(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str) -> None:
+    # test_environment off means the reserved "test" domain names are rejected.
+    monkeypatch.setenv('TEST_ENVIRONMENT', value)
+    monkeypatch.setattr('sys.argv', ['email_validator', 'me@foo.test'])
+    validator_command_line_tool(dns_resolver=RESOLVER)
+    stdout, _ = capsys.readouterr()
+    assert stdout == 'The part after the @-sign is a special-use or reserved name that cannot be used with email.\n'
+
+
+def test_main_default_timeout_from_env(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    import json
+    import email_validator
+    test_email = 'google@google.com'
+    # Set up the restore of the module-level default, which main() overwrites.
+    monkeypatch.setattr('email_validator.DEFAULT_TIMEOUT', email_validator.DEFAULT_TIMEOUT)
+    monkeypatch.setenv('DEFAULT_TIMEOUT', '5')
+    monkeypatch.setattr('sys.argv', ['email_validator', test_email])
+    validator_command_line_tool(dns_resolver=RESOLVER)
+    stdout, _ = capsys.readouterr()
+    assert json.loads(str(stdout))["normalized"] == test_email
+    assert email_validator.DEFAULT_TIMEOUT == 5
+
+
 def test_bytes_input() -> None:
     input_email = b"testaddr@example.tld"
     valid_email = validate_email(input_email, check_deliverability=False)
@@ -65,3 +134,21 @@ def test_deprecation() -> None:
     valid_email = validate_email(input_email, check_deliverability=False)
     with pytest.deprecated_call():
         assert valid_email.email is not None
+
+
+@pytest.mark.parametrize('invalid_email', [
+    None,
+    12345,
+    [],
+    {},
+    lambda x: x,
+])
+def test_invalid_type(invalid_email: typing.Any) -> None:
+    with pytest.raises(TypeError, match="email must be str or bytes"):
+        validate_email(invalid_email, check_deliverability=False)
+
+
+def test_invalid_ascii() -> None:
+    invalid_email = b'\xd0\xba\xd0\xb2\xd1\x96\xd1\x82\xd0\xbe\xd1\x87\xd0\xba\xd0\xb0@\xd0\xbf\xd0\xbe\xd1\x88\xd1\x82\xd0\xb0.test'
+    with pytest.raises(EmailSyntaxError, match="The email address is not valid ASCII."):
+        validate_email(invalid_email, check_deliverability=False)

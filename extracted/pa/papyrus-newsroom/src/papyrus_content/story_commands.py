@@ -12,7 +12,7 @@ from .console_links import print_console_rows, story_links
 from .audience_lenses import lens_lines, lens_payload, lens_step_states
 from .graphql_authoring import create_authoring_client
 from .newsroom_process import assess, next_lines, print_next_lines, print_reminder, reminder_assessment, step_lines, story_facts, warn_skipped
-from .options import normalize_string, parse_boolean_option, parse_options, parse_repeated_option, resolve_mutation_apply
+from .options import normalize_positive_integer, normalize_string, parse_boolean_option, parse_options, parse_repeated_option, resolve_mutation_apply
 from .story_reporting import (
     STAGE_MOVES_KEY,
     STORY_MESSAGE_KINDS,
@@ -301,6 +301,26 @@ def stories_languages(flags: list[str]) -> None:
         raise ValueError("--rate must be more than 0 and at most 25 writes a second.")
     client, _ = create_authoring_client()
     run_languages(client, primary=client.primary_language(), dry_run=dry_run, rate=rate)
+
+
+def stories_decks(flags: list[str]) -> None:
+    """papyrus stories decks [--dry-run] [--rate <writes per second>]
+
+    Brings the `deck` column of every Item and published row to the dek its own front matter holds (`dek`, else `deck`, `standfirst`, `description`:
+    src/papyrus_content/item_front_matter.py). Rows saved before the column was derived from `dek` can serve an older dek. Reads the version-state index
+    once (no table scan) and each published row by its id, writes only the derived `deck` of rows that differ (never front matter), each with its own
+    updatedAt, at most --rate a second (default 5). A row with no front matter is left alone.
+
+    Writes by default; --dry-run prints one line per row it would write and a summary (rows read, rows to write, already right). A second run writes nothing."""
+    from .item_deck_backfill import DEFAULT_RATE, run_decks
+
+    options = parse_options(flags)
+    dry_run = parse_boolean_option(options.get("dry-run"), default=False, label="--dry-run")
+    rate = float(options.get("rate") or DEFAULT_RATE)
+    if rate <= 0 or rate > 25:
+        raise ValueError("--rate must be more than 0 and at most 25 writes a second.")
+    client, _ = create_authoring_client()
+    run_decks(client, dry_run=dry_run, rate=rate)
 
 
 def stories_backfill_published_dates(flags: list[str]) -> None:
@@ -1034,8 +1054,9 @@ PUBLISHED_STAGE_WARNING = (
 def stories_move(flags: list[str]) -> None:
     """papyrus stories move --story <lineage> --stage <stage> [--reason <text>] [--author-label <name>]
 
-    Only the board stage changes. With --stage published it prints a warning on stderr: no page is published;
-    `papyrus ops content publish` does that."""
+    Only the board stage changes (board-only). With --stage published it prints a warning on stderr: no page is published;
+    `papyrus ops content publish` does that. Likewise --stage spiked takes no page down: a published Story stays live.
+    To take a published Story's page down, run `papyrus stories withdraw`; `stories restore` brings it back."""
     options = parse_options(flags)
     apply = resolve_mutation_apply(options, "stories move")
     lineage_id = _required_option(options, "story")
@@ -1066,6 +1087,59 @@ def stories_move(flags: list[str]) -> None:
     if assessment is not None and result["changed"] and _moved_forward(result):
         warn_skipped(assessment)
     print_next_lines(assessment)
+
+
+def _withdrawal_options(flags: list[str], label: str) -> tuple[dict, bool]:
+    from .page_refresh.cli import _explicit
+
+    options = parse_options(_explicit(flags))
+    return options, resolve_mutation_apply(options, label)
+
+
+def _run_withdrawal(flags: list[str], label: str, function) -> None:
+    from .story_withdrawal import render_lines
+
+    options, apply = _withdrawal_options(flags, label)
+    lineage_id = _required_option(options, "story")
+    allowed = normalize_string(options.get("force-paths"))
+    if allowed and (not allowed.isdigit() or int(allowed) < 1):
+        raise ValueError("--force-paths needs a whole number of paths you accept for this one call, for example --force-paths 40.")
+    client, claims = create_authoring_client()
+    actor = normalize_string(options.get("author-label")) or normalize_string((claims or {}).get("sub")) or "papyrus-cli"
+    extra = {"reason": normalize_string(options.get("reason"))} if label == "stories withdraw" else {}
+    result = function(
+        client, lineage_id, actor=actor, dry_run=not apply, run=parse_boolean_option(options.get("run"), default=False, label="--run"),
+        force_paths=int(allowed) if allowed else None, **extra,
+    )
+    for line in render_lines(result):
+        print(line)
+    if result["status"] == "refused":
+        raise SystemExit(2)
+    if result.get("ok") is False:
+        raise SystemExit(1)
+
+
+def stories_withdraw(flags: list[str]) -> None:
+    """papyrus stories withdraw --story <lineage> [--reason <text>] [--author-label <name>] [--run] [--force-paths N] [--dry-run]
+
+    Takes a published Story down safely. It prints the exact plan first (the Story page and Markdown twin, every index page that lists it, the
+    invalidation paths with their count and cost), refuses above the 25-path cap unless --force-paths N, and with more than 5 paths is a dry
+    run until you repeat it with --run. Then it unpublishes the Story, has the site project the pages away, moves the board stage to spiked,
+    records who withdrew it and why on the Story, and purges exactly the planned paths. Withdrawing a withdrawn Story only says so.
+    The old address then shows the site's 404 page. `papyrus stories restore` brings the Story back."""
+    from .story_withdrawal import withdraw_story
+
+    _run_withdrawal(flags, "stories withdraw", withdraw_story)
+
+
+def stories_restore(flags: list[str]) -> None:
+    """papyrus stories restore --story <lineage> [--author-label <name>] [--run] [--force-paths N] [--dry-run]
+
+    Republishes the version `stories withdraw` took down, puts the stage back to published, clears the withdrawal record, projects the
+    pages again and purges the same kind of exact plan. Refuses when nothing was withdrawn."""
+    from .story_withdrawal import restore_story
+
+    _run_withdrawal(flags, "stories restore", restore_story)
 
 
 def _moved_forward(result: dict) -> bool:
@@ -1139,47 +1213,149 @@ def stories_fire_triggers(flags: list[str]) -> None:
     deliver_from_environment(client, _required_option(options, "story"))
 
 
+def stories_localize_all(options: dict) -> None:
+    """``papyrus stories localize --all``: the whole-site backfill (``localize/backfill.py``). One tab-separated row per Story and language, then a totals row."""
+    from .editorial_checks import GraphQLEditorialStore, settings_from
+    from .editorial_languages import site_language
+    from .language_serving import serving_languages
+    from . import request_meter
+    from .localize import backfill
+    from .localize.record import collect
+    from .localize.start import default_procedure_key, openai_key, run_from_cli
+    from .projection_trigger import item_task, trigger_projection
+    from .site_selection import host_for
+    from .user_auth_mode import iam_requested
+
+    dry_run = parse_boolean_option(options.get("dry-run"), default=False, label="--dry-run")
+    publish_clean = parse_boolean_option(options.get("publish-clean"), default=False, label="--publish-clean")
+    as_json = parse_boolean_option(options.get("json"), default=False, label="--json")
+    every_language = parse_boolean_option(options.get("all-languages"), default=False, label="--all-languages")
+    if options.get("story"):
+        raise ValueError("--all translates every Story; to translate one, leave --all out.")
+    if bool(every_language) == bool(normalize_string(options.get("language"))):
+        raise ValueError("--all needs exactly one of --language TAG and --all-languages.")
+    ceiling = float(options["ceiling-usd"]) if options.get("ceiling-usd") else None
+    concurrency = normalize_positive_integer(options.get("concurrency"), "--concurrency") or backfill.DEFAULT_CONCURRENCY
+    automation = normalize_string(options.get("automation"))
+    client, _ = create_authoring_client()
+    settings = settings_from(GraphQLEditorialStore(execute=client.graphql, tenant_id=getattr(client, "tenant_id", None)))
+    serving = serving_languages(settings)
+    languages = [tag for tag in serving.enabled if tag != serving.primary] if every_language else [site_language(options["language"], settings)]
+    if not languages:
+        raise ValueError(f"The site writes only in {serving.primary}: there is no language to translate into.")
+    if serving.primary in languages:
+        raise ValueError(f"{serving.primary} is the site's primary language; Stories are written in it.")
+    procedure = normalize_string(options.get("procedure"))
+    if not automation:
+        procedure = procedure or default_procedure_key(host_for(client.endpoint))
+    jobs = backfill.survey(client, settings, languages)
+    todo = [job for job in jobs if job.status == backfill.PLANNED]
+    request_meter.add_units(len(todo))   # each Story and language still to do is a unit of work the request budget allows for
+    summary: dict = {}
+    if dry_run:
+        procedure = procedure or (backfill_procedure_of(client, automation) if automation else None)
+        summary = backfill.plan_cost(client, jobs, procedure_key=procedure, ceiling_usd=ceiling, collect=collect)
+    elif todo or publish_clean:
+        if not iam_requested() and (publish_clean or not automation):
+            raise ValueError("This runs or publishes as the operator: use `papyrus --auth iam` (AWS credentials for the site)."
+                             + (" To only queue the runs for the site's runner, name it with --automation." if not automation else ""))
+        project = lambda worker, version_id, published_id: trigger_projection(item_task(version_id, unpublished=False, published_item_id=published_id))  # noqa: E731
+        if automation:
+            backfill.queue_all(client, jobs, automation_id=automation, publish=publish_clean)
+            if publish_clean:
+                backfill.publish_saved(client, jobs, settings, project=project)
+        else:
+            backfill.run_all(client, jobs, client_factory=lambda: create_authoring_client()[0], run=run_from_cli, settings=settings,
+                             publish_clean_results=publish_clean, concurrency=concurrency, ceiling_usd=ceiling, procedure_key=procedure,
+                             key=openai_key(options.get("openai-key-parameter")), project=project)
+    if as_json:
+        print(json.dumps({"dryRun": dry_run, "languages": languages, "rows": [job.row() for job in jobs], **summary}, ensure_ascii=False))
+    else:
+        for line in backfill.table(jobs):
+            print("\t".join(["stories", "localize", line]))
+        if dry_run:
+            print("\t".join(["stories", "localize", "plan", f"{len(todo)} to do, predicted ${summary['predictedUsd']:.4f}"
+                            + (f", {summary['withoutPrediction']} with no measured run of their language to predict from" if summary["withoutPrediction"] else "")]))
+    failed = [job for job in jobs if job.status == backfill.FAILED]
+    if failed:
+        raise ValueError(f"{len(failed)} of {len(jobs)} translations failed. Run the same command again: it does only what remains, and a failed run continues from its finished stages.")
+
+
+def backfill_procedure_of(client, automation_id: str) -> str | None:
+    from .localize.record import automation_procedure_key
+
+    return automation_procedure_key(client, automation_id)
+
+
 def stories_localize(flags: list[str]) -> None:
-    """papyrus stories localize --story LINEAGE --language TAG [--automation ID] [--ceiling-usd N] [--dry-run] [--json]
+    """papyrus stories localize --story LINEAGE --language TAG [--procedure KEY] [--automation ID] [--openai-key-parameter SSM_PARAMETER] [--ceiling-usd N] [--dry-run] [--json]
 
     Asks for a translation of a published Story into one language (the Story translation procedure, papyrus.story.localize): writes the
-    desired-state record for the Story and language (LocalizationRequest: the newest published source version), then starts the site's
-    translation automation (--automation, the automation that runs papyrus.story.localize) for it. The run translates only the blocks whose
-    source changed, checks every block against the English, polishes until the findings stop shrinking and saves the result as an unpublished
-    version of <story>--<language>; it never publishes. Run `papyrus automations runs --id ID` to follow it.
+    desired-state record for the Story and language (LocalizationRequest: the newest published source version), then runs the site's registered
+    ``story_localize`` procedure for it. The run translates only the blocks whose source changed, checks every block against the English, polishes
+    until the findings stop shrinking and saves the result as an unpublished version of <story>--<language>; it never publishes.
+
+    Without --automation the run happens here, through the procedure runner's own code (a ProcedureRun records its status, usage and cost; the engine
+    records the outcome on the request): it needs the operator lane (``papyrus --auth iam``), the procedure registered under --procedure (default
+    SITE.story-localize), and the model key in OPENAI_API_KEY or --openai-key-parameter. With --automation ID the site's runner starts it instead.
+    Either way the procedure's earlier runs give the cost prediction.
 
     Writes by default; --dry-run prints the plan (blocks to translate, glossary terms the translator will be given, the predicted cost from this
-    language's measured runs) and writes nothing."""
+    language's measured runs) and writes nothing.
+
+    Whole site: ``papyrus stories localize --all (--language TAG | --all-languages) [--publish-clean] [--dry-run] [--concurrency N] [--ceiling-usd N]
+    [--procedure KEY] [--automation ID] [--openai-key-parameter SSM_PARAMETER] [--json]`` finds every published primary-language Story with no up-to-date
+    translation in the language (or in every enabled language) and runs them all, printing one row per Story and language (saved, held, failed,
+    up to date, cost). See ``localize/backfill.py``."""
     from .localize.desired_state import want
     from .localize.record import collect
     from .story_reporting import published_story_version
 
     options = parse_options(flags)
+    if parse_boolean_option(options.get("all"), default=False, label="--all"):
+        return stories_localize_all(options)
     story = _required_option(options, "story")
     language = _required_option(options, "language")
     dry_run = parse_boolean_option(options.get("dry-run"), default=False, label="--dry-run")
     ceiling = float(options["ceiling-usd"]) if options.get("ceiling-usd") else None
+    automation = options.get("automation") or None
+    procedure = options.get("procedure") or None
     client, _ = create_authoring_client()
-    request = collect(client, story=story, language=language, judge=None, procedure_version="plan", ceiling_usd=ceiling)
-    from .localize.blocks import blocks_of
-    from .localize.engine import plan_slots
+    if not dry_run and not automation:
+        from .localize.start import default_procedure_key, openai_key
+        from .site_selection import host_for
 
-    slots = plan_slots(blocks_of(request.source.body, title=request.source.title, deck=request.source.deck), request.previous)
-    to_translate = [slot for slot in slots if slot.translate]
-    terms = [entry["term"] for entry in request.glossary.entries_in([slot.source.text for slot in to_translate], request.source.language)]
-    prediction = request.prediction.payload() if request.prediction else {}
-    plan = {"story": story, "language": request.language, "localization": request.localization_lineage, "sourceVersion": request.source.version_number,
-            "blocksToTranslate": len(to_translate), "blocksKept": len(slots) - len(to_translate), "glossaryTerms": terms, "prediction": prediction}
+        from .user_auth_mode import iam_requested
+
+        if not iam_requested():
+            raise ValueError("A run started here executes the procedure in a child process that signs as the operator: use `papyrus --auth iam` "
+                             "(AWS credentials for the site), or start it through an automation with --automation.")
+        procedure = procedure or default_procedure_key(host_for(client.endpoint))
+        key = openai_key(options.get("openai-key-parameter"))
+    request = collect(client, story=story, language=language, judge=None, procedure_version="plan", ceiling_usd=ceiling,
+                      automation_id=automation, procedure_key=procedure)
+    from .localize.plan import plan_of
+
+    plan = plan_of(request, story=story)
     if dry_run:
         print("\t".join(["stories", "localize", "plan", json.dumps(plan, ensure_ascii=False)]))
         return
-    automation = _required_option(options, "automation")
     source = published_story_version(client, story)
     record = want(client, source=source, language=request.language, requested_by="cli")
+    if not automation:
+        from .localize.start import run_from_cli
+
+        result = run_from_cli(client, story=story, language=request.language, ceiling_usd=ceiling, procedure_key=procedure, key=key)
+        print("\t".join(["stories", "localize", "ran", record["id"], f"source v{record['sourceVersionNumber']}", "run", str(result.get("runId")),
+                         str(result.get("runStatus")), f"cost ${result.get('costUsd')}", json.dumps(result.get("output") or {}, ensure_ascii=False)]))
+        if result.get("runStatus") != "completed":
+            raise ValueError(f"The translation is requested ({record['id']}), but the run {result.get('runId')} failed: {result.get('error')}. "
+                             "Run the same command again: a failed run continues from its finished stages.")
+        return
     from .automations_signed_in import RUN_MUTATION
 
     answer = client.graphql(RUN_MUTATION, {"automationId": automation, "input": json.dumps({"story": story, "language": request.language,
-                                                                                               "ceilingUsd": ceiling or 0})})
+                                                                                               "ceiling_usd": ceiling or 0})})
     started = answer.get("runAutomation")
     started = json.loads(started) if isinstance(started, str) else (started or {})
     if started.get("state") != "started":

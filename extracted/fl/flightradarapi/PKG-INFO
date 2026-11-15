@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: FlightRadarAPI
-Version: 1.7.0
+Version: 1.7.1
 Summary: SDK for FlightRadar24
 Project-URL: Homepage, https://github.com/JeanExtreme002/FlightRadarAPI
 Project-URL: Source Code, https://github.com/JeanExtreme002/FlightRadarAPI
-Project-URL: Documentation, https://jeanextreme002.github.io/FlightRadarAPI/
+Project-URL: Documentation, https://flightradarapi.readthedocs.io/
 Project-URL: Bug Reports, https://github.com/JeanExtreme002/FlightRadarAPI/issues
 Author-email: Jean Loui Bernard Silva de Jesus <contact@jeanloui.dev>
 License-Expression: MIT
@@ -31,6 +31,7 @@ This SDK should only be used for your own educational purposes. If you are inter
 
 **Official FR24 API**: https://fr24api.flightradar24.com/
 
+[![Documentation Status](https://readthedocs.org/projects/flightradarapi/badge/?version=latest)](https://flightradarapi.readthedocs.io/?badge=latest)
 [![Python Package](https://github.com/JeanExtreme002/FlightRadarAPI/workflows/Python%20Package/badge.svg)](https://github.com/JeanExtreme002/FlightRadarAPI/actions)
 [![License](https://img.shields.io/pypi/l/FlightRadarAPI)](https://github.com/JeanExtreme002/FlightRadarAPI)
 [![Pypi](https://img.shields.io/pypi/v/FlightRadarAPI?logo=pypi)](https://pypi.org/project/FlightRadarAPI/)
@@ -38,7 +39,7 @@ This SDK should only be used for your own educational purposes. If you are inter
 [![Npm](https://img.shields.io/npm/v/flightradarapi?logo=npm&color=red)](https://www.npmjs.com/package/flightradarapi)
 [![Node Version](https://img.shields.io/badge/node-18.17+-339933)](https://www.npmjs.com/package/flightradarapi)
 [![Go Reference](https://pkg.go.dev/badge/github.com/JeanExtreme002/FlightRadarAPI/go.svg)](https://pkg.go.dev/github.com/JeanExtreme002/FlightRadarAPI/go/flightradarapi)
-[![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/dl/)
+[![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8)](https://go.dev/dl/)
 [![Downloads](https://static.pepy.tech/personalized-badge/flightradarapi?period=total&units=international_system&left_color=grey&right_color=orange&left_text=downloads)](https://pypi.org/project/FlightRadarAPI/)
 [![Frequency](https://img.shields.io/pypi/dm/flightradarapi?style=flat&label=frequency)](https://pypi.org/project/FlightRadarAPI/)
 
@@ -73,4 +74,4 @@ zones = fr_api.get_zones()
 ```
 
 ## Documentation
-Explore the documentation of FlightRadarAPI package through [this site](https://JeanExtreme002.github.io/FlightRadarAPI/).
+Explore the documentation of FlightRadarAPI package through [this site](https://flightradarapi.readthedocs.io/).

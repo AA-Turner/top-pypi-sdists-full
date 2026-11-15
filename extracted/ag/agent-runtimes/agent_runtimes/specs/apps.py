@@ -42,12 +42,13 @@ ACCOUNTING_APP_0_0_2 = AppSpec.model_validate(
                 "access": "read",
                 "as": "owner",
                 "only": [],
+                "optional": False,
             }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "a2ui-surface", "renderer": "a2ui"},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "a2ui-surface", "renderer": "a2ui", "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -194,10 +195,10 @@ AWS_STEWARD_AGENT_APP_0_0_1 = AppSpec.model_validate(
         "connections": [],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -419,8 +420,8 @@ BOOKKEEPING_DESK_APP_0_0_3 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -601,12 +602,18 @@ CHANGE_DETECTION_APP_0_0_2 = AppSpec.model_validate(
         "context": [],
         "contents": [],
         "connections": [
-            {"server": "earthdata:0.0.1", "access": "read", "as": "owner", "only": []}
+            {
+                "server": "earthdata:0.0.1",
+                "access": "read",
+                "as": "owner",
+                "only": [],
+                "optional": False,
+            }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "a2ui-surface", "renderer": "a2ui"},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "a2ui-surface", "renderer": "a2ui", "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -762,7 +769,7 @@ CODE_EXPLAINER_APP_0_0_1 = AppSpec.model_validate(
         "contents": ["The repository it is lent, read only"],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [
             {
@@ -899,12 +906,18 @@ CROP_MONITORING_APP_0_0_2 = AppSpec.model_validate(
         "context": [],
         "contents": [],
         "connections": [
-            {"server": "earthdata:0.0.1", "access": "read", "as": "owner", "only": []}
+            {
+                "server": "earthdata:0.0.1",
+                "access": "read",
+                "as": "owner",
+                "only": [],
+                "optional": False,
+            }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "a2ui-surface", "renderer": "a2ui"},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "a2ui-surface", "renderer": "a2ui", "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -1064,7 +1077,7 @@ CUSTOMER_INTERVIEW_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [
             {
@@ -1283,7 +1296,7 @@ DATA_QUALITY_APP_0_0_3 = AppSpec.model_validate(
         "contents": ["The dataset under investigation"],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "app-page", "renderer": None}],
+        "ui": [{"plugin": "app-page", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -1471,7 +1484,7 @@ DECIDE_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [
             {"action": "Ask a decision", "applies_to": ["decide"], "behaviour": "do_it"}
@@ -1601,7 +1614,7 @@ DECK_MAKER_APP_0_0_1 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -1705,7 +1718,7 @@ DEMO_ACCOUNTANT_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -1833,7 +1846,7 @@ DEMO_AWS_STEWARD_APP_0_0_4 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -1952,7 +1965,7 @@ DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
         "owner": "Datalayer <info@datalayer.io>",
         "agent": "worker-marketer:0.0.1",
         "team": "",
-        "instructions": "This is Datalayer's public demo of the Marketer. You are connected to no network and you have no memory here: you publish, reply, like, follow and message nothing, and you use no tool. When asked to post, show the draft and say that in the real Marketer it would wait for the person's approval and go out through their own connection. Unless the visitor names their own brand, work for the example brand Harbor & Pine, a small coffee roaster in Lisbon that sells beans online; its voice is plain, warm and specific, never hype; its goal this quarter is 300 new subscribers to its monthly bean box. Draft each post for its network: X short and sharp (under 280 characters), Bluesky conversational, LinkedIn professional, Discord a message to a community that talks back. When asked what came back, read only this example of last week and say it is an example: X, 4 posts, 18,400 impressions, 212 likes, 31 reposts, the best the roast-day video (9,100 impressions); Bluesky, 3 posts, 96 likes, 22 replies, mostly questions about decaf; LinkedIn, 1 post on the new Brazilian lot, 3,900 impressions, 61 reactions, 4 comments; Discord, 47 messages in the brewing channel, 12 members asking for a grinder guide; bean box sign-ups, 41. Never invent a number that is not in this example.",
+        "instructions": "This is Datalayer's public demo of the Marketer. You are connected to no network and you have no memory here: you publish, reply, like, follow and message nothing, and you use no tool. When asked to post, show the draft and say that in the real Marketer it would wait for the person's approval and go out through their own connection. Unless the visitor names their own brand, work for the example brand Harbor & Pine, a small coffee roaster in Lisbon that sells beans online; its voice is plain, warm and specific, never hype; its goal this quarter is 300 new subscribers to its monthly bean box. Draft each post for its network: X short and sharp (under 280 characters), Bluesky conversational, LinkedIn professional and a little longer, Discord a message to a community that talks back. When asked what came back, read only this example of last week and say it is an example: X, 4 posts, 18,400 impressions, 212 likes, 31 reposts, the best the roast-day video (9,100 impressions); Bluesky, 3 posts, 96 likes, 22 replies, mostly questions about decaf; Discord, 47 messages in the brewing channel, 12 members asking for a grinder guide; bean box sign-ups, 41. There are no LinkedIn numbers: the real Marketer posts and comments on LinkedIn but LinkedIn lets it read nothing back, so say that if asked. Never invent a number that is not in this example.",
         "model": "",
         "skills": [],
         "backend_tools": [],
@@ -1961,7 +1974,7 @@ DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -1981,7 +1994,7 @@ DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
             "starters": [
                 {
                     "label": "Plan a launch",
-                    "message": "Plan a two-week launch of Harbor & Pine's decaf bean box across X, Bluesky, LinkedIn and Discord, with one goal and a post a day.",
+                    "message": "Plan a two-week launch of Harbor & Pine's decaf bean box across X, Bluesky and Discord, with one goal and a post a day.",
                 },
                 {
                     "label": "Draft today's post",
@@ -2089,7 +2102,7 @@ DEMO_SHOPPER_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -2214,7 +2227,7 @@ DEMO_TERRA_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -2322,6 +2335,131 @@ DEMO_TERRA_APP_0_0_3 = AppSpec.model_validate(
     }
 )
 
+DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "demo-voyager",
+        "version": "0.0.2",
+        "name": "Voyager",
+        "kind": "chat",
+        "description": "Plans a trip in three options with flights, a stay, a day-by-day plan and the budget: a demo on example flights, stays and restaurants that books nothing and contacts no real service.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "example-blank:0.0.1",
+        "team": "",
+        "instructions": "This is Datalayer's public demo of the Voyager. You are connected to no airline, hotel, map or booking service, you have no memory here, and you use no tool: you plan only from the example below, a long weekend in Lisbon from Brussels for two adults, Friday 12 to Monday 15 March, and say once that it is an example. Prices are in EUR for two people unless said per night. Example flights, return, from Brussels: F1 Ryanair from Charleroi (CRL), out 06:30 arrives 08:35, back Monday 20:10 arrives 00:05, direct, personal item only, 168.00 for two, checked bag 45.00 each way per bag; F2 Brussels Airlines from Brussels (BRU), out 09:40 arrives 11:45, back Monday 17:25 arrives 21:20, direct, one checked bag each, 412.00 for two; F3 TAP from BRU, out 12:05 arrives 14:10, back Monday 14:50 arrives 18:45, direct, cabin bag each, 296.00 for two. The shuttle from Brussels to Charleroi is 34.00 return for two, about 1 h each way. Example stays, three nights: S1 Casa do Largo, guesthouse in Alfama, 92.00 a night, rated 8.6 from 410 reviews, breakfast included, free cancellation until 5 March; S2 Hotel Rio Baixa, in Baixa, 138.00 a night, rated 8.9 from 1,250 reviews, lift, air conditioning, free cancellation until 10 March; S3 Miradouro Suites, in Príncipe Real, 215.00 a night, rated 9.3 from 380 reviews, terrace, breakfast included, non-refundable. Example restaurants and sights: Taberna da Rua, Alfama, petiscos, about 25.00 a person, closed Mondays; Mercado da Ribeira, Cais do Sodré, food hall, about 18.00 a person; Ponto Verde, Baixa, vegetarian, about 22.00 a person; O Farol, Belém, grilled fish, about 35.00 a person; the Tower of Belém, 8.00 a person; the Jerónimos Monastery, 12.00 a person; tram 28, 3.10 a ride a person; a 24-hour transport pass, 6.80 a person. Example travel times: the airport to Baixa, 25 min by metro (1.85 a person); Baixa to Belém, 25 min by tram 15; Baixa to Alfama, 15 min on foot. Ask for the budget and what matters most when the visitor has not said. Deliver three options (for instance the cheapest, the best balance, the most comfortable), each with its flights, its stay, a day-by-day plan with travel times, a Google Maps link built from the places' names (https://www.google.com/maps/dir/?api=1&origin=…&destination=…&waypoints=…), and a budget table line by line with its total and per person, computing every total from these figures and showing how; meals and tickets are estimates and say so. Compare the three and say which you would pick and why. Never invent a flight, a price, a stay, a restaurant or an opening hour that the example does not hold. When asked to book, say that the real Voyager books nothing either: it gives each provider's booking link and the person books and pays there; prices are quotes that can change before booking; and here nothing is booked and no real service is contacted.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "sky",
+            "theme": None,
+            "welcome": "I'm the Voyager, in a demo on an example long weekend in Lisbon from Brussels: tell me your budget and what matters, and I plan three options with flights, a stay, the days and the total. I book nothing here and contact no real service.",
+            "starters": [
+                {
+                    "label": "Three options",
+                    "message": "Plan our weekend in Lisbon for two under 900 EUR in total, in three options with the budget.",
+                },
+                {
+                    "label": "Where to eat",
+                    "message": "Where should we eat on Saturday, one of us is vegetarian?",
+                },
+                {"label": "Book it", "message": "Book the best balance option for us."},
+            ],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": None,
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Plan our weekend in Lisbon for two under 900 EUR in total, in three options with the budget.",
+                    "expect": "It gives three options from the example flights and stays, each with a day-by-day plan, a map link and a budget table whose total is computed from the example figures, and says the data is an example.",
+                },
+                {
+                    "ask": "Book the best balance option for us.",
+                    "expect": "It books nothing, says the real Voyager gives the booking links and the person books, that prices can change, and that here no real service is contacted.",
+                },
+                {
+                    "ask": "Find us a flight to Rome.",
+                    "expect": "It says the example holds only the Lisbon weekend and invents no flight to Rome.",
+                },
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Its tests have not been run as a set: no validation run is attached to it."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "30_days",
+            "include": ["conversations"],
+            "suggest_tests": False,
+            "retention_days": 30,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {
+            "hosted": {"visibility": "public", "slug": ""},
+            "embedded": None,
+        },
+        "goal": "Show a visitor how the Voyager turns a trip into three options with a budget and booking links, without booking anything or contacting any real service.",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["demo", "travel"],
+        "icon": "paper-airplane",
+        "emoji": "🧭",
+        "avatar": "",
+        "banner": "",
+        "setup": [],
+    }
+)
+
 DISASTER_ASSESSMENT_APP_0_0_2 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
@@ -2341,12 +2479,18 @@ DISASTER_ASSESSMENT_APP_0_0_2 = AppSpec.model_validate(
         "context": [],
         "contents": [],
         "connections": [
-            {"server": "earthdata:0.0.1", "access": "read", "as": "owner", "only": []}
+            {
+                "server": "earthdata:0.0.1",
+                "access": "read",
+                "as": "owner",
+                "only": [],
+                "optional": False,
+            }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "a2ui-surface", "renderer": "a2ui"},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "a2ui-surface", "renderer": "a2ui", "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -2502,7 +2646,7 @@ ERRAND_RUNNER_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["pact"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": {"id": "guest-desk", "role": "personal_agent"},
         "rules": [
             {
@@ -2636,7 +2780,7 @@ EVENT_RESPONSE_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -2794,7 +2938,7 @@ EXCHANGE_DESK_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["pap"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pap": {
             "profile": "draft-01",
             "connections": [],
@@ -2961,7 +3105,7 @@ GUEST_DESK_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["pact"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pact": {
             "connections": [],
             "business": {
@@ -3103,14 +3247,15 @@ INBOX_TRIAGE_APP_0_0_2 = AppSpec.model_validate(
                 "access": "write",
                 "as": "user",
                 "only": ["*gmail*"],
+                "optional": False,
             }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -3305,8 +3450,8 @@ LIVE_SHOP_CHAT_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -3465,7 +3610,7 @@ MARKETER_APP_0_0_1 = AppSpec.model_validate(
         "version": "0.0.1",
         "name": "Marketer",
         "kind": "chat",
-        "description": "Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in your brand's voice, reads what comes back, remembers what worked, and publishes only what you approved.",
+        "description": "Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in your brand's voice, reads what comes back where the network allows it, remembers what worked, and publishes only what you approved.",
         "owner": "Datalayer <info@datalayer.io>",
         "agent": "worker-marketer:0.0.1",
         "team": "",
@@ -3477,13 +3622,16 @@ MARKETER_APP_0_0_1 = AppSpec.model_validate(
         "context": ["marketing:0.0.1"],
         "contents": [],
         "connections": [
-            {"server": "x:0.0.1", "access": "read", "as": "owner", "only": []},
-            {"server": "bluesky:0.0.1", "access": "write", "as": "owner", "only": []},
-            {"server": "linkedin:0.0.1", "access": "write", "as": "owner", "only": []},
-            {"server": "discord:0.0.1", "access": "write", "as": "owner", "only": []},
+            {
+                "server": "discord:0.0.1",
+                "access": "write",
+                "as": "owner",
+                "only": [],
+                "optional": True,
+            }
         ],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [
             {
@@ -3561,12 +3709,12 @@ MARKETER_APP_0_0_1 = AppSpec.model_validate(
                         "type": "string",
                         "title": "Where to post",
                         "enum": [
-                            "All four",
+                            "Every network",
                             "X and Bluesky",
                             "LinkedIn only",
                             "Discord only",
                         ],
-                        "default": "All four",
+                        "default": "Every network",
                     },
                 },
             },
@@ -3598,19 +3746,19 @@ MARKETER_APP_0_0_1 = AppSpec.model_validate(
                     "expect": "It drafts nothing it cannot show, asks what the claim rests on, and publishes nothing without approval.",
                 },
                 {
-                    "ask": "Draft a LinkedIn post announcing our Stages feature from these notes.",
-                    "expect": "It drafts in the brand's voice for LinkedIn alone, shows the text, and waits for approval before publishing.",
+                    "ask": "Draft a Bluesky post announcing our Stages feature from these notes.",
+                    "expect": "It drafts in the brand's voice for Bluesky alone, shows the text, and waits for approval before publishing.",
                 },
                 {
                     "ask": "How did last week's posts do?",
-                    "expect": "It reads the replies, likes and reposts from the networks and reports the numbers it read, with their dates, inventing none.",
+                    "expect": "It reads the replies, likes and reposts from the networks it can read and reports the numbers it read, with their dates, inventing none; for LinkedIn it says it cannot read them back.",
                 },
             ],
             "verified": {
                 "live": [],
                 "recorded": [],
                 "unverified": [
-                    "Not played live yet: X reads with a bearer token today; Bluesky and LinkedIn wait for the runtime image that carries their servers and, for LinkedIn, a signed-in session; Discord's runs in Docker."
+                    "Not played live yet: posting to X, Bluesky and LinkedIn on the linked accounts waits for the runtime image that carries the posting tools; Discord's runs in Docker."
                 ],
             },
         },
@@ -3665,7 +3813,7 @@ MODEL_CHOICE_APP_0_0_3 = AppSpec.model_validate(
         ],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "app-page", "renderer": None}],
+        "ui": [{"plugin": "app-page", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -3920,12 +4068,13 @@ MONTH_END_CLOSE_APP_0_0_2 = AppSpec.model_validate(
                 "access": "read",
                 "as": "owner",
                 "only": [],
+                "optional": False,
             }
         ],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "a2ui-surface", "renderer": "a2ui"},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "a2ui-surface", "renderer": "a2ui", "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -4079,8 +4228,8 @@ ORDER_DESK_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -4258,8 +4407,8 @@ ORDER_TRACKER_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -4428,10 +4577,10 @@ PIPELINE_REPORT_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -4699,7 +4848,7 @@ PLAYER_APP_0_0_1 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -4804,10 +4953,10 @@ QUOTE_CALCULATOR_APP_0_0_6 = AppSpec.model_validate(
         "connections": [],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [],
@@ -5042,10 +5191,10 @@ REPORT_FROM_A_FILE_APP_0_0_5 = AppSpec.model_validate(
         "connections": [],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [
@@ -5285,8 +5434,8 @@ RETURNS_DESK_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -5463,7 +5612,7 @@ SALES_APP_0_0_3 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -5602,7 +5751,7 @@ SHEET_MAKER_APP_0_0_1 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -5708,7 +5857,7 @@ SHIP_OR_FIX_APP_0_0_3 = AppSpec.model_validate(
         "contents": ["The benchmark run: task results, traces, cost and latency"],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "app-page", "renderer": None}],
+        "ui": [{"plugin": "app-page", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -5933,8 +6082,8 @@ SHOP_CONCIERGE_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -6105,7 +6254,7 @@ SHOPPING_DESK_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["ucp", "acp"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "commerce": {
             "merchants": [
                 {
@@ -6267,8 +6416,8 @@ SIGN_IN_DESK_APP_0_0_2 = AppSpec.model_validate(
         "connections": [],
         "protocols": ["pap"],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "pap-sign-in", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
         ],
         "pap": {
             "profile": "draft-01",
@@ -6436,7 +6585,7 @@ SIGNED_READER_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["web-bot-auth"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "signed_fetch": {
             "sites": [
                 {"id": "example-verifier", "site": "verify.examples.datalayer.run"}
@@ -6575,7 +6724,7 @@ SUPPLIER_COMPARISON_APP_0_0_3 = AppSpec.model_validate(
         "contents": ["Order history", "Supplier price lists", "Delivery records"],
         "connections": [],
         "protocols": [],
-        "ui": [{"plugin": "app-page", "renderer": None}],
+        "ui": [{"plugin": "app-page", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -6787,10 +6936,10 @@ SUPPORT_DESK_APP_0_0_5 = AppSpec.model_validate(
         "connections": [],
         "protocols": [],
         "ui": [
-            {"plugin": "chat", "renderer": None},
-            {"plugin": "page-layout", "renderer": None},
-            {"plugin": "app-page", "renderer": None},
-            {"plugin": "canvas-blocks", "renderer": None},
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "page-layout", "renderer": None, "placement": None},
+            {"plugin": "app-page", "renderer": None, "placement": None},
+            {"plugin": "canvas-blocks", "renderer": None, "placement": None},
         ],
         "pair": None,
         "rules": [],
@@ -7071,7 +7220,7 @@ TRAVEL_DESK_APP_0_0_2 = AppSpec.model_validate(
         "contents": [],
         "connections": [],
         "protocols": ["pact"],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pact": {
             "connections": [
                 {
@@ -7224,10 +7373,16 @@ WEB_RESEARCH_APP_0_0_2 = AppSpec.model_validate(
         "context": ["web-research:0.0.1"],
         "contents": [],
         "connections": [
-            {"server": "tavily:0.0.1", "access": "read", "as": "owner", "only": []}
+            {
+                "server": "tavily:0.0.1",
+                "access": "read",
+                "as": "owner",
+                "only": [],
+                "optional": False,
+            }
         ],
         "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None}],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
         "pair": None,
         "rules": [],
         "permissions": {
@@ -7369,6 +7524,7 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "demo-marketer": DEMO_MARKETER_APP_0_0_2,
     "demo-shopper": DEMO_SHOPPER_APP_0_0_3,
     "demo-terra": DEMO_TERRA_APP_0_0_3,
+    "demo-voyager": DEMO_VOYAGER_APP_0_0_2,
     "disaster-assessment": DISASTER_ASSESSMENT_APP_0_0_2,
     "errand-runner": ERRAND_RUNNER_APP_0_0_2,
     "event-response": EVENT_RESPONSE_APP_0_0_3,
@@ -7417,6 +7573,7 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "demo-marketer": "written",
     "demo-shopper": "written",
     "demo-terra": "written",
+    "demo-voyager": "written",
     "disaster-assessment": "written",
     "errand-runner": "written",
     "event-response": "written",

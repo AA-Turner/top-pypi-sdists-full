@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-
-from unittest.mock import call, Mock
+from typing import Any, cast
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -72,11 +71,8 @@ def test_uplift_emit():
     # Quick check for unwrap
     unwrap(uplifted_ee)
 
-    with pytest.raises(AttributeError):
-        getattr(uplifted_ee, "unwrap")
-
-    with pytest.raises(AttributeError):
-        getattr(base_ee, "unwrap")
+    assert not hasattr(uplifted_ee, "unwrap")
+    assert not hasattr(base_ee, "unwrap")
 
     assert not uplifted_ee.emit("base_event")
     assert uplifted_ee.emit("shared_event")
@@ -109,11 +105,11 @@ def test_exception_handling(error_handling):
 
     # Hold my beer
     base_error_handler = Mock()
-    base_ee._emit_handle_potential_error = base_error_handler
+    cast(Any, base_ee)._emit_handle_potential_error = base_error_handler
 
     # Hold my other beer
     uplifted_error_handler = Mock()
-    uplifted_ee._emit_handle_potential_error = uplifted_error_handler
+    cast(Any, uplifted_ee)._emit_handle_potential_error = uplifted_error_handler
 
     base_ee.emit("error", base_error)
     uplifted_ee.emit("error", uplifted_error)
@@ -132,7 +128,7 @@ def test_exception_handling(error_handling):
         base_error_handler.assert_called_once_with("error", base_error)
         uplifted_error_handler.assert_called_once_with("error", uplifted_error)
     else:
-        raise Exception("unrecognized setting")
+        raise Exception("unrecognized setting")  # noqa
 
 
 @pytest.mark.parametrize(
@@ -199,4 +195,4 @@ def test_proxy_new_listener(proxy_new_listener):
             ]
         )
     else:
-        raise Exception("unrecognized proxy_new_listener")
+        raise Exception("unrecognized proxy_new_listener")  # noqa

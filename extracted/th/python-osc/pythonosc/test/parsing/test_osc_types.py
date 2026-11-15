@@ -34,6 +34,20 @@ class TestString(unittest.TestCase):
         for case in cases:
             self.assertRaises(osc_types.ParseError, osc_types.get_string, case, 0)
 
+    def test_get_string_rejects_invalid_utf8(self):
+        for value in (b"\xff", b"\xc3", b"\xc0\xaf", b"\xed\xa0\x80"):
+            with self.subTest(value=value):
+                dgram = value + b"\x00" * (4 - len(value) % 4)
+                with self.assertRaises(osc_types.ParseError):
+                    osc_types.get_string(dgram, 0)
+
+    def test_get_string_preserves_valid_utf8_and_offset(self):
+        encoded = osc_types.write_string("café 🎵")
+        self.assertEqual(
+            ("café 🎵", 4 + len(encoded)),
+            osc_types.get_string(b"skip" + encoded + b"tail", 4),
+        )
+
     def test_get_string_raises_when_datagram_too_short(self):
         self.assertRaises(osc_types.ParseError, osc_types.get_string, b"abc\x00", 1)
 
@@ -284,6 +298,20 @@ class TestBlob(unittest.TestCase):
 
         for dgram, expected in cases.items():
             self.assertEqual(expected, osc_types.get_blob(dgram, 0))
+
+    def test_get_blob_rejects_negative_lengths_and_missing_padding(self):
+        cases = [
+            b"\xff\xff\xff\xff",
+            b"\xff\xff\xff\xfc",
+            b"\x80\x00\x00\x00",
+            b"\x00\x00\x00\x01a",
+            b"\x00\x00\x00\x02ab\x00",
+            b"\x00\x00\x00\x03abc",
+        ]
+        for encoded in cases:
+            with self.subTest(encoded=encoded):
+                with self.assertRaises(osc_types.ParseError):
+                    osc_types.get_blob(b"skip" + encoded, 4)
 
     def test_get_blob_raises_on_wrong_dgram(self):
         cases = [b"", True, b"\x00\x00\x00\x08"]

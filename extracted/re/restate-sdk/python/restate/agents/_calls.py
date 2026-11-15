@@ -26,8 +26,8 @@ send to it, which starts its run once per workflow id, and wait for that run,
 ``run_workflow``.)
 
 A call is kept until the framework's transcript has its result under the
-latest id it was made with (``settle`` checks this at each publish and before
-each tool call). An error in the transcript does not count as the result,
+latest id it was made with (``settle`` checks this after each write of the
+turn's steps that commits, and before each tool call). An error in the transcript does not count as the result,
 unless the call itself returned that error.
 
 A framework's own wait (``wait_for``) is its tool call's alone: the framework
@@ -46,6 +46,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from restate.agents._common import flush_held
 from restate.sessions import SessionContext
 from restate.sessions.internal import Schema, ScopeKey
 
@@ -91,7 +92,12 @@ class _Calls:
 
 
 async def _store(ctx: SessionContext, state: _Calls) -> None:
-    """Store ``state``; it is committed before the call it records is made."""
+    """Store ``state``; it is committed before the call it records is made.
+
+    The rows the conversation holds back are written first: the call outlives the attempt, and what led to it must
+    too.
+    """
+    await flush_held(ctx)
     await ctx.db.execute(
         "INSERT OR REPLACE INTO restate_agent_calls (row, invocation, calls) VALUES (0, ?, ?)",
         [state.invocation, json.dumps(state.calls)],

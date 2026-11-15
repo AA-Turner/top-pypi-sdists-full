@@ -1,6 +1,6 @@
 [project]
 name = "slackblocks"
-version = "3.2.0"
+version = "4.0.0"
 description = "Python wrapper for the Slack Blocks API"
 authors = [
     { name = "Nicholas Lambourne", email = "dev@ndl.im" },
@@ -58,7 +58,7 @@ docs = [
 ]
 
 [build-system]
-requires = ["hatchling<1.33"]
+requires = ["hatchling<1.34"]
 build-backend = "hatchling.build"
 
 [tool.ruff]

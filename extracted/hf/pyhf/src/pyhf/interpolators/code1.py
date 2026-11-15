@@ -1,10 +1,12 @@
 """Piecewise-Exponential Interpolation (Code 1)."""
+
 import logging
 import math
+
 import pyhf
-from pyhf.tensor.manager import get_backend
 from pyhf import events
 from pyhf.interpolators import _slow_interpolator_looper
+from pyhf.tensor.manager import get_backend
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ class code1:
 
         self._precompute()
         if subscribe:
-            events.subscribe('tensorlib_changed')(self._precompute)
+            events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         tensorlib, _ = get_backend()
@@ -53,10 +55,10 @@ class code1:
         self.deltas_dn = tensorlib.astensor(self._deltas_dn)
         self.broadcast_helper = tensorlib.astensor(self._broadcast_helper)
         self.bases_up = tensorlib.einsum(
-            'sa,shb->shab', tensorlib.ones(self.alphasets_shape), self.deltas_up
+            "sa,shb->shab", tensorlib.ones(self.alphasets_shape), self.deltas_up
         )
         self.bases_dn = tensorlib.einsum(
-            'sa,shb->shab', tensorlib.ones(self.alphasets_shape), self.deltas_dn
+            "sa,shb->shab", tensorlib.ones(self.alphasets_shape), self.deltas_dn
         )
         self.mask_on = tensorlib.ones(self.alphasets_shape)
         self.mask_off = tensorlib.zeros(self.alphasets_shape)
@@ -67,10 +69,10 @@ class code1:
         tensorlib, _ = get_backend()
         self.alphasets_shape = alphasets_shape
         self.bases_up = tensorlib.einsum(
-            'sa,shb->shab', tensorlib.ones(self.alphasets_shape), self.deltas_up
+            "sa,shb->shab", tensorlib.ones(self.alphasets_shape), self.deltas_up
         )
         self.bases_dn = tensorlib.einsum(
-            'sa,shb->shab', tensorlib.ones(self.alphasets_shape), self.deltas_dn
+            "sa,shb->shab", tensorlib.ones(self.alphasets_shape), self.deltas_dn
         )
         self.mask_on = tensorlib.ones(self.alphasets_shape)
         self.mask_off = tensorlib.zeros(self.alphasets_shape)
@@ -89,11 +91,11 @@ class code1:
         # h: histogram affected by modifier
         # b: bin of histogram
         exponents = tensorlib.einsum(
-            'sa,shb->shab', tensorlib.abs(alphasets), self.broadcast_helper
+            "sa,shb->shab", tensorlib.abs(alphasets), self.broadcast_helper
         )
         masks = tensorlib.astensor(
             tensorlib.einsum(
-                'sa,shb->shab', where_alphasets_positive, self.broadcast_helper
+                "sa,shb->shab", where_alphasets_positive, self.broadcast_helper
             ),
             dtype="bool",
         )
@@ -106,13 +108,9 @@ class _slow_code1:
     def product(self, down, nom, up, alpha):
         delta_up = up / nom
         delta_down = down / nom
-        if alpha > 0:
-            delta = math.pow(delta_up, alpha)
-        else:
-            delta = math.pow(delta_down, (-alpha))
-        return delta
+        return math.pow(delta_up, alpha) if alpha > 0 else math.pow(delta_down, -alpha)
 
-    def __init__(self, histogramssets, subscribe=True):
+    def __init__(self, histogramssets, subscribe=True):  # noqa: ARG002
         self._histogramssets = histogramssets
 
     def __call__(self, alphasets):

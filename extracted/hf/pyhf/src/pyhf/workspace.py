@@ -5,11 +5,14 @@ pyhf workspaces hold the three data items:
 * the observed data (optional)
 * fit configurations ("measurements")
 """
+
 from __future__ import annotations
 
 import collections
 import copy
+import functools
 import logging
+import operator
 from typing import ClassVar
 
 import jsonpatch
@@ -27,7 +30,7 @@ def __dir__():
     return __all__
 
 
-def _join_items(join, left_items, right_items, key='name', deep_merge_key=None):
+def _join_items(join, left_items, right_items, key="name", deep_merge_key=None):
     """
     Join two lists of dictionaries along the given key.
 
@@ -37,47 +40,52 @@ def _join_items(join, left_items, right_items, key='name', deep_merge_key=None):
         join (:obj:`str`): The join operation to apply. See ~pyhf.workspace.Workspace for valid join operations.
         left_items (:obj:`list`): A list of dictionaries to join on the left
         right_items (:obj:`list`): A list of dictionaries to join on the right
+        key (:obj:`str`): The dictionary key to join on. Its values must be hashable.
         deep_merge_key (:obj:`str`): A key on which to deeply merge items if set.
 
     Returns:
         :obj:`list`: A joined list of dictionaries.
 
     """
-    if join == 'right outer':
+    if join == "right outer":
         primary_items, secondary_items = right_items, left_items
     else:
         primary_items, secondary_items = left_items, right_items
     joined_items = copy.deepcopy(primary_items)
-    keys = [item[key] for item in joined_items]
+    # Snapshot of the primary items grouped by key value, holding the live
+    # objects in joined_items so the deep merge below updates them in place.
+    # Appended secondary items are not added, matching the pre-existing join
+    # semantics: a secondary item is only ever matched against primary items.
+    key_to_items = {}
+    for item in joined_items:
+        key_to_items.setdefault(item[key], []).append(item)
     for secondary_item in secondary_items:
+        # items with different key values can never compare equal, so this
+        # bounds the ``outer`` equality scan below
+        same_key_items = key_to_items.get(secondary_item[key], [])
         # first, check for deep merging
-        if secondary_item[key] in keys and deep_merge_key is not None:
-            _deep_left_items = joined_items[keys.index(secondary_item[key])][
-                deep_merge_key
-            ]
-            _deep_right_items = secondary_item[deep_merge_key]
-            joined_items[keys.index(secondary_item[key])][deep_merge_key] = _join_items(
-                'left outer', _deep_left_items, _deep_right_items
+        if same_key_items and deep_merge_key is not None:
+            primary_item = same_key_items[0]
+            primary_item[deep_merge_key] = _join_items(
+                "left outer",
+                primary_item[deep_merge_key],
+                secondary_item[deep_merge_key],
             )
         # next, move over whole items where possible:
         #   - if no join logic
         #   - if outer join and item on right is not in left
         #   - if left outer join and item (by name) is on right and not in left
         #   - if right outer join and item (by name) is on left and not in right
-        # NB: this will be slow for large numbers of items
         elif (
-            join == 'none'
-            or (join in ['outer'] and secondary_item not in primary_items)
-            or (
-                join in ['left outer', 'right outer']
-                and secondary_item[key] not in keys
-            )
+            join == "none"
+            or (join == "outer" and secondary_item not in same_key_items)
+            or (join in ["left outer", "right outer"] and not same_key_items)
         ):
             joined_items.append(copy.deepcopy(secondary_item))
     return joined_items
 
 
-def _join_versions(join, left_version, right_version):
+def _join_versions(join, left_version, right_version):  # noqa: ARG001
     """
     Join two workspace versions.
 
@@ -94,9 +102,8 @@ def _join_versions(join, left_version, right_version):
 
     """
     if left_version != right_version:
-        raise exceptions.InvalidWorkspaceOperation(
-            f"Workspaces of different versions cannot be combined: {left_version} != {right_version}"
-        )
+        msg = f"Workspaces of different versions cannot be combined: {left_version} != {right_version}"
+        raise exceptions.InvalidWorkspaceOperation(msg)
     return left_version
 
 
@@ -119,28 +126,26 @@ def _join_channels(join, left_channels, right_channels, merge=False):
     """
 
     joined_channels = _join_items(
-        join, left_channels, right_channels, deep_merge_key='samples' if merge else None
+        join, left_channels, right_channels, deep_merge_key="samples" if merge else None
     )
-    if join == 'none':
-        common_channels = {c['name'] for c in left_channels}.intersection(
-            c['name'] for c in right_channels
+    if join == "none":
+        common_channels = {c["name"] for c in left_channels}.intersection(
+            c["name"] for c in right_channels
         )
         if common_channels:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have any channels in common with the same name: {common_channels}. You can also try a different join operation: {Workspace.valid_joins}."
-            )
+            msg = f"Workspaces cannot have any channels in common with the same name: {common_channels}. You can also try a different join operation: {Workspace.valid_joins}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
 
-    elif join == 'outer':
+    elif join == "outer":
         counted_channels = collections.Counter(
-            channel['name'] for channel in joined_channels
+            channel["name"] for channel in joined_channels
         )
         incompatible_channels = [
             channel for channel, count in counted_channels.items() if count > 1
         ]
         if incompatible_channels:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have channels in common with incompatible structure: {incompatible_channels}. You can also try a different join operation: {Workspace.valid_joins}."
-            )
+            msg = f"Workspaces cannot have channels in common with incompatible structure: {incompatible_channels}. You can also try a different join operation: {Workspace.valid_joins}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
     return joined_channels
 
 
@@ -161,18 +166,17 @@ def _join_observations(join, left_observations, right_observations):
 
     """
     joined_observations = _join_items(join, left_observations, right_observations)
-    if join == 'none':
-        common_observations = {obs['name'] for obs in left_observations}.intersection(
-            obs['name'] for obs in right_observations
+    if join == "none":
+        common_observations = {obs["name"] for obs in left_observations}.intersection(
+            obs["name"] for obs in right_observations
         )
         if common_observations:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have any observations in common with the same name: {common_observations}. You can also try a different join operation: {Workspace.valid_joins}."
-            )
+            msg = f"Workspaces cannot have any observations in common with the same name: {common_observations}. You can also try a different join operation: {Workspace.valid_joins}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
 
-    elif join == 'outer':
+    elif join == "outer":
         counted_observations = collections.Counter(
-            observation['name'] for observation in joined_observations
+            observation["name"] for observation in joined_observations
         )
         incompatible_observations = [
             observation
@@ -180,9 +184,8 @@ def _join_observations(join, left_observations, right_observations):
             if count > 1
         ]
         if incompatible_observations:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have observations in common with incompatible structure: {incompatible_observations}. You can also try a different join operation: {Workspace.valid_joins}."
-            )
+            msg = f"Workspaces cannot have observations in common with incompatible structure: {incompatible_observations}. You can also try a different join operation: {Workspace.valid_joins}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
     return joined_observations
 
 
@@ -204,17 +207,16 @@ def _join_parameter_configs(measurement_name, left_parameters, right_parameters)
         :obj:`list`: A joined list of parameter configurations. Each parameter configuration follows the :obj:`defs.json#/definitions/config` schema
 
     """
-    joined_parameter_configs = _join_items('outer', left_parameters, right_parameters)
+    joined_parameter_configs = _join_items("outer", left_parameters, right_parameters)
     counted_parameter_configs = collections.Counter(
-        parameter['name'] for parameter in joined_parameter_configs
+        parameter["name"] for parameter in joined_parameter_configs
     )
     incompatible_parameter_configs = [
         parameter for parameter, count in counted_parameter_configs.items() if count > 1
     ]
     if incompatible_parameter_configs:
-        raise exceptions.InvalidWorkspaceOperation(
-            f"Workspaces cannot have a measurement ({measurement_name}) with incompatible parameter configs: {incompatible_parameter_configs}. You can also try a different join operation: {Workspace.valid_joins}."
-        )
+        msg = f"Workspaces cannot have a measurement ({measurement_name}) with incompatible parameter configs: {incompatible_parameter_configs}. You can also try a different join operation: {Workspace.valid_joins}."
+        raise exceptions.InvalidWorkspaceOperation(msg)
     return joined_parameter_configs
 
 
@@ -235,43 +237,41 @@ def _join_measurements(join, left_measurements, right_measurements):
 
     """
     joined_measurements = _join_items(join, left_measurements, right_measurements)
-    if join == 'none':
-        common_measurements = {meas['name'] for meas in left_measurements}.intersection(
-            meas['name'] for meas in right_measurements
+    if join == "none":
+        common_measurements = {meas["name"] for meas in left_measurements}.intersection(
+            meas["name"] for meas in right_measurements
         )
         if common_measurements:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have any measurements in common with the same name: {common_measurements}. You can also try a different join operation: {Workspace.valid_joins}."
-            )
+            msg = f"Workspaces cannot have any measurements in common with the same name: {common_measurements}. You can also try a different join operation: {Workspace.valid_joins}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
 
-    elif join == 'outer':
+    elif join == "outer":
         # need to store a mapping of measurement name to all measurement objects with that name
         _measurement_mapping = {}
         for measurement in joined_measurements:
-            _measurement_mapping.setdefault(measurement['name'], []).append(measurement)
+            _measurement_mapping.setdefault(measurement["name"], []).append(measurement)
         # first check for incompatible POI
         # then merge parameter configs
         incompatible_poi = [
             measurement_name
             for measurement_name, measurements in _measurement_mapping.items()
-            if len({measurement['config']['poi'] for measurement in measurements}) > 1
+            if len({measurement["config"]["poi"] for measurement in measurements}) > 1
         ]
         if incompatible_poi:
-            raise exceptions.InvalidWorkspaceOperation(
-                f"Workspaces cannot have the same measurements with incompatible POI: {incompatible_poi}."
-            )
+            msg = f"Workspaces cannot have the same measurements with incompatible POI: {incompatible_poi}."
+            raise exceptions.InvalidWorkspaceOperation(msg)
 
         joined_measurements = []
         for measurement_name, measurements in _measurement_mapping.items():
             if len(measurements) != 1:
                 new_measurement = {
-                    'name': measurement_name,
-                    'config': {
-                        'poi': measurements[0]['config']['poi'],
-                        'parameters': _join_parameter_configs(
+                    "name": measurement_name,
+                    "config": {
+                        "poi": measurements[0]["config"]["poi"],
+                        "parameters": _join_parameter_configs(
                             measurement_name,
                             *(
-                                measurement['config']['parameters']
+                                measurement["config"]["parameters"]
                                 for measurement in measurements
                             ),
                         ),
@@ -288,7 +288,7 @@ class Workspace(_ChannelSummaryMixin, dict):
     A JSON-serializable object that is built from an object that follows the :obj:`workspace.json` `schema <https://scikit-hep.org/pyhf/likelihood.html#workspace>`__.
     """
 
-    valid_joins: ClassVar[list[str]] = ['none', 'outer', 'left outer', 'right outer']
+    valid_joins: ClassVar[list[str]] = ["none", "outer", "left outer", "right outer"]
 
     def __init__(self, spec, validate: bool = True, **config_kwargs):
         """
@@ -304,28 +304,29 @@ class Workspace(_ChannelSummaryMixin, dict):
 
         """
         spec = copy.deepcopy(spec)
-        self.schema = config_kwargs.pop('schema', 'workspace.json')
-        self.version = config_kwargs.pop('version', spec.get('version', None))
+        self.schema = config_kwargs.pop("schema", "workspace.json")
+        self.version = config_kwargs.pop("version", spec.get("version", None))
 
         # run jsonschema validation of input specification against the (provided) schema
         if validate:
-            log.info(f"Validating spec against schema: {self.schema}")
+            log.info("Validating spec against schema: %s", self.schema)
             schema.validate(spec, self.schema, version=self.version)
 
-        super().__init__(spec, channels=spec['channels'])
+        super().__init__(spec, channels=spec["channels"])
 
         self.measurement_names = []
-        for measurement in self.get('measurements', []):
-            self.measurement_names.append(measurement['name'])
+        for measurement in self.get("measurements", []):
+            self.measurement_names.append(measurement["name"])
 
         self.observations = {}
-        for obs in self['observations']:
-            self.observations[obs['name']] = obs['data']
+        for obs in self["observations"]:
+            self.observations[obs["name"]] = obs["data"]
 
         if config_kwargs:
-            raise exceptions.Unsupported(
-                f"Unsupported options were passed in: {list(config_kwargs.keys())}."
-            )
+            msg = f"Unsupported options were passed in: {list(config_kwargs)}."
+            raise exceptions.Unsupported(msg)
+
+    __hash__ = None  # type: ignore[assignment]
 
     def __eq__(self, other):
         """Equality is defined as equal dict representations."""
@@ -366,32 +367,31 @@ class Workspace(_ChannelSummaryMixin, dict):
         if self.measurement_names:
             if measurement_name is not None:
                 if measurement_name not in self.measurement_names:
-                    log.debug(f"measurements defined: {self.measurement_names}")
-                    raise exceptions.InvalidMeasurement(
-                        f'no measurement by name \'{measurement_name:s}\' was found in the workspace, pick from one of the valid ones above'
-                    )
-                measurement = self['measurements'][
+                    log.debug("measurements defined: %s", self.measurement_names)
+                    msg = f"no measurement by name '{measurement_name:s}' was found in the workspace, pick from one of the valid ones above"
+                    raise exceptions.InvalidMeasurement(msg)
+                measurement = self["measurements"][
                     self.measurement_names.index(measurement_name)
                 ]
             else:
                 if measurement_index is None and len(self.measurement_names) > 1:
                     log.warning(
-                        'multiple measurements defined. Taking the first measurement.'
+                        "multiple measurements defined. Taking the first measurement."
                     )
 
                 measurement_index = (
                     measurement_index if measurement_index is not None else 0
                 )
                 try:
-                    measurement = self['measurements'][measurement_index]
-                except IndexError:
-                    raise exceptions.InvalidMeasurement(
-                        f"The measurement index {measurement_index} is out of bounds as only {len(self.measurement_names)} measurement(s) have been defined."
-                    )
+                    measurement = self["measurements"][measurement_index]
+                except IndexError as exc:
+                    msg = f"The measurement index {measurement_index} is out of bounds as only {len(self.measurement_names)} measurement(s) have been defined."
+                    raise exceptions.InvalidMeasurement(msg) from exc
         else:
-            raise exceptions.InvalidMeasurement("No measurements have been defined.")
+            msg = "No measurements have been defined."
+            raise exceptions.InvalidMeasurement(msg)
 
-        schema.validate(measurement, 'measurement.json', version=self.version)
+        schema.validate(measurement, "measurement.json", version=self.version)
         return measurement
 
     def model(
@@ -431,13 +431,13 @@ class Workspace(_ChannelSummaryMixin, dict):
         )
 
         # set poi_name if the user does not provide it
-        config_kwargs.setdefault('poi_name', measurement['config']['poi'])
+        config_kwargs.setdefault("poi_name", measurement["config"]["poi"])
 
-        log.debug(f"model being created for measurement {measurement['name']:s}")
+        log.debug("model being created for measurement %s", measurement["name"])
 
         modelspec = {
-            'channels': self['channels'],
-            'parameters': measurement['config']['parameters'],
+            "channels": self["channels"],
+            "parameters": measurement["config"]["parameters"],
         }
 
         patches = patches or []
@@ -464,13 +464,12 @@ class Workspace(_ChannelSummaryMixin, dict):
 
         """
         try:
-            observed_data = sum(
-                (self.observations[c] for c in model.config.channels), []
+            observed_data = functools.reduce(
+                operator.iadd, (self.observations[c] for c in model.config.channels), []
             )
         except KeyError:
-            log.error(
+            log.exception(
                 "Invalid channel: the workspace does not have observation data for one of the channels in the model.",
-                exc_info=True,
             )
             raise
         if include_auxdata:
@@ -539,94 +538,89 @@ class Workspace(_ChannelSummaryMixin, dict):
 
         for modifier_type in prune_modifier_types:
             if modifier_type not in dict(self.modifiers).values():
-                raise exceptions.InvalidWorkspaceOperation(
-                    f"{modifier_type} is not one of the modifier types in this workspace."
-                )
+                msg = f"{modifier_type} is not one of the modifier types in this workspace."
+                raise exceptions.InvalidWorkspaceOperation(msg)
 
-        for modifier_name in (*prune_modifiers, *rename_modifiers.keys()):
+        for modifier_name in (*prune_modifiers, *rename_modifiers):
             if modifier_name not in dict(self.modifiers):
-                raise exceptions.InvalidWorkspaceOperation(
-                    f"{modifier_name} is not one of the modifiers in this workspace."
-                )
+                msg = f"{modifier_name} is not one of the modifiers in this workspace."
+                raise exceptions.InvalidWorkspaceOperation(msg)
 
-        for sample_name in (*prune_samples, *rename_samples.keys()):
+        for sample_name in (*prune_samples, *rename_samples):
             if sample_name not in self.samples:
-                raise exceptions.InvalidWorkspaceOperation(
-                    f"{sample_name} is not one of the samples in this workspace."
-                )
+                msg = f"{sample_name} is not one of the samples in this workspace."
+                raise exceptions.InvalidWorkspaceOperation(msg)
 
-        for channel_name in (*prune_channels, *rename_channels.keys()):
+        for channel_name in (*prune_channels, *rename_channels):
             if channel_name not in self.channels:
-                raise exceptions.InvalidWorkspaceOperation(
-                    f"{channel_name} is not one of the channels in this workspace."
-                )
+                msg = f"{channel_name} is not one of the channels in this workspace."
+                raise exceptions.InvalidWorkspaceOperation(msg)
 
-        for measurement_name in (*prune_measurements, *rename_measurements.keys()):
+        for measurement_name in (*prune_measurements, *rename_measurements):
             if measurement_name not in self.measurement_names:
-                raise exceptions.InvalidWorkspaceOperation(
-                    f"{measurement_name} is not one of the measurements in this workspace."
-                )
+                msg = f"{measurement_name} is not one of the measurements in this workspace."
+                raise exceptions.InvalidWorkspaceOperation(msg)
 
         newspec = {
-            'channels': [
+            "channels": [
                 {
-                    'name': rename_channels.get(channel['name'], channel['name']),
-                    'samples': [
+                    "name": rename_channels.get(channel["name"], channel["name"]),
+                    "samples": [
                         {
-                            'name': rename_samples.get(sample['name'], sample['name']),
-                            'data': sample['data'],
-                            'modifiers': [
+                            "name": rename_samples.get(sample["name"], sample["name"]),
+                            "data": sample["data"],
+                            "modifiers": [
                                 dict(
                                     modifier,
                                     name=rename_modifiers.get(
-                                        modifier['name'], modifier['name']
+                                        modifier["name"], modifier["name"]
                                     ),
                                 )
-                                for modifier in sample['modifiers']
-                                if modifier['name'] not in prune_modifiers
-                                and modifier['type'] not in prune_modifier_types
+                                for modifier in sample["modifiers"]
+                                if modifier["name"] not in prune_modifiers
+                                and modifier["type"] not in prune_modifier_types
                             ],
                         }
-                        for sample in channel['samples']
-                        if sample['name'] not in prune_samples
+                        for sample in channel["samples"]
+                        if sample["name"] not in prune_samples
                     ],
                 }
-                for channel in self['channels']
-                if channel['name'] not in prune_channels
+                for channel in self["channels"]
+                if channel["name"] not in prune_channels
             ],
-            'measurements': [
+            "measurements": [
                 {
-                    'name': rename_measurements.get(
-                        measurement['name'], measurement['name']
+                    "name": rename_measurements.get(
+                        measurement["name"], measurement["name"]
                     ),
-                    'config': {
-                        'parameters': [
+                    "config": {
+                        "parameters": [
                             dict(
                                 parameter,
                                 name=rename_modifiers.get(
-                                    parameter['name'], parameter['name']
+                                    parameter["name"], parameter["name"]
                                 ),
                             )
-                            for parameter in measurement['config']['parameters']
-                            if parameter['name'] not in prune_modifiers
+                            for parameter in measurement["config"]["parameters"]
+                            if parameter["name"] not in prune_modifiers
                         ],
-                        'poi': rename_modifiers.get(
-                            measurement['config']['poi'], measurement['config']['poi']
+                        "poi": rename_modifiers.get(
+                            measurement["config"]["poi"], measurement["config"]["poi"]
                         ),
                     },
                 }
-                for measurement in self['measurements']
-                if measurement['name'] not in prune_measurements
+                for measurement in self["measurements"]
+                if measurement["name"] not in prune_measurements
             ],
-            'observations': [
+            "observations": [
                 dict(
                     copy.deepcopy(observation),
-                    name=rename_channels.get(observation['name'], observation['name']),
+                    name=rename_channels.get(observation["name"], observation["name"]),
                 )
-                for observation in self['observations']
-                if observation['name'] not in prune_channels
+                for observation in self["observations"]
+                if observation["name"] not in prune_channels
             ],
-            'version': self['version'],
+            "version": self["version"],
         }
         return Workspace(newspec)
 
@@ -706,7 +700,9 @@ class Workspace(_ChannelSummaryMixin, dict):
         )
 
     @classmethod
-    def combine(cls, left, right, join='none', merge_channels=False):
+    def combine(
+        cls, left, right, join="none", merge_channels=False, validate: bool = True
+    ):
         """
         Return a new workspace specification that is the combination of the two workspaces.
 
@@ -733,44 +729,43 @@ class Workspace(_ChannelSummaryMixin, dict):
             right (~pyhf.workspace.Workspace): Another workspace
             join (:obj:`str`): How to join the two workspaces. Pick from "none", "outer", "left outer", or "right outer".
             merge_channels (:obj:`bool`): Whether or not to merge channels when performing the combine. This is only done with "outer", "left outer", and "right outer" options.
+            validate (:obj:`bool`): Whether to validate against a JSON schema.
 
         Returns:
             ~pyhf.workspace.Workspace: A new combined workspace object
 
         """
         if join not in Workspace.valid_joins:
-            raise ValueError(
-                f"Workspaces must be joined using one of the valid join operations ({Workspace.valid_joins}); not {join}"
-            )
+            msg = f"Workspaces must be joined using one of the valid join operations ({Workspace.valid_joins}); not {join}"
+            raise ValueError(msg)
 
-        if merge_channels and join not in ['outer', 'left outer', 'right outer']:
-            raise ValueError(
-                f"You can only merge channels using the 'outer', 'left outer', or 'right outer' join operations; not {join}"
-            )
+        if merge_channels and join not in ["outer", "left outer", "right outer"]:
+            msg = f"You can only merge channels using the 'outer', 'left outer', or 'right outer' join operations; not {join}"
+            raise ValueError(msg)
 
-        if join in ['left outer', 'right outer']:
+        if join in ["left outer", "right outer"]:
             log.warning(
                 "You are using an unsafe join operation. This will silence exceptions that might be raised during a normal 'outer' operation."
             )
 
-        new_version = _join_versions(join, left['version'], right['version'])
+        new_version = _join_versions(join, left["version"], right["version"])
         new_channels = _join_channels(
-            join, left['channels'], right['channels'], merge=merge_channels
+            join, left["channels"], right["channels"], merge=merge_channels
         )
         new_observations = _join_observations(
-            join, left['observations'], right['observations']
+            join, left["observations"], right["observations"]
         )
         new_measurements = _join_measurements(
-            join, left['measurements'], right['measurements']
+            join, left["measurements"], right["measurements"]
         )
 
         newspec = {
-            'channels': new_channels,
-            'measurements': new_measurements,
-            'observations': new_observations,
-            'version': new_version,
+            "channels": new_channels,
+            "measurements": new_measurements,
+            "observations": new_observations,
+            "version": new_version,
         }
-        return cls(newspec)
+        return cls(newspec, validate=validate)
 
     @classmethod
     def sorted(cls, workspace):
@@ -786,22 +781,22 @@ class Workspace(_ChannelSummaryMixin, dict):
         """
         newspec = copy.deepcopy(dict(workspace))
 
-        newspec['channels'].sort(key=lambda e: e['name'])
-        for channel in newspec['channels']:
-            channel['samples'].sort(key=lambda e: e['name'])
-            for sample in channel['samples']:
-                sample['modifiers'].sort(key=lambda e: (e['name'], e['type']))
+        newspec["channels"].sort(key=lambda e: e["name"])
+        for channel in newspec["channels"]:
+            channel["samples"].sort(key=lambda e: e["name"])
+            for sample in channel["samples"]:
+                sample["modifiers"].sort(key=lambda e: (e["name"], e["type"]))
 
-        newspec['measurements'].sort(key=lambda e: e['name'])
-        for measurement in newspec['measurements']:
-            measurement['config']['parameters'].sort(key=lambda e: e['name'])
+        newspec["measurements"].sort(key=lambda e: e["name"])
+        for measurement in newspec["measurements"]:
+            measurement["config"]["parameters"].sort(key=lambda e: e["name"])
 
-        newspec['observations'].sort(key=lambda e: e['name'])
+        newspec["observations"].sort(key=lambda e: e["name"])
 
         return cls(newspec)
 
     @classmethod
-    def build(cls, model, data, name='measurement', validate: bool = True):
+    def build(cls, model, data, name="measurement", validate: bool = True):
         """
         Build a workspace from model and data.
 
@@ -815,21 +810,21 @@ class Workspace(_ChannelSummaryMixin, dict):
             ~pyhf.workspace.Workspace: A new workspace object
 
         """
-        workspace = copy.deepcopy(dict(channels=model.spec['channels']))
-        workspace['version'] = schema.version
-        workspace['measurements'] = [
+        workspace = copy.deepcopy({"channels": model.spec["channels"]})
+        workspace["version"] = schema.version
+        workspace["measurements"] = [
             {
-                'name': name,
-                'config': {
-                    'poi': model.config.poi_name,
-                    'parameters': [
+                "name": name,
+                "config": {
+                    "poi": model.config.poi_name,
+                    "parameters": [
                         {
                             "bounds": [
                                 list(x)
-                                for x in parset_spec['paramset'].suggested_bounds
+                                for x in parset_spec["paramset"].suggested_bounds
                             ],
-                            "inits": parset_spec['paramset'].suggested_init,
-                            "fixed": parset_spec['paramset'].suggested_fixed_as_bool,
+                            "inits": parset_spec["paramset"].suggested_init,
+                            "fixed": parset_spec["paramset"].suggested_fixed_as_bool,
                             "name": parset_name,
                         }
                         for parset_name, parset_spec in model.config.par_map.items()
@@ -837,8 +832,8 @@ class Workspace(_ChannelSummaryMixin, dict):
                 },
             }
         ]
-        workspace['observations'] = [
-            {'name': k, 'data': list(data[model.config.channel_slices[k]])}
+        workspace["observations"] = [
+            {"name": k, "data": list(data[model.config.channel_slices[k]])}
             for k in model.config.channels
         ]
         return cls(workspace, validate=validate)

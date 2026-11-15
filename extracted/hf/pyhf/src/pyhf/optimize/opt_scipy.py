@@ -1,7 +1,9 @@
 """SciPy Optimizer Class."""
+
+import scipy
+
 from pyhf import exceptions
 from pyhf.optimize.mixins import OptimizerMixin
-import scipy
 
 
 class scipy_optimizer(OptimizerMixin):
@@ -9,7 +11,7 @@ class scipy_optimizer(OptimizerMixin):
     Optimizer that uses :func:`scipy.optimize.minimize`.
     """
 
-    __slots__ = ['name', 'tolerance', 'solver_options']
+    __slots__ = ["name", "solver_options", "tolerance"]
 
     def __init__(self, *args, **kwargs):
         """
@@ -25,19 +27,19 @@ class scipy_optimizer(OptimizerMixin):
                 :func:`scipy.optimize.show_options` for additional options of
                 optimization solvers.
         """
-        self.name = 'scipy'
-        self.tolerance = kwargs.pop('tolerance', None)
-        self.solver_options = kwargs.pop('solver_options', {})
+        self.name = "scipy"
+        self.tolerance = kwargs.pop("tolerance", None)
+        self.solver_options = kwargs.pop("solver_options", {})
         super().__init__(*args, **kwargs)
 
     def _get_minimizer(
         self,
-        objective_and_grad,
-        init_pars,
-        init_bounds,
-        fixed_vals=None,
-        do_grad=False,
-        par_names=None,
+        objective_and_grad,  # noqa: ARG002
+        init_pars,  # noqa: ARG002
+        init_bounds,  # noqa: ARG002
+        fixed_vals=None,  # noqa: ARG002
+        do_grad=False,  # noqa: ARG002
+        par_names=None,  # noqa: ARG002
     ):
         return scipy.optimize.minimize
 
@@ -49,7 +51,7 @@ class scipy_optimizer(OptimizerMixin):
         do_grad=False,
         bounds=None,
         fixed_vals=None,
-        options={},
+        options=None,
     ):
         """
         Same signature as :func:`scipy.optimize.minimize`.
@@ -69,21 +71,22 @@ class scipy_optimizer(OptimizerMixin):
         Returns:
             fitresult (scipy.optimize.OptimizeResult): the fit result
         """
-        maxiter = options.pop('maxiter', self.maxiter)
-        verbose = options.pop('verbose', self.verbose)
-        method = options.pop('method', 'SLSQP')
-        tolerance = options.pop('tolerance', self.tolerance)
-        solver_options = options.pop('solver_options', self.solver_options)
+        if options is None:
+            options = {}
+        maxiter = options.pop("maxiter", self.maxiter)
+        verbose = options.pop("verbose", self.verbose)
+        method = options.pop("method", "SLSQP")
+        tolerance = options.pop("tolerance", self.tolerance)
+        solver_options = options.pop("solver_options", self.solver_options)
         if options:
-            raise exceptions.Unsupported(
-                f"Unsupported options were passed in: {list(options.keys())}."
-            )
+            msg = f"Unsupported options were passed in: {list(options)}."
+            raise exceptions.Unsupported(msg)
 
         fixed_vals = fixed_vals or []
         indices = [i for i, _ in fixed_vals]
         values = [v for _, v in fixed_vals]
         if fixed_vals:
-            constraints = [{'type': 'eq', 'fun': lambda v: v[indices] - values}]
+            constraints = [{"type": "eq", "fun": lambda v: v[indices] - values}]
             # update the initial values to the fixed value for any fixed parameter
             for idx, fixed_val in fixed_vals:
                 x0[idx] = fixed_val

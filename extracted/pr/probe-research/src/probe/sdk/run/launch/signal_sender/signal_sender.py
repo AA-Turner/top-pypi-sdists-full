@@ -21,13 +21,15 @@ _ENVIRON_CAP_BYTES = 1 << 20
 
 @dataclass(frozen=True)
 class Sent:
-    """The last sender of a signal: its pid, real uid and ``si_code``, and this process's parent
-    when it arrived (a supervisor that signals and exits leaves this process reparented)."""
+    """The last sender of a signal: its pid, real uid and ``si_code``, this process's parent when
+    it arrived, and its parent when the recorder was first armed (a supervisor that signals and
+    exits can leave this process reparented before the signal even lands)."""
 
     pid: int
     uid: int
     code: int
     parent: int = -1
+    armed_parent: int = -1
 
     def is_another_local_process(self) -> bool:
         """Sent with kill() by another process of this user in this pid namespace: not the kernel
@@ -35,7 +37,7 @@ class Sent:
         (outside this pid namespace: a container runtime, the kubelet) and not 1 (init)."""
         if self.code > 0 or self.uid != os.getuid():
             return False
-        return self.pid not in (0, 1, os.getpid(), self.parent, os.getppid())
+        return self.pid not in (0, 1, os.getpid(), self.parent, self.armed_parent, os.getppid())
 
 
 class SignalSender:
@@ -60,6 +62,8 @@ class SignalSender:
         #: Per signal, the delivery count already read (or current when re-armed): only a newer
         #: delivery is this signal's sender.
         self._read_counts: dict[int, int] = {}
+        #: (this process, its parent) at the first arm: a fork arms again with its own.
+        self._armed_by: tuple[int, int] | None = None
 
     def install(self, signum: int) -> bool:
         """Stand in front of the handler ``signum`` has now. Again after a ``signal.signal`` put
@@ -68,6 +72,8 @@ class SignalSender:
         if result == 2:
             # Newly in front: what arrived while it was not is no sender of a later signal.
             self._read_counts[int(signum)] = self._read_count(int(signum))
+        if result in (1, 2) and (self._armed_by is None or self._armed_by[0] != os.getpid()):
+            self._armed_by = (os.getpid(), os.getppid())
         return result in (1, 2)
 
     def read_last(self, signum: int) -> Sent | None:
@@ -86,7 +92,10 @@ class SignalSender:
         count = int(self._last(
             signum, ctypes.byref(pid), ctypes.byref(uid), ctypes.byref(code), ctypes.byref(parent)
         ))
-        return count, Sent(pid=pid.value, uid=uid.value, code=code.value, parent=parent.value)
+        armed = self._armed_by
+        armed_parent = armed[1] if armed is not None and armed[0] == os.getpid() else -1
+        return count, Sent(pid=pid.value, uid=uid.value, code=code.value, parent=parent.value,
+                           armed_parent=armed_parent)
 
     def _read_count(self, signum: int) -> int:
         return self._read_raw(signum)[0]

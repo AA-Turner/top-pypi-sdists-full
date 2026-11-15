@@ -1,12 +1,12 @@
 '''UEFI Firmware parser utils.
 '''
-import os
-
 from . import uefi
+from .uefi import MultiVolumeContainer
 
 from .misc import checker
 from .base import FirmwareObject, RawObject, AutoRawObject
-from .utils import search_firmware_volumes
+from .utils import limit_nesting, nesting_limit_reached, \
+    search_firmware_volumes
 
 
 class AutoParser(object):
@@ -24,17 +24,23 @@ class AutoParser(object):
     the type by applying basic checks for known headers.
     '''
 
-    def __init__(self, data, search=True):
+    def __init__(self, data, search=True, base=0):
         '''Create an AutoParser instance.
 
         Args:
             data (binary): The entire input file contents.
             search (Optional[bool]): Allow brute-force discovery of volumes.
+            base (Optional[int]): The offset of data in the input file, when
+                it follows other objects.
         '''
         self.data_type = 'unknown'
         self.constructor = None
         self.firmware = None
+        self.base = base
         self.offset = 0
+        # The end of a volume that was found but failed to process. Its bytes,
+        # and any volume inside them, have already been parsed once.
+        self.failed_end = 0
 
         if search:
             self.offset = 0
@@ -44,9 +50,8 @@ class AutoParser(object):
                 data = data[self.offset:]
         self.data = data
 
-        header = data[:200]
         for tester in checker.TESTERS:
-            if tester().match(header):
+            if tester().match(data[:tester.header_size]):
                 self.data_type = tester().name
                 self.constructor = tester().parser
 
@@ -60,6 +65,7 @@ class AutoParser(object):
         '''
         return self.data_type
 
+    @limit_nesting(None)
     def parse(self):
         '''Call the 'process' method for the discovered type using the input
         file contents. If the file type's parser returns False indicating a
@@ -75,35 +81,54 @@ class AutoParser(object):
 
         # Instantiate an instance of the firmware object
         self.firmware = self.constructor(self.data)
+        refused = nesting_limit_reached()
         if not self.firmware.process():
-            # Parsing failed, remove the object reference.
+            # Parsing failed, remove the object reference. A volume the
+            # nesting limit refused was not parsed, so a caller nearer the
+            # top may still parse it.
+            if isinstance(self.firmware, uefi.FirmwareVolume) and not refused:
+                self.failed_end = self.offset + self.firmware.size
             self.firmware = None
             return None
 
+        if self.base > 0 and isinstance(self.firmware, uefi.FirmwareVolume):
+            # Volumes are named by offset, and each one found after the
+            # first would otherwise be named 0 and dump to the same path.
+            self.firmware.name = hex(self.base + self.offset)
+
         objs = [self.firmware]
         size = self.firmware.size
+        if size <= 0:
+            # Without the object's extent, the trailing data would be parsed
+            # again from the same offset.
+            return self.firmware
 
+        tried = 0
         while size < len(self.data):
-            raw = AutoRawObject(self.data[size:])
-            if raw.process():
-                size += raw.object.size
-                objs.append(raw.object)
-            else:
+            raw = AutoRawObject(
+                self.data[size:], offset=self.base + self.offset + size)
+            if not raw.process() or raw.object.size <= 0:
+                # An object that covers no bytes would be found again here.
+                # Parsing a volume that failed again would double the work
+                # at each level of nesting.
+                tried = raw.failed_end
                 break
+            size += raw.object.size
+            objs.append(raw.object)
 
-        mfc = MultiVolumeContainer(self.data[size:])
+        mfc = MultiVolumeContainer(self.data[size:], start=tried)
         if mfc.has_indexes():
             # Headers were discovered, attempt to process.
             if mfc.process():
                 size += mfc.size
                 # Add the base (first) firmware volume
-                objs = objs + mfc.volumes
+                objs = objs + mfc.objects
 
         if size < len(self.data):
             objs.append(RawObject(self.data[size:]))
 
         if self.offset > 0:
-            objs = [RawObject('\xFF' * self.offset)] + objs
+            objs = [RawObject(b'\xFF' * self.offset)] + objs
 
         if len(objs) == 1:
             return objs[0]
@@ -150,61 +175,10 @@ class MultiObject(FirmwareObject):
             self.objs[i].dump(parent, i)
 
 
-class MultiVolumeContainer(FirmwareObject):
-    '''The AutoParser attempts to search for 'stacked' UEFIFirmwareVolumes.
-
-    By default if a volume does not consist of the entire input content the
-    AutoParser will attempt to search for additional volume headers. This can
-    be disabled with the associated 'search' optional parameter.
-
-    If additional volumes are discovered this MultiVolumeContainer is returned
-    instead of a UEFIFirmwareVolume.
-    '''
-
-    def __init__(self, data):
-        '''Initialize the container with the tail content from a volume.'''
-        self.data = data
-        self.indexes = search_firmware_volumes(data)
-        self.volumes = []
-        self.size = 0
-
-    def has_indexes(self):
-        '''Check if any indexes were discovered.'''
-        return len(self.indexes) > 0
-
-    def append_base(self, volume):
-        '''Set the base volume as the first within the list.'''
-        self.volumes = [volume] + self.volumes
-
-    def process(self):
-        for index in self.indexes:
-            volume = uefi.FirmwareVolume(self.data[index - 40:], index)
-            if volume.process():
-                self.size += volume.size
-                self.volumes.append(volume)
-        valid = len(self.volumes) > 0
-        return valid
-
-    @property
-    def objects(self):
-        return self.volumes
-
-    def showinfo(self, ts='', index=None):
-        '''Write structure information to stdout.'''
-        for volume in self.volumes:
-            volume.showinfo(ts, index)
-
-    def dump(self, parent, index=None):
-        '''Allow a caller to dump the content of volumes.'''
-        for i, volume in enumerate(self.volumes):
-            path = os.path.join(parent, "volume-%d" % i)
-            volume.dump(path)
-
-
 __title__ = "uefi_firmware"
 try:
     from ._version import version as __version__
 except ImportError:
     __version__ = "0.1.0+unknown"
 __author__ = "UEFI Firmware Parser developers"
-__license__ = "BSD"
+__license__ = "MIT"

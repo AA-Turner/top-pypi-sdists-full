@@ -15,11 +15,125 @@ if TYPE_CHECKING:
     from .._client import AnyAPI
 
 
+class CompanyEnrichmentAviatoInput(TypedDict, total=False):
+    """Input for Company Enrichment - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoFinancialsInput(TypedDict, total=False):
+    """Input for Company Financials - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoFoundersInput(TypedDict, total=False):
+    """Input for Company Founders - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoFundingRoundsInput(TypedDict, total=False):
+    """Input for Company Funding Rounds - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoSocialMetricsInput(TypedDict, total=False):
+    """Input for Company Social Metrics - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoWebTrafficInput(TypedDict, total=False):
+    """Input for Company Web Traffic - Aviato."""
+
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    companyId: NotRequired[str]
+    """Aviato company id, as any Aviato SKU's companyId output returns it."""
+    domain: NotRequired[str]
+    """Company website domain, e.g. posthog.com. A full URL works too; only its host is sent."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    linkedinUrl: NotRequired[str]
+    """LinkedIn company page URL, e.g. https://www.linkedin.com/company/posthog."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
 class CompanyEnrichmentCrustdataInput(TypedDict, total=False):
     """Input for Company Enrichment - Crustdata."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     companyDomain: NotRequired[str]
     companyId: NotRequired[Any]
     companyLinkedinUrl: NotRequired[str]
@@ -27,22 +141,22 @@ class CompanyEnrichmentCrustdataInput(TypedDict, total=False):
     exactMatch: NotRequired[bool]
     fields: NotRequired[Any]
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanyEnrichmentDatalegionInput(TypedDict, total=False):
     """Input for Company Enrichment - Data Legion."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     domain: NotRequired[str]
     """Company website domain, e.g. hubspot.com. The strongest identifier. Send either domain or name, not both."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     minConfidence: NotRequired[Literal["high", "moderate", "low"]]
     """Lowest match confidence that still counts as found. Omit it for Data Legion's default."""
     name: NotRequired[str]
@@ -52,14 +166,14 @@ class CompanyEnrichmentDatalegionInput(TypedDict, total=False):
     required: NotRequired[str]
     """Fields a match must have, as a Data Legion expression over its snake_case field names combined with AND, OR and parentheses, e.g. linkedin_url AND founded. A match without them counts as not found."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanyEnrichmentLushaInput(TypedDict, total=False):
     """Input for Company Enrichment - Lusha."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     company: NotRequired[str]
     """Company name to look up when you have no domain."""
     companyId: NotRequired[str]
@@ -67,24 +181,24 @@ class CompanyEnrichmentLushaInput(TypedDict, total=False):
     domain: NotRequired[str]
     """Company domain, e.g. posthog.com. Send the bare domain, without a scheme or www."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
 
 
 class CompanyEnrichmentPeopledatalabsInput(TypedDict, total=False):
     """Input for Company Enrichment - People Data Labs."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     dataInclude: NotRequired[str]
     """Comma-separated People Data Labs fields to include, or a leading - list to exclude. Projection changes the payload only; it does not reduce what the call costs."""
     domain: NotRequired[str]
     """Company website domain, e.g. posthog.com. The strongest identifier."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     includeIfMatched: NotRequired[bool]
     """Report which of the sent identifiers actually matched."""
     minLikelihood: NotRequired[int]
@@ -96,7 +210,7 @@ class CompanyEnrichmentPeopledatalabsInput(TypedDict, total=False):
     required: NotRequired[str]
     """People Data Labs boolean expression over top-level fields that a match must satisfy, e.g. website and industry."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     titlecase: NotRequired[bool]
     """Return text in title case instead of People Data Labs' lowercase default."""
 
@@ -105,7 +219,7 @@ class CompanyEnrichmentProspeoInput(TypedDict, total=False):
     """Input for Company Enrichment - Prospeo."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     companyId: NotRequired[str]
     """Prospeo's own company identifier, as returned by this SKU's companyId output."""
     companyLinkedinUrl: NotRequired[str]
@@ -115,11 +229,772 @@ class CompanyEnrichmentProspeoInput(TypedDict, total=False):
     companyWebsite: NotRequired[str]
     """Company domain, e.g. stripe.com. The most reliable identifier."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class CompanyEnrichmentAviatoData(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    alternate_names: list[str] | None = Field(
+        default=None,
+        alias="alternateNames",
+        description="Other names the company is known by.",
+    )
+    city: str | None = Field(default=None, description="Headquarters city.")
+    company_id: str | None = Field(
+        default=None,
+        alias="companyId",
+        description="Aviato company id. Send it back as the companyId input of any Aviato company SKU.",
+    )
+    country: str | None = Field(default=None, description="Headquarters country.")
+    crunchbase_url: str | None = Field(
+        default=None, alias="crunchbaseUrl", description="Crunchbase profile URL."
+    )
+    customer_types: list[str] | None = Field(
+        default=None,
+        alias="customerTypes",
+        description="Customer types served, e.g. B2B.",
+    )
+    description: str | None = Field(default=None, description="Company description.")
+    domain: str | None = Field(default=None, description="Primary website domain.")
+    employees_max: int | None = Field(
+        default=None,
+        alias="employeesMax",
+        description="High end of the company's stated employee range.",
+    )
+    employees_min: int | None = Field(
+        default=None,
+        alias="employeesMin",
+        description="Low end of the company's stated employee range.",
+    )
+    facebook_likes: int | None = Field(
+        default=None, alias="facebookLikes", description="Facebook page likes."
+    )
+    facebook_url: str | None = Field(
+        default=None, alias="facebookUrl", description="Facebook page URL."
+    )
+    financing_status: str | None = Field(
+        default=None,
+        alias="financingStatus",
+        description="Financing status, e.g. Venture Capital-Backed.",
+    )
+    founded_utc: float | None = Field(
+        default=None,
+        alias="foundedUtc",
+        description="When the company was founded. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    funding_round_count: int | None = Field(
+        default=None, alias="fundingRoundCount", description="Number of funding rounds."
+    )
+    headcount: int | None = Field(default=None, description="Current employee count.")
+    headcount_growth: CompanyEnrichmentAviatoHeadcountGrowth | None = Field(
+        default=None,
+        alias="headcountGrowth",
+        description="Headcount change over recent periods.",
+    )
+    headcount_history: list[CompanyEnrichmentAviatoHeadcountHistory] | None = Field(
+        default=None,
+        alias="headcountHistory",
+        description="Monthly headcount history, oldest first.",
+    )
+    industries: list[str] | None = Field(
+        default=None, description="Aviato industry labels, e.g. Software & SaaS."
+    )
+    investor_count: int | None = Field(
+        default=None, alias="investorCount", description="Number of investors."
+    )
+    is_acquired: bool | None = Field(
+        default=None,
+        alias="isAcquired",
+        description="True when the company has been acquired.",
+    )
+    is_exited: bool | None = Field(
+        default=None, alias="isExited", description="True when the company has exited."
+    )
+    is_government: bool | None = Field(
+        default=None, alias="isGovernment", description="True for a government body."
+    )
+    is_non_profit: bool | None = Field(
+        default=None, alias="isNonProfit", description="True for a non-profit."
+    )
+    is_shut_down: bool | None = Field(
+        default=None,
+        alias="isShutDown",
+        description="True when the company has shut down.",
+    )
+    job_openings: list[CompanyEnrichmentAviatoJobOpening] | None = Field(
+        default=None, alias="jobOpenings", description="Open job listings."
+    )
+    latest_deal_amount_usd: float | None = Field(
+        default=None,
+        alias="latestDealAmountUsd",
+        description="Size of the latest deal, in USD.",
+    )
+    latest_deal_type: str | None = Field(
+        default=None,
+        alias="latestDealType",
+        description="Type of the latest deal, e.g. Series E.",
+    )
+    latest_deal_utc: float | None = Field(
+        default=None,
+        alias="latestDealUtc",
+        description="When the latest deal closed. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    legal_name: str | None = Field(
+        default=None, alias="legalName", description="Registered legal name."
+    )
+    linkedin_company_id: str | None = Field(
+        default=None,
+        alias="linkedinCompanyId",
+        description="LinkedIn's own numeric identifier for the company page.",
+    )
+    linkedin_followers: int | None = Field(
+        default=None, alias="linkedinFollowers", description="LinkedIn followers."
+    )
+    linkedin_industries: list[str] | None = Field(
+        default=None,
+        alias="linkedinIndustries",
+        description="Industries the company lists on LinkedIn.",
+    )
+    linkedin_url: str | None = Field(
+        default=None, alias="linkedinUrl", description="LinkedIn company page URL."
+    )
+    linkedin_username: str | None = Field(
+        default=None,
+        alias="linkedinUsername",
+        description="LinkedIn company page vanity name.",
+    )
+    monthly_web_visits: int | None = Field(
+        default=None,
+        alias="monthlyWebVisits",
+        description="Estimated website visits in the latest month.",
+    )
+    name: str | None = Field(description="Company name.")
+    offices: list[CompanyEnrichmentAviatoOffice] | None = Field(
+        default=None, description="Office locations."
+    )
+    ownership_status: str | None = Field(
+        default=None,
+        alias="ownershipStatus",
+        description="Ownership status, e.g. Privately Held (backing).",
+    )
+    region: str | None = Field(
+        default=None, description="Headquarters state or region."
+    )
+    revenue: CompanyEnrichmentAviatoRevenue | None = Field(
+        default=None,
+        description="Estimated annual revenue range in USD, or null when Aviato holds no estimate.",
+    )
+    status: str | None = Field(
+        default=None, description="Operating status, e.g. active."
+    )
+    tagline: str | None = Field(default=None, description="One-line tagline.")
+    target_markets: list[str] | None = Field(
+        default=None,
+        alias="targetMarkets",
+        description="Target markets, e.g. business.",
+    )
+    technologies: list[str] | None = Field(
+        default=None, description="Technologies the company is seen using."
+    )
+    total_funding_usd: float | None = Field(
+        default=None,
+        alias="totalFundingUsd",
+        description="Total funding raised, in USD.",
+    )
+    twitter_followers: int | None = Field(
+        default=None, alias="twitterFollowers", description="X (Twitter) followers."
+    )
+    twitter_url: str | None = Field(
+        default=None, alias="twitterUrl", description="X (Twitter) profile URL."
+    )
+    website: str | None = Field(default=None, description="Company website URL.")
+
+
+class CompanyEnrichmentAviatoHeadcountGrowth(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    monthly_change: float | None = Field(
+        default=None,
+        alias="monthlyChange",
+        description="Change in headcount over the last month.",
+    )
+    monthly_percent: float | None = Field(
+        default=None,
+        alias="monthlyPercent",
+        description="Change in headcount over the last month, as a fraction (0.18 is 18 percent).",
+    )
+    quarterly_change: float | None = Field(
+        default=None,
+        alias="quarterlyChange",
+        description="Change in headcount over the last three months.",
+    )
+    quarterly_percent: float | None = Field(
+        default=None,
+        alias="quarterlyPercent",
+        description="Change in headcount over the last three months, as a fraction (0.18 is 18 percent).",
+    )
+    yearly_change: float | None = Field(
+        default=None,
+        alias="yearlyChange",
+        description="Change in headcount over the last year.",
+    )
+    yearly_percent: float | None = Field(
+        default=None,
+        alias="yearlyPercent",
+        description="Change in headcount over the last year, as a fraction (0.18 is 18 percent).",
+    )
+
+
+class CompanyEnrichmentAviatoHeadcountHistory(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    headcount: int | None = Field(
+        default=None, description="Employee count that month."
+    )
+    month_utc: float | None = Field(
+        default=None,
+        alias="monthUtc",
+        description="Start of the month. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+
+
+class CompanyEnrichmentAviatoJobOpening(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    is_remote: bool | None = Field(
+        default=None, alias="isRemote", description="True when the job is remote."
+    )
+    title: str | None = Field(default=None, description="Job title.")
+    url: str | None = Field(default=None, description="Job listing URL.")
+
+
+class CompanyEnrichmentAviatoOffice(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    city: str | None = Field(default=None, description="Office city.")
+    country: str | None = Field(
+        default=None, description="Office country code, e.g. US."
+    )
+    headquarters: bool | None = Field(
+        default=None, description="True for the headquarters."
+    )
+    latitude: float | None = Field(default=None, description="Latitude.")
+    longitude: float | None = Field(default=None, description="Longitude.")
+
+
+class CompanyEnrichmentAviatoRevenue(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    band: str | None = Field(default=None, description="Revenue band, e.g. $10M-$50M.")
+    confidence: str | None = Field(
+        default=None, description="Aviato's confidence in the estimate, e.g. high."
+    )
+    high_usd: float | None = Field(
+        default=None, alias="highUsd", description="High end of the estimate, in USD."
+    )
+    low_usd: float | None = Field(
+        default=None, alias="lowUsd", description="Low end of the estimate, in USD."
+    )
+    mid_usd: float | None = Field(
+        default=None, alias="midUsd", description="Midpoint of the estimate, in USD."
+    )
+
+
+class CompanyEnrichmentAviatoFinancialsData(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    acquisition_count: int | None = Field(
+        default=None,
+        alias="acquisitionCount",
+        description="Number of companies this company has acquired.",
+    )
+    financing_status: str | None = Field(
+        default=None,
+        alias="financingStatus",
+        description="Financing status, e.g. Venture Capital-Backed.",
+    )
+    funding_rounds: list[CompanyEnrichmentAviatoFinancialsFundingRound] | None = Field(
+        default=None,
+        alias="fundingRounds",
+        description="Every funding round Aviato holds for the company.",
+    )
+    investor_count: int | None = Field(
+        default=None, alias="investorCount", description="Number of investors."
+    )
+    latest_deal_amount_usd: float | None = Field(
+        default=None,
+        alias="latestDealAmountUsd",
+        description="Size of the latest deal, in USD.",
+    )
+    latest_deal_type: str | None = Field(
+        default=None,
+        alias="latestDealType",
+        description="Type of the latest deal, e.g. Series E.",
+    )
+    latest_deal_utc: float | None = Field(
+        default=None,
+        alias="latestDealUtc",
+        description="When the latest deal closed. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    lead_investor_count: int | None = Field(
+        default=None,
+        alias="leadInvestorCount",
+        description="Number of investors that led a round.",
+    )
+    ownership_status: str | None = Field(
+        default=None,
+        alias="ownershipStatus",
+        description="Ownership status, e.g. Privately Held (backing).",
+    )
+    revenue: CompanyEnrichmentAviatoFinancialsRevenue | None = Field(
+        default=None,
+        description="Estimated annual revenue range in USD, or null when Aviato holds no estimate.",
+    )
+    total_funding_usd: float | None = Field(
+        default=None,
+        alias="totalFundingUsd",
+        description="Total funding raised, in USD.",
+    )
+
+
+class CompanyEnrichmentAviatoFinancialsFundingRound(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    amount_usd: float | None = Field(
+        default=None,
+        alias="amountUsd",
+        description="Money raised in the round, in USD.",
+    )
+    announced_utc: float | None = Field(
+        default=None,
+        alias="announcedUtc",
+        description="When the round was announced. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    company_investors: list[str] | None = Field(
+        default=None,
+        alias="companyInvestors",
+        description="Names of firms that took part in the round.",
+    )
+    lead_company_investors: list[str] | None = Field(
+        default=None,
+        alias="leadCompanyInvestors",
+        description="Names of firms that led the round.",
+    )
+    lead_person_investors: list[str] | None = Field(
+        default=None,
+        alias="leadPersonInvestors",
+        description="Names of individuals who led the round.",
+    )
+    name: str | None = Field(
+        default=None, description="Round name, e.g. Series B - PostHog."
+    )
+    person_investors: list[str] | None = Field(
+        default=None,
+        alias="personInvestors",
+        description="Names of individuals who took part in the round.",
+    )
+    round_id: str | None = Field(
+        default=None, alias="roundId", description="Aviato funding round id."
+    )
+    stage: str | None = Field(
+        default=None, description="Round stage, e.g. Seed or Series B."
+    )
+    valuation_usd: float | None = Field(
+        default=None,
+        alias="valuationUsd",
+        description="Valuation at the round, in USD, when known.",
+    )
+
+
+class CompanyEnrichmentAviatoFinancialsRevenue(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    band: str | None = Field(default=None, description="Revenue band, e.g. $10M-$50M.")
+    confidence: str | None = Field(
+        default=None, description="Aviato's confidence in the estimate, e.g. high."
+    )
+    high_usd: float | None = Field(
+        default=None, alias="highUsd", description="High end of the estimate, in USD."
+    )
+    low_usd: float | None = Field(
+        default=None, alias="lowUsd", description="Low end of the estimate, in USD."
+    )
+    mid_usd: float | None = Field(
+        default=None, alias="midUsd", description="Midpoint of the estimate, in USD."
+    )
+
+
+class CompanyEnrichmentAviatoFoundersData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    founders: list[CompanyEnrichmentAviatoFoundersFounder] = Field(
+        description="Founders, in Aviato's order."
+    )
+    total_results: int | None = Field(
+        default=None,
+        alias="totalResults",
+        description="Founders Aviato holds for the company.",
+    )
+
+
+class CompanyEnrichmentAviatoFoundersFounder(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    crunchbase_url: str | None = Field(
+        default=None, alias="crunchbaseUrl", description="Crunchbase profile URL."
+    )
+    first_name: str | None = Field(
+        default=None,
+        alias="firstName",
+        description="First name, as the founder wrote it on their profile.",
+    )
+    full_name: str | None = Field(alias="fullName", description="Founder's full name.")
+    last_name: str | None = Field(
+        default=None,
+        alias="lastName",
+        description="Last name, as the founder wrote it on their profile.",
+    )
+    linkedin_url: str | None = Field(
+        default=None, alias="linkedinUrl", description="LinkedIn profile URL."
+    )
+    location: str | None = Field(
+        default=None,
+        description="Location, e.g. San Francisco, California, United States.",
+    )
+    person_id: str | None = Field(
+        default=None,
+        alias="personId",
+        description="Aviato person id. Send it back as the personId input of Person Enrichment - Aviato.",
+    )
+    twitter_url: str | None = Field(
+        default=None, alias="twitterUrl", description="X (Twitter) profile URL."
+    )
+
+
+class CompanyEnrichmentAviatoFundingRoundsData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    funding_rounds: list[CompanyEnrichmentAviatoFundingRoundsFundingRound] = Field(
+        alias="fundingRounds", description="Funding rounds, in Aviato's order."
+    )
+    total_results: int | None = Field(
+        default=None,
+        alias="totalResults",
+        description="Funding rounds Aviato holds for the company.",
+    )
+
+
+class CompanyEnrichmentAviatoFundingRoundsFundingRound(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    amount_usd: float | None = Field(
+        default=None,
+        alias="amountUsd",
+        description="Money raised in the round, in USD.",
+    )
+    announced_utc: float | None = Field(
+        default=None,
+        alias="announcedUtc",
+        description="When the round was announced. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    company_investors: list[str] | None = Field(
+        default=None,
+        alias="companyInvestors",
+        description="Names of firms that took part in the round.",
+    )
+    lead_company_investors: list[str] | None = Field(
+        default=None,
+        alias="leadCompanyInvestors",
+        description="Names of firms that led the round.",
+    )
+    lead_person_investors: list[str] | None = Field(
+        default=None,
+        alias="leadPersonInvestors",
+        description="Names of individuals who led the round.",
+    )
+    name: str | None = Field(description="Round name, e.g. Series B - PostHog.")
+    person_investors: list[str] | None = Field(
+        default=None,
+        alias="personInvestors",
+        description="Names of individuals who took part in the round.",
+    )
+    round_id: str | None = Field(
+        default=None, alias="roundId", description="Aviato funding round id."
+    )
+    stage: str | None = Field(
+        default=None, description="Round stage, e.g. Seed or Series B."
+    )
+    valuation_usd: float | None = Field(
+        default=None,
+        alias="valuationUsd",
+        description="Valuation at the round, in USD, when known.",
+    )
+
+
+class CompanyEnrichmentAviatoSocialMetricsData(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    facebook_growth: CompanyEnrichmentAviatoSocialMetricsFacebookGrowth | None = Field(
+        default=None,
+        alias="facebookGrowth",
+        description="Change in Facebook likes over recent periods.",
+    )
+    facebook_history: (
+        list[CompanyEnrichmentAviatoSocialMetricsFacebookHistory] | None
+    ) = Field(
+        default=None,
+        alias="facebookHistory",
+        description="Facebook like counts over time, oldest first.",
+    )
+    facebook_likes: int | None = Field(
+        default=None, alias="facebookLikes", description="Facebook page likes."
+    )
+    linkedin_followers: int | None = Field(
+        default=None, alias="linkedinFollowers", description="LinkedIn followers."
+    )
+    twitter_followers: int | None = Field(
+        default=None, alias="twitterFollowers", description="X (Twitter) followers."
+    )
+    twitter_growth: CompanyEnrichmentAviatoSocialMetricsTwitterGrowth | None = Field(
+        default=None,
+        alias="twitterGrowth",
+        description="Change in X (Twitter) followers over recent periods.",
+    )
+    twitter_history: list[CompanyEnrichmentAviatoSocialMetricsTwitterHistory] | None = (
+        Field(
+            default=None,
+            alias="twitterHistory",
+            description="X (Twitter) follower counts over time, oldest first.",
+        )
+    )
+
+
+class CompanyEnrichmentAviatoSocialMetricsFacebookGrowth(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    monthly_change: float | None = Field(
+        default=None,
+        alias="monthlyChange",
+        description="Change in Facebook likes over the last month.",
+    )
+    monthly_percent: float | None = Field(
+        default=None,
+        alias="monthlyPercent",
+        description="Change in Facebook likes over the last month, as a fraction (0.18 is 18 percent).",
+    )
+    quarterly_change: float | None = Field(
+        default=None,
+        alias="quarterlyChange",
+        description="Change in Facebook likes over the last three months.",
+    )
+    quarterly_percent: float | None = Field(
+        default=None,
+        alias="quarterlyPercent",
+        description="Change in Facebook likes over the last three months, as a fraction (0.18 is 18 percent).",
+    )
+    weekly_change: float | None = Field(
+        default=None,
+        alias="weeklyChange",
+        description="Change in Facebook likes over the last week.",
+    )
+    weekly_percent: float | None = Field(
+        default=None,
+        alias="weeklyPercent",
+        description="Change in Facebook likes over the last week, as a fraction (0.18 is 18 percent).",
+    )
+    yearly_change: float | None = Field(
+        default=None,
+        alias="yearlyChange",
+        description="Change in Facebook likes over the last year.",
+    )
+    yearly_percent: float | None = Field(
+        default=None,
+        alias="yearlyPercent",
+        description="Change in Facebook likes over the last year, as a fraction (0.18 is 18 percent).",
+    )
+
+
+class CompanyEnrichmentAviatoSocialMetricsFacebookHistory(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    date_utc: float | None = Field(
+        default=None,
+        alias="dateUtc",
+        description="When the count was taken. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    likes: int | None = Field(default=None, description="Likes at that time.")
+
+
+class CompanyEnrichmentAviatoSocialMetricsTwitterGrowth(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    monthly_change: float | None = Field(
+        default=None,
+        alias="monthlyChange",
+        description="Change in X (Twitter) followers over the last month.",
+    )
+    monthly_percent: float | None = Field(
+        default=None,
+        alias="monthlyPercent",
+        description="Change in X (Twitter) followers over the last month, as a fraction (0.18 is 18 percent).",
+    )
+    quarterly_change: float | None = Field(
+        default=None,
+        alias="quarterlyChange",
+        description="Change in X (Twitter) followers over the last three months.",
+    )
+    quarterly_percent: float | None = Field(
+        default=None,
+        alias="quarterlyPercent",
+        description="Change in X (Twitter) followers over the last three months, as a fraction (0.18 is 18 percent).",
+    )
+    weekly_change: float | None = Field(
+        default=None,
+        alias="weeklyChange",
+        description="Change in X (Twitter) followers over the last week.",
+    )
+    weekly_percent: float | None = Field(
+        default=None,
+        alias="weeklyPercent",
+        description="Change in X (Twitter) followers over the last week, as a fraction (0.18 is 18 percent).",
+    )
+    yearly_change: float | None = Field(
+        default=None,
+        alias="yearlyChange",
+        description="Change in X (Twitter) followers over the last year.",
+    )
+    yearly_percent: float | None = Field(
+        default=None,
+        alias="yearlyPercent",
+        description="Change in X (Twitter) followers over the last year, as a fraction (0.18 is 18 percent).",
+    )
+
+
+class CompanyEnrichmentAviatoSocialMetricsTwitterHistory(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    date_utc: float | None = Field(
+        default=None,
+        alias="dateUtc",
+        description="When the count was taken. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    followers: int | None = Field(default=None, description="Followers at that time.")
+
+
+class CompanyEnrichmentAviatoWebTrafficData(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    monthly_visits: int | None = Field(
+        default=None,
+        alias="monthlyVisits",
+        description="Estimated website visits in the latest month.",
+    )
+    top_countries: list[CompanyEnrichmentAviatoWebTrafficTopCountrie] | None = Field(
+        default=None,
+        alias="topCountries",
+        description="Countries sending the most visits.",
+    )
+    traffic_sources: CompanyEnrichmentAviatoWebTrafficTrafficSource | None = Field(
+        default=None,
+        alias="trafficSources",
+        description="Share of visits by source, each a fraction of 1.",
+    )
+    visits_growth: CompanyEnrichmentAviatoWebTrafficVisitsGrowth | None = Field(
+        default=None,
+        alias="visitsGrowth",
+        description="Change in monthly visits over recent periods.",
+    )
+    visits_history: list[CompanyEnrichmentAviatoWebTrafficVisitsHistory] | None = Field(
+        default=None,
+        alias="visitsHistory",
+        description="Monthly visit estimates, oldest first.",
+    )
+
+
+class CompanyEnrichmentAviatoWebTrafficTopCountrie(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    country: str | None = Field(
+        default=None, description="Country name, lower case as Aviato gives it."
+    )
+    share: float | None = Field(
+        default=None,
+        description="Share of visits from the country, as a fraction of 1.",
+    )
+
+
+class CompanyEnrichmentAviatoWebTrafficTrafficSource(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    direct: float | None = Field(
+        default=None, description="Share of visits typed in directly or bookmarked."
+    )
+    mail: float | None = Field(default=None, description="Share of visits from email.")
+    paid_referrals: float | None = Field(
+        default=None,
+        alias="paidReferrals",
+        description="Share of visits from paid placements.",
+    )
+    referrals: float | None = Field(
+        default=None, description="Share of visits from links on other sites."
+    )
+    search: float | None = Field(
+        default=None, description="Share of visits from search engines."
+    )
+    social: float | None = Field(
+        default=None, description="Share of visits from social networks."
+    )
+
+
+class CompanyEnrichmentAviatoWebTrafficVisitsGrowth(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    monthly_change: float | None = Field(
+        default=None,
+        alias="monthlyChange",
+        description="Change in monthly visits over the last month.",
+    )
+    monthly_percent: float | None = Field(
+        default=None,
+        alias="monthlyPercent",
+        description="Change in monthly visits over the last month, as a fraction (0.18 is 18 percent).",
+    )
+    quarterly_change: float | None = Field(
+        default=None,
+        alias="quarterlyChange",
+        description="Change in monthly visits over the last three months.",
+    )
+    quarterly_percent: float | None = Field(
+        default=None,
+        alias="quarterlyPercent",
+        description="Change in monthly visits over the last three months, as a fraction (0.18 is 18 percent).",
+    )
+    yearly_change: float | None = Field(
+        default=None,
+        alias="yearlyChange",
+        description="Change in monthly visits over the last year.",
+    )
+    yearly_percent: float | None = Field(
+        default=None,
+        alias="yearlyPercent",
+        description="Change in monthly visits over the last year, as a fraction (0.18 is 18 percent).",
+    )
+
+
+class CompanyEnrichmentAviatoWebTrafficVisitsHistory(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    month_utc: float | None = Field(
+        default=None,
+        alias="monthUtc",
+        description="Start of the month. UTC epoch timestamp in seconds (Unix time). Multiply by 1000 for a JS Date in milliseconds.",
+    )
+    visits: int | None = Field(default=None, description="Estimated visits that month.")
 
 
 class CompanyEnrichmentCrustdataData(BaseModel):
@@ -1616,6 +2491,138 @@ class CompanyEnrichmentNamespace:
     def __init__(self, client: "AnyAPI") -> None:
         self._client = client
 
+    def aviato(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoInput],
+    ) -> RunResult[CompanyEnrichmentAviatoData]:
+        """Company Enrichment - Aviato
+
+        Enrich one company into firmographics, funding, revenue estimate, headcount
+        history, web traffic, social following, offices, technologies and open jobs
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.18 per request.
+
+        Example:
+            res = client.company_enrichment.aviato(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoData].model_validate(raw)
+
+    def aviato_financials(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFinancialsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFinancialsData]:
+        """Company Financials - Aviato
+
+        Get one company's financing and ownership status, latest deal, total
+        funding, investor and acquisition counts, revenue estimate and every funding
+        round from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.12 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_financials(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_financials", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFinancialsData].model_validate(raw)
+
+    def aviato_founders(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFoundersInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFoundersData]:
+        """Company Founders - Aviato
+
+        List the founders of one company with their LinkedIn, X (Twitter) and
+        Crunchbase profiles and an Aviato person id for Person Enrichment - Aviato,
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.012 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_founders(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_founders", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFoundersData].model_validate(raw)
+
+    def aviato_funding_rounds(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFundingRoundsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFundingRoundsData]:
+        """Company Funding Rounds - Aviato
+
+        List one company's funding rounds with stage, date, amount raised, valuation
+        where known, and the firms and individuals that led or joined each round,
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.012 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_funding_rounds(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_funding_rounds", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFundingRoundsData].model_validate(raw)
+
+    def aviato_social_metrics(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoSocialMetricsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoSocialMetricsData]:
+        """Company Social Metrics - Aviato
+
+        Get one company's LinkedIn, X (Twitter) and Facebook following, its weekly
+        to yearly follower growth and the follower history behind it from a domain,
+        a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.06 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_social_metrics(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_social_metrics", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoSocialMetricsData].model_validate(raw)
+
+    def aviato_web_traffic(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoWebTrafficInput],
+    ) -> RunResult[CompanyEnrichmentAviatoWebTrafficData]:
+        """Company Web Traffic - Aviato
+
+        Get one company's estimated monthly website visits, visit growth, traffic
+        sources, top visitor countries and monthly visit history from a domain, a
+        LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.036 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_web_traffic(domain="posthog.com")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_web_traffic", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoWebTrafficData].model_validate(raw)
+
     def crustdata(
         self,
         *,
@@ -1732,6 +2739,138 @@ class AsyncCompanyEnrichmentNamespace:
 
     def __init__(self, client: "AsyncAnyAPI") -> None:
         self._client = client
+
+    async def aviato(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoInput],
+    ) -> RunResult[CompanyEnrichmentAviatoData]:
+        """Company Enrichment - Aviato
+
+        Enrich one company into firmographics, funding, revenue estimate, headcount
+        history, web traffic, social following, offices, technologies and open jobs
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.18 per request.
+
+        Example:
+            res = client.company_enrichment.aviato(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoData].model_validate(raw)
+
+    async def aviato_financials(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFinancialsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFinancialsData]:
+        """Company Financials - Aviato
+
+        Get one company's financing and ownership status, latest deal, total
+        funding, investor and acquisition counts, revenue estimate and every funding
+        round from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.12 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_financials(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_financials", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFinancialsData].model_validate(raw)
+
+    async def aviato_founders(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFoundersInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFoundersData]:
+        """Company Founders - Aviato
+
+        List the founders of one company with their LinkedIn, X (Twitter) and
+        Crunchbase profiles and an Aviato person id for Person Enrichment - Aviato,
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.012 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_founders(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_founders", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFoundersData].model_validate(raw)
+
+    async def aviato_funding_rounds(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoFundingRoundsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoFundingRoundsData]:
+        """Company Funding Rounds - Aviato
+
+        List one company's funding rounds with stage, date, amount raised, valuation
+        where known, and the firms and individuals that led or joined each round,
+        from a domain, a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.012 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_funding_rounds(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_funding_rounds", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoFundingRoundsData].model_validate(raw)
+
+    async def aviato_social_metrics(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoSocialMetricsInput],
+    ) -> RunResult[CompanyEnrichmentAviatoSocialMetricsData]:
+        """Company Social Metrics - Aviato
+
+        Get one company's LinkedIn, X (Twitter) and Facebook following, its weekly
+        to yearly follower growth and the follower history behind it from a domain,
+        a LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.06 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_social_metrics(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_social_metrics", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoSocialMetricsData].model_validate(raw)
+
+    async def aviato_web_traffic(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[CompanyEnrichmentAviatoWebTrafficInput],
+    ) -> RunResult[CompanyEnrichmentAviatoWebTrafficData]:
+        """Company Web Traffic - Aviato
+
+        Get one company's estimated monthly website visits, visit growth, traffic
+        sources, top visitor countries and monthly visit history from a domain, a
+        LinkedIn company URL, or an Aviato company id.
+
+        Price: $0.036 per request.
+
+        Example:
+            res = client.company_enrichment.aviato_web_traffic(domain="posthog.com")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "company_enrichment.aviato_web_traffic", dict(input), options
+        )
+        return RunResult[CompanyEnrichmentAviatoWebTrafficData].model_validate(raw)
 
     async def crustdata(
         self,

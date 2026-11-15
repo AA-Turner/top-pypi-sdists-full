@@ -1,16 +1,26 @@
 import contextlib
+import errno
+import html
+import http.client
+import ipaddress
+import itertools
 import json
+import logging
 import re
-import tempfile
+import stat
+import unicodedata
 import warnings
+import weakref
 from datetime import date, timedelta
+from secrets import token_hex
 import os
 from typing import BinaryIO, List, Optional, Union
-from urllib.parse import quote, quote_plus, urlsplit
+from urllib.parse import quote, quote_plus, unquote, unquote_plus, urlsplit
 
 import requests
 from requests.exceptions import RequestException
 
+from ._zb_response import ZBFieldTypeError
 from .zb_get_file_options import ZBGetFileOptions
 from . import (
     ZBApiException,
@@ -32,6 +42,25 @@ from . import (
     ZBFindEmailFormatResponse,
     ZBFindDomainResponse,
 )
+
+
+def _reject_constant(name: str):
+    raise ValueError(f"{name} is not valid JSON")
+
+
+def _strict_json(text: str):
+    """``text`` parsed as RFC 8259 JSON, or ``ValueError``.
+
+    ``json.loads`` (and ``requests``' ``Response.json``) accept ``NaN``, ``Infinity`` and ``-Infinity``, which are
+    not JSON; a body holding them is not an API response either. A body nested deeper than the parser's recursion
+    limit (``[[[[...``) is a ValueError too, not a RecursionError.
+    """
+    try:
+        return json.loads(text, parse_constant=_reject_constant)
+    except RecursionError:
+        pass
+    # Raised outside the except block, so the RecursionError is not its __context__.
+    raise ValueError("JSON nested too deeply")
 
 
 def _looks_like_html(body: str, content_type: str = "") -> bool:
@@ -92,7 +121,7 @@ def _message_from_body(body: str, status_code: int) -> str:
         return "ZeroBounce returned an HTML error page instead of an API response."
     if trimmed[0] in "{[":
         try:
-            parsed = json.loads(trimmed)
+            parsed = _strict_json(trimmed)
         except ValueError:
             return "ZeroBounce returned a response that is not valid JSON."
         if isinstance(parsed, dict):
@@ -133,13 +162,182 @@ def _message_from_body(body: str, status_code: int) -> str:
     return message
 
 
-def _check_api_key(api_key: str) -> None:
-    """Reject a key with surrounding whitespace or control characters (e.g. read from a file with its newline).
+API_KEY_CHARACTERS_PROBLEM = "api_key has whitespace, control or invisible characters"
+API_KEY_HEADER_PROBLEM = "api_key has characters that cannot be sent in an HTTP header"
 
-    Such a key would fail as an HTTP header value, and the HTTP library's error would quote it unredacted.
+
+def _check_api_key(api_key: str) -> None:
+    """Reject a key that cannot be sent as an HTTP header value.
+
+    Whitespace of any kind (NBSP, U+0085, U+2028), control and Unicode format characters (U+200B, U+FEFF,
+    U+180E, U+2060) anywhere in it are refused, then anything outside printable ASCII. The HTTP library's
+    error for such a key would quote it unredacted, so it never gets that far.
     """
-    if api_key != api_key.strip() or any(ord(char) < 32 or ord(char) == 127 for char in api_key):
-        raise ZBClientException("Invalid parameter: api_key has surrounding whitespace or control characters")
+    for char in api_key:
+        if (
+            char.isspace()
+            or char == "\u180e"
+            or unicodedata.category(char) in ("Cc", "Cf", "Zs", "Zl", "Zp")
+        ):
+            raise ZBClientException(API_KEY_CHARACTERS_PROBLEM)
+    if any(not 0x21 <= ord(char) <= 0x7E for char in api_key):
+        raise ZBClientException(API_KEY_HEADER_PROBLEM)
+
+
+# Every logger that writes the request line, URL, headers or retry URLs of an HTTP request at DEBUG.
+_TRANSPORT_LOGGERS = (
+    "urllib3",
+    "urllib3.connectionpool",
+    "urllib3.connection",
+    "urllib3.poolmanager",
+    "urllib3.response",
+    "urllib3.util.retry",
+    "requests",
+    "http.client",
+)
+
+
+def _debuglevel_holders():
+    """The connection classes whose ``debuglevel`` makes the stack print the request line (with the key) to stdout:
+    ``http.client`` and ``urllib3``'s own subclasses, plus whatever connection class a urllib3 pool is set to use."""
+    import urllib3.connection
+    import urllib3.connectionpool
+
+    holders = [
+        ("http.client.HTTPConnection", http.client.HTTPConnection),
+        ("http.client.HTTPSConnection", http.client.HTTPSConnection),
+        ("urllib3.connection.HTTPConnection", urllib3.connection.HTTPConnection),
+        ("urllib3.connection.HTTPSConnection", urllib3.connection.HTTPSConnection),
+    ]
+    for pool in (urllib3.connectionpool.HTTPConnectionPool, urllib3.connectionpool.HTTPSConnectionPool):
+        cls = getattr(pool, "ConnectionCls", None)
+        if cls is not None:
+            holders.append((f"{pool.__name__}.ConnectionCls", cls))
+    return holders
+
+
+_KEY_IN_TEXT = re.compile(r"(?i)\b(api[_-]?key|apikey)(=|%3d)[^&\s)\"'#]*")
+
+
+class _RedactKeyFilter(logging.Filter):
+    """Masks the API key in what urllib3 logs at WARNING and above (e.g. ``Failed to parse headers
+    (url=https://…/getcredits?api_key=<key>)``): the ``api_key=<value>`` parameter, and the value of every key a
+    client currently holds in any encoding (``api%5Fkey=``, JSON, headers, the path). The message, the exception
+    text and the stack text are all masked. Records are not dropped and levels are not changed."""
+
+    def _mask(self, text: str) -> str:
+        text = _KEY_IN_TEXT.sub(lambda m: m.group(1) + m.group(2) + "***", text)
+        secrets = [secret.value for secret in list(_LIVE_SECRETS)]
+        return _redact_secrets(text, secrets) if secrets else text
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            text = record.getMessage()
+        except Exception:
+            text = None
+        try:
+            if text is not None:
+                redacted = self._mask(text)
+                if redacted != text:
+                    record.msg = redacted
+                    record.args = None
+            if record.exc_info:
+                if not record.exc_text:
+                    record.exc_text = logging.Formatter().formatException(record.exc_info)
+                record.exc_info = None
+            if record.exc_text:
+                record.exc_text = self._mask(record.exc_text)
+            if record.stack_info:
+                record.stack_info = self._mask(record.stack_info)
+        except Exception:
+            pass
+        return True
+
+
+def _install_log_redaction() -> None:
+    """Install the key-masking filter on every urllib3 logger (a filter on a parent does not apply to records from
+    its children), including the ones created since the last call."""
+    names = {name for name in list(logging.root.manager.loggerDict) if name == "urllib3" or name.startswith("urllib3.")}
+    names.update(name for name in _TRANSPORT_LOGGERS if name.startswith("urllib3"))
+    for name in names:
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, _RedactKeyFilter) for f in logger.filters):
+            logger.addFilter(_RedactKeyFilter())
+    # No global LogRecordFactory hook: that would change logging for the whole application. urllib3 creates its
+    # module loggers at import, and this runs again before every send, so a filter is on each before a request.
+
+
+_install_log_redaction()
+
+
+def _check_transport_logging() -> None:
+    """Refuse to send while the HTTP stack would write the API key to a log or to stdout.
+
+    ``urllib3.connectionpool`` logs ``"GET /v2/getcredits?api_key=<key> HTTP/1.1"`` at DEBUG, and
+    ``http.client`` / ``urllib3.connection`` print the request line and headers when their ``debuglevel`` is
+    above 0. WARNING-level records that carry the URL are masked by a filter instead.
+    """
+    _install_log_redaction()
+    for label, cls in _debuglevel_holders():
+        if getattr(cls, "debuglevel", 0) > 0:
+            raise ZBClientException(
+                f"HTTP debug output ({label}.debuglevel) is on and would print your API key; "
+                f"set {label}.debuglevel = 0."
+            )
+    for name in _TRANSPORT_LOGGERS:
+        if logging.getLogger(name).isEnabledFor(logging.DEBUG):
+            raise ZBClientException(
+                f"HTTP debug logging (the {name} logger) is enabled and would write your API key to the log; "
+                f"set the {name} logger to INFO or above."
+            )
+
+
+def _require_text(value, name: str) -> str:
+    """A required text argument: a string with something in it, else ZBClientException before anything is sent."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ZBClientException(f"Empty parameter: {name}")
+    if not isinstance(value, str):
+        raise ZBClientException(f"Invalid parameter: {name} must be a string")
+    return value
+
+
+def _optional_text(value, name: str):
+    """An optional text argument that, when given, must not be blank."""
+    return None if value is None else _require_text(value, name)
+
+
+def _omit_blank(value, name: str):
+    """An optional text argument that is simply left out when it is None or blank."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    return _require_text(value, name)
+
+
+def _require_column(value, name: str) -> int:
+    """A required column index: an integer from 1 (not a bool, not a string)."""
+    if value is None:
+        raise ZBClientException(f"Empty parameter: {name}")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ZBClientException(f"Invalid parameter: {name} must be an integer")
+    return value
+
+
+def _int_option(value, name: str, low: int, high: int) -> None:
+    """A whole-number option in ``low..high`` (``None`` is left to the caller)."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ZBClientException(f"Invalid parameter: {name} must be a whole number of seconds")
+    if value < low or value > high:
+        raise ZBClientException(f"Invalid parameter: {name} (must be between {low} and {high} seconds)")
+
+
+def _timeout_seconds(timeout) -> float:
+    """The request timeout in seconds: a positive ``timedelta``."""
+    if not isinstance(timeout, timedelta):
+        raise ZBClientException("Invalid parameter: timeout must be a timedelta")
+    seconds = timeout.total_seconds()
+    if not seconds > 0:
+        raise ZBClientException("Invalid parameter: timeout must be greater than zero")
+    return seconds
 
 
 def _path_segment(value, name: str) -> str:
@@ -152,13 +350,46 @@ def _path_segment(value, name: str) -> str:
     return quote(text, safe="")
 
 
-def _https_url(url: str) -> str:
-    """Every request carries the API key: refuse to send it anywhere but https.
+_HOST_LABELS = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$")
 
-    Covers the per-API base URL attributes (BULK_BASE_URL and the like), which callers can reassign.
+
+def _is_safe_https_url(url) -> bool:
+    """Whether ``url`` is an absolute https URL with a valid host, no userinfo, no whitespace or control
+    characters and a valid port."""
+    if not isinstance(url, str) or not url:
+        return False
+    if any(char.isspace() or unicodedata.category(char) in ("Cc", "Cf", "Zs", "Zl", "Zp") for char in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme.lower() != "https" or not parts.netloc or not host:
+        return False
+    if "@" in parts.netloc or "\\" in url or parts.netloc.endswith(":") or port == 0:
+        return False
+    if parts.netloc.startswith("["):
+        try:
+            ipaddress.IPv6Address(host.split("%", 1)[0])
+        except ValueError:
+            return False
+        return True
+    return bool(_HOST_LABELS.match(host))
+
+
+def _https_url(url: str) -> str:
+    """Every request carries the API key: refuse to send it anywhere but a valid https URL.
+
+    Covers the per-API base URL attributes (BULK_BASE_URL and the like), which callers can reassign. A URL
+    with userinfo (``https://api.zerobounce.net@evil.example``), no or an invalid host, whitespace or control
+    characters, or a bad port is refused too, since the key would go to the wrong host or not be sent at all.
     """
     if not isinstance(url, str) or not url.lower().startswith("https://"):
         raise ZBClientException("Refusing to send the API key to a URL that is not https://")
+    if not _is_safe_https_url(url):
+        raise ZBClientException("Refusing to send the API key to a URL that is not a valid https:// URL")
     return url
 
 
@@ -189,13 +420,365 @@ def _strict_bool(value, name: str) -> bool:
     raise ZBClientException(f"Invalid parameter: {name} must be true or false")
 
 
+def _json_escaped(text: str, ensure_ascii: bool, escape_slash: bool) -> str:
+    """``text`` as it appears inside a JSON string, ``/`` as is or as JSON's optional ``\\/``."""
+    escaped = json.dumps(text, ensure_ascii=ensure_ascii)[1:-1]
+    # Replacing in the JSON-escaped text is exact, since every backslash in it is already escaped.
+    return escaped.replace("/", "\\/") if escape_slash else escaped
+
+
+def _secret_forms(secret: str) -> list:
+    """Every form a secret can take in a body or URL echoed back to us.
+
+    Composed from the encoders up to depth 2: {raw, JSON-escaped, JSON-escaped with ``\\/``} (each JSON form
+    with non-ASCII as is or as ``\\uXXXX``) x {as is, URL-encoded with ``+``, with ``%20``, with ``/`` kept},
+    each JSON form escaped twice (a JSON error body quoting the JSON request body), and ``repr``. Longest first,
+    so a form that contains another is masked whole.
+    """
+    if not secret:
+        return []
+    json_forms = [
+        _json_escaped(secret, ensure_ascii, escape_slash)
+        for ensure_ascii in (True, False)
+        for escape_slash in (False, True)
+    ]
+    twice = [
+        _json_escaped(_json_escaped(secret, ensure_ascii, escape_slash), ensure_ascii, escape_slash)
+        for ensure_ascii in (True, False)
+        for escape_slash in (False, True)
+    ]
+    forms = {repr(secret)[1:-1], *twice}
+    for form in (secret, *json_forms):
+        forms.update((form, quote_plus(form), quote(form, safe=""), quote(form)))
+    # HTML-entity echoes (an HTML error page quoting the key) and backslash-escaped quotes (a quoted string).
+    for form in list(forms):
+        forms.update(_markup_forms(form))
+    return sorted((form for form in forms if form), key=len, reverse=True)
+
+
+_ENTITY_STYLES = (
+    {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"},
+    {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#x27;"},
+    {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;"},
+    {"&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;", "'": "&#39;"},
+    {"&": "&#x26;", "<": "&#x3c;", ">": "&#x3e;", '"': "&#x22;", "'": "&#x27;"},
+)
+
+
+def _markup_forms(form: str) -> set:
+    """``form`` with its ``& < > " '`` as HTML entities (each common spelling) and its quotes backslash-escaped."""
+    forms = set()
+    if any(char in form for char in "&<>\"'"):
+        for style in _ENTITY_STYLES:
+            forms.add("".join(style.get(char, char) for char in form))
+        forms.add(form.replace("'", "\\'").replace('"', '\\"'))
+    return forms
+
+
+def _partial_file(directory: str, mode: Optional[int] = None):
+    """A new, empty temporary file in ``directory`` for a download, as ``(fd, path)``.
+
+    It is renamed over the download path, so it gets that file's permissions: ``mode`` when a file is already
+    there, otherwise the usual mode for a new file (0666 less the umask), unlike ``tempfile.mkstemp`` (0600).
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    while True:
+        path = os.path.join(directory or ".", f".zb-download-{token_hex(8)}.part")
+        try:
+            fd = os.open(path, flags, 0o666 if mode is None else 0o600)
+        except FileExistsError:
+            continue
+        if mode is not None:
+            try:
+                if hasattr(os, "fchmod"):
+                    os.fchmod(fd, mode)
+                else:
+                    os.chmod(path, mode)
+            except BaseException:
+                os.close(fd)
+                with contextlib.suppress(OSError):
+                    os.unlink(path)
+                raise
+        return fd, path
+
+
+def _download_target(download_path) -> str:
+    """The file a download is written to, checked before anything is sent.
+
+    An empty path, a path ending in a separator and a directory are refused, as is a symbolic link whose target
+    directory does not exist. A symbolic link is followed: the file behind it is replaced and the link stays.
+    """
+    try:
+        path = os.fspath(download_path)
+    except TypeError:
+        path = None
+    if not isinstance(path, str):
+        raise ZBClientException("Invalid parameter: download_path (must be a file path)")
+    if not path.strip():
+        raise ZBClientException("Empty parameter: download_path")
+    if path[-1] in {"/", os.sep, os.altsep or "/"}:
+        raise ZBClientException("Invalid parameter: download_path (ends with a path separator; give a file path)")
+    if os.path.islink(path):
+        try:
+            os.stat(path)
+        except OSError as e:
+            if e.errno == errno.ELOOP:
+                raise ZBClientException("Invalid parameter: download_path (a link that loops back to itself)") from None
+        target = os.path.realpath(path)
+        if os.path.isdir(target):
+            raise ZBClientException("Invalid parameter: download_path (a link to a directory, give a file path)")
+        if not os.path.isdir(os.path.dirname(target) or "."):
+            raise ZBClientException("Invalid parameter: download_path (a link whose target directory does not exist)")
+    elif os.path.isdir(path):
+        raise ZBClientException("Invalid parameter: download_path (is a directory, give a file path)")
+    else:
+        target = path
+    _check_writable(target)
+    return target
+
+
+def _check_writable(target: str) -> None:
+    """Refuse, before anything is sent, a target whose nearest existing folder cannot be written to."""
+    folder = os.path.dirname(target) or "."
+    while not os.path.isdir(folder):
+        if os.path.exists(folder):
+            raise ZBClientException(f"Invalid parameter: download_path (a part of the path, {folder}, is a file)")
+        parent = os.path.dirname(folder)
+        if not parent:
+            folder = os.getcwd()
+            break
+        if parent == folder:
+            return
+        folder = parent
+    if not os.access(folder, os.W_OK | os.X_OK):
+        raise ZBClientException(f"Cannot save the download to {target}: permission denied (folder {folder} is not writable)")
+
+
+def _save_file(target: str, chunks) -> None:
+    """Write ``chunks`` to a temporary file next to ``target``, then move it into place.
+
+    A failed write (a full disk, a file size limit) removes the temporary file and leaves whatever was at ``target``
+    untouched: no partial file, and an earlier download is neither truncated nor deleted. An existing file keeps its
+    permissions. Missing parent directories are created, and removed again when the download fails.
+    """
+    directory = os.path.dirname(target)
+    created = []
+    missing = directory
+    while missing and not os.path.isdir(missing):
+        created.append(missing)
+        missing = os.path.dirname(missing)
+    mode = None
+    with contextlib.suppress(OSError):
+        mode = stat.S_IMODE(os.stat(target).st_mode)
+    try:
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        fd, partial = _partial_file(directory, mode)
+        try:
+            with os.fdopen(fd, "wb") as out:
+                for chunk in chunks:
+                    if chunk:
+                        out.write(chunk)
+            os.replace(partial, target)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(partial)
+            raise
+    except BaseException as e:
+        for path in created:  # deepest first
+            with contextlib.suppress(OSError):
+                os.rmdir(path)
+        if isinstance(e, OSError) and not isinstance(e, RequestException):
+            reason = e.strerror or type(e).__name__
+            raise ZBClientException(f"Cannot save the download to {target}: {reason}") from None
+        raise
+
+
+_CONNECT_TIMEOUT_S = 30.0
+
+
+def _timeouts(total: float):
+    """The ``(connect, read)`` timeout ``requests`` takes: 30 seconds to connect (less if the total is less)."""
+    return (min(_CONNECT_TIMEOUT_S, total), total)
+
+
+def _is_json_type(content_type: str) -> bool:
+    media = (content_type or "").split(";")[0].strip().lower()
+    return media == "application/json" or media.endswith("+json") or "application/json" in (content_type or "").lower()
+
+
+def _json_container(text: str) -> bool:
+    """Whether ``text`` (after a byte-order mark and white space) is a JSON object or array."""
+    text = text.lstrip("\ufeff").lstrip()
+    if text[:1] not in ("{", "["):
+        return False
+    try:
+        _strict_json(text)
+    except ValueError:
+        return False
+    return True
+
+
+# The message an error carries instead of text that still holds a secret in an encoding no spelling covers.
+CREDENTIAL_OMITTED_MESSAGE = (
+    "ZeroBounce returned an error; the response body was omitted because it contained a credential."
+)
+
+_JSON_ESCAPE = re.compile(r'\\(?:u([0-9a-fA-F]{4})|(["\\/bfnrt]))')
+_JSON_SIMPLE_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
+
+
+def _json_unescape(text: str) -> str:
+    """``text`` with its JSON string escapes decoded (``\\/`` and ``\\uXXXX`` included); other text as is."""
+    decoded = _JSON_ESCAPE.sub(
+        lambda match: chr(int(match.group(1), 16)) if match.group(1) else _JSON_SIMPLE_ESCAPES[match.group(2)], text
+    )
+    try:
+        # Surrogate pairs from \\uXXXX\\uXXXX into one character.
+        return decoded.encode("utf-16", "surrogatepass").decode("utf-16")
+    except UnicodeError:
+        return decoded
+
+
+_BACKSLASH_QUOTE = re.compile(r"\\(['\"])")
+
+_DECODERS = (
+    unquote,
+    unquote_plus,
+    lambda text: text.replace("+", " "),
+    _json_unescape,
+    html.unescape,
+    lambda text: _BACKSLASH_QUOTE.sub(r"\1", text),
+)
+
+
+# How many layers of encoding the decode check undoes: the SDK's own request encoding plus three echo layers.
+_DECODE_LAYERS = 4
+
+
+def _decoded_views(text: str, layers: int = _DECODE_LAYERS) -> set:
+    """``text`` and every view of it after up to ``layers`` decodings (URL, ``+`` as space, JSON), in any order."""
+    views = {text}
+    frontier = {text}
+    for _ in range(layers):
+        frontier = {decode(view) for view in frontier for decode in _DECODERS} - views
+        if not frontier:
+            break
+        views |= frontier
+    return views
+
+
+def _redact_secrets(text, secrets) -> str:
+    """``text`` with every form of every secret masked, whatever the letter case.
+
+    Then closed under encoding: if any decoded view of what is left (URL, ``+`` as space, JSON, HTML entities,
+    backslash-escaped quotes; up to four layers in any order: the SDK's own request encoding plus three echo
+    layers) still holds a secret, the whole text is replaced by a fixed message.
+    """
+    text = str(text)
+    secrets = [secret for secret in secrets if secret]
+    forms = sorted({form for secret in secrets for form in _secret_forms(secret)}, key=len, reverse=True)
+    if forms:
+        text = re.compile("|".join(re.escape(form) for form in forms), re.IGNORECASE).sub("***", text)
+    if secrets:
+        found = re.compile("|".join(re.escape(secret) for secret in secrets), re.IGNORECASE)
+        if any(found.search(view) for view in _decoded_views(text)):
+            return CREDENTIAL_OMITTED_MESSAGE
+    return text
+
+
+# The credentials clients currently hold: the log filter masks their values wherever they appear.
+_LIVE_SECRETS = weakref.WeakSet()
+
+
+class _Secret:
+    """A credential a client holds. Its text is masked, so no dump of the client (``vars()``, ``repr``, ``pprint``)
+    shows the key; the key is read only through ``.value``."""
+
+    __slots__ = ("value", "__weakref__")
+
+    def __init__(self, value: str):
+        self.value = value
+        _LIVE_SECRETS.add(self)
+
+    def __repr__(self) -> str:
+        return "***"
+
+    __str__ = __repr__
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError("A credential cannot be pickled or copied")
+
+
+class _RefusesPickling:
+    """A client holds its API key; pickling it would write the key to wherever the pickle goes."""
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError(f"{type(self).__name__} cannot be pickled or copied: it holds an API key")
+
+
 def _wire_bool(value, name: str) -> str:
     """A strict boolean option as the string the API expects in a query or form."""
     return "true" if _strict_bool(value, name) else "false"
 
 
+# What a body that does not parse as JSON reads as, so the error is raised outside the except block.
+_NOT_JSON = object()
+
+_JSON_TYPE_NAMES = {dict: "an object", list: "an array", str: "a string", bool: "a boolean", type(None): "null"}
+
+
+def _json_type_name(value) -> str:
+    return _JSON_TYPE_NAMES.get(type(value), "a number")
+
+
+def _shape_message(payload, shape) -> str:
+    """The message for strict JSON that is not the shape the call returns (e.g. ``[]`` or ``0`` for an object)."""
+    shapes = shape if isinstance(shape, tuple) else (shape,)
+    expected = " or ".join(_JSON_TYPE_NAMES[expected] for expected in shapes)
+    return (
+        f"ZeroBounce returned JSON of an unexpected shape: expected {expected}, got {_json_type_name(payload)}."
+    )
+
+
+_NO_MESSAGE_TEXT = "ZeroBounce returned an error with no message text."
+
+
+def _reads_as_false(value) -> bool:
+    """Whether a ``success`` value is one a strict boolean reads as false: ``false`` in any case, ``0``, either
+    as a JSON value or as a string, ignoring surrounding whitespace."""
+    if isinstance(value, bool):
+        return value is False
+    if isinstance(value, (int, str)):
+        return str(value).strip().lower() in ("false", "0")
+    return False
+
+
 # The keys a message-only body is made of.
 _MESSAGE_KEYS = ("error", "message", "error_message", "Message", "Error", "detail")
+
+
+def _message_text(value):
+    """The text of a message value: a non-blank string, or the non-blank strings of a list joined with a line
+    break; else None."""
+    if isinstance(value, list):
+        value = "\n".join(item for item in value if isinstance(item, str) and item.strip()) or None
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _failure_text(payload) -> str:
+    """The message of a ``"success": false`` body: the text of whichever message key holds text; the fixed
+    no-text message when a key holds something that is not text (an object, a number); else "Request failed"."""
+    keys = ("message", "error_message", "Message", "Error", "detail")
+    for key in keys:
+        text = _message_text(payload.get(key))
+        if text:
+            return text
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and not (isinstance(value, str) and not value.strip()) and value != []:
+            return _NO_MESSAGE_TEXT
+    return "Request failed"
 
 
 def _form_data(data):
@@ -222,7 +805,17 @@ def _response_text(response) -> str:
     return text if isinstance(text, str) else ""
 
 
-class ZeroBounce:
+def _s3_files(payload):
+    """The file list of a listS3files answer: documented as ``{"success": true, "files": [...]}``, or a bare
+    array. A 2xx with an ``error`` field has already raised; any other object is the wrong shape (TypeError)."""
+    if isinstance(payload, dict):
+        payload = payload.get("files")
+    if not isinstance(payload, list):
+        raise TypeError("listS3files: expected an array of files")
+    return payload
+
+
+class ZeroBounce(_RefusesPickling):
     """Client for the ZeroBounce API: validation, scoring, email finder and domain search, bulk and S3/SFTP
     files, the list evaluator, filters and the Inbox Placement Tester. The Warmup API has its own client,
     ``ZeroBounceWarmup``, with its own key."""
@@ -242,7 +835,7 @@ class ZeroBounce:
 
     @staticmethod
     def _require_https_url(url: str) -> str:
-        if not url.lower().startswith("https://"):
+        if not isinstance(url, str) or not url.lower().startswith("https://") or not _is_safe_https_url(url):
             raise ZBClientException("base_url must be an https:// URL")
         return url.rstrip("/")
 
@@ -256,17 +849,18 @@ class ZeroBounce:
         base_url: Optional[Union[ZBApiUrl, str]], default ZBApiUrl.API_DEFAULT_URL
             The base URL for the API. Can be a ZBApiUrl enum value, a custom URL string,
             or None to use the default URL.
-        timeout: Optional[timedelta], default timeout to use for API requests.
+        timeout: Optional[timedelta], default 120 seconds.
+            The per-read socket timeout (how long to wait for the server to send the next bytes), with a separate
+            30 second connect timeout. It is not a total deadline: a server that keeps sending slowly never times out.
 
         Raises
         ------
         ZBClientException
             If api_key is empty
         """
-        if not api_key.strip():
-            raise ZBClientException("Empty parameter: api_key")
+        _require_text(api_key, "api_key")
         _check_api_key(api_key)
-        self._api_key = api_key
+        self._api_key = _Secret(api_key)
         
         # Handle base_url: enum, string, or default
         if base_url is None:
@@ -286,7 +880,7 @@ class ZeroBounce:
         self._bulk_region_warned = False
 
         self._timeout_s: float = (
-            self.DEFAULT_HTTP_TIMEOUT_S if timeout is None else timeout.total_seconds()
+            self.DEFAULT_HTTP_TIMEOUT_S if timeout is None else _timeout_seconds(timeout)
         )
 
     _BULK_HOST = "bulkapi.zerobounce.net"
@@ -294,6 +888,7 @@ class ZeroBounce:
     def _checked_url(self, url: str) -> str:
         """``url`` if it is https; warn once when a regional base_url meets the global bulk host."""
         _https_url(url)
+        _check_transport_logging()
         if not self._bulk_region_warned and self._region and urlsplit(url).hostname == self._BULK_HOST:
             self._bulk_region_warned = True
             warnings.warn(
@@ -308,45 +903,23 @@ class ZeroBounce:
 
     @staticmethod
     def get_file_json_indicates_error(body: str) -> bool:
-        """Whether a getfile response body looks like a JSON error payload (including HTTP 200)."""
-        t = body.lstrip()
-        if not t or t[0] != "{":
-            return False
-        try:
-            o = json.loads(body)
-        except ValueError:
-            return False
-        if not isinstance(o, dict):
-            return False
-        if "success" in o:
-            s = o["success"]
-            if s is False or s == "False" or s == "false":
-                return True
-        for k in ("message", "error", "error_message"):
-            v = o.get(k)
-            if v:
-                if isinstance(v, str) and v.strip():
-                    return True
-                if isinstance(v, list) and len(v) > 0:
-                    return True
-        return "success" in o
+        """Whether a getfile response body is JSON (an object or an array, after a BOM), so an error, not a file."""
+        return _json_container(body)
 
     @staticmethod
     def _should_treat_get_file_body_as_error(body: str, content_type: str) -> bool:
-        ct = content_type.lower()
-        if "application/json" in ct:
-            return True
-        return ZeroBounce.get_file_json_indicates_error(body)
+        return _is_json_type(content_type) or ZeroBounce.get_file_json_indicates_error(body)
 
     def _redact(self, text) -> str:
         """Mask the API key in text that can end up in exception messages or logs."""
-        text = str(text)
-        for secret in (self._api_key, quote_plus(self._api_key), repr(self._api_key)[1:-1]):
-            if secret:
-                text = text.replace(secret, "***")
-        return text
+        return _redact_secrets(text, (self._api_key.value,))
 
-    def _read_json_payload(self, response, message_only_is_error: bool = False):
+    def _read_json_payload(
+        self, response, message_only_is_error: bool = False, shape=dict, greylist_ok: bool = False
+    ):
+        """The JSON payload of a 2xx answer, which must be of type ``shape`` (``dict``, ``list`` or a tuple of
+        them); anything else, like an error body or ``0`` / ``[]`` where an object is expected, raises
+        ZBApiException with the HTTP status."""
         body = _response_text(response)
         status = getattr(response, "status_code", 0) or 0
         headers = getattr(response, "headers", None) or {}
@@ -358,9 +931,13 @@ class ZeroBounce:
         if status > 299 or _looks_like_html(body, content_type) or not body.strip():
             raise ZBApiException(self._redact(_message_from_body(body, status)), status_code=status)
         try:
-            payload = response.json()
+            payload = _strict_json(body)
         except ValueError:
-            raise ZBApiException(self._redact(_message_from_body(body, status)), status_code=status) from None
+            payload = _NOT_JSON
+        if payload is _NOT_JSON:
+            # Raised outside the except block: the parser's error quotes the body, so it must not be the
+            # __context__ (``from None`` only hides it from tracebacks).
+            raise ZBApiException(self._redact(_message_from_body(body, status)), status_code=status)
         if isinstance(payload, dict):
             title = payload.get("title")
             if isinstance(title, str) and payload.get("cloudflare_error") is True:
@@ -373,16 +950,16 @@ class ZeroBounce:
             if isinstance(error, str) and error.strip():
                 raise ZBApiException(self._redact(_strip_error_prefix(error)), status_code=status)
             if error:
-                raise ZBApiException(self._redact(str(error)), status_code=status)
+                # A list of strings reads as its first text; any other value (an object, a number) has no text
+                # worth showing, and its Python repr must not leak into the message.
+                text = _message_text(error)
+                raise ZBApiException(
+                    self._redact(_strip_error_prefix(text) if text else _NO_MESSAGE_TEXT), status_code=status
+                )
             success = payload.get("success")
-            failed = success is False or (
-                isinstance(success, str) and success.lower() == "false"
-            )
+            failed = _reads_as_false(success)
             if failed:
-                message = payload.get("message") or payload.get("error_message") or "Request failed"
-                if isinstance(message, list):
-                    message = message[0] if message else "Request failed"
-                text = str(message).strip() or "Request failed"
+                text = _failure_text(payload)
                 raise ZBApiException(self._redact(_strip_error_prefix(text)), status_code=status)
             # A dead or invalid key on a 2xx: no "success" and a non-empty "error_message".
             error_message = payload.get("error_message")
@@ -391,14 +968,67 @@ class ZeroBounce:
             # The email finder and domain search never answer with a bare message: a body made only of message
             # keys is how they report a rejected request (LIVE: a dead key gets {"Message": "Invalid API key..."}).
             # Not for validate, whose greylist answer {"Message": "..."} is a result.
-            if message_only_is_error and payload and "success" not in payload and all(
+            # A list under "Message" is a message-only
+            # error, as in the Java SDK, never a validate result that then fails as "address is missing".
+            greylist = greylist_ok and set(payload) == {"Message"} and not isinstance(payload["Message"], list)
+            if greylist and not _message_text(payload["Message"]):
+                # A greylist answer carries its text; a blank one is an error, not a result with no text.
+                raise ZBApiException(_NO_MESSAGE_TEXT, status_code=status)
+            if message_only_is_error and not greylist and "success" not in payload and all(
                 key in _MESSAGE_KEYS for key in payload
             ):
-                for key in _MESSAGE_KEYS:
-                    value = payload.get(key)
-                    if isinstance(value, str) and value.strip():
-                        raise ZBApiException(self._redact(_strip_error_prefix(value)), status_code=status)
+                if not payload:
+                    raise ZBApiException(
+                        "ZeroBounce returned JSON of an unexpected shape for this call: an empty object.",
+                        status_code=status,
+                    )
+                text = next((t for t in (_message_text(payload.get(key)) for key in _MESSAGE_KEYS) if t), None)
+                raise ZBApiException(self._redact(_strip_error_prefix(text or "Request failed")), status_code=status)
+        if shape is not None and not isinstance(payload, shape):
+            raise ZBApiException(_shape_message(payload, shape), status_code=status)
         return payload
+
+    def _typed(
+        self, response, response_class, shape=dict, message_only_is_error: bool = False, message_only_ok: bool = False
+    ):
+        """``response_class`` built from the JSON object (or ``shape``) of ``response``.
+
+        A field of the wrong shape (e.g. ``"email_batch": 5``) is an API error with the HTTP status, not the
+        TypeError or AttributeError the response class would raise.
+        """
+        # Every typed call treats a message-only body (or {}) as an error; validate alone keeps its greylist answer
+        # {"Message": "..."} as a result. The S3 listing is a function, not a response class, and has its own check.
+        is_class = isinstance(response_class, type)
+        payload = self._read_json_payload(
+            response,
+            (message_only_is_error or is_class) and not message_only_ok,
+            shape,
+            greylist_ok=response_class is ZBValidateResponse,
+        )
+        # Field types are part of the shape: a field of another JSON type (or a required one missing) is an API
+        # error with the HTTP status, never a coerced or defaulted result. The text names the field only.
+        check_shape = getattr(response_class, "check_shape", None)
+        if check_shape is not None and isinstance(payload, dict):
+            try:
+                check_shape(payload)
+            except ZBFieldTypeError as error:
+                problem = str(error)
+            else:
+                problem = None
+            if problem is not None:
+                raise ZBApiException(
+                    f"ZeroBounce returned JSON of an unexpected shape for this call: {problem}.",
+                    status_code=getattr(response, "status_code", 0) or 0,
+                )
+        try:
+            return response_class(payload)
+        except (TypeError, AttributeError, ValueError, KeyError):
+            pass
+        # Raised outside the except block, so the response class's error is not its __context__.
+        raise ZBApiException(
+            "ZeroBounce returned JSON of an unexpected shape for this call.",
+            status_code=getattr(response, "status_code", 0) or 0,
+        )
 
     def _raise_if_download_error(self, response, body_str: str, content_type: str) -> None:
         status = response.status_code
@@ -419,19 +1049,20 @@ class ZeroBounce:
         self._checked_url(url)
         if not params:
             params = {}
-        params["api_key"] = self._api_key
+        params["api_key"] = self._api_key.value
         try:
-            response = requests.get(url, params=params, timeout=self._timeout_s, allow_redirects=False)
+            response = requests.get(url, params=params, timeout=_timeouts(self._timeout_s), allow_redirects=False)
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
             # Raised outside the except block: the original, unredacted error must not be its __context__.
             raise error
-        return response_class(
-            self._read_json_payload(response, getattr(response_class, "_MESSAGE_ONLY_IS_ERROR", False))
-        )
+        return self._typed(response, response_class)
 
     def _post(self, url, response_class, data=None, json=None, files=None):
         self._checked_url(url)
@@ -441,54 +1072,74 @@ class ZeroBounce:
                 data=_form_data(data),
                 json=json,
                 files=files,
-                timeout=self._timeout_s,
+                timeout=_timeouts(self._timeout_s),
                 allow_redirects=False,
             )
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
             # Raised outside the except block: the original, unredacted error must not be its __context__.
             raise error
-        return response_class(
-            self._read_json_payload(response, getattr(response_class, "_MESSAGE_ONLY_IS_ERROR", False))
-        )
+        return self._typed(response, response_class)
 
     def _post_form(self, url, response_class, data=None):
         self._checked_url(url)
         if not data:
             data = {}
         data = dict(data)
-        data["api_key"] = self._api_key
+        data["api_key"] = self._api_key.value
         try:
             response = requests.post(
-                url, data=_form_data(data), timeout=self._timeout_s, allow_redirects=False
+                url, data=_form_data(data), timeout=_timeouts(self._timeout_s), allow_redirects=False
             )
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
             # Raised outside the except block: the original, unredacted error must not be its __context__.
             raise error
-        return response_class(
-            self._read_json_payload(response, getattr(response_class, "_MESSAGE_ONLY_IS_ERROR", False))
-        )
+        return self._typed(response, response_class)
 
     def _request_json(
-        self, method: str, url: str, *, params=None, data=None, files=None, json=None, bearer: bool = False
+        self,
+        method: str,
+        url: str,
+        *,
+        params=None,
+        data=None,
+        files=None,
+        json=None,
+        bearer: bool = False,
+        empty_is_success: bool = False,
+        shape=dict,
+        response_class=None,
+        message_only_is_error: bool = False,
+        message_only_ok: bool = False,
     ):
-        """``bearer`` sends the key as ``Authorization: Bearer`` instead of an ``api_key`` parameter."""
+        """``bearer`` sends the key as ``Authorization: Bearer`` instead of an ``api_key`` parameter.
+
+        ``empty_is_success`` returns None for a 2xx with an empty body (204 No Content) instead of raising.
+        ``shape`` is the JSON type the call returns (see ``_read_json_payload``); ``response_class`` builds a
+        typed result from it instead.
+        """
         self._checked_url(url)
         if params is None:
             params = {}
         headers = None
         if bearer:
-            headers = {"Authorization": f"Bearer {self._api_key}"}
+            headers = {"Authorization": f"Bearer {self._api_key.value}"}
         elif "api_key" not in params and (data is None or "api_key" not in data):
             params = dict(params)
-            params["api_key"] = self._api_key
+            params["api_key"] = self._api_key.value
         try:
             response = requests.request(
                 method,
@@ -498,23 +1149,32 @@ class ZeroBounce:
                 files=files,
                 json=json,
                 headers=headers,
-                timeout=self._timeout_s,
+                timeout=_timeouts(self._timeout_s),
                 allow_redirects=False,
             )
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
             # Raised outside the except block: the original, unredacted error must not be its __context__.
             raise error
-        return self._read_json_payload(response)
+        # Empty means zero bytes: a blank body is not JSON, and not the documented empty success either.
+        if empty_is_success and 200 <= response.status_code < 300 and _response_text(response) == "":
+            return None
+        if response_class is not None:
+            return self._typed(response, response_class, shape, message_only_is_error, message_only_ok)
+        return self._read_json_payload(response, message_only_is_error, shape=shape)
 
     def _send_bulk_root_multipart(
         self, url: str, file_path: str, fields: dict
     ) -> ZBSendFileResponse:
+        _require_text(file_path, "file_path")
         data = dict(fields)
-        data["api_key"] = self._api_key
+        data["api_key"] = self._api_key.value
         with open(file_path, "rb") as file:
             files = {"file": (os.path.basename(file_path), file, "text/csv")}
             return self._post(url, ZBSendFileResponse, data=data, files=files)
@@ -522,14 +1182,14 @@ class ZeroBounce:
     def _send_bulk_root_multipart_stream(
         self, url: str, file_stream: BinaryIO, file_name: str, fields: dict
     ) -> ZBSendFileResponse:
+        _require_text(file_name, "file_name")
         data = dict(fields)
-        data["api_key"] = self._api_key
+        data["api_key"] = self._api_key.value
         files = {"file": (file_name, file_stream, "text/csv")}
         return self._post(url, ZBSendFileResponse, data=data, files=files)
 
     def _bulk_root_file_status(self, base_url: str, file_id: str) -> ZBFileStatusResponse:
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         return self._get(
             f"{base_url}/filestatus",
             ZBFileStatusResponse,
@@ -543,9 +1203,8 @@ class ZeroBounce:
         download_path: str,
         stream: bool = False,
     ) -> ZBGetFileResponse:
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
-        params = {"api_key": self._api_key, "file_id": file_id}
+        _require_text(file_id, "file_id")
+        params = {"api_key": self._api_key.value, "file_id": file_id}
         return self._download(f"{base_url}/getfile", params, download_path, stream)
 
     # Streamed downloads look at this much of the body before deciding it is a file, not an error page.
@@ -556,45 +1215,45 @@ class ZeroBounce:
     def _download(self, url: str, params: dict, download_path: str, stream: bool = False) -> ZBGetFileResponse:
         """GET a result file and save it at ``download_path``.
 
-        ``stream=True`` writes it in chunks to a temporary file next to ``download_path`` and moves it into
-        place when complete, so a large file never has to fit in memory and a failed download leaves nothing
-        at ``download_path``.
+        Either way the file is written to a temporary file next to ``download_path`` and moved into place when
+        complete, so a failed download or write leaves no partial file and keeps a file already at
+        ``download_path``. ``stream=True`` writes it in chunks, so a large file never has to fit in memory.
         """
+        target = _download_target(download_path)
         try:
             response = requests.get(
                 self._checked_url(url),
                 params=params,
-                timeout=self._timeout_s,
+                timeout=_timeouts(self._timeout_s),
                 allow_redirects=False,
                 **({"stream": True} if stream else {}),
             )
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
             # Raised outside the except block: the original, unredacted error must not be its __context__.
             raise error
 
-        dirname = os.path.dirname(download_path)
         if not stream:
             body_bytes = response.content or b""
-            body_str = body_bytes.decode("utf-8", errors="replace")
+            body_str = body_bytes.decode("utf-8", errors="replace").lstrip("\ufeff")
             content_type = response.headers.get("Content-Type") or ""
             self._raise_if_download_error(response, body_str, content_type)
-            if dirname:
-                os.makedirs(dirname, exist_ok=True)
-            with open(download_path, "wb") as f:
-                f.write(body_bytes)
+            _save_file(target, [body_bytes])
             return ZBGetFileResponse({"local_file_path": download_path})
 
         try:
-            self._save_streamed(response, download_path, dirname)
+            self._save_streamed(response, target)
         finally:
             response.close()
         return ZBGetFileResponse({"local_file_path": download_path})
 
-    def _save_streamed(self, response, download_path: str, dirname: str) -> None:
+    def _save_streamed(self, response, target: str) -> None:
         content_type = response.headers.get("Content-Type") or ""
         try:
             chunks = response.iter_content(chunk_size=64 * 1024)
@@ -603,37 +1262,37 @@ class ZeroBounce:
                 head += chunk
                 if len(head) >= self._DOWNLOAD_SNIFF_BYTES:
                     break
-            head_str = head.decode("utf-8", errors="replace")
+            head_str = head.decode("utf-8", errors="replace").lstrip("\ufeff")
+            sniffed = head.lstrip(b"\xef\xbb\xbf").lstrip()[:1]
             might_be_error = (
                 not 200 <= response.status_code < 300
-                or not head.strip()
-                or "application/json" in content_type.lower()
+                or not head.lstrip(b"\xef\xbb\xbf").strip()
+                or _is_json_type(content_type)
                 or _looks_like_html(head_str, content_type)
-                or head.lstrip()[:1] in (b"{", b"[")
+                or sniffed in (b"{", b"[")
             )
             if might_be_error:
                 for chunk in chunks:
                     head += chunk
                     if len(head) >= self._DOWNLOAD_MAX_ERROR_BYTES:
                         break
-                self._raise_if_download_error(response, head.decode("utf-8", errors="replace"), content_type)
+                self._raise_if_download_error(
+                    response, head.decode("utf-8", errors="replace").lstrip("\ufeff"), content_type
+                )
+                # A JSON object cut at the cap cannot be parsed to tell an error from a file; no result file starts
+                # with "{", so it is an error with its status, as the same body under the cap would be.
+                if len(head) >= self._DOWNLOAD_MAX_ERROR_BYTES and sniffed in (b"{", b"["):
+                    raise ZBApiException(
+                        "ZeroBounce returned a JSON body larger than the error limit instead of the file.",
+                        status_code=response.status_code,
+                    )
 
-            if dirname:
-                os.makedirs(dirname, exist_ok=True)
-            fd, partial = tempfile.mkstemp(dir=dirname or ".", prefix=".zb-download-", suffix=".part")
-            try:
-                with os.fdopen(fd, "wb") as out:
-                    out.write(head)
-                    for chunk in chunks:
-                        if chunk:
-                            out.write(chunk)
-                os.replace(partial, download_path)
-            except BaseException:
-                with contextlib.suppress(OSError):
-                    os.unlink(partial)
-                raise
+            _save_file(target, itertools.chain([head], chunks))
         except RequestException as e:
             error = type(e)(self._redact(e))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
@@ -641,8 +1300,7 @@ class ZeroBounce:
             raise error
 
     def _bulk_root_delete_file(self, base_url: str, file_id: str) -> ZBDeleteFileResponse:
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         return self._get(
             f"{base_url}/deletefile",
             ZBDeleteFileResponse,
@@ -651,7 +1309,7 @@ class ZeroBounce:
 
     def _post_bulk_root_form(self, path: str, fields: dict) -> ZBSendFileResponse:
         data = dict(fields)
-        data["api_key"] = self._api_key
+        data["api_key"] = self._api_key.value
         return self._post(
             f"{_root(self.BULK_ROOT_URL)}{path}",
             ZBSendFileResponse,
@@ -700,6 +1358,13 @@ class ZeroBounce:
             Returns a ZBGetApiUsageResponse object if the request was successful
         """
 
+        for name, value in (("start_date", start_date), ("end_date", end_date)):
+            if value is None:
+                raise ZBClientException(f"Empty parameter: {name}")
+            if not isinstance(value, date):
+                raise ZBClientException(f"Invalid parameter: {name} must be a date")
+        if start_date > end_date:
+            raise ZBClientException("Invalid parameter: start_date must not be after end_date")
         return self._get_or_post_form(
             f"{self._base_url}/getapiusage",
             ZBGetApiUsageResponse,
@@ -728,6 +1393,7 @@ class ZeroBounce:
             Returns a ZBGetActivityResponse object if the request was successful
         """
 
+        _require_text(email, "email")
         return self._get_or_post_form(
             f"{self._base_url}/activity", ZBGetActivityResponse, {"email": email}, use_post
         )
@@ -751,6 +1417,7 @@ class ZeroBounce:
         response: ZBScoreEmailResponse
         """
 
+        _require_text(email, "email")
         if use_post:
             return self._post_form(
                 f"{self._base_url}/scoring",
@@ -765,13 +1432,13 @@ class ZeroBounce:
 
     @staticmethod
     def _check_validate_timeout(timeout: Optional[int]) -> None:
-        if timeout is not None and (timeout < 3 or timeout > 60):
-            raise ZBClientException("Invalid parameter: timeout (must be between 3 and 60 seconds)")
+        if timeout is not None:
+            _int_option(timeout, "timeout", 3, 60)
 
     @staticmethod
     def _check_validate_batch_timeout(timeout: Optional[int]) -> None:
-        if timeout is not None and (timeout < 10 or timeout > 120):
-            raise ZBClientException("Invalid parameter: timeout (must be between 10 and 120 seconds)")
+        if timeout is not None:
+            _int_option(timeout, "timeout", 10, 120)
 
     def validate(
         self,
@@ -821,6 +1488,8 @@ class ZeroBounce:
         response: ZBValidateResponse
             Returns a ZBValidateResponse object if the request was successful
         """
+        _require_text(email, "email")
+        ip_address = _omit_blank(ip_address, "ip_address")
         self._check_validate_timeout(timeout)
         if activity_data is not None:
             activity_data = _strict_bool(activity_data, "activity_data")
@@ -832,13 +1501,11 @@ class ZeroBounce:
             greylist_processing = _strict_bool(greylist_processing, "greylist_processing")
         if callback_url is not None and greylist_processing is not True:
             raise ZBClientException("Invalid parameter: callback_url requires greylist_processing=True")
-        if callback_url is not None and not callback_url.strip():
-            raise ZBClientException("Empty parameter: callback_url")
+        _optional_text(callback_url, "callback_url")
 
-        params = {
-            "email": email,
-            "ip_address": ip_address,
-        }
+        params = {"email": email}
+        if ip_address is not None:
+            params["ip_address"] = ip_address
         if timeout is not None:
             params["timeout"] = timeout
         if activity_data is not None:
@@ -896,10 +1563,14 @@ class ZeroBounce:
         """
         if not email_batch:
             raise ZBClientException("Empty parameter: email_batch")
+        if not isinstance(email_batch, (list, tuple)) or not all(
+            isinstance(element, ZBValidateBatchElement) for element in email_batch
+        ):
+            raise ZBClientException("Invalid parameter: email_batch must be a list of ZBValidateBatchElement")
         self._check_validate_batch_timeout(timeout)
 
         payload = {
-            "api_key": self._api_key,
+            "api_key": self._api_key.value,
             "email_batch": [
                 batch_element.to_json() for batch_element in email_batch
             ],
@@ -922,7 +1593,9 @@ class ZeroBounce:
                 text = batch_error.error or "Invalid API Key or your account ran out of credits"
                 if isinstance(text, str):
                     text = _strip_error_prefix(text)
-                raise ZBApiException(text)
+                # Reported on an HTTP 200, like a dead key on the other calls. The text comes from the body,
+                # which can quote the key.
+                raise ZBApiException(self._redact(text), status_code=200)
         return result
 
     def _send_file(
@@ -932,9 +1605,11 @@ class ZeroBounce:
         email_address_column: int,
         data: dict,
     ):
+        _require_text(file_path, "file_path")
+        _require_column(email_address_column, "email_address_column")
         data.update(
             {
-                "api_key": self._api_key,
+                "api_key": self._api_key.value,
                 "email_address_column": email_address_column,
             }
         )
@@ -951,10 +1626,12 @@ class ZeroBounce:
         email_address_column: int,
         data: dict,
     ):
+        _require_text(file_name, "file_name")
+        _require_column(email_address_column, "email_address_column")
         data = dict(data)
         data.update(
             {
-                "api_key": self._api_key,
+                "api_key": self._api_key.value,
                 "email_address_column": email_address_column,
             }
         )
@@ -972,7 +1649,7 @@ class ZeroBounce:
         gender_column: int = None,
         ip_address_column: int = None,
         has_header_row: bool = False,
-        remove_duplicate: bool = True,
+        remove_duplicate: Optional[bool] = None,
         allow_phase_2: Optional[bool] = None,
     ):
         """Allows user to send a file for bulk email validation
@@ -995,8 +1672,8 @@ class ZeroBounce:
             The IP Address the email signed up from.
         has_header_row: bool
             If the first row from the submitted file is a header row.
-        remove_duplicate: bool
-            If you want the system to remove duplicate emails.
+        remove_duplicate: bool or None
+            If you want the system to remove duplicate emails. Sent only when set (the API defaults to True).
         allow_phase_2: bool or None
             When not None, sends allow_phase_2 (validation bulk sendfile only).
 
@@ -1011,6 +1688,7 @@ class ZeroBounce:
         """
 
         data = {}
+        return_url = _omit_blank(return_url, "return_url")
         if return_url is not None:
             data["return_url"] = return_url
         if first_name_column is not None:
@@ -1041,7 +1719,7 @@ class ZeroBounce:
         gender_column: int = None,
         ip_address_column: int = None,
         has_header_row: bool = False,
-        remove_duplicate: bool = True,
+        remove_duplicate: Optional[bool] = None,
         allow_phase_2: Optional[bool] = None,
     ):
         """Send a file for bulk email validation from a stream (e.g. in-memory CSV or uploaded file).
@@ -1066,8 +1744,8 @@ class ZeroBounce:
             The IP Address the email signed up from.
         has_header_row: bool
             If the first row from the submitted file is a header row.
-        remove_duplicate: bool
-            If you want the system to remove duplicate emails.
+        remove_duplicate: bool or None
+            If you want the system to remove duplicate emails. Sent only when set (the API defaults to True).
         allow_phase_2: bool or None
             When not None, sends allow_phase_2 (validation bulk sendfile only).
 
@@ -1076,6 +1754,7 @@ class ZeroBounce:
         response: ZBSendFileResponse
         """
         data = {}
+        return_url = _omit_blank(return_url, "return_url")
         if return_url is not None:
             data["return_url"] = return_url
         if first_name_column is not None:
@@ -1103,7 +1782,7 @@ class ZeroBounce:
         email_address_column: int,
         return_url: str = None,
         has_header_row: bool = False,
-        remove_duplicate: bool = True,
+        remove_duplicate: Optional[bool] = None,
     ):
         """Allows user to send a file for bulk email scoring
 
@@ -1117,8 +1796,8 @@ class ZeroBounce:
             The URL will be used to call back when the validation is completed.
         has_header_row: bool
             If the first row from the submitted file is a header row.
-        remove_duplicate: bool
-            If you want the system to remove duplicate emails.
+        remove_duplicate: bool or None
+            If you want the system to remove duplicate emails. Sent only when set (the API defaults to True).
 
         Raises
         ------
@@ -1131,6 +1810,7 @@ class ZeroBounce:
         """
 
         data = {}
+        return_url = _omit_blank(return_url, "return_url")
         if return_url is not None:
             data["return_url"] = return_url
         if has_header_row is not None:
@@ -1147,7 +1827,7 @@ class ZeroBounce:
         email_address_column: int,
         return_url: str = None,
         has_header_row: bool = False,
-        remove_duplicate: bool = True,
+        remove_duplicate: Optional[bool] = None,
     ):
         """Send a file for bulk email scoring from a stream.
 
@@ -1163,14 +1843,15 @@ class ZeroBounce:
             The URL will be used to call back when the validation is completed.
         has_header_row: bool
             If the first row from the submitted file is a header row.
-        remove_duplicate: bool
-            If you want the system to remove duplicate emails.
+        remove_duplicate: bool or None
+            If you want the system to remove duplicate emails. Sent only when set (the API defaults to True).
 
         Returns
         -------
         response: ZBSendFileResponse
         """
         data = {}
+        return_url = _omit_blank(return_url, "return_url")
         if return_url is not None:
             data["return_url"] = return_url
         if has_header_row is not None:
@@ -1183,8 +1864,7 @@ class ZeroBounce:
         )
 
     def _file_status(self, scoring: bool, file_id: str):
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         return self._get(
             f"{_root(self.SCORING_BASE_URL if scoring else self.BULK_BASE_URL)}/filestatus",
             ZBFileStatusResponse,
@@ -1239,10 +1919,9 @@ class ZeroBounce:
         options: Optional[ZBGetFileOptions] = None,
         stream: bool = False,
     ):
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         params = {
-            "api_key": self._api_key,
+            "api_key": self._api_key.value,
             "file_id": file_id,
         }
         if options is not None:
@@ -1325,8 +2004,7 @@ class ZeroBounce:
         return self._get_file(True, file_id, download_path, options, stream=stream)
 
     def _delete_file(self, scoring: bool, file_id: str):
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         return self._get(
             f"{_root(self.SCORING_BASE_URL if scoring else self.BULK_BASE_URL)}/deletefile",
             ZBDeleteFileResponse,
@@ -1389,8 +2067,7 @@ class ZeroBounce:
         full_name_column: int = None,
         has_header_row: bool = False,
     ) -> ZBSendFileResponse:
-        if domain_column is None:
-            raise ZBClientException("Empty parameter: domain_column")
+        _require_column(domain_column, "domain_column")
         if first_name_column is None and full_name_column is None:
             raise ZBClientException("Empty parameter: first_name_column or full_name_column is required")
         fields = {"domain_column": domain_column}
@@ -1419,8 +2096,7 @@ class ZeroBounce:
         full_name_column: int = None,
         has_header_row: bool = False,
     ) -> ZBSendFileResponse:
-        if domain_column is None:
-            raise ZBClientException("Empty parameter: domain_column")
+        _require_column(domain_column, "domain_column")
         if first_name_column is None and full_name_column is None:
             raise ZBClientException("Empty parameter: first_name_column or full_name_column is required")
         fields = {"domain_column": domain_column}
@@ -1466,8 +2142,7 @@ class ZeroBounce:
         domain_column: int,
         has_header_row: bool = False,
     ) -> ZBSendFileResponse:
-        if domain_column is None:
-            raise ZBClientException("Empty parameter: domain_column")
+        _require_column(domain_column, "domain_column")
         return self._send_bulk_root_multipart(
             f"{_root(self.DOMAIN_SEARCH_BASE_URL)}/sendfile",
             file_path,
@@ -1481,8 +2156,7 @@ class ZeroBounce:
         domain_column: int,
         has_header_row: bool = False,
     ) -> ZBSendFileResponse:
-        if domain_column is None:
-            raise ZBClientException("Empty parameter: domain_column")
+        _require_column(domain_column, "domain_column")
         return self._send_bulk_root_multipart_stream(
             f"{_root(self.DOMAIN_SEARCH_BASE_URL)}/sendfile",
             file_stream,
@@ -1505,12 +2179,12 @@ class ZeroBounce:
     def send_list_evaluator_file(
         self, file_path: str, email_address_column: int
     ) -> ZBListEvaluatorResponse:
-        if email_address_column is None:
-            raise ZBClientException("Empty parameter: email_address_column")
+        _require_column(email_address_column, "email_address_column")
         data = {
-            "api_key": self._api_key,
+            "api_key": self._api_key.value,
             "email_address_column": email_address_column,
         }
+        _require_text(file_path, "file_path")
         with open(file_path, "rb") as file:
             files = {"file": (os.path.basename(file_path), file, "text/csv")}
             return self._post(
@@ -1526,12 +2200,12 @@ class ZeroBounce:
         file_name: str,
         email_address_column: int,
     ) -> ZBListEvaluatorResponse:
-        if email_address_column is None:
-            raise ZBClientException("Empty parameter: email_address_column")
+        _require_column(email_address_column, "email_address_column")
         data = {
-            "api_key": self._api_key,
+            "api_key": self._api_key.value,
             "email_address_column": email_address_column,
         }
+        _require_text(file_name, "file_name")
         files = {"file": (file_name, file_stream, "text/csv")}
         return self._post(
             f"{_root(self.LIST_EVALUATOR_BASE_URL)}/",
@@ -1542,14 +2216,13 @@ class ZeroBounce:
 
     def get_list_evaluator_result(self, file_id: str) -> ZBListEvaluatorResponse:
         """The evaluation's progress and, once ``status`` is ``finished``, its percentages."""
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
-        return ZBListEvaluatorResponse(
-            self._request_json(
-                "GET",
-                f"{_root(self.LIST_EVALUATOR_BASE_URL)}/{_path_segment(file_id, 'file_id')}/",
-                params={"api_key": self._api_key},
-            )
+        _require_text(file_id, "file_id")
+        return self._request_json(
+            "GET",
+            f"{_root(self.LIST_EVALUATOR_BASE_URL)}/{_path_segment(file_id, 'file_id')}/",
+            params={"api_key": self._api_key.value},
+            response_class=ZBListEvaluatorResponse,
+            message_only_ok=True,  # its documented success can be a message
         )
 
     def send_evaluated_file(self, file_id: str) -> ZBSendFileResponse:
@@ -1559,8 +2232,7 @@ class ZeroBounce:
         (the docs describe a file upload, which the API rejects with "file_id: This field is required").
         The result's ``file_id`` is the new validation job, followed with ``file_status`` and ``get_file``.
         """
-        if not file_id or not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
+        _require_text(file_id, "file_id")
         return self._post_form(f"{_root(self.BULK_BASE_URL)}/send-evaluated-file/", ZBSendFileResponse, {"file_id": file_id})
 
     # Priority 3 — custom filters (main API)
@@ -1569,7 +2241,7 @@ class ZeroBounce:
     FILTER_TARGETS = ("email", "domain", "mx", "tld")
 
     def _check_filter(self, rule: str, target: str, value: str) -> None:
-        if not rule or not target or not value:
+        if any(not isinstance(item, str) or not item.strip() for item in (rule, target, value)):
             raise ZBClientException("Empty parameter: rule, target, and value are required")
         if rule not in self.FILTER_RULES:
             raise ZBClientException("Invalid parameter: rule (must be allow or block)")
@@ -1583,7 +2255,7 @@ class ZeroBounce:
             "POST",
             f"{self._base_url}/filters/add",
             data={
-                "api_key": self._api_key,
+                "api_key": self._api_key.value,
                 "rule": rule,
                 "target": target,
                 "value": value,
@@ -1591,16 +2263,19 @@ class ZeroBounce:
         )
 
     def list_filters(self, use_post: bool = False):
+        """The allowlist / blocklist rules, a JSON array (GET or POST /filters/list)."""
         if use_post:
             return self._request_json(
                 "POST",
                 f"{self._base_url}/filters/list",
-                data={"api_key": self._api_key},
+                data={"api_key": self._api_key.value},
+                shape=list,
             )
         return self._request_json(
             "GET",
             f"{self._base_url}/filters/list",
-            params={"api_key": self._api_key},
+            params={"api_key": self._api_key.value},
+            shape=list,
         )
 
     def delete_filter(self, rule: str, target: str, value: str):
@@ -1610,7 +2285,7 @@ class ZeroBounce:
             "POST",
             f"{self._base_url}/filters/delete",
             data={
-                "api_key": self._api_key,
+                "api_key": self._api_key.value,
                 "rule": rule,
                 "target": target,
                 "value": value,
@@ -1630,19 +2305,13 @@ class ZeroBounce:
             params["bucket"] = bucket
         if search is not None:
             params["search"] = search
-        payload = self._request_json(
+        return self._request_json(
             "GET",
             f"{_root(self.BULK_ROOT_URL)}/listS3files",
             params=params,
+            shape=(dict, list),
+            response_class=_s3_files,
         )
-        if isinstance(payload, dict) and payload.get("error"):
-            raise ZBApiException(payload["error"])
-        # Documented as {"success": true, "files": [{"Name", "Size", "LastModified"}]}.
-        if isinstance(payload, dict) and isinstance(payload.get("files"), list):
-            return payload["files"]
-        if not isinstance(payload, list):
-            raise ZBApiException("Unexpected listS3files response")
-        return payload
 
     def validate_s3file(
         self,
@@ -1676,10 +2345,8 @@ class ZeroBounce:
 
         Without ``export_bucket`` the export bucket from your ZeroBounce settings is used.
         """
-        if not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
-        if export_bucket is not None and not export_bucket.strip():
-            raise ZBClientException("Empty parameter: export_bucket")
+        _require_text(file_id, "file_id")
+        _optional_text(export_bucket, "export_bucket")
         fields = {"file_id": file_id}
         if export_bucket is not None:
             fields["export_bucket"] = export_bucket
@@ -1700,12 +2367,14 @@ class ZeroBounce:
         The live API rejects a job without ``return_url`` ("Provided return URL is not permitted: None") and a
         ``validateSFTPfile`` without ``file_name``, although the docs mark both optional; so both are required here.
         """
-        if (file_name is None and file_name_required) or (file_name is not None and not file_name.strip()):
+        if file_name is None and file_name_required:
             raise ZBClientException("Empty parameter: file_name")
+        _optional_text(file_name, "file_name")
         if has_header_row is None:
             raise ZBClientException("Empty parameter: has_header_row")
         if not return_url or not str(return_url).strip():
             raise ZBClientException("Empty parameter: return_url (the API rejects these jobs without one)")
+        _require_text(return_url, "return_url")
         fields = {"has_header_row": _wire_bool(has_header_row, "has_header_row")}
         if file_name is not None:
             fields["file_name"] = file_name
@@ -1797,10 +2466,8 @@ class ZeroBounce:
 
         Without ``export_path`` the export path from your ZeroBounce settings is used.
         """
-        if not file_id or not file_id.strip():
-            raise ZBClientException("Empty parameter: file_id")
-        if export_path is not None and not export_path.strip():
-            raise ZBClientException("Empty parameter: export_path")
+        _require_text(file_id, "file_id")
+        _optional_text(export_path, "export_path")
         fields = {"file_id": file_id}
         if export_path is not None:
             fields["export_path"] = export_path
@@ -1862,8 +2529,7 @@ class ZeroBounce:
         -------
         dict with ``id``, ``identifier``, ``testType`` and ``emailAddressList`` (the seeds to send to).
         """
-        if not name or not name.strip():
-            raise ZBClientException("Empty parameter: name")
+        _require_text(name, "name")
         if len(name) > 64:
             raise ZBClientException("Invalid parameter: name (at most 64 characters)")
         if any(not (char.isalnum() or char in self.IPT_NAME_PUNCTUATION) for char in name):
@@ -1872,13 +2538,15 @@ class ZeroBounce:
             )
         if test_type is not None and test_type not in self.IPT_TEST_TYPES:
             raise ZBClientException("Invalid parameter: test_type (must be 1, 2 or 3)")
-        if test_type == 1 and (not sender_email or not sender_email.strip()):
+        if test_type == 1 and (not sender_email or not str(sender_email).strip()):
             raise ZBClientException("Empty parameter: sender_email (required when test_type is 1)")
+        _optional_text(sender_email, "sender_email")
+        _optional_text(webhook_url, "webhook_url")
         for provider in providers or []:
             if not isinstance(provider, dict) or "id" not in provider:
                 raise ZBClientException("Invalid parameter: providers (each needs an id)")
             max_seeds = provider.get("maxSeeds")
-            if max_seeds is not None and max_seeds < 1:
+            if max_seeds is not None and (isinstance(max_seeds, bool) or not isinstance(max_seeds, int) or max_seeds < 1):
                 raise ZBClientException("Invalid parameter: providers (maxSeeds must be at least 1)")
 
         body = {"name": name}
@@ -1930,6 +2598,10 @@ class ZeroBounce:
         """
         if status is not None and status not in self.IPT_TEST_STATUSES:
             raise ZBClientException("Invalid parameter: status (must be running or finished)")
+        if page is not None and (isinstance(page, bool) or not isinstance(page, int)):
+            raise ZBClientException("Invalid parameter: page must be an integer")
+        if page_size is not None and (isinstance(page_size, bool) or not isinstance(page_size, int)):
+            raise ZBClientException("Invalid parameter: page_size must be an integer")
         if page is not None and page < 1:
             raise ZBClientException("Invalid parameter: page (must be at least 1)")
         if page_size is not None and (page_size < 1 or page_size > 100):
@@ -1948,18 +2620,24 @@ class ZeroBounce:
         return self._request_json("GET", f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/tests", params=params, bearer=True)
 
     def delete_inbox_placement_test(self, test_id: Union[int, str]):
-        """Delete a finished test (DELETE /api/ipt/test/{id}). A running test cannot be deleted."""
+        """Delete a finished test (DELETE /api/ipt/test/{id}). A running test cannot be deleted.
+
+        Returns the API's JSON answer, or None when it answers with an empty 2xx (204 No Content).
+        """
         path = self._ipt_test_path(test_id)
-        return self._request_json("DELETE", f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/test/{path}", bearer=True)
+        return self._request_json(
+            "DELETE", f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/test/{path}", bearer=True, empty_is_success=True
+        )
 
     def get_inbox_placement_webhook(self):
         """The webhook URL saved on this API key (GET /api/ipt/webhook); empty when none is set."""
-        return self._request_json("GET", f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/webhook", bearer=True)
+        return self._request_json(
+            "GET", f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/webhook", bearer=True
+        )
 
     def set_inbox_placement_webhook(self, webhook_url: str):
         """Save the URL finished test results are posted to (PUT /api/ipt/webhook). One per API key."""
-        if not webhook_url or not webhook_url.strip():
-            raise ZBClientException("Empty parameter: webhook_url")
+        _require_text(webhook_url, "webhook_url")
         return self._request_json(
             "PUT",
             f"{_root(self.INBOX_PLACEMENT_BASE_URL)}/webhook",
@@ -2007,6 +2685,10 @@ class ZeroBounce:
             DeprecationWarning,
             stacklevel=2
         )
+        _require_text(domain, "domain")
+        first_name, middle_name, last_name = (
+            _omit_blank(first_name, "first_name"), _omit_blank(middle_name, "middle_name"),
+            _omit_blank(last_name, "last_name"))
         params = {"domain": domain}
         if first_name:
             params["first_name"] = first_name
@@ -2035,6 +2717,10 @@ class ZeroBounce:
 
         Pass exactly one of ``domain`` or ``company_name``. The name fields are optional.
         """
+        domain, company_name = _omit_blank(domain, "domain"), _omit_blank(company_name, "company_name")
+        first_name, middle_name, last_name = (
+            _omit_blank(first_name, "first_name"), _omit_blank(middle_name, "middle_name"),
+            _omit_blank(last_name, "last_name"))
         if not domain and not company_name:
             raise ZBClientException("Empty parameter: domain or company_name required")
         if domain and company_name:
@@ -2061,6 +2747,7 @@ class ZeroBounce:
         company_name: str = '',
         use_post: bool = False,
     ):
+        domain, company_name = _omit_blank(domain, "domain"), _omit_blank(company_name, "company_name")
         if not domain and not company_name:
             raise ZBClientException("Empty parameter: domain xor company_name required")
         if domain and company_name:

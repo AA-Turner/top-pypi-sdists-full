@@ -44,12 +44,12 @@ namespace sogen
                 return STATUS_INVALID_HANDLE;
             }
 
+            const auto was_signaled = entry->set_signaled(true);
             if (previous_state.value())
             {
-                previous_state.write(entry->signaled ? 1ULL : 0ULL);
+                previous_state.write(was_signaled ? 1ULL : 0ULL);
             }
 
-            entry->signaled = true;
             c.win_emu.wake_idle_vcpu();
             return STATUS_SUCCESS;
         }
@@ -62,27 +62,31 @@ namespace sogen
                 return STATUS_INVALID_HANDLE;
             }
 
+            const auto was_signaled = entry->set_signaled(true);
             if (previous_state.value())
             {
-                previous_state.write(entry->signaled ? 1ULL : 0ULL);
+                previous_state.write(was_signaled ? 1ULL : 0ULL);
             }
 
             // Pulse: momentarily signal the event so threads already blocked on it wake, then return it to
             // the non-signaled state. Threads that are not currently waiting miss the pulse, matching the
             // lossy NtPulseEvent semantics. The cooperative scheduler only re-evaluates readiness at context
             // switches, so wake the current waiters explicitly while the event is signaled.
-            entry->signaled = true;
 
-            const auto event_handle = make_handle(handle);
+            // A waiter may hold a different handle value for this event (a duplicate or a second open by name), so match the
+            // object it waits on, not the value.
+            const auto event_reference = c.proc.events.reference_of(make_handle(handle)).value_or(object_reference{});
             for (auto& thread : c.proc.threads | std::views::values)
             {
-                if (std::ranges::find(thread.await_objects, event_handle) != thread.await_objects.end())
+                const auto waits_on_event =
+                    std::ranges::any_of(thread.await_objects, [&](const auto& awaited) { return awaited == event_reference; });
+                if (waits_on_event)
                 {
                     (void)thread.is_thread_ready(c.win_emu);
                 }
             }
 
-            entry->signaled = false;
+            entry->set_signaled(false);
             c.win_emu.wake_idle_vcpu();
             return STATUS_SUCCESS;
         }
@@ -112,7 +116,7 @@ namespace sogen
             if (auto* entry = c.proc.events.get(event_handle))
             {
                 type = entry->type;
-                is_signaled = entry->signaled;
+                is_signaled = entry->is_signaled();
             }
 
             is_signaled = is_signaled || event_handle == LSA_AUTHENTICATION_INITIALIZED;
@@ -138,7 +142,7 @@ namespace sogen
                 return STATUS_INVALID_HANDLE;
             }
 
-            e->signaled = false;
+            e->set_signaled(false);
             return STATUS_SUCCESS;
         }
 
@@ -155,8 +159,7 @@ namespace sogen
                 return STATUS_INVALID_HANDLE;
             }
 
-            previous_state.write_if_valid(e->signaled ? 1 : 0);
-            e->signaled = false;
+            previous_state.write_if_valid(e->set_signaled(false) ? 1 : 0);
             return STATUS_SUCCESS;
         }
 
@@ -165,6 +168,11 @@ namespace sogen
                                       const emulator_object<OBJECT_ATTRIBUTES<EmulatorTraits<Emu64>>> object_attributes,
                                       const EVENT_TYPE event_type, const BOOLEAN initial_state)
         {
+            if (const auto status = validate_object_attributes(object_attributes); status != STATUS_SUCCESS)
+            {
+                return status;
+            }
+
             if (event_type != NotificationEvent && event_type != SynchronizationEvent)
             {
                 return STATUS_INVALID_PARAMETER;
@@ -187,8 +195,7 @@ namespace sogen
                 {
                     if (entry.second.name == name)
                     {
-                        ++entry.second.ref_count;
-                        event_handle.write(c.proc.events.make_handle(entry.first));
+                        event_handle.write(c.proc.events.open_by_index(entry.first, get_handle_attributes(object_attributes)));
                         return STATUS_OBJECT_NAME_EXISTS;
                     }
                 }
@@ -196,7 +203,7 @@ namespace sogen
 
             event e{};
             e.type = event_type;
-            e.signaled = initial_state != FALSE;
+            e.set_signaled(initial_state != FALSE);
             e.name = std::move(name);
             e.inherit = object_attributes && (object_attributes.read().Attributes & OBJ_INHERIT) != 0;
 
@@ -213,6 +220,11 @@ namespace sogen
                                     const ACCESS_MASK /*desired_access*/,
                                     const emulator_object<OBJECT_ATTRIBUTES<EmulatorTraits<Emu64>>> object_attributes)
         {
+            if (const auto status = validate_object_attributes(object_attributes); status != STATUS_SUCCESS)
+            {
+                return status;
+            }
+
             const auto attributes = object_attributes.read();
             const auto name = read_unicode_string(c.emu, attributes.ObjectName);
             c.win_emu.callbacks.on_generic_access("Opening event", name);
@@ -251,8 +263,7 @@ namespace sogen
             {
                 if (entry.second.name == name)
                 {
-                    ++entry.second.ref_count;
-                    event_handle.write(c.proc.events.make_handle(entry.first).bits);
+                    event_handle.write(c.proc.events.open_by_index(entry.first, get_handle_attributes(object_attributes)).bits);
                     return STATUS_SUCCESS;
                 }
             }
@@ -261,9 +272,11 @@ namespace sogen
             {
                 event e{};
                 e.type = NotificationEvent;
-                e.signaled = *signaled;
+                e.set_signaled(*signaled);
                 e.name = name;
-                event_handle.write(c.proc.events.store(std::move(e)).bits);
+                const auto handle = c.proc.events.store(std::move(e));
+                (void)c.proc.events.set_attributes(handle, get_handle_attributes(object_attributes));
+                event_handle.write(handle.bits);
                 return STATUS_SUCCESS;
             }
 

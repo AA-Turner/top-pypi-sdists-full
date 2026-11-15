@@ -44,6 +44,11 @@ from types import TracebackType
 from typing import Any
 from typing import cast
 
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    from typing_extensions import deprecated
+
 from ansys.aedt.core.aedt_logger import AedtLogger
 from ansys.aedt.core.application.aedt_objects import AedtObjects
 from ansys.aedt.core.application.design_solutions import DesignSolution
@@ -71,7 +76,6 @@ from ansys.aedt.core.generic.file_utils import read_tab
 from ansys.aedt.core.generic.file_utils import read_xlsx
 from ansys.aedt.core.generic.file_utils import remove_project_lock
 from ansys.aedt.core.generic.file_utils import write_csv
-from ansys.aedt.core.generic.general_methods import deprecated_property
 from ansys.aedt.core.generic.general_methods import is_windows
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
 from ansys.aedt.core.generic.general_methods import settings
@@ -80,6 +84,7 @@ from ansys.aedt.core.generic.numbers_utils import decompose_variable_value
 from ansys.aedt.core.generic.protocols import _OProject
 from ansys.aedt.core.generic.settings import inner_project_settings
 from ansys.aedt.core.internal.aedt_versions import aedt_versions
+from ansys.aedt.core.internal.checks import deprecated_doc
 from ansys.aedt.core.internal.errors import AEDTRuntimeError
 from ansys.aedt.core.internal.errors import GrpcApiError
 from ansys.aedt.core.internal.load_aedt_file import load_entire_aedt_file
@@ -563,10 +568,14 @@ class Design(AedtObjects, PyAedtBase):
 
         current_boundaries = bb[::2]
         current_types = bb[1::2]
-        if hasattr(self, "excitation_names"):
-            check_boundaries = list(current_boundaries[:]) + list(self.ports[:]) + self.excitation_names[:]
-            if hasattr(self, "net_names"):
-                check_boundaries += self.net_names
+        # ``getattr`` evaluates each property once (``hasattr`` would evaluate it and then it would be re-read).
+        excitation_names = getattr(self, "excitation_names", None)
+        if excitation_names is not None:
+            check_boundaries = list(current_boundaries[:]) + list(self.ports[:]) + excitation_names[:]
+            net_names = getattr(self, "net_names", None)
+            if net_names is not None:
+                check_boundaries += net_names
+            check_boundaries = set(check_boundaries)
             for k in list(self._boundaries.keys())[:]:
                 if k not in check_boundaries:
                     del self._boundaries[k]
@@ -796,7 +805,8 @@ class Design(AedtObjects, PyAedtBase):
             return {}
 
     @property
-    @deprecated_property("Use aedt_env_variable instead.")
+    @deprecated_doc()
+    @deprecated("Use `aedt_env_variable` instead.")
     def aedt_version_id(self) -> str:
         """AEDT version environment variable name.
 
@@ -4876,10 +4886,20 @@ class Design(AedtObjects, PyAedtBase):
         >>> result = hfss.evaluate_expression("sqrt(width^2 + height^2)")
 
         """
+        # Fast path: plain numeric values cannot be variable names, so skip the variable lookup.
+        if isinstance(expression, (int, float)) and not isinstance(expression, bool):
+            return float(expression)
+        if isinstance(expression, str) and expression[:1] and not (expression[0].isalpha() or expression[0] in "$_"):
+            try:
+                return float(expression)
+            except ValueError:
+                pass
+
         # Strategy 1: Direct variable lookup
         # If the expression is exactly a variable name, return its SI value directly
-        if expression in self._variable_manager.variables:
-            return self._variable_manager.variables[expression].si_value
+        variables = self._variable_manager.variables
+        if expression in variables:
+            return variables[expression].si_value
 
         # Strategy 2: Check for PWL (Piecewise Linear) dataset references
         # PWL expressions reference datasets and should be returned as-is

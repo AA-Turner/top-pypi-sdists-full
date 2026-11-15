@@ -220,7 +220,7 @@ class TrainerCheck(BaseModel):
     logged: float | None = None
     residual: float | None = None
     is_within: bool | None = None
-    #: The relative bound used, by the key's declared dtype.
+    #: The relative bound used: the rollup's own (`Rollup.tolerance`), else by the key's declared dtype.
     tolerance: float = LOSS_TOLERANCE
     #: Why the framework's own series is approximate (`Rollup.approximate`): both numbers shown, never a failure.
     approximate: str | None = None
@@ -264,7 +264,7 @@ class PointsCapture(BaseModel):
 
     run_id: UUID
     is_recorded: bool
-    #: The fp32 bound; each check names its own (`tolerance`, by dtype).
+    #: The fp32 bound; each check names its own (`tolerance`: the rollup's own, else by dtype).
     tolerance: float = LOSS_TOLERANCE
     producers: list[ProducerTraining] = Field(default_factory=list)
     steps: list[StepCapture] = Field(default_factory=list)

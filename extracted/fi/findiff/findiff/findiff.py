@@ -97,6 +97,18 @@ class _FinDiffBase:
         ref_multi_slice = [all] * ndims
         ref_multi_slice[dim] = ref_slice
 
+        if type(yd) is np.ndarray and type(ref_slice) is slice:
+            # Basic slicing yields a view, so we can accumulate in place.
+            target = yd[tuple(ref_multi_slice)]
+            off_multi_slice = [all] * ndims
+            for w, s in zip(weights, off_slices):
+                off_multi_slice[dim] = s
+                if abs(1 - w) < 1.0e-14:
+                    target += y[tuple(off_multi_slice)]
+                else:
+                    target += w * y[tuple(off_multi_slice)]
+            return yd
+
         for w, s in zip(weights, off_slices):
             off_multi_slice = [all] * ndims
             off_multi_slice[dim] = s

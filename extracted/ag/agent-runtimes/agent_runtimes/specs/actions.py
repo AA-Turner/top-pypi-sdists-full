@@ -44,6 +44,30 @@ BACKEND_TOOL_ACTIONS: Dict[str, List[str]] = {
     "runtime-echo": ["read"],
     "runtime-send-mail": ["send"],
     "runtime-sensitive-echo": ["read"],
+    "show-basket": ["read"],
+    "show-comparison": ["read"],
+    "show-index-result": ["read"],
+    "show-itinerary": ["read"],
+    "show-reconciliation": ["read"],
+    "show-scenes": ["read"],
+    "show-trial-balance": ["read"],
+    "show-trip-budget": ["read"],
+    "show-trip-options": ["read"],
+    "show-vat-summary": ["read"],
+    "social-accounts": ["read"],
+    "social-comment-linkedin": ["publish"],
+    "social-follow-bluesky": ["write"],
+    "social-like-bluesky": ["write"],
+    "social-like-x": ["write"],
+    "social-post-bluesky": ["publish"],
+    "social-post-linkedin": ["publish"],
+    "social-post-x": ["publish"],
+    "social-read-bluesky": ["read"],
+    "social-read-x": ["read"],
+    "social-reply-bluesky": ["publish"],
+    "social-reply-x": ["publish"],
+    "social-repost-bluesky": ["publish"],
+    "social-repost-x": ["publish"],
     "update-plan-step": ["read"],
 }
 
@@ -83,6 +107,9 @@ SERVER_ACTIONS: Dict[str, ServerActionsSpec] = {
             "conditions": {},
             "signs": {},
         }
+    ),
+    "booking-com": ServerActionsSpec.model_validate(
+        {"checked": None, "default": [], "tools": {}, "conditions": {}, "signs": {}}
     ),
     "chart": ServerActionsSpec.model_validate(
         {
@@ -433,6 +460,22 @@ SERVER_ACTIONS: Dict[str, ServerActionsSpec] = {
     "github": ServerActionsSpec.model_validate(
         {"checked": None, "default": [], "tools": {}, "conditions": {}, "signs": {}}
     ),
+    "google-maps": ServerActionsSpec.model_validate(
+        {
+            "checked": "2026-11-15",
+            "default": [],
+            "tools": {
+                "search_places": ["read"],
+                "search_along_route": ["read"],
+                "compute_routes": ["read"],
+                "lookup_weather": ["read"],
+                "resolve_names": ["read"],
+                "resolve_maps_urls": ["read"],
+            },
+            "conditions": {},
+            "signs": {},
+        }
+    ),
     "google-workspace": ServerActionsSpec.model_validate(
         {
             "checked": "2026-10-02",
@@ -650,6 +693,15 @@ SERVER_ACTIONS: Dict[str, ServerActionsSpec] = {
     "kaggle": ServerActionsSpec.model_validate(
         {"checked": None, "default": [], "tools": {}, "conditions": {}, "signs": {}}
     ),
+    "kiwi": ServerActionsSpec.model_validate(
+        {
+            "checked": "2026-11-15",
+            "default": [],
+            "tools": {"search-flight": ["read"], "feedback-to-devs": ["send"]},
+            "conditions": {},
+            "signs": {},
+        }
+    ),
     "linkedin": ServerActionsSpec.model_validate(
         {
             "checked": "2026-11-07",
@@ -823,6 +875,30 @@ SERVER_ACTIONS: Dict[str, ServerActionsSpec] = {
             },
             "conditions": {},
             "signs": {"slack_post_message": "text", "slack_reply_to_thread": "text"},
+        }
+    ),
+    "stripe": ServerActionsSpec.model_validate(
+        {
+            "checked": "2026-11-15",
+            "default": [],
+            "tools": {
+                "stripe_api_search": ["read"],
+                "stripe_api_details": ["read"],
+                "stripe_api_read": ["read"],
+                "stripe_api_write": ["write"],
+                "get_stripe_account_info": ["read"],
+                "stripe_analytics": ["read"],
+                "get_balance_summary": ["read"],
+                "search_stripe_documentation": ["read"],
+                "stripe_implementation_planner": ["read"],
+                "send_stripe_feedback": ["send"],
+                "convert_currency": ["buy"],
+                "send_money": ["buy"],
+                "transfer_money": ["buy"],
+                "setup_recipient": ["write"],
+            },
+            "conditions": {},
+            "signs": {},
         }
     ),
     "tavily": ServerActionsSpec.model_validate(
@@ -1002,6 +1078,7 @@ APP_BEHAVIOURS: Dict[str, Dict[str, str]] = {
     "demo-marketer": {},
     "demo-shopper": {},
     "demo-terra": {},
+    "demo-voyager": {},
     "disaster-assessment": {
         "earthdata.download_earth_data_granules": "leave_to_me",
         "earthdata.search_earth_datagranules": "do_it",
@@ -1135,24 +1212,6 @@ APP_BEHAVIOURS: Dict[str, Dict[str, str]] = {
     },
     "live-shop-chat": {},
     "marketer": {
-        "bluesky.convert-url-to-uri": "do_it",
-        "bluesky.create-post": "ask_first",
-        "bluesky.follow-user": "ask_first",
-        "bluesky.get-feed-posts": "do_it",
-        "bluesky.get-followers": "do_it",
-        "bluesky.get-follows": "do_it",
-        "bluesky.get-liked-posts": "do_it",
-        "bluesky.get-list-posts": "do_it",
-        "bluesky.get-pinned-feeds": "do_it",
-        "bluesky.get-post-thread": "do_it",
-        "bluesky.get-profile": "do_it",
-        "bluesky.get-timeline-posts": "do_it",
-        "bluesky.get-trends": "do_it",
-        "bluesky.get-user-posts": "do_it",
-        "bluesky.like-post": "ask_first",
-        "bluesky.search-feeds": "do_it",
-        "bluesky.search-people": "do_it",
-        "bluesky.search-posts": "do_it",
         "discord.add_reaction": "ask_first",
         "discord.assign_role": "ask_first",
         "discord.ban_member": "leave_to_me",
@@ -1234,31 +1293,6 @@ APP_BEHAVIOURS: Dict[str, Dict[str, str]] = {
         "discord.unban_member": "ask_first",
         "discord.upsert_member_channel_permissions": "ask_first",
         "discord.upsert_role_channel_permissions": "ask_first",
-        "linkedin.archive_conversation": "ask_first",
-        "linkedin.close_session": "ask_first",
-        "linkedin.connect_with_person": "ask_first",
-        "linkedin.dismiss_job": "leave_to_me",
-        "linkedin.get_company_employees": "do_it",
-        "linkedin.get_company_posts": "do_it",
-        "linkedin.get_company_profile": "do_it",
-        "linkedin.get_conversation": "do_it",
-        "linkedin.get_easy_apply_form": "do_it",
-        "linkedin.get_feed": "do_it",
-        "linkedin.get_inbox": "do_it",
-        "linkedin.get_job_apply_url": "do_it",
-        "linkedin.get_job_details": "do_it",
-        "linkedin.get_my_profile": "do_it",
-        "linkedin.get_person_profile": "do_it",
-        "linkedin.get_saved_jobs": "do_it",
-        "linkedin.get_session_status": "do_it",
-        "linkedin.get_sidebar_profiles": "do_it",
-        "linkedin.reply_to_conversation": "ask_first",
-        "linkedin.search_companies": "do_it",
-        "linkedin.search_conversations": "do_it",
-        "linkedin.search_jobs": "do_it",
-        "linkedin.search_people": "do_it",
-        "linkedin.search_posts": "do_it",
-        "linkedin.send_message": "ask_first",
     },
     "model-choice": {},
     "month-end-close": {
@@ -1380,6 +1414,7 @@ APP_ESCALATIONS: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
     "demo-marketer": {},
     "demo-shopper": {},
     "demo-terra": {},
+    "demo-voyager": {},
     "disaster-assessment": {},
     "errand-runner": {},
     "event-response": {},

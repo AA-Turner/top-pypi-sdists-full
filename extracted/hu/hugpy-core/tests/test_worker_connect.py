@@ -71,3 +71,43 @@ def test_a_reachable_wrapper_is_saved_and_switched_on(monkeypatch):
         assert client.post('/connect', json={'url': url}, headers={'Origin': 'https://evil.example'}).status_code == 403
     finally:
         server.shutdown()
+
+
+def test_a_degraded_wrapper_is_connected_and_its_health_read(monkeypatch):
+    """A fresh box whose Discovery has not built answers /health 503 "degraded": it is still a Wrapper that says who
+    it is, so it connects, and intake reads its health instead of failing the whole poll (2026-11-14)."""
+    from hugpy_core.registry import transport
+    health = {'service': 'hugpy-wrapper', 'status': 'degraded', 'worker': 'a-brain', 'warnings': ['catalog not built']}
+
+    class Wrapper(BaseHTTPRequestHandler):
+        def do_GET(self):
+            raw = json.dumps(health if self.path == '/health' else {'store_id': 's2'}).encode()
+            self.send_response(503 if self.path == '/health' else 200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(('127.0.0.1', 0), Wrapper)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f'http://127.0.0.1:{server.server_port}'
+    saved = {}
+
+    class Registrations:
+        get = staticmethod(saved.get)
+        is_connected = staticmethod(lambda config: True)
+        upsert = staticmethod(lambda config: saved.setdefault(config['name'], config))
+        set_connected = staticmethod(lambda name, connected: None)
+
+    monkeypatch.setattr(worker_connect, 'registrations', Registrations)
+    app = Flask(__name__)
+    app.add_url_rule('/connect', view_func=worker_connect.connect_wrapper, methods=['POST'])
+    try:
+        reply = app.test_client().post('/connect', json={'url': url, 'key': ''})
+        assert reply.status_code == 200 and saved['a-brain']['url'] == url
+        assert transport.health({'url': url, 'key': 'k'})['status'] == 'degraded'
+    finally:
+        server.shutdown()

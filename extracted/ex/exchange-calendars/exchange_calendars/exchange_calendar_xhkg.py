@@ -70,7 +70,7 @@ def process_queen_birthday(dt):
     wom = WeekOfMonth(week=2, weekday=0)
     if dt.year in [1983, 1988, 1993, 1994]:
         wom = WeekOfMonth(week=1, weekday=0)
-    if dt.year in [1985]:
+    if dt.year == 1985:
         wom = WeekOfMonth(week=3, weekday=0)
     return dt + wom
 
@@ -231,6 +231,12 @@ HKAdhocClosures = [
     #  this pattern. We'll have to wait and see before we generalise this into a rule.
     pd.Timestamp("2022-09-12"),
     pd.Timestamp("2023-07-17"),  # 8号台风泰利, 全天休市
+    pd.Timestamp(
+        "2023-09-01"
+    ),  # https://www.hkex.com.hk/News/Market-Communications/2023/2309012news?sc_lang=en
+    pd.Timestamp(
+        "2023-09-08"
+    ),  # https://www.hkex.com.hk/News/Market-Communications/2023/2309083news?sc_lang=en
     pd.Timestamp("2024-09-06"),  # 八號颱風, 全天休市
 ]
 

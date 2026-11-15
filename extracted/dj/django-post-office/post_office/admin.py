@@ -4,23 +4,26 @@ import re
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.contrib.auth import get_permission_codename
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models
 from django.forms import BaseInlineFormSet
 from django.forms.widgets import TextInput
 from django.http import Http404
 from django.http.response import HttpResponse, HttpResponseNotFound, HttpResponseRedirect
-from django.template import Context, Template
+from django.template import Context, Engine
 from django.urls import path
 from django.urls import re_path, reverse
 from django.utils.html import format_html
 from django.utils.text import Truncator
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_POST
 
 from .fields import CommaSeparatedEmailField
 from .models import STATUS, Attachment, Email, EmailTemplate, Log
 from .sanitizer import clean_html
 from .settings import PRE_DJANGO_6
+from .template import compile_template
 
 # URI schemes are case-insensitive. Only rewrite ``cid:`` where it starts an attribute value or a CSS
 # ``url(...)`` argument (preceded by a quote, ``=`` or ``(``), so that ``cid:`` mentioned in the email's
@@ -124,7 +127,8 @@ class EmailAdmin(admin.ModelAdmin):
                 name='post_office_email_image',
             ),
             path('<int:pk>/preview/', admin_view(self.preview_html), name='post_office_email_preview'),
-            path('<int:pk>/resend/', admin_view(self.resend), name='resend'),
+            # admin_view outside: anonymous requests redirect to login; require_POST inside: no state change on GET.
+            path('<int:pk>/resend/', admin_view(require_POST(self.resend)), name='resend'),
         ]
         urls.extend(super().get_urls())
         return urls
@@ -164,12 +168,7 @@ class EmailAdmin(admin.ModelAdmin):
     )
     def shortened_subject(self, instance):
         if instance.context:
-            template_cache_key = '_subject_template_' + str(instance.template_id)
-            template = getattr(self, template_cache_key, None)
-            if template is None:
-                # cache compiled template to speed up rendering of list view
-                template = Template(instance.template.subject)
-                setattr(self, template_cache_key, template)
+            template = compile_template(instance.template.subject, Engine.get_default())
             subject = template.render(Context(instance.context))
         else:
             subject = instance.subject
@@ -310,10 +309,20 @@ class EmailAdmin(admin.ModelAdmin):
         return HttpResponseNotFound()
 
     def resend(self, request, pk):
-        instance = self._get_object_or_deny(request, pk, 'change')
+        instance = self._get_object_or_deny(request, pk, 'view')
+        change_url = reverse('admin:post_office_email_change', args=[instance.pk])
+        if not self.has_change_permission(request, instance):
+            # The Resend button is shown to view-only users too; tell them what they need instead of a bare 403.
+            permission = f'{self.opts.app_label}.{get_permission_codename("change", self.opts)}'
+            messages.error(
+                request,
+                _('Resending requires the "%(permission)s" permission. Ask an administrator to grant it.')
+                % {'permission': permission},
+            )
+            return HttpResponseRedirect(change_url)
         instance.dispatch()
         messages.info(request, 'Email has been sent again')
-        return HttpResponseRedirect(reverse('admin:post_office_email_change', args=[instance.pk]))
+        return HttpResponseRedirect(change_url)
 
 
 @admin.register(Log)

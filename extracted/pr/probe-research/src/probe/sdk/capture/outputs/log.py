@@ -1,12 +1,13 @@
 """LogTee: the run's console log -- reserve its file, tee and stream it live, redact and queue it."""
 
 from __future__ import annotations
+import errno
 import os
 import re
 import sys
 import time
 from pathlib import Path
-from ....foundation.durable import homedir
+from ....foundation.durable import homedir, removal
 from ..logs import stream as _logstream
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ....foundation.process_rank import read_process_rank, read_world_size
@@ -78,6 +79,8 @@ def state_dir() -> Path:
 
 
 def _private_dir(*parts: str) -> Path:
+    if removal.was_removed():  # Probe was uninstalled under this process: its state stays gone
+        raise OSError(errno.ENOENT, "Probe was uninstalled from this computer")
     path = state_dir().joinpath(*parts)
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
     return path

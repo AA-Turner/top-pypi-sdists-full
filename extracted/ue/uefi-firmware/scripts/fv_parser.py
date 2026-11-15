@@ -6,11 +6,13 @@ import json
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime
 
 from uefi_firmware.uefi import *
 from uefi_firmware.generator import uefi as uefi_generator
 from uefi_firmware import AutoParser
+from uefi_firmware.utils import safe_path
 import uefi_firmware.utils # import nocolor
 
 def _process_show_extract(parsed_object):
@@ -37,12 +39,11 @@ def _process_show_extract(parsed_object):
 
 
 def superbrute_search(data):
+    # Test each offset through a view, copying the data only on a match.
+    view = memoryview(data)
     for i in range(len(data)):
-        # TODO: use memoryview to avoid long memory copy
-        bdata = data[i:]
-        parser = AutoParser(bdata, search=False)
-        if parser.type() != 'unknown':
-            _process_show_extract(parser.parse())
+        if AutoParser(view[i:], search=False).type() != 'unknown':
+            _process_show_extract(AutoParser(data[i:], search=False).parse())
             break
 
 
@@ -50,6 +51,9 @@ def brute_search_volumes(data, to_json=False):
     volumes = search_firmware_volumes(data)
     res = []
     for index in volumes:
+        # The '_FVH' signature is 40 bytes into the volume header.
+        if index < 40:
+            continue
         fv = parse_firmware_volume(data[index - 40:], name=index - 40, to_json=to_json)
         if fv:
             res.append(fv.to_dict())
@@ -74,11 +78,90 @@ def parse_firmware_volume(data, name=0, to_json=False):
     _process_show_extract(firmware_volume)
 
     if args.generate is not None:
-        print("Generating FDF...")
-        firmware_volume.dump(args.generate)
-        generator = uefi_generator.FirmwareVolumeGenerator(firmware_volume)
-        path = os.path.join(args.generate, "%s-%s.fdf" % (args.generate, name))
-        dump_data(path, generator.output)
+        _generate_fdf(firmware_volume)
+
+
+def _generate_fdf(firmware_volume, folder=None):
+    '''Dump a volume into folder, with an FDF describing it.'''
+    folder = folder or args.generate
+    print("Generating FDF...")
+    firmware_volume.dump(folder)
+    generator = uefi_generator.FirmwareVolumeGenerator(firmware_volume)
+    path = safe_path(folder, "%s.fdf" % firmware_volume.dump_name())
+    dump_data(path, generator.output.encode("utf-8"))
+
+
+def _top_level_volumes(firmware_object):
+    '''Return the volumes in an object that are not inside another volume.'''
+    if isinstance(firmware_object, FirmwareVolume):
+        return [firmware_object]
+    volumes = []
+    for child in getattr(firmware_object, "objects", None) or []:
+        if child is not None:
+            volumes += _top_level_volumes(child)
+    return volumes
+
+
+def _process_file(file_name, input_data):
+    '''Parse, show and extract one input file, returning its exit code.'''
+    if args.depex:
+        depex = parse_depex(input_data)
+        for op in depex:
+            if 'guid' in op:
+                if 'name' in op and op['name'] is not None:
+                    print("{} {} ({})".format(op['op'], op['guid'], op['name']))
+                else:
+                    print("{} {}".format(op['op'], op['guid']))
+            else:
+                print("{}".format(op['op']))
+        return 0
+
+    if args.superbrute:
+        superbrute_search(input_data)
+        logging.info("%s scanned in %s", FILENAME, str(datetime.now() - START))
+        return 0
+
+    if args.brute:
+        brute_search_volumes(input_data, to_json=args.json)
+        return 0
+
+    parser = AutoParser(input_data, search=True)
+    if args.test:
+        print("%s: %s" % (file_name, red(parser.type())))
+        return 0
+
+    if parser.type() == 'unknown':
+        print("Error: cannot parse %s, could not detect firmware type." % (file_name))
+        return 2
+
+    firmware = parser.parse()
+    if firmware is None:
+        print("Error: cannot parse %s, the %s could not be processed." % (
+            file_name, parser.type()))
+        return 3
+
+    if args.json:
+        res = firmware.to_dict()
+        print(json.dumps(res))
+        return 0
+
+    _process_show_extract(firmware)
+    if args.generate is not None:
+        volumes = _top_level_volumes(firmware)
+        if len(volumes) == 0:
+            print("Error: cannot generate an FDF, %s has no volumes." % (
+                file_name))
+            return 3
+        names = {}
+        for volume in volumes:
+            # Volumes in different regions or sections can share a name.
+            name = volume.dump_name()
+            folder = args.generate
+            if name in names:
+                folder = os.path.join(folder, "%s-%d" % (name, names[name]))
+            names[name] = names.get(name, 0) + 1
+            _generate_fdf(volume, folder)
+    return 0
 
 
 if __name__ == "__main__":
@@ -158,45 +241,15 @@ if __name__ == "__main__":
             errcode = max(errcode, 1)
             continue
 
-        if args.depex:
-            depex = parse_depex(input_data)
-            for op in depex:
-                if 'guid' in op:
-                    if 'name' in op and op['name'] is not None:
-                        print("{} {} ({})".format(op['op'], op['guid'], op['name']))
-                    else:
-                        print("{} {}".format(op['op'], op['guid']))
-                else:
-                    print("{}".format(op['op']))
-            continue
-
-        if args.superbrute:
-            superbrute_search(input_data)
-            logging.info("%s scanned in %s", FILENAME, str(datetime.now() - START))
-            continue
-
-        if args.brute:
-            brute_search_volumes(input_data, to_json=args.json)
-            continue
-
-        parser = AutoParser(input_data, search=True)
-        if args.test:
-            print("%s: %s" % (file_name, red(parser.type())))
-            continue
-
-        if parser.type() == 'unknown':
-            print("Error: cannot parse %s, could not detect firmware type." % (file_name))
-            errcode = max(errcode, 2)
-            continue
-
-        firmware = parser.parse()
-
-        if args.json:
-            res = firmware.to_dict()
-            print(json.dumps(res))
-            continue
-
-        _process_show_extract(firmware)
+        try:
+            errcode = max(errcode, _process_file(file_name, input_data))
+        except Exception as e:
+            # Report the failure and continue with the remaining files.
+            print("Error: cannot parse %s (%s: %s)." % (
+                file_name, type(e).__name__, str(e)))
+            if args.verbose:
+                traceback.print_exc()
+            errcode = max(errcode, 3)
 
     if errcode:
         sys.exit(errcode)

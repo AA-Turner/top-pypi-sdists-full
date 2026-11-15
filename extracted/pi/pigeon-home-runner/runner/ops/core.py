@@ -31,7 +31,10 @@ wired the runner to load it at startup and at the result
 seam — the first tools module the runner itself executes —
 and the list stands at 135; the macOS confinement backend
 (runner/guard/macos_confine.py) joined it on 2026-11-11,
-and the list stands at 136, with the figures below
+and the list stands at 136; the build identity module
+(runner/ops/identity.py) joined it on 2026-11-15, when the
+identity banner wired every entry point to it, and the list
+stands at 137, with the figures below
 re-measured live by the CLI as always. This module itself
 is not in the list either: the list names the set as assembled
 for the 2026-11-04 pass, and this module is the tooling that
@@ -43,7 +46,7 @@ CLI output:
 - GEMINI_COUNT_TOKENS (619,845) is the Gemini countTokens
   measure of the set as assembled (133 files), 2026-11-04.
 - The project estimator (runner/ops/version4.py's
-  count_text_tokens) counts the canonical list (136 files as
+  count_text_tokens) counts the canonical list (137 files as
   it now stands); the
   CLI prints its figure live. The estimator is not a BPE
   tokenizer, and the 2 figures are not interchangeable: the
@@ -51,8 +54,8 @@ CLI output:
   590,053, not 619,845.
 
 Lines are counted live the same way, never recorded for the
-canonical list: the as-assembled set runs to 66,057 lines,
-59,883 of them non-blank (AS_ASSEMBLED_LINES and
+canonical list: the as-assembled set runs to 69,310 lines,
+62,819 of them non-blank (AS_ASSEMBLED_LINES and
 AS_ASSEMBLED_NONBLANK_LINES below), and the CLI prints the
 canonical list's own line count beside its token counts.
 
@@ -459,10 +462,128 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # characters) grew runner/ops/briefing.py by 47
 # lines, the whole set re-measured over the
 # current tree.
+# Re-measured again on 2026-11-14 after the FreeBSD
+# confinement backend's second shape (a read-only
+# jail root, nosuid mounts, a bounded /tmp, root
+# with no privilege, the jail-wide rctl rules, the
+# operator's binds and work mount, the private
+# loopback switch, the reaper and the sweep) grew
+# runner/guard/freebsd_confine.py by 814 lines and
+# runner/guard/sandbox.py by 14, and its wiring
+# grew runner/ops/remediation_ops.py by 13, the
+# whole set re-measured over the current tree.
+# Re-measured again the same day after the posture
+# report took a FreeBSD line (the controls a job's
+# jail would carry on the host, read without
+# building one), growing
+# runner/guard/freebsd_confine.py by 31 lines and
+# runner/ops/posture.py by 20, the whole set
+# re-measured over the current tree.
+# Re-measured again the same day after the FreeBSD
+# seed took to asking the machine (a fresh install
+# asks the jail backend's probe the startup gate's
+# question and leaves confinement at enforce where
+# it passes), growing runner/ops/install.py by 221
+# lines and runner/ops/setup.py by 37, the whole
+# set re-measured over the current tree, which
+# also carries the query worker's start allowance
+# (runner/ops/queries.py by 28 lines, the runner
+# proper by 1).
+# Re-measured again the same day after the FreeBSD
+# seed took to naming a job user where it leaves
+# the jail on (a trial job as that user is run
+# inside a jail on the machine before the name is
+# written, and the posture report says who a job
+# goes in as), growing runner/ops/install.py by
+# 212 lines, runner/guard/freebsd_confine.py by 27
+# and runner/ops/setup.py by 13, the whole set
+# re-measured over the current tree.
+# Re-measured again the same day after the FreeBSD
+# installer took to making the account its seed
+# names (found or made with pw(8), tried inside a
+# jail, removed again where it could not be used,
+# the shared user standing in where the account
+# cannot be had), growing runner/ops/install.py by
+# 144 lines and runner/ops/setup.py by 4, the
+# whole set re-measured over the current tree,
+# which also carries the briefing's spaced-token
+# rule (runner/ops/briefing.py by 10 lines).
+# Re-measured again the same day after the seed's
+# questions to the machine took a switch in the
+# environment (HP_SEED_ASKS_MACHINE: off, the seed
+# states the platform's map and says the machine
+# was not asked; the test suite sets it off for
+# itself), growing runner/ops/install.py by 33
+# lines, the whole set re-measured over the
+# current tree.
+# Re-measured once more that day after a job that
+# goes in as a job user took a ceiling on that
+# user's processes (limits -u at the jail door,
+# held by the kernel's own count with RACCT or
+# without; the installer's trial job reads it
+# back), growing runner/guard/freebsd_confine.py
+# by 131 lines and runner/ops/install.py by 21,
+# the whole set re-measured over the current
+# tree; and by 12 lines more when the release took
+# to collecting the job's first process, so an
+# ended job holds none of its account's count.
+# Re-measured on 2026-11-15 after the regression
+# guard's leak run took to starting a module the
+# way the suite does, through the test package
+# (the package's own start stands before the first
+# snapshot, and is no test's leak), growing
+# runner/tools/regression_guard.py by 7 lines, the
+# whole set re-measured over the current tree.
+# Re-measured again that day after a job's jail took
+# to being pinned to a set of cores (cpuset on the
+# jail before the job's first process: all but one
+# of the runner's cores, the lowest never a job's,
+# not the job's to widen, with RACCT or without;
+# the probe's trial reads its cores from inside),
+# growing runner/guard/freebsd_confine.py by 191
+# lines, the whole set re-measured over the current
+# tree; and by 41 lines more when a runner kept to
+# some of the cores it stands under took to pinning
+# its jobs' jails to its own, over a tree that also
+# carries the setup wizard's third sign-in choice
+# (runner/ops/setup.py by 187 lines).
+# Re-measured again on 2026-11-15 after the setup
+# wizard took to asking once, hidden, for the OAuth
+# client secret the token exchange requires,
+# growing runner/ops/setup.py by 37 lines net --
+# the growth the build identity banner's re-measure
+# predated and the 3.16.26.18 figures refresh left
+# unrecorded (Q197); the whole set re-measured
+# over the current tree.
+# Re-measured again on 2026-11-15 after the macOS
+# backend's launcher became the system shell (so a
+# runner frozen into one file engages), its memory
+# ceiling the requested distance above the floor the
+# kernel holds a data-size limit to, set soft and
+# hard, its probe's trial a shell program that reads
+# the boundary from inside, and its settings and
+# posture lines its own, growing
+# runner/guard/macos_confine.py by 341 lines and
+# runner/guard/sandbox.py by 7; and after the
+# installer and the setup wizard took to asking that
+# backend's probe on the Mac they seed, growing
+# runner/ops/install.py by 121 lines,
+# runner/ops/posture.py by 19,
+# runner/ops/remediation_ops.py by 7 and
+# runner/ops/setup.py by 1; the whole set
+# re-measured over the current tree
+# (the macOS launcher landing).
+# Re-measured again that day after the hosted Macs
+# answered the landing: the group list a job user
+# is started with leaves out the one id no spawn
+# takes, and the posture report says that a job
+# which is root can raise its ceiling, growing
+# runner/guard/macos_confine.py by 30 lines more
+# (the hosted run's two answers).
 # Recorded constants: they describe the as-assembled set (the
 # canonical list as first recorded -- 132 files -- plus the 3 suite runners named in
-# the module docstring; the list itself stands at 136 since
-# the 2026-11-11 entry above), not the canonical list itself. The
+# the module docstring; the list itself stands at 137 since
+# the 2026-11-15 entry above), not the canonical list itself. The
 # reviewing model's own token measure of the set (Gemini
 # countTokens) is a measure of the 2026-11-04 assembly and is
 # NOT re-recorded here: no re-count of the grown set has been
@@ -470,22 +591,22 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # assembly. The zip size and the estimator counts re-measured
 # here come from this module's own deterministic build and
 # counter over the current tree.
-AS_ASSEMBLED_FILES = 139
-AS_ASSEMBLED_ZIP_BYTES = 856247
-AS_ASSEMBLED_LINES = 66057
-AS_ASSEMBLED_NONBLANK_LINES = 59883
+AS_ASSEMBLED_FILES = 140
+AS_ASSEMBLED_ZIP_BYTES = 894316
+AS_ASSEMBLED_LINES = 69310
+AS_ASSEMBLED_NONBLANK_LINES = 62819
 # The as-assembled set's lines, part by part; the parts sum
 # to AS_ASSEMBLED_LINES. A part is a folder under runner/, or
 # a file standing directly under runner/ as its own part.
 AS_ASSEMBLED_PART_LINES = {
-    "runner/ops": 22585,
-    "runner/tools": 10056,
-    "runner/wire": 9033,
-    "runner/runner.py": 7179,
+    "runner/ops": 23928,
+    "runner/tools": 10063,
+    "runner/wire": 9047,
+    "runner/runner.py": 7205,
     "runner/oracle": 5063,
     "runner/transport_extensions": 2775,
-    "runner/guard": 5580,
-    "runner/cloud": 2049,
+    "runner/guard": 7412,
+    "runner/cloud": 2080,
     "runner/hosting": 1704,
     "runner/__init__.py": 23,
     "runner/_version.py": 10,
@@ -542,6 +663,7 @@ CORE_FILES = (
     "runner/ops/handlers.py",
     "runner/ops/harness.py",
     "runner/ops/helpers.py",
+    "runner/ops/identity.py",
     "runner/ops/install.py",
     "runner/ops/live.py",
     "runner/ops/local_test.py",

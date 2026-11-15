@@ -1,9 +1,13 @@
 """Behaviour every ZeroBounce SDK shares for the same API response (sdk-docs standard, section 3)."""
 
+import inspect
 import io
 import json
 import os
+import re
 import tempfile
+import types
+import typing
 from datetime import date
 from unittest import TestCase
 from unittest.mock import patch
@@ -17,6 +21,7 @@ from zerobouncesdk import (
     ZBGetFileOptions,
     ZBValidateBatchElement,
     ZeroBounce,
+    ZeroBounceWarmup,
 )
 
 KEY = "parity-key"
@@ -116,6 +121,45 @@ class TwoHundredErrorTest(ParityTestCase):
                 self.assertEqual(str(caught.exception), text, body)
                 self.assertEqual(caught.exception.status_code, 200, body)
 
+    def test_a_batch_account_error_carries_status_200(self):
+        self.serve('{"email_batch":[],"errors":[{"email_address":"all",'
+                   '"error":"Invalid API Key or your account ran out of credits"}]}')
+        with self.assertRaises(ZBApiException) as caught:
+            self.client.validate_batch([ZBValidateBatchElement("a@example.com")])
+        self.assertEqual(str(caught.exception), "Invalid API Key or your account ran out of credits")
+        self.assertEqual(caught.exception.status_code, 200)
+
+
+class ResponseFlagTest(ParityTestCase):
+    def test_validate_flags_are_booleans_or_none(self):
+        self.serve('{"address":"a@example.com","status":"valid","mx_found":"unknown",'
+                   '"free_email":"FALSE","catchall_domain":"1"}')
+        result = self.client.validate("a@example.com")
+        self.assertIsNone(result.mx_found)
+        self.assertIs(result.free_email, False)
+        self.assertIs(result.catchall_domain, True)
+
+    def test_parse_bool_accepts_only_booleans(self):
+        from zerobouncesdk._zb_utils import parse_bool
+
+        for value, expected in (
+            (True, True), (False, False), (1, True), (0, False),
+            ("true", True), (" FALSE ", False), ("1", True), ("0", False),
+            ("unknown", None), ("", None), (None, None), (2, None), ("yes", None),
+        ):
+            self.assertIs(parse_bool(value), expected, repr(value))
+
+    def test_activity_found_is_a_boolean(self):
+        for body, expected in (
+            ('{"found":"false","active_in_days":null}', False),
+            ('{"found":"true","active_in_days":"30"}', True),
+            ('{"found":false}', False),
+            ('{"found":true}', True),
+            ('{"found":"unknown"}', None),
+        ):
+            self.serve(body)
+            self.assertIs(self.client.get_activity("a@example.com").found, expected, body)
+
 
 class RawStatusTest(ParityTestCase):
     def test_unknown_status_values_stay_available(self):
@@ -163,6 +207,124 @@ class StrictBooleanTest(ParityTestCase):
             with self.assertRaisesRegex(ZBClientException, "must be true or false"):
                 call()
         self.assertEqual(self.server.requests, [])
+
+
+
+def _is_bool(annotation) -> bool:
+    if annotation is bool:
+        return True
+    if typing.get_origin(annotation) in (typing.Union, types.UnionType):
+        return set(typing.get_args(annotation)) == {bool, type(None)}
+    return False
+
+
+class StrictBooleanSweepTest(ParityTestCase):
+    """Every boolean parameter of every public method is parsed strictly: ``"false"`` is never sent as true and
+    ``"junk"`` is rejected before a request. The parameters are found from the signatures, so a new boolean
+    parameter fails the completeness check until it is in the sweep."""
+
+    # Client-side switches that choose how a request is made, not API fields.
+    CLIENT_SWITCHES = {"use_post", "stream"}
+    D = "https://example.com/d"
+
+    @staticmethod
+    def _stream():
+        return io.BytesIO(b"email\na@example.com\n")
+
+    def _calls(self):
+        """Each method with a boolean parameter: (positional args, keyword args) builders."""
+        file_job = lambda: (("f.csv",), {"has_header_row": True, "return_url": self.D})  # noqa: E731
+        calls = {
+            "validate": lambda: (("a@example.com",), {}),
+            "validate_batch": lambda: (([ZBValidateBatchElement("a@example.com")],), {}),
+            "send_file": lambda: ((__file__, 1), {}),
+            "send_file_stream": lambda: ((self._stream(), "f.csv", 1), {}),
+            "scoring_send_file": lambda: ((__file__, 1), {}),
+            "scoring_send_file_stream": lambda: ((self._stream(), "f.csv", 1), {}),
+            "send_email_finder_file": lambda: ((__file__, 1), {"first_name_column": 2}),
+            "send_email_finder_file_stream": lambda: ((self._stream(), "f.csv", 1), {"first_name_column": 2}),
+            "send_domain_search_file": lambda: ((__file__, 1), {}),
+            "send_domain_search_file_stream": lambda: ((self._stream(), "f.csv", 1), {}),
+            "Warmup.add_sending_account": lambda: (("a@example.com", "self_managed"), {"engagement_rule_id": 0}),
+            "Warmup.update_sending_account": lambda: (("a@example.com", 1, 1), {"auto_enable": False}),
+        }
+        for job in ("validate_s3file", "score_s3file", "email_finder_s3file", "domain_search_s3file",
+                    "validate_sftpfile", "score_sftpfile", "email_finder_sftpfile", "domain_search_sftpfile"):
+            calls[job] = file_job
+        return calls
+
+    def _booleans(self):
+        """{method: [boolean parameter names]} for every public method of both clients, from the signatures."""
+        found = {}
+        for cls, prefix in ((ZeroBounce, ""), (ZeroBounceWarmup, "Warmup.")):
+            for name in dir(cls):
+                member = getattr(cls, name)
+                if name.startswith("_") or not callable(member) or inspect.isclass(member):
+                    continue
+                names = [
+                    p.name for p in inspect.signature(member).parameters.values()
+                    if _is_bool(p.annotation) and p.name not in self.CLIENT_SWITCHES
+                ]
+                if names:
+                    found[prefix + name] = names
+        return found
+
+    @staticmethod
+    def _sent(request, name):
+        """What a request sent for ``name`` (query, JSON body, form or multipart field), as a string."""
+        fields = {k: v[0] for k, v in parse_qs(urlsplit(request.url).query).items()}
+        if name in fields:
+            return fields[name]
+        body = request.body or b""
+        if isinstance(body, bytes):
+            body = body.decode("utf-8", "replace")
+        if body.startswith("{"):
+            value = json.loads(body).get(name)
+            return None if value is None else str(value).lower()
+        match = re.search(r'name="%s"\r\n(?:[^\r\n]+\r\n)*\r\n([^\r\n]*)' % re.escape(name), body)
+        if match:
+            return match.group(1)
+        return {k: v[0] for k, v in parse_qs(body).items()}.get(name)
+
+    def test_the_sweep_covers_every_boolean_parameter(self):
+        self.assertEqual(set(self._booleans()), set(self._calls()))
+
+    def test_the_library_parses_no_boolean_the_sweep_does_not_know(self):
+        source = "".join(
+            open(os.path.join(os.path.dirname(inspect.getfile(ZeroBounce)), f), encoding="utf-8").read()
+            for f in ("zerobouncesdk.py", "zb_warmup.py")
+        )
+        parsed = set(re.findall(r"_(?:strict|wire)_bool\([^,]+,\s*\"(\w+)\"\)", source))
+        known = {name for names in self._booleans().values() for name in names}
+        # activity_data on a download is a ZBGetFileOptions field, with its own test above.
+        # weekdays_only is a field of Warmup's managed_sending dict: test_warmup_offline.test_weekdays_only_is_parsed_strictly.
+        known.add("weekdays_only")
+        self.assertTrue(parsed)
+        self.assertEqual(parsed - known, set())
+
+    def test_junk_is_rejected_and_false_is_never_sent_as_true(self):
+        client = ZeroBounce(KEY)
+        warmup = ZeroBounceWarmup(KEY)
+        server = self.serve('{"success":true,"address":"a@example.com","status":"valid","email_batch":[]}')
+        for method, names in self._booleans().items():
+            target = getattr(warmup, method[len("Warmup."):]) if method.startswith("Warmup.") else getattr(client, method)
+            for name in names:
+                args, kwargs = self._calls()[method]()
+                before = len(server.requests)
+                with self.assertRaises(ZBClientException, msg=f"{method} took {name}='junk'") as caught:
+                    target(*args, **{**kwargs, name: "junk"})
+                self.assertIn(name, str(caught.exception))
+                self.assertEqual(len(server.requests), before, f"{method} sent {name}='junk'")
+
+                args, kwargs = self._calls()[method]()
+                try:
+                    target(*args, **{**kwargs, name: "false"})
+                except ZBClientException as error:
+                    # A parameter that takes only True/False may reject the string.
+                    self.assertIn(name, str(error))
+                    continue
+                self.assertGreater(len(server.requests), before, f"{method} sent nothing")
+                self.assertEqual(self._sent(server.requests[-1], name), "false", f"{method} {name}='false'")
 
 
 class PerApiBaseUrlTest(ParityTestCase):
@@ -284,3 +446,111 @@ class _nothing:
 
     def __exit__(self, *exc):
         return False
+
+
+class FinderMessageTest(ParityTestCase):
+    """The finder and domain-search answers: a message beside a result is not an error, a message-only body is one
+    with status 200, and the API key never reaches the message (standard.md sections 3 and the message-only rule)."""
+
+    FINDER_CALLS = (
+        ("guess_format", lambda c: c.guess_format("john@example.com")),
+        ("find_domain", lambda c: c.find_domain(domain="example.com")),
+        ("find_email_format", lambda c: c.find_email_format(first_name="Ann", domain="example.com")),
+    )
+    FULL_RESULTS = {
+        "guess_format": '{"email":"john@example.com","domain":"example.com","format":"first.last","status":"valid",'
+                        '"sub_status":"","confidence":"high","did_you_mean":"","failure_reason":"",'
+                        '"other_domain_formats":[],"message":"Format found"}',
+        "find_domain": '{"domain":"example.com","company_name":"Example","format":"first.last","confidence":"high",'
+                       '"did_you_mean":"","failure_reason":"","other_domain_formats":[],"message":"Found"}',
+        "find_email_format": '{"email":"ann@example.com","email_confidence":"HIGH","domain":"example.com",'
+                             '"company_name":"Example","did_you_mean":"","failure_reason":"","message":null}',
+    }
+
+    def test_a_full_result_with_a_message_key_is_a_result(self):
+        for name, call in self.FINDER_CALLS:
+            self.serve(self.FULL_RESULTS[name])
+            result = call(self.client)
+            self.assertEqual(result.format if name == "guess_format" else result.domain,
+                             "first.last" if name == "guess_format" else "example.com", name)
+
+    def test_a_message_only_body_is_an_error_with_status_200_and_no_key(self):
+        bodies = (
+            '{"Message":"Invalid API key parity-key"}',
+            '{"message":"Invalid API key parity-key"}',
+            '{"message":["Invalid API key parity-key"]}',
+            '{"message":null}',
+            '{"Message":""}',
+        )
+        for name, call in self.FINDER_CALLS:
+            for body in bodies:
+                self.serve(body)
+                with self.assertRaises(ZBApiException, msg=(name, body)) as caught:
+                    call(self.client)
+                self.assertEqual(caught.exception.status_code, 200, (name, body))
+                self.assertNotIn(KEY, str(caught.exception), (name, body))
+                self.assertNotIn("None", str(caught.exception), (name, body))
+
+    def test_a_message_only_body_without_text_is_a_request_failed_error(self):
+        # C: a null, blank or empty-list message is still an error, with the fallback text (never an empty one).
+        for name, call in self.FINDER_CALLS:
+            for body in ('{"message":null}', '{"message":[]}', '{"message":["  "]}', '{"Message":""}'):
+                self.serve(body)
+                with self.assertRaises(ZBApiException, msg=(name, body)) as caught:
+                    call(self.client)
+                self.assertEqual(caught.exception.status_code, 200, (name, body))
+                self.assertEqual(str(caught.exception), "Request failed", (name, body))
+
+    def test_the_key_is_not_in_any_introspection_of_a_client(self):
+        import pprint
+
+        for owner in (ZeroBounce(KEY), ZeroBounceWarmup(KEY)):
+            printed = repr(vars(owner)) + str(vars(owner)) + pprint.pformat(vars(owner))
+            self.assertNotIn(KEY, printed, type(owner).__name__)
+            self.assertNotIn(KEY, repr(owner))
+            self.assertNotIn(KEY, str(owner))
+
+
+class ReturnUrlAndStringFalseTest(ParityTestCase):
+    """D closure: return_url is sent only when the caller sets it, and a string "false" success is an error."""
+
+    SEND_CALLS = (
+        ("send_file", lambda c, path, stream, url: c.send_file(path, 1, return_url=url)),
+        ("send_file_stream", lambda c, path, stream, url: c.send_file_stream(stream, "a.csv", 1, return_url=url)),
+        ("scoring_send_file", lambda c, path, stream, url: c.scoring_send_file(path, 1, return_url=url)),
+        ("scoring_send_file_stream",
+         lambda c, path, stream, url: c.scoring_send_file_stream(stream, "a.csv", 1, return_url=url)),
+    )
+
+    def test_return_url_is_sent_only_when_set(self):
+        server = self.serve('{"success":true,"message":"File Accepted","file_name":"a.csv","file_id":"f1"}')
+        path = os.path.join(tempfile.mkdtemp(), "a.csv")
+        with open(path, "w") as handle:
+            handle.write("a@example.com\n")
+        for name, call in self.SEND_CALLS:
+            server.requests.clear()
+            call(self.client, path, io.BytesIO(b"a@example.com\n"), None)
+            self.assertNotIn(b'name="return_url"', server.requests[-1].body or b"", name)
+            self.assertNotIn("return_url", urlsplit(server.requests[-1].url).query, name)
+            server.requests.clear()
+            call(self.client, path, io.BytesIO(b"a@example.com\n"), "https://example.com/done")
+            sent = server.requests[-1].body or b""
+            if isinstance(sent, str):
+                sent = sent.encode()
+            self.assertIn(b"https://example.com/done", sent, name)
+
+    def test_string_false_success_is_an_error_with_status_200(self):
+        for body in ('{"success":"false","message":"File cannot be found."}',
+                     '{"success":"False","error_message":"File cannot be found."}'):
+            self.serve(body)
+            for call in (
+                lambda: self.client.file_status("f1"),
+                lambda: self.client.delete_file("f1"),
+                lambda: self.client.get_credits(),
+                lambda: self.client.validate_batch([ZBValidateBatchElement("a@example.com")]),
+                lambda: self.client.find_domain(domain="example.com"),
+            ):
+                with self.assertRaises(ZBApiException) as caught:
+                    call()
+                self.assertEqual(caught.exception.status_code, 200, body)
+                self.assertEqual(str(caught.exception), "File cannot be found.", body)

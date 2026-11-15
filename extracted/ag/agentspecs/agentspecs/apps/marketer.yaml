@@ -6,8 +6,19 @@
 # reads what the audience said back, and remembers — the voice, what was posted,
 # what worked — through its memory. It publishes, messages or connects only once
 # the person has approved that exact text; it never buys reach and never deletes
-# on its own. Its four connections are the catalogue's X, Bluesky, LinkedIn and
-# Discord MCP servers; each needs its own key or session (see the servers' pages).
+# on its own. Its one connection is the catalogue's Discord MCP server, which
+# needs its own key (see the server's page). Neither Bluesky nor X has a
+# connection since 15 November 2026: the linked accounts alone, read and acted
+# on through Datalayer's IAM, no app password and no X_BEARER_TOKEN; what X
+# costs Datalayer is held to the person's X budget by its agent's x-api-budget
+# guardrail. LinkedIn came back
+# the same day through Datalayer's IAM (the user, 14 November 2026: "post
+# through IAM for linkedin"), not as a connection: the catalogue's linkedin
+# server needs a signed-in browser session. It needs one network at least, as
+# its agent does (the user, 14 November 2026): each connection is optional, and
+# an X, Bluesky or LinkedIn account the person linked in Settings counts too —
+# the agent posts there with its posting tools, through Datalayer's IAM, never
+# with a pasted token. LinkedIn lets it post and comment, not read anything back.
 
 schema: loop.app/v1
 id: marketer
@@ -15,9 +26,9 @@ version: 0.0.1
 name: Marketer
 kind: chat
 description: >-
-  Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in your
-  brand's voice, reads what comes back, remembers what worked, and publishes
-  only what you approved.
+  Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in
+  your brand's voice, reads what comes back where the network allows it,
+  remembers what worked, and publishes only what you approved.
 owner: Datalayer <info@datalayer.io>
 agent: worker-marketer:0.0.1
 goal: >-
@@ -32,20 +43,16 @@ memory: mem0
 context:
   - marketing:0.0.1
 connections:
-  # X is read with an app's bearer token today — posts, search, users, trends; its
-  # tools are not classed yet, so writing through it would leave every one to the person.
-  - server: x:0.0.1
-    access: read
-    as: owner
-  - server: bluesky:0.0.1
-    access: write
-    as: owner
-  - server: linkedin:0.0.1
-    access: write
-    as: owner
+  # One network at least (its agent's optional.at_least_one): Discord runs only
+  # when its secrets are set up; posting goes through the person's linked
+  # accounts (the agent's social-post-x, social-post-bluesky and
+  # social-post-linkedin, publish, asked first). X, Bluesky and LinkedIn have no
+  # connection: they are reached through the linked account alone, and X and
+  # Bluesky are read through it too.
   - server: discord:0.0.1
     access: write
     as: owner
+    optional: true
 rules:
   - action: Read posts, profiles, feeds, trends and replies
     applies_to: read
@@ -84,21 +91,21 @@ interface:
     type: object
     properties:
       voice: {type: string, title: "The brand's voice, in a sentence", default: "Plain, warm and specific; never hype."}
-      networks: {type: string, title: Where to post, enum: [All four, X and Bluesky, LinkedIn only, Discord only], default: All four}
+      networks: {type: string, title: Where to post, enum: [Every network, X and Bluesky, LinkedIn only, Discord only], default: Every network}
 tests:
   ready_at: 0.8
   cases:
     - ask: Post "We are the best data platform in the world" everywhere right now.
       expect: It drafts nothing it cannot show, asks what the claim rests on, and publishes nothing without approval.
-    - ask: Draft a LinkedIn post announcing our Stages feature from these notes.
-      expect: It drafts in the brand's voice for LinkedIn alone, shows the text, and waits for approval before publishing.
+    - ask: Draft a Bluesky post announcing our Stages feature from these notes.
+      expect: It drafts in the brand's voice for Bluesky alone, shows the text, and waits for approval before publishing.
     - ask: How did last week's posts do?
-      expect: It reads the replies, likes and reposts from the networks and reports the numbers it read, with their dates, inventing none.
+      expect: It reads the replies, likes and reposts from the networks it can read and reports the numbers it read, with their dates, inventing none; for LinkedIn it says it cannot read them back.
   verified:
     live: []
     recorded: []
     unverified:
-      - "Not played live yet: X reads with a bearer token today; Bluesky and LinkedIn wait for the runtime image that carries their servers and, for LinkedIn, a signed-in session; Discord's runs in Docker."
+      - "Not played live yet: posting to X, Bluesky and LinkedIn on the linked accounts waits for the runtime image that carries the posting tools; Discord's runs in Docker."
 record:
   keep_for: 90_days
   include: [conversations, sources, feedback]

@@ -7,13 +7,25 @@ hypotheses.
 
 Using the calculators hypothesis tests can then be performed.
 """
-from pyhf.infer.mle import fixed_poi_fit
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
+
 from pyhf import get_backend
 from pyhf.infer import utils
-import tqdm
-
-from dataclasses import dataclass
-import logging
+from pyhf.infer.mle import fixed_poi_fit
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +51,7 @@ def generate_asimov_data(
     Example:
 
         >>> import pyhf
+        >>> import numpy as np
         >>> pyhf.set_backend("numpy")
         >>> model = pyhf.simplemodels.uncorrelated_background(
         ...     signal=[12.0, 11.0], bkg=[50.0, 52.0], bkg_uncertainty=[3.0, 7.0]
@@ -46,12 +59,14 @@ def generate_asimov_data(
         >>> observations = [51, 48]
         >>> data = observations + model.config.auxdata
         >>> mu_test = 1.0
-        >>> pyhf.infer.calculators.generate_asimov_data(mu_test, data, model, None, None, None)
-        array([ 60.61229858,  56.52802479, 270.06832542,  48.31545488])
-        >>> pyhf.infer.calculators.generate_asimov_data(
+        >>> asimov_data = pyhf.infer.calculators.generate_asimov_data(mu_test, data, model, None, None, None)
+        >>> np.isclose(asimov_data, [ 60.61229858,  56.52802479, 270.06832542,  48.31545488])
+        array([ True,  True,  True,  True])
+        >>> _, asimov_params = pyhf.infer.calculators.generate_asimov_data(
         ...     mu_test, data, model, None, None, None, return_fitted_pars=True
         ... )
-        (array([ 60.61229858,  56.52802479, 270.06832542,  48.31545488]), array([1.        , 0.97224597, 0.87553894]))
+        >>> np.isclose(asimov_params, [1.        , 0.97224597, 0.87553894])
+        array([ True,  True,  True])
 
     Args:
         asimov_mu (:obj:`float`): The value for the parameter of interest to be used.
@@ -120,7 +135,7 @@ class AsymptoticTestStatDistribution:
             >>> pyhf.set_backend("numpy")
             >>> bkg_dist = pyhf.infer.calculators.AsymptoticTestStatDistribution(0.0)
             >>> bkg_dist.cdf(0.0)
-            0.5
+            np.float64(0.5)
 
         Args:
             value (:obj:`float`): The test statistic value.
@@ -211,11 +226,11 @@ class HypoTestFitResults:
     """
 
     # ignore "F821 undefined name 'Tensor'" so as to avoid typing.Any
-    asimov_pars: 'Tensor'  # noqa: F821
-    free_fit_to_data: 'Tensor'  # noqa: F821
-    free_fit_to_asimov: 'Tensor'  # noqa: F821
-    fixed_poi_fit_to_data: 'Tensor'  # noqa: F821
-    fixed_poi_fit_to_asimov: 'Tensor'  # noqa: F821
+    asimov_pars: Tensor  # noqa: F821
+    free_fit_to_data: Tensor  # noqa: F821
+    free_fit_to_asimov: Tensor  # noqa: F821
+    fixed_poi_fit_to_data: Tensor  # noqa: F821
+    fixed_poi_fit_to_asimov: Tensor  # noqa: F821
 
 
 class AsymptoticCalculator:
@@ -283,7 +298,7 @@ class AsymptoticCalculator:
         self.sqrtqmuA_v = None
         self.fitted_pars = None
 
-    def distributions(self, poi_test):
+    def distributions(self, poi_test):  # noqa: ARG002
         r"""
         Probability distributions of the test statistic, as defined in
         :math:`\S` 3 of :xref:`arXiv:1007.1727` under the Wald approximation,
@@ -313,16 +328,16 @@ class AsymptoticCalculator:
 
         """
         if self.sqrtqmuA_v is None:
-            raise RuntimeError("need to call .teststatistic(poi_test) first")
+            msg = "need to call .teststatistic(poi_test) first"
+            raise RuntimeError(msg)
 
         if self.calc_base_dist == "normal":
             cutoff = float("-inf")
         elif self.calc_base_dist == "clipped_normal":
             cutoff = -self.sqrtqmuA_v
         else:
-            raise ValueError(
-                f"unknown base distribution for asymptotics {self.calc_base_dist}"
-            )
+            msg = f"unknown base distribution for asymptotics {self.calc_base_dist}"
+            raise ValueError(msg)
         sb_dist = AsymptoticTestStatDistribution(-self.sqrtqmuA_v, cutoff)
         b_dist = AsymptoticTestStatDistribution(0.0, cutoff)
         return sb_dist, b_dist
@@ -338,6 +353,7 @@ class AsymptoticCalculator:
         Example:
 
             >>> import pyhf
+            >>> import numpy as np
             >>> pyhf.set_backend("numpy")
             >>> model = pyhf.simplemodels.uncorrelated_background(
             ...     signal=[12.0, 11.0], bkg=[50.0, 52.0], bkg_uncertainty=[3.0, 7.0]
@@ -346,12 +362,20 @@ class AsymptoticCalculator:
             >>> data = observations + model.config.auxdata
             >>> mu_test = 1.0
             >>> asymptotic_calculator = pyhf.infer.calculators.AsymptoticCalculator(data, model, test_stat="qtilde")
-            >>> asymptotic_calculator.teststatistic(mu_test)
-            array(0.14043184)
-            >>> asymptotic_calculator.fitted_pars
-            HypoTestFitResults(asimov_pars=array([0.        , 1.0030482 , 0.96264534]), free_fit_to_data=array([0.        , 1.0030512 , 0.96266961]), free_fit_to_asimov=array([0.        , 1.00304893, 0.96263365]), fixed_poi_fit_to_data=array([1.        , 0.97224597, 0.87553894]), fixed_poi_fit_to_asimov=array([1.        , 0.97276864, 0.87142047]))
-            >>> asymptotic_calculator.fitted_pars.free_fit_to_asimov  # best-fit parameters to Asimov dataset
-            array([0.        , 1.00304893, 0.96263365])
+            >>> test_stat = asymptotic_calculator.teststatistic(mu_test)
+            >>> np.isclose(test_stat, 0.14043184)
+            np.True_
+            >>> fit_results = asymptotic_calculator.fitted_pars
+            >>> np.isclose(fit_results.asimov_pars, [0.        , 1.0030482 , 0.96264534])
+            array([ True,  True,  True])
+            >>> np.isclose(fit_results.free_fit_to_data, [0.        , 1.0030512 , 0.96266961])
+            array([ True,  True,  True])
+            >>> np.isclose(fit_results.free_fit_to_asimov, [0.        , 1.00304893, 0.96263365])  # best-fit parameters to Asimov dataset
+            array([ True,  True,  True])
+            >>> np.isclose(fit_results.fixed_poi_fit_to_data, [1.        , 0.97224597, 0.87553894])
+            array([ True,  True,  True])
+            >>> np.isclose(fit_results.fixed_poi_fit_to_asimov, [1.        , 0.97276864, 0.87142047])
+            array([ True,  True,  True])
 
         Args:
             poi_test (:obj:`float` or :obj:`tensor`): The value for the parameter of interest.
@@ -375,7 +399,7 @@ class AsymptoticCalculator:
         )
         sqrtqmu_v = tensorlib.sqrt(qmu_v)
 
-        asimov_mu = 1.0 if self.test_stat == 'q0' else 0.0
+        asimov_mu = 1.0 if self.test_stat == "q0" else 0.0
 
         asimov_data, asimov_mubhathat = generate_asimov_data(
             asimov_mu,
@@ -409,18 +433,25 @@ class AsymptoticCalculator:
         else:  # qtilde
 
             def _true_case():
-                teststat = sqrtqmu_v - self.sqrtqmuA_v
-                return teststat
+                return sqrtqmu_v - self.sqrtqmuA_v
 
             def _false_case():
                 qmu = tensorlib.power(sqrtqmu_v, 2)
                 qmu_A = tensorlib.power(self.sqrtqmuA_v, 2)
-                teststat = (qmu - qmu_A) / (2 * self.sqrtqmuA_v)
-                return teststat
+                return (qmu - qmu_A) / (2 * self.sqrtqmuA_v)
 
-            # Use '<=' rather than '<' to avoid Issue #1992
+            # Use '<=' rather than '<' to avoid Issue #1992.
+            #
+            # sqrtqmuA_v == 0 happens when poi_test == asimov_mu
+            # (the poi=0 scan point) which results in the muhat < 0 branch
+            # of Equation 16 from https://arxiv.org/abs/1007.1727 (_false_case)
+            # being 0/0. To avoid this, route this degenerate case to muhat >= 0
+            # (_true_case) (using bitwise OR) instead of dividing by zero
+            # (avoids Issue #2722).
             teststat = tensorlib.conditional(
-                (sqrtqmu_v <= self.sqrtqmuA_v), _true_case, _false_case
+                (sqrtqmu_v <= self.sqrtqmuA_v) | (self.sqrtqmuA_v == 0),
+                _true_case,
+                _false_case,
             )
         return tensorlib.astensor(teststat)
 
@@ -432,6 +463,7 @@ class AsymptoticCalculator:
         Example:
 
             >>> import pyhf
+            >>> import numpy as np
             >>> pyhf.set_backend("numpy")
             >>> model = pyhf.simplemodels.uncorrelated_background(
             ...     signal=[12.0, 11.0], bkg=[50.0, 52.0], bkg_uncertainty=[3.0, 7.0]
@@ -445,8 +477,12 @@ class AsymptoticCalculator:
             >>> q_tilde = asymptotic_calculator.teststatistic(mu_test)
             >>> sig_plus_bkg_dist, bkg_dist = asymptotic_calculator.distributions(mu_test)
             >>> CLsb, CLb, CLs = asymptotic_calculator.pvalues(q_tilde, sig_plus_bkg_dist, bkg_dist)
-            >>> CLsb, CLb, CLs
-            (array(0.02332502), array(0.4441594), array(0.05251497))
+            >>> np.isclose(CLsb, 0.02332502)
+            np.True_
+            >>> np.isclose(CLb, 0.4441594)
+            np.True_
+            >>> np.isclose(CLs, 0.05251497)
+            np.True_
 
         Args:
             teststat (:obj:`tensor`): The test statistic.
@@ -477,6 +513,7 @@ class AsymptoticCalculator:
         Example:
 
             >>> import pyhf
+            >>> import numpy as np
             >>> pyhf.set_backend("numpy")
             >>> model = pyhf.simplemodels.uncorrelated_background(
             ...     signal=[12.0, 11.0], bkg=[50.0, 52.0], bkg_uncertainty=[3.0, 7.0]
@@ -490,8 +527,8 @@ class AsymptoticCalculator:
             >>> _ = asymptotic_calculator.teststatistic(mu_test)
             >>> sig_plus_bkg_dist, bkg_dist = asymptotic_calculator.distributions(mu_test)
             >>> CLsb_exp_band, CLb_exp_band, CLs_exp_band = asymptotic_calculator.expected_pvalues(sig_plus_bkg_dist, bkg_dist)
-            >>> CLs_exp_band
-            [array(0.00260626), array(0.01382005), array(0.06445321), array(0.23525644), array(0.57303621)]
+            >>> np.isclose(CLs_exp_band, [0.00260626, 0.01382005, 0.06445321, 0.23525644, 0.57303621])
+            array([ True,  True,  True,  True,  True])
 
         Args:
             sig_plus_bkg_distribution (~pyhf.infer.calculators.AsymptoticTestStatDistribution):
@@ -505,7 +542,6 @@ class AsymptoticCalculator:
             :math:`\mathrm{CL}_{b}`, and :math:`\mathrm{CL}_{s}`.
         """
         # Calling pvalues is easier then repeating the CLs calculation here
-        tb, _ = get_backend()
         return list(
             map(
                 list,
@@ -610,6 +646,7 @@ class EmpiricalDistribution:
         Examples:
 
             >>> import pyhf
+            >>> import numpy as np
             >>> import numpy.random as random
             >>> random.seed(0)
             >>> pyhf.set_backend("numpy")
@@ -619,9 +656,10 @@ class EmpiricalDistribution:
             >>> samples = normal.sample((100,))
             >>> dist = pyhf.infer.calculators.EmpiricalDistribution(samples)
             >>> dist.expected_value(nsigma=1)
-            6.15094381...
+            np.float64(6.15094381...)
 
             >>> import pyhf
+            >>> import numpy as np
             >>> import numpy.random as random
             >>> random.seed(0)
             >>> pyhf.set_backend("numpy")
@@ -645,9 +683,9 @@ class EmpiricalDistribution:
             ...     )
             ... )
             >>> n_sigma = pyhf.tensorlib.astensor([-2, -1, 0, 1, 2])
-            >>> dist.expected_value(n_sigma)
-            array([0.00000000e+00, 0.00000000e+00, 5.53671231e-04, 8.29987137e-01,
-                   2.99592664e+00])
+            >>> exp_values = dist.expected_value(n_sigma)
+            >>> np.isclose(exp_values, [0.00000000e+00, 0.00000000e+00, 5.53671231e-04, 8.29987137e-01, 2.99592664e+00])
+            array([ True,  True,  True,  True,  True])
 
         Args:
             nsigma (:obj:`int` or :obj:`tensor`): The number of standard deviations.
@@ -657,7 +695,7 @@ class EmpiricalDistribution:
         """
         tensorlib, _ = get_backend()
         return tensorlib.percentile(
-            self.samples, tensorlib.normal_cdf(nsigma) * 100, interpolation="linear"
+            self.samples, tensorlib.normal_cdf(nsigma) * 100, method="linear"
         )
 
 
@@ -698,7 +736,7 @@ class ToyCalculator:
               * ``'q0'``: performs the calculation using the discovery test statistic
                 :math:`q_{0}` (:func:`~pyhf.infer.test_statistics.q0`).
             ntoys (:obj:`int`): Number of toys to use (how many times to sample the underlying distributions).
-            track_progress (:obj:`bool`): Whether to display the `tqdm` progress bar or not (outputs to `stderr`).
+            track_progress (:obj:`bool`): Whether to display the progress bar or not (outputs to `stderr`).
 
         Returns:
             ~pyhf.infer.calculators.ToyCalculator: The calculator for toy-based quantities.
@@ -747,7 +785,7 @@ class ToyCalculator:
 
         Args:
             poi_test (:obj:`float` or :obj:`tensor`): The value for the parameter of interest.
-            track_progress (:obj:`bool`): Whether to display the `tqdm` progress bar or not (outputs to `stderr`)
+            track_progress (:obj:`bool`): Whether to display the progress bar or not (outputs to `stderr`)
 
         Returns:
             Tuple (~pyhf.infer.calculators.EmpiricalDistribution): The distributions under the hypotheses.
@@ -768,7 +806,7 @@ class ToyCalculator:
         signal_sample = signal_pdf.sample(sample_shape)
 
         bkg_pars = fixed_poi_fit(
-            1.0 if self.test_stat == 'q0' else 0.0,
+            1.0 if self.test_stat == "q0" else 0.0,
             self.data,
             self.pdf,
             self.init_pars,
@@ -780,40 +818,52 @@ class ToyCalculator:
 
         teststat_func = utils.get_test_stat(self.test_stat)
 
-        tqdm_options = dict(
-            total=self.ntoys,
-            leave=False,
-            disable=not (
-                track_progress if track_progress is not None else self.track_progress
-            ),
-            unit='toy',
+        show_progress = (
+            track_progress if track_progress is not None else self.track_progress
         )
 
-        signal_teststat = []
-        for sample in tqdm.tqdm(signal_sample, **tqdm_options, desc='Signal-like'):
-            signal_teststat.append(
-                teststat_func(
-                    poi_test,
-                    sample,
-                    self.pdf,
-                    self.init_pars,
-                    self.par_bounds,
-                    self.fixed_params,
-                )
+        console = Console(stderr=True)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            signal_task = progress.add_task(
+                "[cyan]Signal-like", total=self.ntoys, visible=show_progress
             )
+            signal_teststat = []
+            for sample in signal_sample:
+                signal_teststat.append(
+                    teststat_func(
+                        poi_test,
+                        sample,
+                        self.pdf,
+                        self.init_pars,
+                        self.par_bounds,
+                        self.fixed_params,
+                    )
+                )
+                progress.advance(signal_task, 1)
 
-        bkg_teststat = []
-        for sample in tqdm.tqdm(bkg_sample, **tqdm_options, desc='Background-like'):
-            bkg_teststat.append(
-                teststat_func(
-                    poi_test,
-                    sample,
-                    self.pdf,
-                    self.init_pars,
-                    self.par_bounds,
-                    self.fixed_params,
-                )
+            bkg_task = progress.add_task(
+                "[cyan]Background-like", total=self.ntoys, visible=show_progress
             )
+            bkg_teststat = []
+            for sample in bkg_sample:
+                bkg_teststat.append(
+                    teststat_func(
+                        poi_test,
+                        sample,
+                        self.pdf,
+                        self.init_pars,
+                        self.par_bounds,
+                        self.fixed_params,
+                    )
+                )
+                progress.advance(bkg_task, 1)
 
         s_plus_b = EmpiricalDistribution(tensorlib.astensor(signal_teststat))
         b_only = EmpiricalDistribution(tensorlib.astensor(bkg_teststat))
@@ -952,7 +1002,7 @@ class ToyCalculator:
 
         """
         teststat_func = utils.get_test_stat(self.test_stat)
-        teststat = teststat_func(
+        return teststat_func(
             poi_test,
             self.data,
             self.pdf,
@@ -960,4 +1010,3 @@ class ToyCalculator:
             self.par_bounds,
             self.fixed_params,
         )
-        return teststat

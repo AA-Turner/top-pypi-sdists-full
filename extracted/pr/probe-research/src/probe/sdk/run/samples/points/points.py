@@ -1,6 +1,6 @@
 """PointWriter: one producer's per-sample metrics and update records, checked and journaled as ops on their own route
 (`POST /v1/runs/{id}/samples/points`), never merged with `/samples/batch` ops. Behind `run.samples.log_metrics`,
-`log_metrics_many` and `log_update`; the caller (`RunSamples`) catches and counts every failure."""
+`log_metrics_many`, `log_update` and `log_update_rows`; the caller (`RunSamples`) catches and counts every failure."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from .....foundation.safe_warn import safe_warn as _diagnostics
+from .....generated.samples.points import UpdateLevel
 from ....routes import WriteOp, path_for
 from .rows import ROW_FIELDS, build_point_row, build_update_row
 
@@ -41,20 +42,43 @@ class PointWriter:
 
     def log_metrics_many(self, rows: Iterable[Mapping[str, Any]]) -> int:
         """Each row checked alone (a bad one is counted on `failures` and the rest go); one op for all of them."""
+        built = self._build_rows(rows)
+        self._send(built, [])
+        return len(built)
+
+    def log_update(self, step: int, update: int | None, *, level: str, fields: Mapping[str, Any]) -> None:
+        self._send([], [self._build_update(step, update, level, fields)])
+
+    def log_update_rows(self, step: int, update: int | None, rows: Iterable[Mapping[str, Any]],
+                        records: Iterable[Mapping[str, Any]]) -> int:  # fmt: skip
+        """An update's rows (`log_metrics_many`'s) and records (`log_update`'s keyword arguments, `level` with them),
+        each checked alone (a bad one is counted and the rest go), journaled together: one op where a rows op and one
+        op per record each cost a durable journal write."""
+        built, updates = self._build_rows(rows), []
+        for record in records:
+            try:
+                fields = dict(record)
+                level = fields.pop("level", UpdateLevel.UPDATE)
+                updates.append(self._build_update(step, update, level, fields))
+            except Exception as exc:  # noqa: BLE001 -- one bad record never costs the rest
+                self._samples._record_failure("log_update", exc)
+        self._send(built, updates)
+        return len(built)
+
+    def _build_rows(self, rows: Iterable[Mapping[str, Any]]) -> list[dict]:
         built = []
         for given in rows:
             try:
                 built.append(self._build_from(given))
             except Exception as exc:  # noqa: BLE001 -- one bad row never costs the rest
                 self._samples._record_failure("log_metrics_many", exc)
-        self._send(built, [])
-        return len(built)
+        return built
 
-    def log_update(self, step: int, update: int | None, *, level: str, fields: Mapping[str, Any]) -> None:
+    def _build_update(self, step: int, update: int | None, level: str, fields: Mapping[str, Any]) -> dict:
         with self._lock:
             row, left = build_update_row(step, update, level, fields, self._known)
         self._warn_left("log_update", left)
-        self._send([], [row])
+        return row
 
     def _build_from(self, given: Mapping[str, Any]) -> dict:
         row = dict(given)

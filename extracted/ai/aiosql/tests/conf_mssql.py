@@ -4,94 +4,47 @@ import utils as u
 import time
 from conf_schema import create_user_blogs, fill_user_blogs, drop_user_blogs
 
+# NOTE pymssql and mssql-python both support the pyformat syntax
 def ms_has_db(conn, database):
     with conn.cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) AS cnt FROM sys.databases WHERE name = %s", (database,))
+        cursor.execute("SELECT COUNT(*) AS cnt FROM sys.databases WHERE name = %(database)s", {"database": database})
         return cursor.fetchone() in ({"cnt": 1}, (1,))
 
-try:
+@pytest.fixture(scope="module")
+def ms_dsn(request):
+    """Return connection parameters suitable to pymssql driver."""
+    yield {
+        # see conftest.py for list of options
+        "server": request.config.getoption("mssql_server") or '.',
+        "port": request.config.getoption("mssql_port") or 1433,
+        "user": request.config.getoption("mssql_user") or "sa",
+        "password": request.config.getoption("mssql_password"),
+        "database": request.config.getoption("mssql_database") or "pytest",
+        "as_dict": True,
+        "autocommit": False,
+    }
 
-    # NOTE rhetorical, there is only one ms driver for now
-    @pytest.fixture(scope="module")
-    def ms_driver(request):
-        """Return driver class."""
-        driver = request.config.getoption("mssql_driver") or "pymssql"
-        db = importlib.import_module(driver)
-        return db
-
-    @pytest.fixture(scope="module")
-    def ms_dsn(request):
-        """Return connection parameters suitable to pymssql driver."""
-        yield {
-            # see conftest.py for list of options
-            "server": request.config.getoption("mssql_server") or '.',
-            "port": request.config.getoption("mssql_port") or 1433,
-            "user": request.config.getoption("mssql_user") or "sa",
-            "password": request.config.getoption("mssql_password"),
-            "database": request.config.getoption("mssql_database") or "pytest",
-            "as_dict": True,
-            "autocommit": False,
-        }
-
-    @pytest.fixture(scope="module")
-    def ms_master(ms_dsn):
-        """Return connection parameters suitable for "system admin" access."""
-        dsn = dict(ms_dsn)
-        dsn["database"] = "master"
-        dsn["autocommit"] = True
-        yield dsn
-
-    @pytest.fixture
-    def ms_conn(request, ms_dsn, ms_driver):
-        """Return a simple connection using the expected driver."""
-        driver, db = ms_driver.__name__, ms_driver
-        tries = request.config.getoption("mssql_tries") or 3
-        with u.db_connect(ms_driver, tries, **ms_dsn) as conn:
-            yield conn
-
-    @pytest.fixture(scope="module")
-    def ms_db(ms_driver, ms_dsn, ms_master, queries):
-        """Build the test database and return a connection to that."""
-        with ms_driver.connect(**ms_master) as conn:
-            # initial contents if needed
-            if not ms_has_db(conn, "pytest"):
-                with conn.cursor() as cur:
-                    cur.execute("CREATE DATABASE pytest")
-                    cur.execute("USE pytest")
-                    conn.commit()
-                create_user_blogs(conn, queries)
-                fill_user_blogs(conn, queries)
-            else:
-                u.log.warning("skipping pytest schema creation")
-        # connection to pytest possibly database created above
-        with ms_driver.connect(**ms_dsn) as conn:
-            yield conn
-        # cleanup
-        with ms_driver.connect(**ms_master) as conn:
-            with conn.cursor() as cur:
-                # u.log.warning("cleaning up pytest schema")
+@pytest.fixture(scope="module")
+def ms_db(master_conn, queries):
+    """Build the test database and return an admin connection to that."""
+    need_db = not ms_has_db(master_conn, "pytest")
+    # initial contents if needed
+    if need_db:
+        with master_conn.cursor() as cur:
+            cur.execute("CREATE DATABASE pytest")
+            cur.execute("USE pytest")
+            create_user_blogs(master_conn, queries)
+            fill_user_blogs(master_conn, queries)
+    else:
+        u.log.warning("skipping pytest database and schema creation")
+    yield master_conn
+    # cleanup (some issues with mssql-python because database is still in use)
+    if need_db:  # also do the cleanup
+        try:
+            with master_conn.cursor() as cur:
+                drop_user_blogs(master_conn, queries)
+                cur.execute("USE master")
                 cur.execute("DROP DATABASE pytest")
-            conn.commit()
-
-except ModuleNotFoundError:
-    # provide empty fixtures to please pytest "parsing"
-
-    @pytest.fixture
-    def ms_driver():
-        raise Exception("unimplemented fixture")
-
-    @pytest.fixture
-    def ms_dsn():
-        raise Exception("unimplemented fixture")
-
-    @pytest.fixture
-    def ms_master():
-        raise Exception("unimplemented fixture")
-
-    @pytest.fixture
-    def ms_conn():
-        raise Exception("unimplemented fixture")
-
-    @pytest.fixture
-    def ms_db():
-        raise Exception("unimplemented fixture")
+        except Exception as e:
+            u.log.warning(f"cannot DROP DATABASE pytest: {e}")
+            # raise?

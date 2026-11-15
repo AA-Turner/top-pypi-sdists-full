@@ -97,6 +97,16 @@ class RunWritersMixin:
             f"/v1/runs/{run_id}/writers/{session_id}/release", body, idempotent=True
         ) or {}
 
+    def release_launch(self, run_id: str, launch_id: str, body: dict) -> dict:
+        """``POST /v1/runs/{id}/launches/{launch_id}/release`` (rl-trajectory-gaps D29): a Ray
+        launcher's job ended; the server releases, in one transaction, every lease of that launch
+        still beating on the run's current epoch (never ``body["session_id"]``, the caller's own),
+        with ``exit_status``. Returns ``{run_status, closed, liveness_protocol, released, left}``;
+        a 409 means a newer epoch owns the run."""
+        return self.transport.post(
+            f"/v1/runs/{run_id}/launches/{launch_id}/release", body, idempotent=True
+        ) or {}
+
     def list_writers(self, run_id: str) -> list[dict]:
         """``GET /v1/runs/{id}/writers`` (2.8): the run's writer leases, newest
         epoch first, each with its derived ``state`` (beating, draining,

@@ -57,6 +57,9 @@ def main() -> None:
         task = probe_entrypoint.options(runtime_env={"env_vars": build_task_env(run)})
         final_step = ray.get(task.remote(train_config))
         status = "completed"
+    except BaseException as exc:
+        status = _rl_owner.get_ending_status(exc)
+        raise
     finally:
         if run is not None:
             guard.call("run close", _close_owner_run, run, final_step, status, is_owner)
@@ -75,6 +78,8 @@ def _open_owner_run(train_config: Any) -> tuple[Any, bool]:
 
 
 def _close_owner_run(run: Any, final_step: int | None, status: str, is_owner: bool) -> None:
-    """The terminal manifest (the task wrote its last step), the barrier, the run's own status."""
+    """The terminal manifest (the task wrote its last step), the barrier, the leases SkyRL's Ray workers still hold
+    released with ``status`` (Ray stops them before they can), the run's own status."""
     samples = run.samples.as_producer("driver")
-    _rl_owner.close_run(run, samples, final_step=final_step, should_finish=is_owner, status=status)
+    _rl_owner.close_run(run, samples, final_step=final_step, should_finish=is_owner, status=status,
+                        should_release_workers=True)

@@ -19,8 +19,8 @@ class HasState(Protocol):
 
 this: HasState = sys.modules[__name__]
 this.state = {
-    'default': (None, None),  # type: ignore[typeddict-item]
-    'current': (None, None),  # type: ignore[typeddict-item]
+    "default": (None, None),  # type: ignore[typeddict-item]
+    "current": (None, None),  # type: ignore[typeddict-item]
 }
 
 
@@ -49,11 +49,11 @@ def get_backend(default: bool = False) -> tuple[TensorBackend, Optimizer]:
 _default_backend: TensorBackend = BackendRetriever.numpy_backend()
 _default_optimizer: Optimizer = OptimizerRetriever.scipy_optimizer()  # type: ignore[no-untyped-call]
 
-this.state['default'] = (_default_backend, _default_optimizer)
-this.state['current'] = this.state['default']
+this.state["default"] = (_default_backend, _default_optimizer)
+this.state["current"] = this.state["default"]
 
 
-@events.register('change_backend')
+@events.register("change_backend")
 def set_backend(
     backend: str | bytes | TensorBackend,
     custom_optimizer: str | bytes | Optimizer | None = None,
@@ -65,14 +65,9 @@ def set_backend(
 
     Example:
         >>> import pyhf
-        >>> pyhf.set_backend("tensorflow")
+        >>> pyhf.set_backend(b"jax", precision="32b")
         >>> pyhf.tensorlib.name
-        'tensorflow'
-        >>> pyhf.tensorlib.precision
-        '64b'
-        >>> pyhf.set_backend(b"pytorch", precision="32b")
-        >>> pyhf.tensorlib.name
-        'pytorch'
+        'jax'
         >>> pyhf.tensorlib.precision
         '32b'
         >>> pyhf.set_backend(pyhf.tensor.numpy_backend())
@@ -82,7 +77,7 @@ def set_backend(
         '64b'
 
     Args:
-        backend (:obj:`str` or :obj:`bytes` or `pyhf.tensor` backend): One of the supported pyhf backends: NumPy, TensorFlow, PyTorch, and JAX
+        backend (:obj:`str` or :obj:`bytes` or `pyhf.tensor` backend): One of the supported pyhf backends: NumPy and JAX
         custom_optimizer (:obj:`str` or :obj:`bytes` or `pyhf.optimize` optimizer or :obj:`None`): Optional custom optimizer defined by the user
         precision (:obj:`str` or :obj:`bytes` or :obj:`None`): Floating point precision to use in the backend: ``64b`` or ``32b``. Default is backend dependent.
         default (:obj:`bool`): Set the backend as the default backend additionally
@@ -99,9 +94,8 @@ def set_backend(
 
         precision = precision.lower()
         if precision not in _supported_precisions:
-            raise exceptions.Unsupported(
-                f"The backend precision provided is not supported: {precision:s}. Select from one of the supported precisions: {', '.join([str(v) for v in _supported_precisions])}"
-            )
+            msg = f"The backend precision provided is not supported: {precision:s}. Select from one of the supported precisions: {', '.join([str(v) for v in _supported_precisions])}"
+            raise exceptions.Unsupported(msg)
 
         backend_kwargs["precision"] = precision
 
@@ -115,19 +109,16 @@ def set_backend(
             new_backend: TensorBackend = getattr(
                 BackendRetriever, f"{backend:s}_backend"
             )(**backend_kwargs)
-        except TypeError:
-            raise exceptions.InvalidBackend(
-                f"The backend provided is not supported: {backend:s}. Select from one of the supported backends: numpy, tensorflow, pytorch"
-            )
+        except TypeError as exc:
+            msg = f"The backend provided is not supported: {backend:s}. Select from one of the supported backends: numpy, jax"
+            raise exceptions.InvalidBackend(msg) from exc
     else:
         new_backend = backend
 
     _name_supported = getattr(BackendRetriever, f"{new_backend.name:s}_backend")
-    if _name_supported:
-        if not isinstance(new_backend, _name_supported):
-            raise AttributeError(
-                f"'{new_backend.name:s}' is not a valid name attribute for backend type {type(new_backend)}\n                 Custom backends must have names unique from supported backends"
-            )
+    if _name_supported and not isinstance(new_backend, _name_supported):
+        msg = f"'{new_backend.name:s}' is not a valid name attribute for backend type {type(new_backend)}\n                 Custom backends must have names unique from supported backends"
+        raise AttributeError(msg)
 
     # If "precision" arg passed, it should always win
     # If no "precision" arg, defer to tensor backend object API if set there
@@ -147,45 +138,42 @@ def set_backend(
 
             try:
                 new_optimizer = getattr(
-                    OptimizerRetriever, f"{custom_optimizer.lower()}_optimizer"
+                    OptimizerRetriever, f"{custom_optimizer.lower()!s}_optimizer"
                 )()
-            except TypeError:
-                raise exceptions.InvalidOptimizer(
-                    f"The optimizer provided is not supported: {custom_optimizer}. Select from one of the supported optimizers: scipy, minuit"
-                )
+            except TypeError as exc:
+                msg = f"The optimizer provided is not supported: {custom_optimizer!s}. Select from one of the supported optimizers: scipy, minuit"
+                raise exceptions.InvalidOptimizer(msg) from exc
         else:
             new_optimizer = custom_optimizer
 
         _name_supported = getattr(
             OptimizerRetriever, f"{new_optimizer.name:s}_optimizer"
         )
-        if _name_supported:
-            if not isinstance(new_optimizer, _name_supported):
-                raise AttributeError(
-                    f"'{new_optimizer.name}' is not a valid name attribute for optimizer type {type(new_optimizer)}\n                 Custom optimizers must have names unique from supported optimizers"
-                )
+        if _name_supported and not isinstance(new_optimizer, _name_supported):
+            msg = f"'{new_optimizer.name}' is not a valid name attribute for optimizer type {type(new_optimizer)}\n                 Custom optimizers must have names unique from supported optimizers"
+            raise AttributeError(msg)
 
     # need to determine if the tensorlib changed or the optimizer changed for events
     tensorlib_changed = bool(
-        (new_backend.name != this.state['current'][0].name)
-        | (new_backend.precision != this.state['current'][0].precision)
+        (new_backend.name != this.state["current"][0].name)
+        | (new_backend.precision != this.state["current"][0].precision)
     )
-    optimizer_changed = bool(this.state['current'][1] != new_optimizer)
+    optimizer_changed = bool(this.state["current"][1] != new_optimizer)
     # set new backend
-    this.state['current'] = (new_backend, new_optimizer)
+    this.state["current"] = (new_backend, new_optimizer)
     if default:
         default_tensorlib_changed = bool(
-            (new_backend.name != this.state['default'][0].name)
-            | (new_backend.precision != this.state['default'][0].precision)
+            (new_backend.name != this.state["default"][0].name)
+            | (new_backend.precision != this.state["default"][0].precision)
         )
-        default_optimizer_changed = bool(this.state['default'][1] != new_optimizer)
+        default_optimizer_changed = bool(this.state["default"][1] != new_optimizer)
         # trigger events
         if default_tensorlib_changed:
             events.trigger("default_tensorlib_changed")()
         if default_optimizer_changed:
             events.trigger("default_optimizer_changed")()
 
-        this.state['default'] = this.state['current']
+        this.state["default"] = this.state["current"]
 
     # trigger events
     if tensorlib_changed:

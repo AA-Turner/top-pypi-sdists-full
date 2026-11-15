@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: mkdocs-minify-html-plugin
-Version: 0.3.18
+Version: 0.3.19
 Classifier: Framework :: MkDocs
+Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -13,25 +14,37 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust
+Classifier: Topic :: Documentation
+Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
+Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Typing :: Typed
-Requires-Dist: mkdocs>=1.4,<2
+Requires-Dist: mkdocs>=1.4,<=1.6.1
 Requires-Dist: typing-extensions>=4.4 ; python_full_version < '3.12'
 License-File: LICENSE
 License-File: LICENSE-THIRD-PARTY
-Summary: MkDocs plugin for minification using minify-html, an extremely fast and smart HTML + JS + CSS minifier
+Summary: ProperDocs and MkDocs plugin that minifies HTML pages with their inline CSS and JS, using the minify-html Rust crate
+Keywords: css,html,html-minifier,javascript,minifier,minify,minify-html,mkdocs,mkdocs-plugin,properdocs,properdocs-plugin,rust
 Author-email: monosans <hsyqixco@protonmail.com>
+License-Expression: MIT
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: changelog, https://github.com/monosans/mkdocs-minify-html-plugin/blob/main/CHANGELOG.md
+Project-URL: issues, https://github.com/monosans/mkdocs-minify-html-plugin/issues
 Project-URL: repository, https://github.com/monosans/mkdocs-minify-html-plugin
 
 # <img src="https://raw.githubusercontent.com/monosans/mkdocs-minify-html-plugin/main/assets/logo.svg" alt="" width="40" align="top"> mkdocs-minify-html-plugin
 
 [![Downloads](https://static.pepy.tech/badge/mkdocs-minify-html-plugin)](https://pepy.tech/project/mkdocs-minify-html-plugin)
 
-MkDocs plugin that minifies the built HTML pages, including inline CSS and JS, with [minify-html](https://github.com/wilsonzlin/minify-html).
+[ProperDocs](https://properdocs.org/) and MkDocs plugin that minifies the built HTML pages, including inline CSS and JS, with [minify-html](https://github.com/wilsonzlin/minify-html).
+
+## ProperDocs instead of MkDocs
+
+MkDocs is no longer maintained, and its last release, 1.6.1, came out in August 2024. MkDocs 2.0, now in development, has no plugin system, so this plugin will not run on it. [ProperDocs](https://properdocs.org/) continues MkDocs 1.x. It reads `mkdocs.yml` and runs existing plugins without changes, this one included. This plugin still supports MkDocs 1.x as well.
 
 ## Usage
 
@@ -43,7 +56,7 @@ uv add --dev mkdocs-minify-html-plugin
 pip install -U mkdocs-minify-html-plugin
 ```
 
-Activate in `mkdocs.yml`:
+Activate in `properdocs.yml` or `mkdocs.yml`:
 
 ```yaml
 plugins:

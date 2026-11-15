@@ -18,6 +18,12 @@ public:
     /** Set the objective. */
     void set_objective(Objective objective) { instance_.objective_ = objective; }
 
+    /** Set the knapsack goal (see 'Instance::knapsack_goal'). */
+    void set_knapsack_goal(Profit knapsack_goal) { instance_.knapsack_goal_ = knapsack_goal; }
+
+    /** Set the knapsack cutoff (see 'Instance::knapsack_cutoff'). */
+    void set_knapsack_cutoff(Profit knapsack_cutoff) { instance_.knapsack_cutoff_ = knapsack_cutoff; }
+
     /*
      * Read from files
      */
@@ -66,6 +72,9 @@ public:
 
     /** Set whether the leftover values of all the bins are compared. */
     void set_leftover_all_bins(bool leftover_all_bins) { instance_.parameters_.leftover_all_bins = leftover_all_bins; }
+
+    /** Set whether the solutions must be statically stable (see 'Parameters::static_stability'). */
+    void set_static_stability(bool static_stability) { instance_.parameters_.static_stability = static_stability; }
 
     /** Set the feasibility callback. */
     void set_feasibility_callback(const FeasibilityCallback& feasibility_callback) { instance_.feasibility_callback_ = feasibility_callback; }

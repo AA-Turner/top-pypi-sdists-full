@@ -108,6 +108,9 @@ HMAC_SECRET_ENV = "PROBE_HMAC_SECRET"
 WORKSPACE_ENV = "PROBE_WORKSPACE"
 PROJECT_ENV = "PROBE_PROJECT"
 RUN_ID_ENV = "PROBE_RUN_ID"
+#: The launch that started this process (a Ray launcher sets it in its workers' env): their leases carry it,
+#: so the launcher releases exactly its own workers' leases when its job ends (`_rl_owner.release_worker_leases`).
+LAUNCH_ID_ENV = "PROBE_LAUNCH_ID"
 CONFIG_PATH_ENV = "PROBE_CONFIG_PATH"
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
 
@@ -204,6 +207,17 @@ def env_run_id() -> str:
     return os.environ.get(RUN_ID_ENV, "").strip() or (
         run_token_run_id(os.environ.get(TOKEN_ENV)) or ""
     )
+
+
+def read_launch_id() -> str | None:
+    """PROBE_LAUNCH_ID when it is a UUID (the launch that started this process), else None."""
+    import uuid
+
+    raw = os.environ.get(LAUNCH_ID_ENV, "").strip()
+    try:
+        return str(uuid.UUID(raw)) if raw else None
+    except ValueError:
+        return None
 
 
 def mcp_url(base_url: str) -> str | None:

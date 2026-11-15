@@ -9,6 +9,7 @@ from django.core import serializers
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.forms.models import modelform_factory
+from django.template import engines
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.utils import timezone
@@ -20,6 +21,30 @@ from . import test_mail
 
 
 class ModelTest(TestCase):
+    def test_prepare_email_message_caches_compiled_templates(self):
+        template = EmailTemplate.objects.create(
+            name='cached', subject='Hi {{ name }}', content='Text {{ name }}', html_content='<p>{{ name }}</p>'
+        )
+        emails = [
+            Email.objects.create(
+                to=['to@example.com'], from_email='from@example.com', template=template, context={'name': name}
+            )
+            for name in ('Ann', 'Bob')
+        ]
+        backends = {
+            'django': 'django.template.backends.django.DjangoTemplates',
+            'jinja2': 'django.template.backends.jinja2.Jinja2',
+        }
+        for name, backend in backends.items():
+            templates = [{'BACKEND': backend, 'NAME': name, 'DIRS': [], 'APP_DIRS': False, 'OPTIONS': {}}]
+            with self.subTest(name), override_settings(TEMPLATES=templates, POST_OFFICE={'TEMPLATE_ENGINE': name}):
+                engine = engines[name]
+                with patch.object(engine, 'from_string', wraps=engine.from_string) as from_string:
+                    messages = [email.prepare_email_message() for email in emails]
+                # Each of the three distinct sources is compiled once across both emails
+                self.assertEqual(from_string.call_count, 3)
+                self.assertEqual([message.subject for message in messages], ['Hi Ann', 'Hi Bob'])
+
     def test_email_message(self):
         """
         Test to make sure that model's "email_message" method
@@ -365,6 +390,30 @@ class ModelTest(TestCase):
         )
         self.assertIn(form.errors['subject'], [['Empty variable tag'], ['Empty variable tag on line 1']])
 
+    def test_malformed_tags(self):
+        """
+        Ensures that tags with a missing brace, which Django renders as plain
+        text, result in validation errors when saving a ModelForm of an EmailTemplate.
+        """
+        data = dict(
+            name='welcome',
+            subject='Hi {{ user.fullname }',
+            content='Welcome { user.fullname }} to the site.',
+            html_content='{% if user }<h1>Welcome</h1>',
+            default_template='',
+        )
+
+        EmailTemplateForm = modelform_factory(EmailTemplate, exclude=['template'])
+        form = EmailTemplateForm(data)
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(form.errors['subject'], ["Unclosed variable tag on line 1: 'Hi {{ user.fullname }'"])
+        self.assertEqual(
+            form.errors['content'],
+            ["Variable tag is missing an opening brace on line 1: 'Welcome { user.fullname }} to the site.'"],
+        )
+        self.assertEqual(form.errors['html_content'], ["Unclosed block tag on line 1: '{% if user }<h1>Welcome</h1>'"])
+
     def test_string_priority(self):
         """
         Regression test for:
@@ -410,18 +459,6 @@ class ModelTest(TestCase):
 
         attachment = Attachment()
         attachment.file.save('test.txt', content=ContentFile('test file content'), save=True)
-        email.attachments.add(attachment)
-        message = email.email_message()
-
-        self.assertEqual(message.attachments, [('test.txt', 'test file content', 'text/plain')])
-
-    def test_attachments_email_message_with_mimetype(self):
-        email = Email.objects.create(to=['to@example.com'], from_email='from@example.com', subject='Subject')
-
-        attachment = Attachment()
-        attachment.file.save('test.txt', content=ContentFile('test file content'), save=True)
-        attachment.mimetype = 'text/plain'
-        attachment.save()
         email.attachments.add(attachment)
         message = email.email_message()
 

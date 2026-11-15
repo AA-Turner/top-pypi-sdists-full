@@ -1,10 +1,9 @@
 """Numpy Backend Function Shim."""
 
-from pyhf import get_backend
-from pyhf import exceptions
+from pyhf import exceptions, get_backend
 
 
-def wrap_objective(objective, data, pdf, stitch_pars, do_grad=False, jit_pieces=None):
+def wrap_objective(objective, data, pdf, stitch_pars, do_grad=False, jit_pieces=None):  # noqa: ARG001
     """
     Wrap the objective function for the minimization.
 
@@ -22,7 +21,8 @@ def wrap_objective(objective, data, pdf, stitch_pars, do_grad=False, jit_pieces=
     tensorlib, _ = get_backend()
 
     if do_grad:
-        raise exceptions.Unsupported("Numpy does not support autodifferentiation.")
+        msg = "Numpy does not support autodifferentiation."
+        raise exceptions.Unsupported(msg)
 
     def func(pars):
         pars = tensorlib.astensor(pars)

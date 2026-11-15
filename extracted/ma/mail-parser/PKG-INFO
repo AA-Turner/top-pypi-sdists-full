@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mail-parser
-Version: 4.10.0
+Version: 4.11.0
 Summary: A tool that parses emails by enhancing the Python standard library, extracting all details into a comprehensive object.
 Project-URL: Homepage, https://spamscope.ai/en/
 Project-URL: Source, https://github.com/SpamScope/mail-parser
@@ -217,6 +217,16 @@ Every parsed element offers **three distinct access patterns** for maximum flexi
 This versatile architecture makes mail-parser exceptionally powerful for diverse use cases—from
 security analysis and forensics to email migration, compliance auditing, and automated processing
 pipelines.
+
+`mail.subject` removes folding CRLF followed by a space or tab, as specified
+by [RFC 5322 §2.2.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-2.2.3),
+before decoding encoded words. LF-only folds are also accepted for local
+message copies; this is a tolerance extension to the CRLF unfolding rule.
+Surrounding spaces and tabs are preserved; bare CR is not unfolded.
+The same value appears in `headers` and parsed mail/JSON output; other headers
+retain their existing behavior. `mail.subject_raw` (a JSON list) and
+`mail.message` preserve the original folding. If encoded-word decoding fails,
+the complete literal Subject is retained with `header_decoding_defects`.
 
 **Standard RFC Headers** (directly accessible as properties):
 

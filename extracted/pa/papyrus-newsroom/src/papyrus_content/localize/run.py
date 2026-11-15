@@ -23,7 +23,8 @@ def procedure_version() -> str:
         return "papyrus-newsroom (source checkout)"
 
 
-def localize_story(client, *, story: str, language: str, ceiling_usd: float | None = None, source_version: int | None = None,
+def localize_story(client, *, story: str, language: str, ceiling_usd: float | None = None, source_version: int | None = None, automation_id: str | None = None,
+                   procedure_key: str | None = None,
                    models: Callable[[Spend], LocalizeModels] | None = None) -> dict[str, Any]:
     """Translate the published version of ``story`` into ``language`` and save it as an unpublished version of its localization.
 
@@ -35,7 +36,8 @@ def localize_story(client, *, story: str, language: str, ceiling_usd: float | No
     spend = Spend()
     model = (models or (lambda s: ResponsesModels(s)))(spend)
     try:
-        request = collect(client, story=story, language=language, judge=model.judge, procedure_version=procedure_version(), ceiling_usd=ceiling_usd)
+        request = collect(client, story=story, language=language, judge=model.judge, procedure_version=procedure_version(), ceiling_usd=ceiling_usd,
+                          automation_id=automation_id, procedure_key=procedure_key)
     except NothingToDo as reason:
         return {"story": story, "language": language, "version": "", "hold": False, "reason": str(reason), "outcome": "stopped", "published": False,
                 "rounds": 0, "revertedBlocks": 0, "costUsd": 0.0, "sourceCharacters": 0, "findings": {}, "runKey": ""}
@@ -51,6 +53,12 @@ def localize_story(client, *, story: str, language: str, ceiling_usd: float | No
     except Exception as error:
         desired_state.record_outcome(client, wanted, state="failed", run_key=request.run_key, reason=f"{type(error).__name__}: {error}")
         raise
+    newer = desired_state.stale_reason(desired_state.current(client, request.source.lineage_id, request.language),
+                                       {"versionNumber": request.source.version_number})
+    if newer and not outcome.get("repeated"):   # the Story was republished while this run worked: the newer request has its own run, and this one saves nothing
+        return {"story": request.localization_lineage, "language": request.language, "version": "", "hold": False, "reason": newer, "outcome": "stopped",
+                "published": False, "rounds": outcome["rounds"], "revertedBlocks": outcome["revertedBlocks"], "costUsd": outcome["costUsd"],
+                "sourceCharacters": 0, "findings": outcome["findings"], "runKey": request.run_key}
     version = ""
     if outcome.get("repeated"):
         version = outcome.get("version", "")

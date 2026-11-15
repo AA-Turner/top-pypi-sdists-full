@@ -15,6 +15,35 @@ if TYPE_CHECKING:
     from .._client import AnyAPI
 
 
+class GoogleFlightsCalendarInput(TypedDict, total=False):
+    """Input for Google Flights Price Calendar."""
+
+    adults: NotRequired[int]
+    """Number of adult passengers (1-9, default 1). Prices are for all passengers together. Child passengers cannot be priced on the calendar. Range: 1 to 9. Default: 1."""
+    allowFallbacks: NotRequired[bool]
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    cabinClass: NotRequired[Literal["economy", "premium_economy", "business", "first"]]
+    """Cabin class (default economy). Default: economy."""
+    currency: NotRequired[str]
+    """ISO 4217 currency code for prices (e.g. USD, EUR, GBP; default USD). Default: USD."""
+    departureDateFrom: Required[str]
+    """First departure date of the calendar in YYYY-MM-DD format (e.g. 2027-01-12). Today or later."""
+    departureDateTo: Required[str]
+    """Last departure date of the calendar in YYYY-MM-DD format (e.g. 2027-02-10). At most 120 days after departureDateFrom."""
+    destination: Required[str]
+    """Arrival airport as a three-letter IATA code in capitals (e.g. LHR), or a Google place ID for a city to cover all of its airports (e.g. /m/04jpl for London)."""
+    ignoreSources: NotRequired[list[str]]
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    origin: Required[str]
+    """Departure airport as a three-letter IATA code in capitals (e.g. JFK), or a Google place ID for a city to cover all of its airports (e.g. /m/02_286 for New York)."""
+    preferLatencyUnderMs: NotRequired[int]
+    """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
+    source: NotRequired[list[str]]
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    tripLengthDays: NotRequired[int]
+    """For a round trip, the number of days between departure and return (1-30, e.g. 7): each date is then priced as a round trip returning that many days later. Omit it for one way. Range: 1 to 30."""
+
+
 class GoogleFlightsSearchInput(TypedDict, total=False):
     """Input for Google Flights Search."""
 
@@ -23,7 +52,7 @@ class GoogleFlightsSearchInput(TypedDict, total=False):
     airlines: NotRequired[list[str]]
     """Only itineraries flown by these airlines, as two-character IATA codes (e.g. ["BA", "AA"])."""
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. When false, only the sources listed in `source` may serve; the request is refused with no charge if none of them can. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
     cabinClass: NotRequired[Literal["economy", "premium_economy", "business", "first"]]
     """Cabin class (default economy). Default: economy."""
     children: NotRequired[int]
@@ -35,7 +64,7 @@ class GoogleFlightsSearchInput(TypedDict, total=False):
     destination: Required[str]
     """Arrival airport as a three-letter IATA code in capitals (e.g. LHR)."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves and the price is that of the dearest remaining source. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
     maxPrice: NotRequired[int]
     """Highest total price to return, in currency (e.g. 600). Minimum: 1."""
     maxStops: NotRequired[Literal["any", "nonstop", "one_or_fewer", "two_or_fewer"]]
@@ -60,7 +89,78 @@ class GoogleFlightsSearchInput(TypedDict, total=False):
     ]
     """Result order: top_flights (Google's best flights first, the default), cheapest, departure_time, arrival_time, duration or emissions. Default: top_flights."""
     source: NotRequired[list[str]]
-    """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+
+
+class GoogleFlightsCalendarData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    adults: int | None = Field(
+        default=None, description="Number of adult passengers the prices cover."
+    )
+    cabin_class: str | None = Field(
+        default=None,
+        alias="cabinClass",
+        description="Cabin class the calendar was priced in: economy, premium_economy, business or first.",
+    )
+    cheapest_departure_date: str | None = Field(
+        default=None,
+        alias="cheapestDepartureDate",
+        description="Departure date with the lowest fare in the window, YYYY-MM-DD.",
+    )
+    cheapest_price: float | None = Field(
+        default=None,
+        alias="cheapestPrice",
+        description="Lowest fare in the window, for all passengers, in currency.",
+    )
+    currency: str = Field(description="ISO 4217 currency code of every price.")
+    dates: list[GoogleFlightsCalendarDate] = Field(
+        description="One entry per departure date that has a fare, in date order. Dates with no fare are left out. Populated whenever the provider has data for the entity."
+    )
+    departure_date_from: str = Field(
+        alias="departureDateFrom",
+        description="First departure date of the window, YYYY-MM-DD.",
+    )
+    departure_date_to: str = Field(
+        alias="departureDateTo",
+        description="Last departure date of the window, YYYY-MM-DD.",
+    )
+    destination: str = Field(
+        description="Arrival airport IATA code or city place ID the calendar was priced to."
+    )
+    origin: str = Field(
+        description="Departure airport IATA code or city place ID the calendar was priced from."
+    )
+    trip_length_days: int | None = Field(
+        default=None,
+        alias="tripLengthDays",
+        description="Days between departure and return on a round trip; null on one way.",
+    )
+    trip_type: Literal["one_way", "round_trip"] = Field(
+        alias="tripType",
+        description="one_way, or round_trip when a trip length was given.",
+    )
+
+
+class GoogleFlightsCalendarDate(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    departure_date: str = Field(
+        alias="departureDate", description="Departure date, YYYY-MM-DD."
+    )
+    is_low_price: bool | None = Field(
+        default=None,
+        alias="isLowPrice",
+        description="Whether this fare is within 5% of the cheapest fare in the window.",
+    )
+    price: float = Field(
+        description="Lowest fare departing on this date, the total for all passengers, in currency."
+    )
+    return_date: str | None = Field(
+        default=None,
+        alias="returnDate",
+        description="Return date of the round trip priced for this departure date, YYYY-MM-DD; null on one way.",
+    )
 
 
 class GoogleFlightsSearchData(BaseModel):
@@ -174,6 +274,31 @@ class GoogleFlightsNamespace:
     def __init__(self, client: "AnyAPI") -> None:
         self._client = client
 
+    def calendar(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[GoogleFlightsCalendarInput],
+    ) -> RunResult[GoogleFlightsCalendarData]:
+        """Google Flights Price Calendar
+
+        Get the Google Flights price calendar for a route: the lowest fare for every
+        departure date across a window of up to 120 days, one way or as a round trip
+        of a fixed length, with the return date of each round trip, a flag on every
+        date within 5% of the cheapest, and the cheapest date of the window, as
+        normalized JSON. Choose cabin class, adults and currency. Prices are the
+        total for all passengers; dates with no fare are left out.
+
+        Price: $0.00085 per request.
+
+        Example:
+            res = client.google_flights.calendar(departureDateFrom="2026-12-15", departureDateTo="2027-01-13", destination="LHR", origin="JFK")
+        """
+        raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
+            "google_flights.calendar", dict(input), options
+        )
+        return RunResult[GoogleFlightsCalendarData].model_validate(raw)
+
     def search(
         self,
         *,
@@ -192,10 +317,10 @@ class GoogleFlightsNamespace:
         trip that starts with it (priceType round_trip_starting); the return flights
         are not included.
 
-        Price: $0.001 per request.
+        Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-06", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-15", destination="LHR", origin="JFK")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options
@@ -208,6 +333,31 @@ class AsyncGoogleFlightsNamespace:
 
     def __init__(self, client: "AsyncAnyAPI") -> None:
         self._client = client
+
+    async def calendar(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[GoogleFlightsCalendarInput],
+    ) -> RunResult[GoogleFlightsCalendarData]:
+        """Google Flights Price Calendar
+
+        Get the Google Flights price calendar for a route: the lowest fare for every
+        departure date across a window of up to 120 days, one way or as a round trip
+        of a fixed length, with the return date of each round trip, a flag on every
+        date within 5% of the cheapest, and the cheapest date of the window, as
+        normalized JSON. Choose cabin class, adults and currency. Prices are the
+        total for all passengers; dates with no fare are left out.
+
+        Price: $0.00085 per request.
+
+        Example:
+            res = client.google_flights.calendar(departureDateFrom="2026-12-15", departureDateTo="2027-01-13", destination="LHR", origin="JFK")
+        """
+        raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
+            "google_flights.calendar", dict(input), options
+        )
+        return RunResult[GoogleFlightsCalendarData].model_validate(raw)
 
     async def search(
         self,
@@ -227,10 +377,10 @@ class AsyncGoogleFlightsNamespace:
         trip that starts with it (priceType round_trip_starting); the return flights
         are not included.
 
-        Price: $0.001 per request.
+        Price: $0.00085 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-06", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-15", destination="LHR", origin="JFK")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options

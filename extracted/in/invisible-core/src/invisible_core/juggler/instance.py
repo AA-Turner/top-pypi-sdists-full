@@ -37,6 +37,7 @@ import threading
 from typing import Any, Callable, Dict, List, Optional
 
 from invisible_core import SessionLocale, parse_proxy
+from invisible_core._offloop import off_the_loop
 from invisible_core._udp_exit import context_proxy_command, launch_proxy_command
 
 from invisible_core.juggler import connection
@@ -640,6 +641,14 @@ class Browser:
             pass
         if self._files is not None:
             self._files.remove()
+
+    async def aclose(self) -> None:
+        """`close()` for an event loop: the wait for the browser's processes and
+        the removal of the session's directories run in a thread of their own,
+        and the loop goes on serving whatever else it serves (other browsers of
+        this process, among them). It returns when `close()` has: the processes
+        are gone and the profile is removed."""
+        await off_the_loop(self.close)
 
 
 # ── context ─────────────────────────────────────────────────────────────────

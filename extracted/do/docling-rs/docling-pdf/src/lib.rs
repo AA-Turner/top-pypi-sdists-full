@@ -14,6 +14,7 @@
 // build still flags genuinely dead code).
 #![cfg_attr(not(feature = "ml"), allow(dead_code))]
 
+mod adobe_glyph_list;
 // Reading-order assembly. Public under `ocr-prep` so the browser pipeline can
 // reuse the geometric table reconstruction and its reliability gate (#157).
 #[cfg(feature = "ocr-prep")]
@@ -79,6 +80,7 @@ pub use repairs::{pdf_repairs, try_pdf_repairs, PdfRepair, RepairInspectError};
 // Embedded images as picture images (#1007, `use_embedded_picture_images`).
 #[cfg(feature = "render")]
 pub mod embedded;
+mod glyph_names;
 #[cfg(feature = "render")]
 pub mod raster;
 #[cfg(feature = "render")]

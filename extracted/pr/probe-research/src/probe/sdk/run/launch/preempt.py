@@ -582,6 +582,8 @@ def _defer(boundary: Any, closing: bool) -> None:
     st.defer_until = now + grace
     st.saved_profile = sys.getprofile()
     sys.setprofile(_profile_hook)
+    # This thread's context, as `_grace` keeps it: the delivery this wake may start reads its run.
+    st.ctx = contextvars.copy_context()
     if st.commands is not None:
         st.commands.put(("wake", st.defer_until))
 
@@ -644,6 +646,7 @@ def _worker(commands: queue.SimpleQueue) -> None:
     by itself when the main thread does not answer that wake."""
     wake_at: float | None = None
     asked = False
+    is_delivery_started = False
     while True:
         timeout = None if wake_at is None else max(0.0, wake_at - time.monotonic())
         try:
@@ -664,10 +667,38 @@ def _worker(commands: queue.SimpleQueue) -> None:
             return
         if kind == "wake":
             wake_at, asked = command[1], False
+            if not is_delivery_started:
+                is_delivery_started = True
+                _start_delivery()
             continue
         if kind == "close":
             _close()
             return
+
+
+def _start_delivery() -> None:
+    """A grace or a deferral began: the close is seconds away, so its delivery starts now
+    (`fluent._start_delivery_for_preemption`), not inside the close's last seconds (T16j). On a
+    raw thread nothing waits for: it may block on what the interrupted main thread holds, or on
+    the service's start. In a copy of the main thread's context (its bound run), never the one
+    `_close` enters: one context cannot be entered by two threads."""
+    context = _state.ctx
+    fluent = _fluent
+
+    def run() -> None:
+        try:
+            start = fluent._start_delivery_for_preemption
+            if context is not None:
+                context.copy().run(start)
+            else:
+                start()
+        except BaseException:  # noqa: BLE001 -- said nowhere: stderr's lock may be held
+            pass
+
+    try:
+        _thread.start_new_thread(run, ())
+    except BaseException:  # noqa: BLE001 -- no thread to be had: the close kicks delivery itself
+        pass
 
 
 def _wake_main() -> bool:

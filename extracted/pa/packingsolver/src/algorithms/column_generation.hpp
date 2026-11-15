@@ -54,7 +54,6 @@
 #include <array>
 #include <set>
 #include <sstream>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -248,44 +247,6 @@ private:
     /** See 'has_cached_maximum_number_of_bins_'. */
     BinPos cached_maximum_number_of_bins_ = -1;
 
-};
-
-/**
- * Whether an instance builder has a 'set_knapsack_goal' method (see
- * 'solve_pricing').
- */
-template <typename...>
-struct VoidType
-{
-    typedef void type;
-};
-
-template <typename InstanceBuilder, typename = void>
-struct HasSetKnapsackGoal: std::false_type { };
-
-template <typename InstanceBuilder>
-struct HasSetKnapsackGoal<
-    InstanceBuilder,
-    typename VoidType<decltype(std::declval<InstanceBuilder&>().set_knapsack_goal(Profit()))>::type>:
-    std::true_type { };
-
-/**
- * Set the knapsack goal of an instance builder, if it has a
- * 'set_knapsack_goal' method.
- */
-template <typename InstanceBuilder, bool = HasSetKnapsackGoal<InstanceBuilder>::value>
-struct KnapsackGoalSetter
-{
-    static void set(InstanceBuilder&, Profit) { }
-};
-
-template <typename InstanceBuilder>
-struct KnapsackGoalSetter<InstanceBuilder, true>
-{
-    static void set(InstanceBuilder& instance_builder, Profit knapsack_goal)
-    {
-        instance_builder.set_knapsack_goal(knapsack_goal);
-    }
 };
 
 template <typename Instance, typename InstanceBuilder, typename Solution, typename Output>
@@ -708,12 +669,10 @@ PricingOutput ColumnGenerationPricingSolver<Instance, InstanceBuilder, Solution,
         }
 
         // The knapsack goal: the profit above which a column has a negative
-        // reduced cost. A pricing call only needs such a column, or a bound
-        // proving that there is none, so the pricing solver can stop as soon
-        // as it finds one (with a small margin, so that the column is not
-        // discarded because of rounding errors) or as soon as its bound
-        // drops below the goal. The bound returned by a dual pricing call
-        // stopped early is still valid.
+        // reduced cost. A pricing call only needs such a column, so the
+        // pricing solver can stop as soon as it finds one (with a small
+        // margin, so that the column is not discarded because of rounding
+        // errors).
         {
             Profit threshold = std::numeric_limits<Profit>::infinity();
             if (instance_.objective() == Objective::VariableSizedBinPacking
@@ -727,16 +686,24 @@ PricingOutput ColumnGenerationPricingSolver<Instance, InstanceBuilder, Solution,
             }
             Profit goal = threshold + 1e-6 * (std::max)(1.0, std::abs(threshold));
 
-            // 'overcost_goal': the overcost ('maximum_number_of_bins' times
-            // the reduced cost bound, see below) above (minimization) /
-            // below (maximization, 'Knapsack') which the node is cut. Any
-            // knapsack bound below 'overcost_target' proves such an
-            // overcost for this bin type, even if columns of negative
-            // reduced cost remain. Since the knapsack goal stops the search
-            // as soon as a solution reaches it or the bound drops below it,
-            // raising it to 'overcost_target' stops a dual pricing call as
-            // soon as it proves that the node is cut, without solving the
-            // pricing problem to optimality.
+            // 'overcost_goal' (only finite for the dual pricing calls): the
+            // overcost ('maximum_number_of_bins' times the reduced cost
+            // bound, see below) above (minimization) / below (maximization,
+            // 'Knapsack') which the node is cut. Any knapsack bound below
+            // 'overcost_target' proves such an overcost for this bin type,
+            // even if columns of negative reduced cost remain: the columns
+            // below it are not useful. So 'overcost_target' is the knapsack
+            // cutoff, which stops a dual pricing call as soon as it proves
+            // that the node is cut, without solving the pricing problem to
+            // optimality, and the knapsack goal is raised to it: only a
+            // column above it can prevent the node from being cut. The
+            // bound returned by a dual pricing call stopped early is still
+            // valid.
+            //
+            // The other pricing calls have no cutoff: they may use smoothed
+            // duals, at which a column below the goal may still have a
+            // negative reduced cost at the actual duals.
+            Profit cutoff = -std::numeric_limits<Profit>::infinity();
             if (std::isfinite(overcost_goal) && maximum_number_of_bins > 0) {
                 Profit overcost_target = -std::numeric_limits<Profit>::infinity();
                 if (instance_.objective() == Objective::VariableSizedBinPacking
@@ -752,10 +719,12 @@ PricingOutput ColumnGenerationPricingSolver<Instance, InstanceBuilder, Solution,
                 }
                 overcost_target -= 1e-6 * (std::max)(1.0, std::abs(overcost_target));
                 goal = (std::max)(goal, overcost_target);
+                cutoff = overcost_target;
             }
 
             if (use_pricing_knapsack_goal_)
-                KnapsackGoalSetter<InstanceBuilder>::set(kp_instance_builder, goal);
+                kp_instance_builder.set_knapsack_goal(goal);
+            kp_instance_builder.set_knapsack_cutoff(cutoff);
         }
 
         Instance kp_instance = kp_instance_builder.build();
@@ -1582,13 +1551,13 @@ struct ColumnGenerationParameters: packingsolver::Parameters<Instance, Solution,
     bool pricing_function_has_dual_bound = false;
 
     /**
-     * Give the pricing knapsack problems a knapsack goal (if their instance
-     * builder has a 'set_knapsack_goal' method): the pricing solver then
-     * stops as soon as it finds a column with a negative reduced cost,
+     * Give the pricing knapsack problems a knapsack goal: the pricing solver
+     * then stops as soon as it finds a column with a negative reduced cost,
      * instead of searching for the best one. Useful when the pricing
-     * problems are expensive; disabled by 'onedimensional', whose pricing
-     * problems are cheap and whose best columns make the column generation
-     * converge faster.
+     * problems are expensive; disabled by 'onedimensional' and 'rectangle',
+     * whose best columns make the column generation converge faster, and by
+     * 'box', which hasn't been benchmarked with it. The knapsack cutoff of
+     * the dual pricing calls doesn't depend on it.
      */
     bool use_pricing_knapsack_goal = true;
 };

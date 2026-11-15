@@ -1,8 +1,10 @@
 """The pyhf spec CLI subcommand."""
+
+import json
 import logging
+from pathlib import Path
 
 import click
-import json
 
 from pyhf.patchset import PatchSet
 from pyhf.workspace import Workspace
@@ -11,21 +13,21 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 
 
-@click.group(name='patchset')
+@click.group(name="patchset")
 def cli():
     """Operations involving patchsets."""
 
 
 @cli.command()
-@click.argument('patchset', default='-')
-@click.option('--name', help='The name of the patch to extract.', default=None)
+@click.argument("patchset", default="-")
+@click.option("--name", help="The name of the patch to extract.", default=None)
 @click.option(
-    '--output-file',
-    help='The location of the output json file. If not specified, prints to screen.',
+    "--output-file",
+    help="The location of the output json file. If not specified, prints to screen.",
     default=None,
 )
 @click.option(
-    '--with-metadata/--without-metadata',
+    "--with-metadata/--without-metadata",
     default=False,
     help="Include patchset metadata in output.",
 )
@@ -46,26 +48,26 @@ def extract(patchset, name, output_file, with_metadata):
     patch = patchset[name]
 
     if with_metadata:
-        result = {'metadata': patch.metadata, 'patch': patch.patch}
-        result['metadata'].update(patchset.metadata)
+        result = {"metadata": patch.metadata, "patch": patch.patch}
+        result["metadata"].update(patchset.metadata)
     else:
         result = patch.patch
 
     if output_file:
-        with open(output_file, "w", encoding="utf-8") as out_file:
+        with Path(output_file).open("w", encoding="utf-8") as out_file:
             json.dump(result, out_file, indent=4, sort_keys=True)
-        log.debug(f"Written to {output_file:s}")
+        log.debug("Written to %s", output_file)
     else:
         click.echo(json.dumps(result, indent=4, sort_keys=True))
 
 
 @cli.command()
-@click.argument('background-only', default='-')
-@click.argument('patchset', default='-')
-@click.option('--name', help='The name of the patch to extract.', default=None)
+@click.argument("background-only", default="-")
+@click.argument("patchset", default="-")
+@click.option("--name", help="The name of the patch to extract.", default=None)
 @click.option(
-    '--output-file',
-    help='The location of the output json file. If not specified, prints to screen.',
+    "--output-file",
+    help="The location of the output json file. If not specified, prints to screen.",
     default=None,
 )
 def apply(background_only, patchset, name, output_file):
@@ -91,16 +93,16 @@ def apply(background_only, patchset, name, output_file):
     patched_ws = patchset.apply(ws, name)
 
     if output_file:
-        with open(output_file, "w+", encoding="utf-8") as out_file:
+        with Path(output_file).open("w+", encoding="utf-8") as out_file:
             json.dump(patched_ws, out_file, indent=4, sort_keys=True)
-        log.debug(f"Written to {output_file:s}")
+        log.debug("Written to %s", output_file)
     else:
         click.echo(json.dumps(patched_ws, indent=4, sort_keys=True))
 
 
 @cli.command()
-@click.argument('background-only', default='-')
-@click.argument('patchset', default='-')
+@click.argument("background-only", default="-")
+@click.argument("patchset", default="-")
 def verify(background_only, patchset):
     """
     Verify the patchset digests against a background-only workspace specification. Verified if no exception was raised.
@@ -126,7 +128,7 @@ def verify(background_only, patchset):
 
 
 @cli.command()
-@click.argument('patchset', default='-')
+@click.argument("patchset", default="-")
 def inspect(patchset):
     """
     Inspect the PatchSet (e.g. list individual patches).
@@ -138,7 +140,7 @@ def inspect(patchset):
         patchset_spec = json.load(fstream)
 
     patchset = PatchSet(patchset_spec)
-    click.secho(f'\n    {len(patchset.patches)} patches found in Patchset')
-    click.secho('---------------------------------\n')
+    click.secho(f"\n    {len(patchset.patches)} patches found in Patchset")
+    click.secho("---------------------------------\n")
     for p in patchset.patches:
         click.echo(p.name)

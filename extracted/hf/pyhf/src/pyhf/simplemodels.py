@@ -10,7 +10,7 @@ def __dir__():
 
 
 def correlated_background(
-    signal, bkg, bkg_up, bkg_down, batch_size=None, validate=True
+    signal, bkg, bkg_up, bkg_down, batch_size=None, validate=True, poi_name="mu"
 ):
     r"""
     Construct a simple single channel :class:`~pyhf.pdf.Model` with a
@@ -27,9 +27,13 @@ def correlated_background(
         batch_size (:obj:`None` or :obj:`int`): Number of simultaneous (batched) Models to compute.
         validate (:obj:`bool`): If :obj:`True`, validate the model before returning.
          Only set this to :obj:`False` if you have an experimental use case and know what you're doing.
+        poi_name (:obj:`str`): The :class:`~pyhf.pdf.Model` parameter of interest name.
+          Defaults to ``"mu"``.
 
     Returns:
         ~pyhf.pdf.Model: The statistical model adhering to the :obj:`model.json` schema.
+
+    .. version-changed:: 0.8.0 Added ``poi_name`` argument.
 
     Example:
         >>> import pyhf
@@ -79,11 +83,11 @@ def correlated_background(
             }
         ]
     }
-    return Model(spec, batch_size=batch_size, validate=validate)
+    return Model(spec, batch_size=batch_size, validate=validate, poi_name=poi_name)
 
 
 def uncorrelated_background(
-    signal, bkg, bkg_uncertainty, batch_size=None, validate=True
+    signal, bkg, bkg_uncertainty, batch_size=None, validate=True, poi_name="mu"
 ):
     """
     Construct a simple single channel :class:`~pyhf.pdf.Model` with a
@@ -114,31 +118,34 @@ def uncorrelated_background(
         batch_size (:obj:`None` or :obj:`int`): Number of simultaneous (batched) Models to compute
         validate (:obj:`bool`): If :obj:`True`, validate the model before returning.
          Only set this to :obj:`False` if you have an experimental use case and know what you're doing.
+        poi_name (:obj:`str`): The :class:`~pyhf.pdf.Model` parameter of interest name.
+          Defaults to ``"mu"``.
 
     Returns:
         ~pyhf.pdf.Model: The statistical model adhering to the :obj:`model.json` schema
 
+    .. version-changed:: 0.8.0 Added ``poi_name`` argument.
     """
     spec = {
-        'channels': [
+        "channels": [
             {
-                'name': 'singlechannel',
-                'samples': [
+                "name": "singlechannel",
+                "samples": [
                     {
-                        'name': 'signal',
-                        'data': signal,
-                        'modifiers': [
-                            {'name': 'mu', 'type': 'normfactor', 'data': None}
+                        "name": "signal",
+                        "data": signal,
+                        "modifiers": [
+                            {"name": "mu", "type": "normfactor", "data": None}
                         ],
                     },
                     {
-                        'name': 'background',
-                        'data': bkg,
-                        'modifiers': [
+                        "name": "background",
+                        "data": bkg,
+                        "modifiers": [
                             {
-                                'name': 'uncorr_bkguncrt',
-                                'type': 'shapesys',
-                                'data': bkg_uncertainty,
+                                "name": "uncorr_bkguncrt",
+                                "type": "shapesys",
+                                "data": bkg_uncertainty,
                             }
                         ],
                     },
@@ -146,7 +153,7 @@ def uncorrelated_background(
             }
         ]
     }
-    return Model(spec, batch_size=batch_size, validate=validate)
+    return Model(spec, batch_size=batch_size, validate=validate, poi_name=poi_name)
 
 
 # Deprecated APIs
@@ -155,7 +162,7 @@ def _deprecated_api_warning(
 ):
     warn(
         f"{deprecated_api} is deprecated in favor of {new_api} as of pyhf v{deprecated_release} and will be removed in release {remove_release}."
-        + f" Please use {new_api}.",
+        f" Please use {new_api}.",
         DeprecationWarning,
         stacklevel=3,  # Raise to user level
     )

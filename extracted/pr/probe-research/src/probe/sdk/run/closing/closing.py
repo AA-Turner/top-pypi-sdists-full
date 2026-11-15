@@ -197,6 +197,7 @@ class ClosingMixin:
                 wait_limit=wait_limit,
             )
         except BaseException:
+            self._clear_close_mark()
             if self._finish_result is _FINISHING:
                 # Nothing was closed or queued: a later finish() may try again.
                 # Otherwise the verdict went out; a repeat returns None.
@@ -207,6 +208,7 @@ class ClosingMixin:
             if self._finish_result is not _UNSET:
                 self._settled()
             raise
+        self._clear_close_mark()
         self._finish_result = result
         self._finish_done.set()
         # Delivery trouble held back by the notices' 5-minute limit, said once
@@ -340,7 +342,7 @@ class ClosingMixin:
             return override
         if isinstance(interrupt, KeyboardInterrupt):
             return "canceled"
-        verdict, _ = _status_for_system_exit(
+        verdict, _ = status_for_system_exit(
             getattr(interrupt, "code", None), interrupt.__context__
         )
         if verdict != "completed":
@@ -395,7 +397,7 @@ class ClosingMixin:
             if status == "failed":
                 cause = noted
         elif isinstance(exc, SystemExit):
-            status, exit_code = _status_for_system_exit(exc.code, exc.__context__)
+            status, exit_code = status_for_system_exit(exc.code, exc.__context__)
             # Hydra's shape: the traceback it swallowed is the crash report,
             # never the SystemExit itself.
             if status == "failed" and isinstance(exc.__context__, Exception):
@@ -440,6 +442,6 @@ class ClosingMixin:
             )
 from probe.sdk.run.closing.drain import _CLOSE_RESERVE_SECONDS, _close_reserve  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.closing.status import _status_for_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.run.closing.status import _status_for_system_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.run.closing.status import status_for_system_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.handle import _UNSET  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _one_summary, _with_finish_accounting  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -1,3 +1,7 @@
+#!/usr/bin/env -S abxpkg run --script python3
+# /// script
+# requires-python = ">=3.12"
+# ///
 from __future__ import annotations
 
 import asyncio
@@ -16,12 +20,15 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
-import httpx
 import psutil
-import requests
+
+if TYPE_CHECKING:
+    import requests
+
+from abx_plugins.plugins.base.agents import agent_skills
 
 _PROCESS: subprocess.Popen | None = None
 _PROCESS_READY: subprocess.Popen | None = None
@@ -233,8 +240,6 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
             for required_binary in (
                 str(config.get("NODE_BINARY") or "node"),
                 str(config.get("GIT_BINARY") or "git"),
-                "browser-harness",
-                "stagehand",
                 binary,
             )
         ]
@@ -264,9 +269,6 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
         binary_env.pop(key, None)
         if key in binary_environ:
             binary_env[key] = binary_environ[key]
-    binary_env["ARCHIVEBOX_STAGEHAND_MODULE"] = str(
-        loaded_dependencies[-2].loaded_abspath,
-    )
     return loaded_dependencies[-1], binary_env
 
 
@@ -312,30 +314,32 @@ def _ensure_project_files(settings: dict) -> None:
     if not opencode_config_path.exists():
         opencode_config_path.write_text(_DEFAULT_CONFIG)
 
-    browser_skill = (
-        settings["config_home"]
-        / "opencode"
-        / "skills"
-        / "archivebox-browser"
-        / "SKILL.md"
-    )
-    browser_skill.parent.mkdir(parents=True, exist_ok=True)
-    browser_skill.write_text(
-        Path(__file__)
-        .with_name("browser_skill.md")
-        .read_text()
-        .replace("{python}", shlex.quote(sys.executable)),
-    )
-
-    (settings["opencode_dir"] / "server_context.md").write_text(
-        Path(__file__)
-        .with_name("server_context.md")
-        .read_text()
-        .replace("{python}", shlex.quote(sys.executable)),
-    )
+    if settings.get("browser_command"):
+        browser_skill = (
+            settings["config_home"] / "opencode/skills/archivebox-browser/SKILL.md"
+        )
+        browser_skill.parent.mkdir(parents=True, exist_ok=True)
+        browser_skill.write_text(
+            Path(__file__)
+            .with_name("browser_skill.md")
+            .read_text()
+            .replace("{agent_browser_skills}", agent_skills("browser", "browser"))
+            .replace("{agent_screenshot_skills}", agent_skills("browser", "screenshot"))
+            .replace("{browser_command}", shlex.join(settings["browser_command"]))
+            .replace("{python}", shlex.quote(sys.executable)),
+        )
+    if settings.get("context_command"):
+        (settings["opencode_dir"] / "server_context.md").write_text(
+            Path(__file__)
+            .with_name("server_context.md")
+            .read_text()
+            .replace("{context_command}", shlex.join(settings["context_command"])),
+        )
 
 
 def _ensure_default_session(settings: dict) -> str:
+    import requests
+
     workdir = settings["workdir"].resolve()
     params = {"directory": str(workdir)}
     timeout = settings["timeout"]
@@ -365,6 +369,8 @@ def _ensure_default_session(settings: dict) -> str:
 
 
 def _create_session(settings: dict, title: str = "") -> str:
+    import requests
+
     workdir = settings["workdir"].resolve()
     session = requests.post(
         f"{settings['origin']}/session",
@@ -390,6 +396,8 @@ def _create_session(settings: dict, title: str = "") -> str:
 
 def start_session(settings: dict, *, title: str, prompt: str) -> str:
     """Start a separate prompted chat using the existing Agent service."""
+    import requests
+
     ok, error = _ensure_opencode(settings)
     if not ok:
         raise RuntimeError(error)
@@ -455,6 +463,8 @@ def _auth_header(settings: dict) -> str:
 
 def _server_state(settings: dict, timeout: float = 2) -> str:
     """Return "ready", "unsecured" (answers without credentials), or "down"."""
+    import requests
+
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
@@ -505,13 +515,20 @@ def process_environment(settings: dict, binary_env: dict[str, str]) -> dict[str,
                 **json.loads(_DEFAULT_CONFIG),
                 "instructions": [
                     str(settings["opencode_dir"] / "SKILL.md"),
-                    str(settings["opencode_dir"] / "server_context.md"),
-                    str(
-                        settings["config_home"]
-                        / "opencode"
-                        / "skills"
-                        / "archivebox-browser"
-                        / "SKILL.md",
+                    *(
+                        [str(settings["opencode_dir"] / "server_context.md")]
+                        if settings.get("context_command")
+                        else []
+                    ),
+                    *(
+                        [
+                            str(
+                                settings["config_home"]
+                                / "opencode/skills/archivebox-browser/SKILL.md",
+                            ),
+                        ]
+                        if settings.get("browser_command")
+                        else []
                     ),
                 ],
             },
@@ -744,6 +761,8 @@ def agent_context(settings: dict, session_id: str = "") -> dict:
 
 
 async def _event_chunks(settings, path, method, params, headers):
+    import httpx
+
     # Stream failures happen after the host returns response headers.
     try:
         if not _owned_process_ready():
@@ -826,6 +845,8 @@ async def websocket_proxy(settings, path, query, protocols, receive, send):
 
 def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
     """Forward a request after the host authenticates it and checks its origin."""
+    import requests
+
     forwarded = {
         key: value
         for key, value in headers.items()
@@ -927,3 +948,77 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
             if cached[1] in validators or "*" in validators:
                 return 304, response_headers, b""
         return upstream.status_code, response_headers, content
+
+
+def _configure_gallery(model, config, data_dir):
+    """Use the collection's real OpenCode server and its protected credential store."""
+    import requests
+
+    collection = Path(data_dir).resolve()
+    if not config.get("OPENCODE_ENABLED"):
+        return False
+    settings = _settings(config, collection)
+    if settings["host"] not in {"127.0.0.1", "localhost", "::1"} or any(
+        not settings[key].resolve().is_relative_to(collection)
+        for key in ("opencode_dir", "workdir")
+    ):
+        raise ValueError(
+            "AI gallery authentication requires a local OpenCode server scoped to its screenshot collection.",
+        )
+    ok, error = _ensure_opencode(settings)
+    if not ok:
+        raise RuntimeError(error)
+    auth = _server_auth(settings)
+    if api_key := os.environ.get("OPENAI_API_KEY"):
+        response = requests.put(
+            f"{settings['origin']}/auth/openai",
+            json={"type": "api", "key": api_key},
+            auth=auth,
+            timeout=30,
+        )
+        response.raise_for_status()
+        credential_store = settings["data_home"] / "opencode" / "auth.json"
+        if credential_store.exists():
+            credential_store.chmod(0o600)
+    response = requests.get(f"{settings['origin']}/provider", auth=auth, timeout=30)
+    response.raise_for_status()
+    providers = response.json()
+    provider = next(
+        (
+            provider
+            for provider in providers.get("all", [])
+            if provider.get("id") == "openai"
+        ),
+        {},
+    )
+    if "openai" not in providers.get("connected", []) or model.removeprefix(
+        "openai/",
+    ) not in provider.get("models", {}):
+        raise RuntimeError(
+            "The requested OpenAI model is unavailable. Configure OpenAI in this collection or supply OPENAI_API_KEY.",
+        )
+
+    return True
+
+
+if __name__ == "__main__":
+    from contextlib import redirect_stdout
+
+    try:
+        request = json.load(sys.stdin)
+        with redirect_stdout(sys.stderr):
+            configured = _configure_gallery(
+                request["model"],
+                request["config"],
+                request["data_dir"],
+            )
+        print(json.dumps({"configured": configured}))
+    except (
+        ValueError,
+        KeyError,
+        RuntimeError,
+        OSError,
+        requests.RequestException,
+    ) as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

@@ -5,7 +5,7 @@
 import os
 import ctypes
 
-from .utils import dump_data, sguid, blue, utf8_decode_safe
+from .utils import dump_data, sguid, blue, utf8_decode_safe, is_erased
 
 
 class BaseObject(object):
@@ -128,7 +128,8 @@ class StructuredObject(object):
         struct_instance = structure()
         struct_size = ctypes.sizeof(struct_instance)
 
-        struct_data = data[:struct_size]
+        # data may be a memoryview over a larger buffer; copy only the header.
+        struct_data = bytes(data[:struct_size])
         struct_length = min(len(struct_data), struct_size)
         ctypes.memmove(
             ctypes.addressof(struct_instance), struct_data, struct_length)
@@ -166,13 +167,49 @@ class RawObject(FirmwareObject, BaseObject):
         dump_data(path, self.data)
 
 
+class PaddingObject(RawObject):
+    '''Data between parsed objects, such as the gap between two volumes.
+
+    Padding is usually erased flash. It is only shown and dumped when it
+    holds something else, since vendors sometimes store data there.
+    '''
+
+    def __init__(self, data, offset):
+        RawObject.__init__(self, data)
+        self.offset = offset
+
+    @property
+    def erased(self):
+        return is_erased(self.data)
+
+    def process(self):
+        return True
+
+    def showinfo(self, ts='', index=None):
+        if self.erased:
+            return
+        print("%s%s offset= 0x%x, size= 0x%x (%d bytes)" % (
+            ts, blue("Padding:"), self.offset, self.size, self.size
+        ))
+
+    def dump(self, parent='', index=None):
+        if self.erased:
+            return
+        path = os.path.join(parent, "padding-0x%x.raw" % self.offset)
+        dump_data(path, self.data)
+
+
 class AutoRawObject(RawObject):
     '''A RawObject that applies AutoParser logic for embedded object discovery.
     '''
 
-    def __init__(self, data):
+    def __init__(self, data, offset=0):
         self.object = None
         self.data = data
+        # Where data starts in the input file, when that is known.
+        self.offset = offset
+        # The end of a volume in data that failed to process, see AutoParser.
+        self.failed_end = 0
 
     @property
     def objects(self):
@@ -182,8 +219,9 @@ class AutoRawObject(RawObject):
 
     def process(self):
         from . import AutoParser
-        parser = AutoParser(self.data)
+        parser = AutoParser(self.data, base=self.offset)
         self.object = parser.parse()
+        self.failed_end = parser.failed_end
         return self.object is not None
 
     def showinfo(self, ts='', index=None):

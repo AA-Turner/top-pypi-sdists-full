@@ -54,6 +54,11 @@ class RosError(Exception):
         self.detail = detail
 
 
+class ProbeUninstalled(RosError):
+    """Probe was uninstalled from this computer while this process ran on (vespper U-D5): a strict
+    write is refused here, so its caller keeps its own copy. Nothing is sent or queued."""
+
+
 class TransportError(RosError):
     """Network failure, timeout, or unreachable host (no HTTP status).
 

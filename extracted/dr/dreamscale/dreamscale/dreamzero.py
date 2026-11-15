@@ -295,7 +295,7 @@ def replace_aligned_chunk(
 ) -> ChunkReplacement:
     if commit_prefix_steps not in (1, 2):
         raise ValueError("commit_prefix_steps must be 1 or 2")
-    if smoothing is not None and smoothing.mode == "output":
+    if smoothing is not None and smoothing.mode in ("output", "crossfade"):
         raise ValueError("DreamZero aligned replacement requires joint motion smoothing")
     base = int(source_action_step) + 1
     last = base + len(actions) - 1

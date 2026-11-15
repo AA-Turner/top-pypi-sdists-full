@@ -22,6 +22,7 @@ from .projection.stored import PROJECTION_METADATA_KEY, projection_metadata
 from .record_helpers import compact_dict, content_hash_for, slugify, to_aws_json
 from .content_item_lifecycle import UNTYPED_ITEM_TYPE, head_stage_fields
 from .item_stars import assert_no_item_stars
+from .item_front_matter import dek_from_front_matter
 from .item_language import ItemLanguageMissing, item_language, item_language_group
 from .wiki_stamp import WIKI_PAGE_ITEM_TYPE, stamp_problems
 
@@ -128,7 +129,7 @@ def columns_from_front_matter(fm: dict) -> dict:
         "title": title,
         "headline": title,
         "sortTitle": title,
-        "deck": _first_text(fm.get("deck"), fm.get("standfirst"), fm.get("description")),
+        "deck": dek_from_front_matter(fm),   # the one derivation: item_front_matter.DEK_KEYS
         "byline": byline,
         "publishedAt": _iso_from_date_value(fm.get("date")),
     }
@@ -348,6 +349,12 @@ def _load_item(client, item_id: str) -> dict:
     return item
 
 
+def _delete_published_media(client, lineage_id: str, rows: list[dict]) -> list[str]:
+    """Delete the published picture rows of a lineage that its projection no longer keeps; the ids it actually deleted. See ``delete_lineage_row``
+    for why a row with no tenant stamp is still the lineage's to delete and a row that is already gone is not a failure."""
+    return [row["id"] for row in rows if client.delete_lineage_row("PublishedMediaAsset", row["id"], lineage_id)]
+
+
 def publish_item(
     client, item_id: str, *, actor: str, now: str | None = None, approved_by: str | None = None
 ) -> PublishResult:
@@ -379,13 +386,18 @@ def publish_item(
     already_projected = existing is not None and existing_hash == item.get("contentHash")
     if already_projected and item.get("status") == "published":
         return PublishResult(False, item_id, published_id, existing.get("versionNumber"))
+    from .localization_publish import original_of, require_publishable
     from .publish_gate import ensure_publish_approval
     from .story_checklist import ChecklistError, require_checklist_closed
 
-    try:
-        require_checklist_closed(client, item)   # every required step done, or skipped / not applicable with a recorded reason
-    except ChecklistError as error:
-        raise PublishError("checklist-open", str(error), details={"openSteps": error.open_steps}) from error
+    original = original_of(client, item)
+    if original is not None:
+        require_publishable(client, item, original)   # a translation's checklist is its provenance; its gates are its original and any hold (localization_publish.py)
+    else:
+        try:
+            require_checklist_closed(client, item)   # every required step done, or skipped / not applicable with a recorded reason
+        except ChecklistError as error:
+            raise PublishError("checklist-open", str(error), details={"openSteps": error.open_steps}) from error
     ensure_publish_approval(client, item, approved_by=approved_by, actor=actor)
     if already_projected:
         version_number = existing.get("versionNumber") or 1
@@ -407,11 +419,9 @@ def publish_item(
     for row in published_media:
         client.upsert("PublishedMediaAsset", row)
     keep_ids = {row["id"] for row in published_media}
-    deleted = []
-    for row in client.list_by_index("publishedMediaAssetsByItemAndSortKey", published_id):
-        if row["id"] not in keep_ids:
-            client.delete_record("PublishedMediaAsset", row["id"])
-            deleted.append(row["id"])
+    deleted = _delete_published_media(
+        client, lineage_id, [row for row in client.list_by_index("publishedMediaAssetsByItemAndSortKey", published_id) if row["id"] not in keep_ids]
+    )
     client.upsert("PublishedItem", published)
     client.update_record(
         "Item",
@@ -436,7 +446,7 @@ def publish_item(
             client.update_record("Item", superseding_update(sibling))
     from .content_item_lifecycle import is_story_item_type
 
-    if is_story_item_type(item.get("type")):
+    if is_story_item_type(item.get("type")) and original is None:
         from .story_checklist import mark_published
 
         mark_published(client, lineage_id, actor_label=actor)
@@ -453,10 +463,7 @@ def unpublish_item(client, item_id: str, *, actor: str, now: str | None = None) 
     if published is None and not media_rows and item.get("status") != "published":
         return PublishResult(False, item_id, published_id, (published or {}).get("versionNumber"))
 
-    deleted = []
-    for row in media_rows:
-        client.delete_record("PublishedMediaAsset", row["id"])
-        deleted.append(row["id"])
+    deleted = _delete_published_media(client, lineage_id, media_rows)
     if published is not None:
         client.delete_record("PublishedItem", published_id)
     client.update_record(
@@ -479,6 +486,11 @@ class DryRunClient:
         self._client = client
         self.planned: list[dict[str, str]] = []
 
+    @property
+    def tenant_id(self) -> str | None:
+        """The wrapped client's tenant: a read made through a dry run is checked against the same scope as the real publish."""
+        return getattr(self._client, "tenant_id", None)
+
     def get_record(self, model_name: str, record_id: str):
         return self._client.get_record(model_name, record_id)
 
@@ -500,3 +512,7 @@ class DryRunClient:
 
     def delete_record(self, model_name: str, record_id: str) -> None:
         self.planned.append({"operation": "delete", "model": model_name, "id": record_id})
+
+    def delete_lineage_row(self, model_name: str, record_id: str, lineage_id: str) -> bool:
+        self.planned.append({"operation": "delete", "model": model_name, "id": record_id})
+        return True

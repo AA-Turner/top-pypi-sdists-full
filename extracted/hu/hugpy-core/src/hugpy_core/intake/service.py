@@ -17,6 +17,7 @@ from psycopg.types.json import Jsonb
 
 from hugpy_core.imports.functions import notify_channel
 from hugpy_core.intake import mirror
+from hugpy_core.registry import transport as _transport
 from hugpy_core.intake.presence import allocation as _allocation
 from hugpy_core.intake.store import store
 from hugpy_core.models.census import observe_worker
@@ -96,7 +97,7 @@ def collect(worker, since=-1, wait=30):
     query = '?' + urllib.parse.urlencode({'wait': wait, 'since': since}) if since >= 0 else ''
     state = get(worker, '/v1/telemetry/state' + query, 60)
     capabilities = (state.get('data_service') or {}).get('capabilities') or {}
-    health = get(worker, '/health', 5)
+    health = _transport.health(worker, 5)
     store_id = str(state.get("store_id") or "")
     db = store()
     with db.connect() as conn:
@@ -131,6 +132,18 @@ def collect(worker, since=-1, wait=30):
     except Exception as exc:
         log.warning('%s: storage survey unavailable: %s', name, exc)
         storage = None
+    try:
+        # this host's central drive in the one central (registry/fleet_central.py); every REFRESH_S
+        from hugpy_core.registry import fleet_central
+        fleet_central.refresh(worker, get)
+    except Exception as exc:
+        log.warning('%s: central catalog unavailable: %s', name, exc)
+    try:
+        # the copies Core arranged onto this worker's central: progress, and a finished one's offers closed
+        from hugpy_core.registry import fleet_central
+        fleet_central.track(worker, get)
+    except Exception as exc:
+        log.warning('%s: central copies not read: %s', name, exc)
     try:
         resources = get(worker, '/v1/telemetry/resources', 15)
     except Exception as exc:

@@ -2308,6 +2308,24 @@ pub(crate) fn strip_checkbox_glyph(text: &str) -> &str {
     }
 }
 
+/// Whether `sq` is a frame around text of its own rather than a checkbox: a
+/// cell of letters or digits centred inside it — a drawing's numbered
+/// callout, a key cap. A lone `x` or `v`, either case, is the tick typed into
+/// a form's box and leaves it a checkbox; `✓ ✔ ✗ ✘` are no letters to begin
+/// with (ZapfDingbats' `4` and `8` arrive as those since #1113).
+fn frames_text(sq: &crate::checkbox::CheckBox, cells: &[TextCell]) -> bool {
+    cells.iter().any(|c| {
+        let (cx, cy) = ((c.l + c.r) / 2.0, (c.t + c.b) / 2.0);
+        let text = c.text.trim();
+        cx > sq.l
+            && cx < sq.r
+            && cy > sq.t
+            && cy < sq.b
+            && text.chars().any(char::is_alphanumeric)
+            && !matches!(text, "x" | "X" | "v" | "V")
+    })
+}
+
 /// Give every checklist line its own checkbox region (#609). The layout
 /// model often reads a checklist as one `text` (or `list_item`) block — on
 /// the reporter's ReportLab page all four options are one region, which then
@@ -2334,7 +2352,10 @@ pub(crate) fn strip_checkbox_glyph(text: &str) -> &str {
 /// region the model already labelled a checkbox is not split, but its state
 /// follows its first line's mark when it has one — the glyph or the square
 /// is what the page says, the model's label a guess from the pixels (it read
-/// a `☑ Bread` line as unselected). With neither on the page this is a no-op.
+/// a `☑ Bread` line as unselected). A square that frames a letter or a digit
+/// (the numbered callout of a drawing, beside its legend) is no checkbox,
+/// unless that text is a tick someone typed into the box ([`frames_text`]).
+/// With neither on the page this is a no-op.
 pub fn split_checkbox_lines(
     regions: &mut Vec<Region>,
     cells: &[TextCell],
@@ -2350,6 +2371,10 @@ pub fn split_checkbox_lines(
     }
     let owned = assign_cells(regions, cells);
     let mut used = vec![false; boxes.len()];
+    // Whether each square frames text of its own, asked only of a square
+    // that faces a line: a page of comb fields or a calendar grid has
+    // hundreds of squares and none in front of a line.
+    let mut frame: Vec<Option<bool>> = vec![None; boxes.len()];
     let mut appended: Vec<Region> = Vec::new();
     for (i, mine) in owned.iter().enumerate() {
         let region = regions[i].clone();
@@ -2406,6 +2431,7 @@ pub fn split_checkbox_lines(
                         && mid <= b + 2.0
                         && gap >= -1.0
                         && gap <= (1.5 * side).max(6.0)
+                        && !*frame[k].get_or_insert_with(|| frames_text(sq, cells))
                 })
                 .min_by(|a, b| (l - a.1.r).total_cmp(&(l - b.1.r)))
                 .map(|(k, _)| k);
@@ -4316,19 +4342,25 @@ pub fn assemble_page(
                     }),
                 ));
             }
-            // With formula enrichment the CodeFormula model decodes the region
-            // to LaTeX; otherwise docling emits a placeholder comment rather
-            // than the (garbled) raw glyph text.
-            "formula" => match &enrichments[i] {
-                Some(Enrichment::Formula { latex }) => nodes.push(Node::Formula {
-                    latex: latex.clone(),
+            // A formula region is docling's `formula` item either way: `orig`
+            // the raw glyph text, `prov` the region, and `text` the LaTeX the
+            // CodeFormula model decodes it to under formula enrichment —
+            // empty without it (#1120). The `<!-- formula-not-decoded -->`
+            // placeholder is the Markdown serializer's spelling of that
+            // empty text, not the item: emitted here as a bare paragraph it
+            // reached the JSON as a `text` item with no page, no box and no
+            // raw text, which a citation or a chunk could not place.
+            "formula" => {
+                let latex = match &enrichments[i] {
+                    Some(Enrichment::Formula { latex }) => latex.clone(),
+                    _ => String::new(),
+                };
+                nodes.push(Node::Formula {
+                    latex,
                     orig: text.clone(),
                     location: Some(loc),
-                }),
-                _ => nodes.push(Node::Paragraph {
-                    text: "<!-- formula-not-decoded -->".into(),
-                }),
-            },
+                });
+            }
             // Code blocks: use the space-glyph-only grouping (monospace keeps its
             // source spacing) and emit a fenced block, preserving the line breaks
             // and indentation of the source (unlike prose, which reflows). pdfium
@@ -5545,6 +5577,91 @@ mod tests {
             "only one column"
         ]])));
         assert!(!super::geometric_table_is_reliable(&[]));
+    }
+
+    /// #1120: without formula enrichment a formula region is still docling's
+    /// `formula` item — `text` empty, `orig` the raw glyph text, `prov` the
+    /// page and box — and only the Markdown prints the placeholder. It used
+    /// to be a bare placeholder paragraph: a `text` item with no `prov` and
+    /// the raw text gone. With enrichment the item carries the LaTeX, and
+    /// its charspan is still `orig`'s length, as docling stamps it.
+    #[test]
+    fn a_formula_region_is_a_formula_item_with_or_without_enrichment() {
+        let orig = "mf (y) = ∫ U p(y | u)f(u) dµ(u), y ∈ Y , (1)";
+        let cells = vec![
+            cell("An introductory sentence.", 100.0, 380.0, 400.0, 392.0),
+            cell(orig, 193.0, 426.0, 523.0, 453.0),
+        ];
+        let regions = || {
+            vec![
+                region("text", 0.9, 99.0, 379.0, 401.0, 393.0),
+                region("formula", 0.9, 192.0, 425.0, 524.0, 454.0),
+            ]
+        };
+        let convert = |enrichment: Option<super::Enrichment>| {
+            let page = PdfPage::from_cells(612.0, 792.0, 2.0, cells.clone());
+            let (mut nodes, _) =
+                super::assemble_page(&page, regions(), &[None, None], &[None, enrichment], None);
+            // The document-level collector stamps the page number.
+            for n in &mut nodes {
+                if let Node::PageInfo { page_no, .. } = n {
+                    *page_no = 2;
+                }
+            }
+            let mut doc = docling_core::DoclingDocument::new("t");
+            doc.nodes = nodes;
+            doc
+        };
+
+        let doc = convert(None);
+        assert!(
+            doc.nodes.iter().any(|n| matches!(
+                n,
+                Node::Formula { latex, orig: o, location: Some(_) } if latex.is_empty() && o == orig
+            )),
+            "{:?}",
+            doc.nodes
+        );
+        assert_eq!(
+            doc.export_to_markdown().trim(),
+            "An introductory sentence.\n\n<!-- formula-not-decoded -->"
+        );
+        let json = doc.export_to_json_value();
+        let texts = json["texts"].as_array().unwrap();
+        assert!(
+            texts
+                .iter()
+                .all(|t| !t["text"].as_str().unwrap().contains("formula-not-decoded")),
+            "the placeholder is Markdown, not an item's text"
+        );
+        let item = texts.iter().find(|t| t["label"] == "formula").unwrap();
+        assert_eq!(item["text"], "");
+        assert_eq!(item["orig"], orig);
+        let prov = &item["prov"][0];
+        assert_eq!(prov["page_no"], 2);
+        assert_eq!(prov["charspan"][1], orig.chars().count());
+        let bbox = &prov["bbox"];
+        assert_eq!(bbox["coord_origin"], "BOTTOMLEFT");
+        // The region's box on the 0–511 grid: within a point or so.
+        for (key, want) in [("l", 193.0), ("r", 523.0), ("t", 366.0), ("b", 339.0)] {
+            let got = bbox[key].as_f64().unwrap();
+            assert!((got - want).abs() < 2.0, "{key}: {got} vs {want}");
+        }
+
+        let doc = convert(Some(super::Enrichment::Formula {
+            latex: "m_f(y) = \\int_U p(y|u) f(u)\\,d\\mu(u)".into(),
+        }));
+        assert!(doc.export_to_markdown().contains("$$m_f(y) = \\int_U"));
+        let json = doc.export_to_json_value();
+        let item = json["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["label"] == "formula")
+            .unwrap();
+        assert!(item["text"].as_str().unwrap().starts_with("m_f(y)"));
+        assert_eq!(item["orig"], orig);
+        assert_eq!(item["prov"][0]["charspan"][1], orig.chars().count());
     }
 
     /// #1114: a table pasted as an image has no text-layer cell, and the page
@@ -7294,6 +7411,38 @@ mod tests {
             super::split_checkbox_lines(&mut regions, &cells, &[far]);
             assert_eq!(shape(&regions), shape(&block()));
         }
+        // A square around a digit of its own — a drawing's callout, set
+        // beside the legend line it happens to face — is a frame, not a box.
+        let mut with_callout = cells.clone();
+        with_callout.push(cell("3", 103.0, 110.0, 109.0, 120.0));
+        let mut regions = block();
+        super::split_checkbox_lines(&mut regions, &with_callout, &[sq(109.0, false)]);
+        assert_eq!(shape(&regions), shape(&block()));
+        // A tick typed into the box is no callout: the square still marks
+        // its line, as it does with nothing inside. (The region starts at
+        // the labels here; a tick the region owns opens the line itself and
+        // the square, now around the line's start, marks nothing.)
+        let labels = || vec![region("text", 0.6, 118.0, 90.0, 200.0, 170.0)];
+        for tick in ["X", "x", "v", "V", "\u{2714}"] {
+            let mut ticked = cells.clone();
+            ticked.push(cell(tick, 103.0, 110.0, 109.0, 120.0));
+            let mut regions = labels();
+            super::split_checkbox_lines(&mut regions, &ticked, &[sq(109.0, true)]);
+            let texts = super::region_texts_exclusive(&regions, &ticked);
+            let got: Vec<(&str, &str)> = regions
+                .iter()
+                .zip(&texts)
+                .map(|(r, t)| (r.label, t.as_str()))
+                .collect();
+            assert_eq!(got[1].0, "checkbox_selected", "{tick}: {got:?}");
+            assert!(got[1].1.starts_with("First option"), "{tick}: {got:?}");
+        }
+        // The same square around two letters is a frame again.
+        let mut framed = cells.clone();
+        framed.push(cell("Xa", 103.0, 110.0, 109.0, 120.0));
+        let mut regions = labels();
+        super::split_checkbox_lines(&mut regions, &framed, &[sq(109.0, true)]);
+        assert_eq!(shape(&regions), shape(&labels()));
     }
 
     /// #609: a ballot-box glyph opening a line marks a checkbox item like a

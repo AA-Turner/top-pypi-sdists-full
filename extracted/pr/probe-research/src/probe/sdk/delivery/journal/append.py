@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 from pathlib import Path
@@ -10,12 +11,20 @@ import time
 import uuid
 
 from probe.foundation.durable.durable import SYNC_FILE, SYNC_FULL, SYNC_NONE, file_lock, fsync_directory, now_iso, write_text_atomic
+from probe.foundation.durable import removal
 from probe.foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk import errors
 from probe.sdk.agent_session import queued_event_at, queued_session, run_write_origin
 # At module load, not in the drain: a module first imported while a script exits clears its
 # pending KeyboardInterrupt (tests/test_ctrlc_exit_code.py).
 from probe.sdk.values import unstorable
+
+
+def _refuse_after_removal() -> None:
+    """Probe was uninstalled under this process (`foundation.durable.removal`): nothing is queued
+    again, so its state folder stays gone. An OSError, as a broken queue's: callers drop and count it."""
+    if removal.was_removed():
+        raise OSError(errno.ENOENT, "Probe was uninstalled from this computer; nothing more is queued")
 
 
 class AppendMixin:
@@ -301,6 +310,7 @@ class AppendMixin:
         body was normalized, NUL-checked and scrubbed already (`Client.write`). ``admitted``: skips the
         cap and the free-space floor (a run's terminal status). ``best_effort``: not the user's data, so
         a refusal for room drops it quietly. ``blocking=False``: does not hold the run's close."""
+        _refuse_after_removal()
         # An experiment's child write is journaled by its EXPERIMENT, never the project it sat in
         # when queued: the drain places it (`_placed`), so a move between the two cannot
         # dead-letter it, and its correlation digest is the same whichever project answered.

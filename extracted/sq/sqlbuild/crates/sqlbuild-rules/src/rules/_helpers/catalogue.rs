@@ -1,6 +1,7 @@
-use crate::constants::{API_VERSION, NATIVE_BUILD_IDENTITY, SQL_RULE_PREFIX};
+use crate::constants::{API_VERSION, NATIVE_BUILD_IDENTITY, PYTHON_RULE_PREFIX, SQL_RULE_PREFIX};
 use crate::models::RulesCodeGrammar;
 use crate::models::{CustomRule, ResolveRulesRequest, RuleGuidance, RuleMetadata, RuleScope};
+use crate::python_rules::main::python_catalogue::python_catalogue;
 use fensu_policy::policy::errors::PolicyError;
 use fensu_policy::policy::main::resolve_policy::resolve_policy;
 use fensu_policy::policy::models::PolicySelectors;
@@ -42,6 +43,7 @@ macro_rules! rule {
                     | "SQBRTEST104"
                     | "SQBRTEST203"
                     | "SQBRTEST301"
+                    | "SQBRORCHESTRATION101"
             ),
             custom: false,
             scope: $scope,
@@ -114,6 +116,14 @@ pub(crate) fn catalogue() -> Vec<RuleMetadata> {
             "published-name-shape",
             "each domain's published models must share one name shape",
             "Name every published model of a domain either <domain>__<layer>__<entity> or <domain>__<layer>__<entity>__<qualifier>. Move consumer-specific variants into intermediate or the consuming domain, rename models into the family, or allowlist an intentional qualifier with a reason.",
+        ),
+        rule!(
+            "SQBRORCHESTRATION101",
+            RuleScope::Project,
+            "orchestration",
+            "named-selector-limit",
+            "job and sensor selections must not list nodes one by one",
+            "Select a pipeline by its folder or a tag, which keeps nodes added later; add an exact rule exception with a reason for a job that deliberately targets specific nodes.",
         ),
         rule!(
             "SQBRPROJECT101",
@@ -391,6 +401,7 @@ pub(crate) fn catalogue() -> Vec<RuleMetadata> {
                 scope: RuleScope::SqlLint,
             }),
     );
+    rules.extend(python_catalogue());
     rules.sort_by(|a, b| a.code.cmp(&b.code));
     rules
 }
@@ -480,9 +491,30 @@ pub(crate) fn select<'a>(
         warn: Vec::new(),
         ignore: ignored.to_vec(),
     };
-    resolve_policy(&references, &(), &effective, &grammar)
-        .map(|ruleset| ruleset.blocking)
-        .map_err(rules_error)
+    let blocking: Vec<&RuleMetadata> = resolve_policy(&references, &(), &effective, &grammar)
+        .map_err(rules_error)?
+        .blocking;
+    Ok(without_unnamed_python(blocking, selected_or_none, &grammar))
+}
+
+/// Keep a Python rule only when a selector inside its family matches it; `SQBR` alone selects none.
+fn without_unnamed_python<'a>(
+    rules: Vec<&'a RuleMetadata>,
+    selectors: &[String],
+    grammar: &RulesCodeGrammar,
+) -> Vec<&'a RuleMetadata> {
+    let python_selectors: Vec<String> = selectors
+        .iter()
+        .filter(|selector| selector.starts_with(PYTHON_RULE_PREFIX))
+        .cloned()
+        .collect();
+    rules
+        .into_iter()
+        .filter(|rule| {
+            !rule.scope.evaluates_python()
+                || matches_any_selector(grammar, &rule.code, &python_selectors)
+        })
+        .collect()
 }
 
 /// SQLClean's selection: its default Rules without a selection, and every Rule a selector names, whatever its default.

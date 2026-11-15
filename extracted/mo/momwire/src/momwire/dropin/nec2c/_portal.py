@@ -160,6 +160,7 @@ stderr; the protocol is byte-identical in all three modes.
 from __future__ import annotations
 
 import contextlib
+import functools
 import io
 import itertools
 import json
@@ -171,6 +172,7 @@ import weakref
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from types import MappingProxyType
+from typing import Callable
 
 import momwire_serve_client as _mech
 import numpy as np
@@ -186,7 +188,7 @@ from ...deck import (
     parse_card,
     prepare_mesh,
 )
-from ...deck import parse as parse_dialect
+from ...deck import parse_with_structure
 
 # The card semantics of ``TL``/``NT`` — the six reals as circuit branches, and
 # the flat ``Network`` its reducer takes. It lives in ``momwire.deck`` because
@@ -226,7 +228,7 @@ from ...deck._nec2 import _LD_RUN_TRANSPARENT, REFUSE_NEAR_FIELD_REFL_COEF
 # and C and nothing else, so it is called with no finite-Q terms and its
 # arithmetic is the copy's to the bit (momwire#1336).
 from ...networks._reduce import _series_rlc_impedance
-from ...deck._nec2_geometry import _SMIN, build_geometry
+from ...deck._nec2_geometry import _SMIN
 
 from ...serve import Seam, run_session
 
@@ -249,7 +251,9 @@ from ..._far_readout import (
     _far_moments as _far_moments,
     _gain_db as _gain_db,
     _image_moments as _image_moments,
+    _libm as _libm,
     _phase_deg as _phase_deg,
+    _phase_deg_grid as _phase_deg_grid,
     _polarisation as _polarisation,
     average_gain,
     pattern_fields,
@@ -1284,16 +1288,6 @@ class PortalDeck:
     structure: object | None = None
 
 
-def _geometry_builders(dialect: str):
-    """The geometry builders the dialect's own reader runs: the nec4 one's
-    add GA and GH (momwire#1592), the nec2 one's are `build_geometry`'s."""
-    if dialect == "nec4":
-        from ...deck._nec4 import _NEC4_GEOMETRY_BUILDERS
-
-        return _NEC4_GEOMETRY_BUILDERS
-    return None
-
-
 def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
     """A deck body's cards, grouped the way the engine executes them.
 
@@ -1319,7 +1313,12 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
     the same for both — an ``EX 6`` records its set current where an ``EX 0``
     records its volts, and the model's ``current_feeds`` says which is which.
     """
-    model = parse_dialect(body, dialect=dialect)
+    # The model and the geometry from the one read (momwire#1929): the
+    # dialect's reader builds the flat NEC geometry on its way to the model,
+    # with its own builders (the nec4 one's GA, GH and CW), from the same
+    # geometry cards the walk below collects, so a second `build_geometry`
+    # here was the same structure built twice.
+    model, structure = parse_with_structure(body, dialect=dialect)
     # NEC-4.2's catenary is a wire card of the nec4 dialect only (momwire#1697).
     geometry_cards = _GEOMETRY_CARDS | {"CW"} if dialect == "nec4" else _GEOMETRY_CARDS
 
@@ -1418,7 +1417,7 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
         quiet=model.quiet,
         reduced_field=model.reduced_field,
         model=model,
-        structure=build_geometry(geometry, _geometry_builders(dialect)),
+        structure=structure,
     )
 
 
@@ -1515,6 +1514,44 @@ def fmt_current_row(seg, tag, centre, length, current) -> str:
         f" {centre[0]:9.4f} {centre[1]:9.4f} {centre[2]:9.4f} {length:9.5f}"
         f" {current.real:11.4E} {current.imag:11.4E} {mag:11.4E} {phase:8.3f}"
     )
+
+
+# `fmt_current_row`'s layout as one %-format (momwire#1943): the same
+# conversions, widths and precisions, so `%` and the f-string format each
+# value through the same float and int formatting and print the same bytes
+# (`tests/test_current_rows_1943.py` holds the two equal).
+_CURRENT_ROW = " %5d %4d %9.4f %9.4f %9.4f %9.5f %11.4E %11.4E %11.4E %8.3f"
+
+
+def fmt_current_rows(numbers, tags, centres, lengths, values) -> list[str]:
+    """:func:`fmt_current_row` over a whole table at once, line for line.
+
+    The magnitude and phase are the scalar row's: ``abs`` of each complex
+    (libm's ``hypot``) and ``degrees(atan2)``, mapped through the scalar
+    functions themselves (`_libm`, `_phase_deg_grid`, momwire#1448's
+    byte-identity rule), and a zero magnitude prints a 0 phase. Everything
+    else is the value itself, as Python ints and floats."""
+    values = np.asarray(values, dtype=np.complex128).reshape(-1)
+    centres = np.asarray(centres, dtype=np.float64).reshape(-1, 3)
+    mag = _libm(abs, values)
+    # The scalar row's `if mag else 0.0`: a NaN magnitude is truthy there and
+    # is `!= 0` here.
+    phase = np.where(mag != 0.0, _phase_deg_grid(values), 0.0)
+    return [
+        _CURRENT_ROW % row
+        for row in zip(
+            np.asarray(numbers).tolist(),
+            np.asarray(tags).tolist(),
+            centres[:, 0].tolist(),
+            centres[:, 1].tolist(),
+            centres[:, 2].tolist(),
+            np.asarray(lengths, dtype=np.float64).tolist(),
+            values.real.tolist(),
+            values.imag.tolist(),
+            mag.tolist(),
+            phase.tolist(),
+        )
+    ]
 
 
 def fmt_pattern_row(
@@ -1819,7 +1856,11 @@ class GroupResult:
     i_source: np.ndarray
     network_points: list[tuple[int, int, int]]
     segment_currents: np.ndarray
-    segment_charges: np.ndarray
+    # The charge table is read only when a `PQ` card prints it (or the NEC-4
+    # dialect's charge rows ask), so it is computed on first read, not with
+    # every solve (momwire#1943): ``charges_of`` is that computation, and
+    # :attr:`segment_charges` caches its answer.
+    charges_of: Callable[[], np.ndarray] = field(repr=False, compare=False)
     coeffs: np.ndarray
     solver: object
     p_in: float
@@ -1835,6 +1876,11 @@ class GroupResult:
     ground: Ground
     ground_z: float | None
     second_medium: SecondMedium | None
+
+    @functools.cached_property
+    def segment_charges(self) -> np.ndarray:
+        """Per NEC segment (global order), the charge density."""
+        return self.charges_of()
 
 
 @dataclass(frozen=True)
@@ -1865,6 +1911,37 @@ class SegRow:
 
 
 @dataclass(frozen=True)
+class SegTable:
+    """A CURRENTS AND LOCATION (or CHARGE DENSITIES) table as columns, one
+    entry per printed row (momwire#1943): the whip prints 4,182 rows at
+    each of 13 frequencies, and a typed record and an f-string per row cost
+    more than the solve's readout. :meth:`rows` gives the same table as
+    :class:`SegRow` records, and :meth:`lines` the printed rows."""
+
+    numbers: np.ndarray
+    tags: np.ndarray
+    centre_wl: np.ndarray  # (n, 3)
+    length_wl: np.ndarray
+    values: np.ndarray  # complex
+
+    def __len__(self) -> int:
+        return int(self.numbers.shape[0])
+
+    def rows(self) -> tuple[SegRow, ...]:
+        return tuple(
+            SegRow(int(n), int(t), c, float(length), complex(v))
+            for n, t, c, length, v in zip(
+                self.numbers, self.tags, self.centre_wl, self.length_wl, self.values
+            )
+        )
+
+    def lines(self) -> list[str]:
+        return fmt_current_rows(
+            self.numbers, self.tags, self.centre_wl, self.length_wl, self.values
+        )
+
+
+@dataclass(frozen=True)
 class RunRecords:
     """The compute half of one execute-group block — the portal's step toward
     the eznec seam's :class:`~momwire.dropin.nec5._printout.RunData`. Rows are built
@@ -1872,8 +1949,8 @@ class RunRecords:
 
     result: GroupResult
     aip_rows: tuple[AipRow, ...]
-    current_rows: tuple[SegRow, ...]
-    charge_rows: tuple[SegRow, ...] | None
+    current_rows: SegTable
+    charge_rows: SegTable | None
 
 
 class DeckSolver:
@@ -2072,6 +2149,27 @@ class DeckSolver:
             "fill_ms": fill_ms,
             "factor_ms": factor_ms,
         }
+
+    def segment_columns(self):
+        """``(numbers, tags, centres, lengths)`` of every NEC segment, as
+        arrays in global order: the geometry the CURRENTS and CHARGE tables
+        print, gathered once per structure (momwire#1943). A length is
+        `norm3` of the segment's direction, the per-row spelling's own."""
+        held = getattr(self, "_segment_columns", None)
+        if held is None:
+            segs = self.segments
+            held = (
+                np.array([s.number for s in segs], dtype=np.int64),
+                np.array([s.tag for s in segs], dtype=np.int64),
+                np.array([s.centre for s in segs], dtype=np.float64).reshape(-1, 3),
+                norm3(
+                    np.array([s.direction for s in segs], dtype=np.float64).reshape(
+                        -1, 3
+                    )
+                ),
+            )
+            self._segment_columns = held
+        return held
 
     def global_segment(self, wire: int, local: int) -> int:
         """NEC's absolute segment number for 1-based local segment ``local``
@@ -2477,7 +2575,9 @@ class DeckSolver:
         # omega from the operator's own wavelength, not from the deck's MHz
         # field: the two agree, and this is the one the solve ran at.
         omega = 2.0 * math.pi * C_LIGHT / float(entry["wavelength"])
-        seg_charges = self._segment_charges(entry["solver"], coeffs, omega)
+
+        def charges_of(solver=entry["solver"], coeffs=coeffs, omega=omega):
+            return self._segment_charges(solver, coeffs, omega)
 
         p_in = 0.5 * float(
             sum((volts * np.conj(i_source[p])).real for p, _s, volts in driven)
@@ -2527,7 +2627,7 @@ class DeckSolver:
             if reducer is not None
             else [],
             segment_currents=seg_currents,
-            segment_charges=seg_charges,
+            charges_of=charges_of,
             coeffs=coeffs,
             solver=entry["solver"],
             p_in=p_in,
@@ -2591,8 +2691,19 @@ class DeckSolver:
             self._element_match_last = None
         return result
 
-    def _element_match_uncached(self, solver):
-        """`_element_match`'s search, every call (see there)."""
+    def _element_match_uncached(self, solver, rows: int | None = None):
+        """`_element_match`'s search, every call (see there).
+
+        Row-blocked (momwire#1943): the NEC segments are taken ``rows`` at a
+        time against every element, so the temporaries are ``rows`` x M rather
+        than the N x M x 3 difference tensor the whole-structure broadcast
+        built (about 420 MB on the ELT whip's 4,182 segments, once per
+        launch). Each row's arithmetic is the broadcast's own, element for
+        element -- the same differences, squares and left-to-right sum, the
+        same dot products and the same first-minimum ``argmin`` -- so the
+        blocking moves no bit of ``nearest``. ``rows`` is the tests' knob;
+        the default holds each rows x M temporary near 8 MB.
+        """
         # The knot walk over every wire at once (`_mesh_walk`, bit for bit
         # the per-edge linspace walk), each element its knots' mean and chord.
         knots, offs = _mesh_walk.wire_knots(
@@ -2604,7 +2715,6 @@ class DeckSolver:
 
         wanted = np.array([s.centre for s in self.segments])
         wanted_dir = np.array([s.direction for s in self.segments])
-        d2 = ((wanted[:, None, :] - mids[None, :, :]) ** 2).sum(axis=2)
         # Position alone is not enough to name an element: two wires that CROSS
         # share a segment midpoint exactly, and a plain nearest-midpoint search
         # then reads both NEC segments off whichever polyline came first —
@@ -2614,11 +2724,30 @@ class DeckSolver:
         # fall back to pure distance if nothing does.
         unit_e = dirs / np.maximum(norm3(dirs)[:, None], 1e-30)
         unit_s = wanted_dir / np.maximum(norm3(wanted_dir)[:, None], 1e-30)
-        aligned = np.abs(unit_s @ unit_e.T) >= 0.5
-        cost = np.where(aligned, d2, np.inf)
-        fallback = ~np.isfinite(cost).any(axis=1)
-        cost[fallback] = d2[fallback]
-        nearest = np.argmin(cost, axis=1)
+        unit_e_t = unit_e.T
+        n_seg, n_el = wanted.shape[0], mids.shape[0]
+        if rows is None:
+            rows = max(1, (1 << 20) // max(n_el, 1))
+        # The squared distance a component at a time, ``(dx² + dy²) + dz²``:
+        # numpy's sum over a length-3 axis adds left to right, so this is the
+        # broadcast's own value, without its rows x M x 3 tensor and strided
+        # reduce (four times faster on the whip).
+        mids_t = np.ascontiguousarray(mids.T)
+        nearest = np.empty(n_seg, dtype=np.intp)
+        for start in range(0, n_seg, rows):
+            stop = min(start + rows, n_seg)
+            block = wanted[start:stop]
+            d = block[:, 0:1] - mids_t[0]
+            d2 = d * d
+            d = block[:, 1:2] - mids_t[1]
+            d2 += d * d
+            d = block[:, 2:3] - mids_t[2]
+            d2 += d * d
+            aligned = np.abs(unit_s[start:stop] @ unit_e_t) >= 0.5
+            cost = np.where(aligned, d2, np.inf)
+            fallback = ~np.isfinite(cost).any(axis=1)
+            cost[fallback] = d2[fallback]
+            nearest[start:stop] = np.argmin(cost, axis=1)
         return nearest, dirs
 
     def _element_values(self, solver, per_wire):
@@ -3795,35 +3924,47 @@ def _run_records(
     # Built ALWAYS, even when `group.pt.suppressed` — the render half owns
     # the presence decision, and building rows nobody prints is the price of
     # a clean split.
-    currents = result.segment_currents
-    current_rows = [
-        SegRow(
-            seg.number,
-            seg.tag,
-            seg.centre / wavelength,
-            float(norm3(seg.direction)) / wavelength,
-            complex(currents[seg.number - 1]),
-        )
-        for seg in _printed_segments(group.pt, solver)
-    ]
-    charge_rows: list[SegRow] | None = None
+    current_rows = _seg_table(
+        solver,
+        _printed_segments(group.pt, solver),
+        result.segment_currents,
+        wavelength,
+    )
+    charge_rows: SegTable | None = None
     if group.pq is not None and group.pq.prints:
-        charges = result.segment_charges
-        charge_rows = [
-            SegRow(
-                seg.number,
-                seg.tag,
-                seg.centre / wavelength,
-                float(norm3(seg.direction)) / wavelength,
-                complex(charges[seg.number - 1]),
-            )
-            for seg in _charge_segments(group.pq, solver)
-        ]
+        charge_rows = _seg_table(
+            solver,
+            _charge_segments(group.pq, solver),
+            result.segment_charges,
+            wavelength,
+        )
     return RunRecords(
         result=result,
         aip_rows=tuple(aip_rows),
-        current_rows=tuple(current_rows),
-        charge_rows=None if charge_rows is None else tuple(charge_rows),
+        current_rows=current_rows,
+        charge_rows=charge_rows,
+    )
+
+
+def _seg_table(solver, segments, values, wavelength: float) -> SegTable:
+    """The rows `segments` of a per-segment readout ``values`` (global
+    order), in wavelengths: each row's centre and length over ``wavelength``,
+    the same divisions a row at a time made (momwire#1943)."""
+    numbers, tags, centres, lengths = solver.segment_columns()
+    if segments is not solver.segments:
+        at = np.array([seg.number - 1 for seg in segments], dtype=np.int64)
+        numbers, tags, centres, lengths = (
+            numbers[at],
+            tags[at],
+            centres[at],
+            lengths[at],
+        )
+    return SegTable(
+        numbers=numbers,
+        tags=tags,
+        centre_wl=centres / wavelength,
+        length_wl=lengths / wavelength,
+        values=np.asarray(values)[numbers - 1].astype(np.complex128),
     )
 
 
@@ -3898,12 +4039,7 @@ def _render_run_block(
     suppressed = group.pt is not None and group.pt.suppressed
     if not suppressed:
         out += ["", "", _CURRENTS_HEADER, _CURRENTS_NOTE, "", *_CURRENTS_TABLE_HEADER]
-        for row in records.current_rows:
-            out.append(
-                fmt_current_row(
-                    row.number, row.tag, row.centre_wl, row.length_wl, row.value
-                )
-            )
+        out += records.current_rows.lines()
     # CHARGE DENSITIES sits between the currents table and the power budget,
     # with two blanks on each side — the oracle's order (momwire#652). It is
     # OFF unless a `PQ` card asked for it, which is the opposite default from
@@ -3911,12 +4047,7 @@ def _render_run_block(
     # said suppress".
     if group.pq is not None and group.pq.prints:
         out += ["", "", _CHARGE_HEADER, _CHARGE_NOTE, "", *_CHARGE_TABLE_HEADER]
-        for row in records.charge_rows:
-            out.append(
-                fmt_current_row(
-                    row.number, row.tag, row.centre_wl, row.length_wl, row.value
-                )
-            )
+        out += records.charge_rows.lines()
     pad = " " * 31
     out += [
         "",

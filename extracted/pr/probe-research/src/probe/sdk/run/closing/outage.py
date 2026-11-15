@@ -78,6 +78,8 @@ def _recover_after_outage(
         # writer-gone report left on it is undone (the server revives it), and
         # its later release does not close the run `crashed`.
         handle = handle_ref() if handle_ref is not None else None
+        if getattr(handle, "_is_lease_released", False):
+            return None  # its lease was released (its launcher ended the job): no standing to reopen the run
         lease = getattr(handle, "_lease", None) if handle is not None else None
         receipt = client.reopen_run(
             run_id,

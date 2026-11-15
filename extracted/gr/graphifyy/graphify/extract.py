@@ -65,6 +65,7 @@ from graphify.extractors.csharp import (
     _resolve_csharp_type_references,
     bare_csharp_method_labels_in_nodes,
     is_csharp_constructor_node,
+    is_csharp_explicit_interface_node,
 )
 from graphify.extractors.dart import extract_dart  # noqa: F401
 from graphify.extractors.dm import extract_dm, extract_dmf, extract_dmi, extract_dmm  # noqa: F401
@@ -4353,7 +4354,10 @@ def extract_csharp(path: Path) -> dict:
     """Extract C# type declarations, methods, namespaces, and usings from a .cs file."""
     source_override = None
     try:
-        source = path.read_bytes()
+        # Decoded like every other read (#4145): the blanked bytes below become
+        # the parse input, so raw Windows-1252 bytes here would bypass the
+        # decoder whenever the file has a directive (a bare `#region` is enough).
+        source = _read_source_bytes(path)
     except OSError:
         source = None
     if source is not None:
@@ -5532,13 +5536,26 @@ def _resolve_swift_member_calls(
 
     # (type_node_id, method_key) -> method_node_id, from `method` edges.
     method_index: dict[tuple[str, str], str] = {}
+    # (type_node_id, exact name) -> method ids: the folded key joins `bar` /
+    # `_bar` / `Bar`, which are separate member nodes of one type.
+    exact_methods: dict[tuple[str, str], set[str]] = {}
     for e in all_edges:
         if e.get("relation") != "method":
             continue
         src, tgt = e.get("source"), e.get("target")
         tnode = node_by_id.get(tgt)
         if tnode is not None:
-            method_index[(src, _key(tnode.get("label", "")))] = tgt
+            label = str(tnode.get("label", ""))
+            method_index[(src, _key(label))] = tgt
+            if src and tgt:
+                exact_methods.setdefault(
+                    (src, label.removesuffix("()").lstrip(".")), set()).add(tgt)
+
+    def _member(type_nid: str, name: str) -> str | None:
+        exact = exact_methods.get((type_nid, name), set())
+        if len(exact) == 1:
+            return next(iter(exact))
+        return method_index.get((type_nid, _key(name)))
 
     # #2561: pending factory bindings (`let x = Factory.make()`) are label-only —
     # resolve each against the factory method's marked plain return type
@@ -5576,7 +5593,7 @@ def _resolve_swift_member_calls(
                 factory_defs = type_def_nids.get(_key(factory_type), [])
                 if len(factory_defs) != 1:
                     continue
-                method_nid = method_index.get((factory_defs[0], _key(factory_method)))
+                method_nid = _member(factory_defs[0], factory_method)
                 if method_nid is None:
                     continue
                 targets = return_targets_by_method.get(method_nid, set())
@@ -5635,7 +5652,7 @@ def _resolve_swift_member_calls(
         if len(type_defs) != 1:  # ambiguous -> bail (god-node guard)
             continue
         type_nid = type_defs[0]
-        method_nid = method_index.get((type_nid, _key(callee)))
+        method_nid = _member(type_nid, callee)
         target = method_nid or type_nid
         relation = "calls" if method_nid else "references"
         if target == caller or (caller, target) in existing_pairs:
@@ -6759,7 +6776,12 @@ def _resolve_cpp_member_calls(
             methods = exact_methods.get((type_nid, callee), set())
             method_nid = next(iter(methods)) if len(methods) == 1 else None
         else:
-            method_nid = method_index.get((type_nid, _key(callee)))
+            # The folded key joins `bar` / `_bar` / `bar_` / `Bar`, which are
+            # separate member nodes of one class: the exact spelling wins when
+            # the type has exactly one member so named.
+            methods = exact_methods.get((type_nid, callee), set())
+            method_nid = (next(iter(methods)) if len(methods) == 1
+                          else method_index.get((type_nid, _key(callee))))
         if method_nid is None:
             inherited_owner = type_lookup.member_owner(type_nid, callee, "method")
             if isinstance(inherited_owner, str) and inherited_owner != type_nid:
@@ -6846,6 +6868,7 @@ def _csharp_overload_index(nodes: list[dict], edges: list[dict]) -> dict:
             if e.get("relation") == "method"
             and "arity" in ((node_by_id.get(e.get("target")) or {}).get("metadata") or {})
             and not is_csharp_constructor_node(node_by_id.get(e.get("target")) or {})
+            and not is_csharp_explicit_interface_node(node_by_id.get(e.get("target")) or {})
         },
     }
 
@@ -6957,6 +6980,8 @@ def _resolve_csharp_member_calls(
         enclosing_type.setdefault(tgt, src)
         if is_csharp_constructor_node(tnode):
             continue  # owns its calls (enclosing_type), but is never `x.Name()`
+        if is_csharp_explicit_interface_node(tnode):
+            continue  # `int IA.Get()` owns its calls, but is reached only through IA
         if (tnode.get("metadata") or {}).get("kind") == "operator":
             continue  # `operator +` is never written as a call name
         # Overloads share a key: the first declared one stands for the name,
@@ -11689,6 +11714,9 @@ def extract(
             if _key not in _failed_seen:
                 _failed_sources.append(_key)
                 _failed_seen.add(_key)
+            # Do not let a failed producer's partial payload overwrite saved
+            # definitions later when the successful files are merged.
+            per_file[i] = {"nodes": [], "edges": [], "error": _res["error"]}
             continue
         if _res.get("skipped"):
             # The extractor declined this file by design (data JSON, #1224), so
@@ -12664,8 +12692,9 @@ def extract(
     for n in resolution_nodes:
         if n.get("file_type") == "rationale" or n.get("type") == "namespace":
             continue
-        # A C# constructor is named like its type but never called by name.
-        if is_csharp_constructor_node(n):
+        # A C# constructor is named like its type but never called by name;
+        # an explicit interface implementation is called only through the interface.
+        if is_csharp_constructor_node(n) or is_csharp_explicit_interface_node(n):
             continue
         raw = n.get("label", "")
         normalised = raw.strip("()").lstrip(".")
@@ -13333,6 +13362,18 @@ def extract(
         try:
             rel = sf_path.relative_to(root)
         except ValueError:
+            # `root` was resolved above but sf_path was not: under a symlinked
+            # scan path (macOS /var -> /private/var, a symlinked checkout) the
+            # raw form is never "under" root, and the out-of-root branch kept
+            # only the basename, so every page.tsx read as one file (#4624).
+            # Retry with the DIRECTORY resolved before calling it out-of-root.
+            # Only the parent: resolving the file itself would follow a file
+            # symlink onto its target and merge the two sources (#2832).
+            try:
+                rel = (_resolved(sf_path.parent) / sf_path.name).relative_to(root)
+            except (ValueError, OSError, RuntimeError):
+                rel = None
+        if rel is None:
             portable = _portable_out_of_root_sf(sf_path)
             canonical_id = _make_id("ext", portable)
             new_sf = portable
@@ -13521,10 +13562,10 @@ def extract(
         # failure) so the manifest can mark the emptiness intentional and the
         # #2543 heal stops re-queuing them every incremental (#2879).
         "skipped_sources": _skipped_sources,
-        # Surfaces the actual dispatched source paths so build_merge /
-        # merge_raw_extraction know which files were genuinely re-extracted
-        # rather than guessing ownership from node["source_file"] (#3411).
-        "extracted_sources": [str(p) for p in paths],
+        # Successful extraction (including deliberate declines) authorizes
+        # replacement. A failed source must keep its last good contribution,
+        # not turn a dispatch attempt into permission to delete it (#3411).
+        "extracted_sources": [str(p) for p in paths if str(p) not in _failed_seen],
     }
 
 

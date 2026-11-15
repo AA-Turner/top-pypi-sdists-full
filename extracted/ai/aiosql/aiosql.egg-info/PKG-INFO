@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiosql
-Version: 16.0
+Version: 16.2
 Summary: Simple SQL in Python
 Author-email: William Vaughn <vaughnwilld@gmail.com>, Fabien Coelho <aiosql@coelho.net>
 License-Expression: BSD-2-Clause
@@ -15,7 +15,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
@@ -37,11 +37,12 @@ Requires-Dist: aiosqlite; extra == "dev-sqlite"
 Requires-Dist: apsw; implementation_name != "pypy" and extra == "dev-sqlite"
 Provides-Extra: dev-postgres
 Requires-Dist: pytest-postgresql; extra == "dev-postgres"
-Requires-Dist: asyncpg; (python_version < "3.13" and implementation_name != "pypy") and extra == "dev-postgres"
+Requires-Dist: asyncpg; implementation_name != "pypy" and extra == "dev-postgres"
 Requires-Dist: psycopg>=3; extra == "dev-postgres"
 Requires-Dist: psycopg2>=2.9.10; implementation_name != "pypy" and extra == "dev-postgres"
 Requires-Dist: pygresql; extra == "dev-postgres"
 Requires-Dist: pg8000; extra == "dev-postgres"
+Requires-Dist: aiopg; extra == "dev-postgres"
 Provides-Extra: dev-mysql
 Requires-Dist: pytest-mysql; extra == "dev-mysql"
 Requires-Dist: mysqlclient; extra == "dev-mysql"
@@ -51,6 +52,7 @@ Provides-Extra: dev-mariadb
 Requires-Dist: mariadb; extra == "dev-mariadb"
 Provides-Extra: dev-mssql
 Requires-Dist: pymssql; extra == "dev-mssql"
+Requires-Dist: mssql-python; extra == "dev-mssql"
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinx-rtd-theme; extra == "doc"
@@ -87,10 +89,11 @@ based drivers for
 `psycopg2 <https://www.psycopg.org/docs/>`__,
 `pg8000 <https://pypi.org/project/pg8000/>`__,
 `pygresql <http://www.pygresql.org/>`__,
-`asyncpg <https://magicstack.github.io/asyncpg/current/>`__),
+`asyncpg <https://magicstack.github.io/asyncpg/current/>`__
+`aiopg <https://aiopg.readthedocs.io/>`__),
 `MySQL <https://www.mysql.com/>`__
 (`PyMySQL <https://github.com/PyMySQL/PyMySQL/>`__,
-`mysqlclient <https://pypi.org/project/mysqlclient/>`__,
+`mysqlclient <https://pypi.org/project/mysqlclient/>`__ aka MySQLdb,
 `mysql-connector <https://dev.mysql.com/doc/connector-python/en/>`__,
 `asyncmy <https://github.com/long2ice/asyncmy>`__ with
 `this adapter <https://github.com/GoogleCloudPlatform/database-assessment/blob/main/src/dma/lib/db/adapters/asyncmy.py>`__),
@@ -98,8 +101,10 @@ based drivers for
 (`mariadb <https://pypi.org/project/mariadb/>`__),
 `DuckDB <https://www.duckdb.org/>`__
 (`duckdb <https://duckdb.org/docs/api/python/dbapi>`__) and
-`MS SQL Server <https//en.wikipedia.org/wiki/Microsoft_SQL_Server>`__
-(`pymssql <https://pypi.org/project/pymssql/>`__),
+`MS SQL Server <https://en.wikipedia.org/wiki/Microsoft_SQL_Server>`__
+(`pymssql <https://pypi.org/project/pymssql/>`__,
+`mssql-python <https://pypi.org/project/mssql-python/>`__
+),
 However, some detailed feature support may vary depending on the underlying driver
 and database engine actual capabilities.
 
@@ -135,29 +140,7 @@ Badges
 .. image:: https://img.shields.io/badge/coverage-100%25-success
    :alt: Code Coverage
    :target: https://github.com/nackjicholson/aiosql/actions/
-..
-   NOTE all tests
-   # MISC
-   loading: 17
-   patterns: 6
-   # SYNC
-   sqlite3: 17
-   apsw: 16
-   duckdb: 15
-   mariadb: 17
-   pymysql: 16
-   mysqldb: 15
-   myco: 16
-   pymssql: 16
-   pg8000: 14
-   psycopg2: 18
-   psycopg3: 19
-   pygresql: 15
-   # ASYNC
-   aiosqlite: 13
-   asyncpg: 18
-   apsycopg3: 14
-.. image:: https://img.shields.io/badge/tests-262%20✓-success
+.. image:: https://img.shields.io/badge/tests-314%20✓-success
    :alt: Tests
    :target: https://github.com/nackjicholson/aiosql/actions/
 .. image:: https://img.shields.io/github/issues/nackjicholson/aiosql?style=flat
@@ -181,7 +164,7 @@ Badges
 .. image:: https://img.shields.io/badge/databases-6-informational
    :alt: Databases
    :target: https://github.com/nackjicholson/aiosql/
-.. image:: https://img.shields.io/badge/drivers-16-informational
+.. image:: https://img.shields.io/badge/drivers-17-informational
    :alt: Drivers
    :target: https://github.com/nackjicholson/aiosql/
 .. image:: https://img.shields.io/github/languages/count/nackjicholson/aiosql?style=flat

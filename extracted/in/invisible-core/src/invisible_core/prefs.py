@@ -1163,6 +1163,56 @@ def _route_float_pairs(prefs: Dict[str, Any]) -> None:
 
 
 
+# Software compositing for every persona, declared by the core, the same on every machine
+# (owner's decision 2026-11-15). The decision is the one official Firefox 159 takes on a
+# Windows machine with no GPU, measured on GitHub windows-2022 (adapter Microsoft Hyper-V
+# Video 0x000b): Direct3D11 compositing and WebRender are blocklisted with
+# FEATURE_FAILURE_VM_VENDOR, and the GPU process stays up (WebGL needs it: gfxPlatform.cpp).
+# Only the compositing features are replaced; WebGL, WebGPU, media and every other feature
+# keep what the persona's real device declares. DIRECT3D_11_LAYERS is the feature behind
+# the "D3D11_COMPOSITING" line of about:support; WEBRENDER_ANGLE_METAL is OK on that runner
+# too, as every device declares it.
+_VM_FAILURE = "FEATURE_FAILURE_VM_VENDOR"
+_SOFTWARE_COMPOSITING_STATUS: Dict[str, str] = {
+    "DIRECT3D_9_LAYERS": "4|" + _VM_FAILURE,
+    "DIRECT3D_10_LAYERS": "4|" + _VM_FAILURE,
+    "DIRECT3D_10_1_LAYERS": "4|" + _VM_FAILURE,
+    "DIRECT3D_11_LAYERS": "4|" + _VM_FAILURE,
+    "GPU_PROCESS": "1",
+    "WEBRENDER": "4|" + _VM_FAILURE,
+    "WEBRENDER_COMPOSITOR": "4|" + _VM_FAILURE,
+    "WEBRENDER_SCISSORED_CACHE_CLEARS": "4|" + _VM_FAILURE,
+    "WEBRENDER_OPTIMIZED_SHADERS": "4|" + _VM_FAILURE,
+    "WEBRENDER_SHADER_CACHE": "4|" + _VM_FAILURE,
+    "WEBRENDER_PARTIAL_PRESENT": "4|" + _VM_FAILURE,
+    "WEBRENDER_DCOMP": "4|" + _VM_FAILURE,
+    "WEBRENDER_ANGLE_METAL": "1",
+    "D3D11_KEYED_MUTEX": "4|" + _VM_FAILURE,
+    "DX_INTEROP2": "4|" + _VM_FAILURE,
+    "CANVAS2D_ACCELERATION": "4|" + _VM_FAILURE,
+    "ACCELERATED_CANVAS2D": "4|" + _VM_FAILURE,
+}
+
+# Windows only: on Linux the compositor is already software (llvmpipe goes to software
+# WebRender through gfx.webrender.reject-software-driver, true on GTK), so no pref there.
+_WIN_SOFTWARE_COMPOSITING_PREFS: Dict[str, Any] = {
+    "gfx.webrender.software":       True,   # STEALTH-HOOK declared software compositing: owner's decision 2026-11-15, same on every machine
+    "gfx.webrender.software.d3d11": False,  # STEALTH-HOOK declared software compositing: owner's decision 2026-11-15, no D3D11 compositor, same on every machine
+}
+
+
+def _declare_software_compositing(table: str) -> str:
+    """The persona's feature table with ONLY the compositing features replaced by the
+    decision official Firefox 159 takes with no GPU. Order, names and every other entry
+    are the device's own."""
+    out = []
+    for entry in table.split(","):
+        name = entry.split("|", 1)[0]
+        out.append("%s|%s" % (name, _SOFTWARE_COMPOSITING_STATUS[name])
+                   if name in _SOFTWARE_COMPOSITING_STATUS else entry)
+    return ",".join(out)
+
+
 def _apply_gpu_persona(prefs: Dict[str, Any], profile: Profile):
     """The validated WebGL persona, and the reason it is applied on every host.
 
@@ -1218,7 +1268,10 @@ def _apply_gpu_persona(prefs: Dict[str, Any], profile: Profile):
                    or choose_gfx_device(persona, profile.seed))
         if not _device:
             raise ValueError("the persona %r has no real device to declare" % profile.gpu.renderer)
-        prefs["zoom.stealth.gfx.feature_status"] = _device["feature_status"]
+        prefs["zoom.stealth.gfx.feature_status"] = _declare_software_compositing(
+            _device["feature_status"])
+        if sys.platform == "win32":
+            prefs.update(_WIN_SOFTWARE_COMPOSITING_PREFS)
     else:
         # ⛔ This emitted empty renderer and vendor until 2026-11-01, which left
         # WebGL to the host and its blocklist. The engine refuses to start on an

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skrl
-Version: 2.1.1
+Version: 2.1.2
 Summary: Modular and flexible library for reinforcement learning on PyTorch, JAX and NVIDIA Warp
 Author: Toni-SM
 Maintainer: Toni-SM

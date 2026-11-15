@@ -1297,7 +1297,7 @@ class PyprojectToml:
         self,
         *,
         build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
-        dependency_groups: typing.Optional[typing.Union["PyprojectTomlDependencyGroups", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependency_groups: typing.Any = None,
         project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
         tool: typing.Optional[typing.Union["PyprojectTomlTool", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1312,8 +1312,6 @@ class PyprojectToml:
         '''
         if isinstance(build_system, dict):
             build_system = BuildSystem(**build_system)
-        if isinstance(dependency_groups, dict):
-            dependency_groups = PyprojectTomlDependencyGroups(**dependency_groups)
         if isinstance(project, dict):
             project = PyprojectTomlProject(**project)
         if isinstance(tool, dict):
@@ -1344,14 +1342,14 @@ class PyprojectToml:
         return typing.cast(typing.Optional["BuildSystem"], result)
 
     @builtins.property
-    def dependency_groups(self) -> typing.Optional["PyprojectTomlDependencyGroups"]:
+    def dependency_groups(self) -> typing.Any:
         '''(experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
 
         :stability: experimental
         :schema: PyprojectToml#dependency-groups
         '''
         result = self._values.get("dependency_groups")
-        return typing.cast(typing.Optional["PyprojectTomlDependencyGroups"], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def project(self) -> typing.Optional["PyprojectTomlProject"]:
@@ -1391,52 +1389,6 @@ class PyprojectToml:
         )
 
 
-@jsii.data_type(
-    jsii_type="projen.python.PyprojectTomlDependencyGroups",
-    jsii_struct_bases=[],
-    name_mapping={"dev": "dev"},
-)
-class PyprojectTomlDependencyGroups:
-    def __init__(
-        self,
-        *,
-        dev: typing.Optional[typing.Sequence[typing.Any]] = None,
-    ) -> None:
-        '''(experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
-
-        :param dev: 
-
-        :stability: experimental
-        :schema: PyprojectTomlDependencyGroups
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87)
-            check_type(argname="argument dev", value=dev, expected_type=type_hints["dev"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dev is not None:
-            self._values["dev"] = dev
-
-    @builtins.property
-    def dev(self) -> typing.Optional[typing.List[typing.Any]]:
-        '''
-        :stability: experimental
-        :schema: PyprojectTomlDependencyGroups#dev
-        '''
-        result = self._values.get("dev")
-        return typing.cast(typing.Optional[typing.List[typing.Any]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PyprojectTomlDependencyGroups(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 class PyprojectTomlFile(
     _projen_04054675.TomlFile,
     metaclass=jsii.JSIIMeta,
@@ -1453,7 +1405,7 @@ class PyprojectTomlFile(
         scope: "_constructs_77d1e7e8.IConstruct",
         *,
         build_system: typing.Optional[typing.Union["BuildSystem", typing.Dict[builtins.str, typing.Any]]] = None,
-        dependency_groups: typing.Optional[typing.Union["PyprojectTomlDependencyGroups", typing.Dict[builtins.str, typing.Any]]] = None,
+        dependency_groups: typing.Any = None,
         project: typing.Optional[typing.Union["PyprojectTomlProject", typing.Dict[builtins.str, typing.Any]]] = None,
         tool: typing.Optional[typing.Union["PyprojectTomlTool", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1979,10 +1931,12 @@ class PyprojectTomlProjectDynamic(enum.Enum):
     name_mapping={
         "black": "black",
         "cibuildwheel": "cibuildwheel",
+        "complexipy": "complexipy",
         "dfc": "dfc",
         "docstring_format_checker": "docstringFormatChecker",
         "fastapi": "fastapi",
         "hatch": "hatch",
+        "inwards": "inwards",
         "maturin": "maturin",
         "mypy": "mypy",
         "pdm": "pdm",
@@ -1998,11 +1952,13 @@ class PyprojectTomlProjectDynamic(enum.Enum):
         "scikit_build": "scikitBuild",
         "setuptools": "setuptools",
         "setuptools_scm": "setuptoolsScm",
+        "simplint": "simplint",
         "taskipy": "taskipy",
         "tombi": "tombi",
         "tox": "tox",
         "ty": "ty",
         "uv": "uv",
+        "workers": "workers",
     },
 )
 class PyprojectTomlTool:
@@ -2011,10 +1967,12 @@ class PyprojectTomlTool:
         *,
         black: typing.Any = None,
         cibuildwheel: typing.Any = None,
+        complexipy: typing.Any = None,
         dfc: typing.Any = None,
         docstring_format_checker: typing.Any = None,
         fastapi: typing.Any = None,
         hatch: typing.Any = None,
+        inwards: typing.Any = None,
         maturin: typing.Any = None,
         mypy: typing.Any = None,
         pdm: typing.Any = None,
@@ -2030,11 +1988,13 @@ class PyprojectTomlTool:
         scikit_build: typing.Any = None,
         setuptools: typing.Any = None,
         setuptools_scm: typing.Any = None,
+        simplint: typing.Any = None,
         taskipy: typing.Any = None,
         tombi: typing.Any = None,
         tox: typing.Any = None,
         ty: typing.Any = None,
         uv: typing.Any = None,
+        workers: typing.Any = None,
     ) -> None:
         '''(experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``.
 
@@ -2042,10 +2002,12 @@ class PyprojectTomlTool:
 
         :param black: (experimental) The uncompromising Python code formatter.
         :param cibuildwheel: (experimental) Build Python wheels for all platforms.
+        :param complexipy: (experimental) Measures how hard Python code is for humans to understand.
         :param dfc: (experimental) A CLI tool to check and validate Python docstring formatting and completeness.
         :param docstring_format_checker: (experimental) A CLI tool to check and validate Python docstring formatting and completeness.
         :param fastapi: (experimental) FastAPI web framework configuration.
         :param hatch: (experimental) Modern, extensible Python project management.
+        :param inwards: (experimental) Architecture linter for Python: layers, bounded contexts and package shapes. https://sircypkowskyy.github.io/inwards/guides/configuration/
         :param maturin: (experimental) Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages.
         :param mypy: (experimental) Optional static typing for Python.
         :param pdm: (experimental) A modern Python package manager with PEP 621 support.
@@ -2061,11 +2023,13 @@ class PyprojectTomlTool:
         :param scikit_build: (experimental) Improved build system generator for Python C/C++/Fortran extensions.
         :param setuptools: (experimental) Easily download, build, install, upgrade, and uninstall Python packages.
         :param setuptools_scm: (experimental) Manage Python package versions using SCM (e.g. Git).
+        :param simplint: (experimental) Ruff companion linter with extra checks that make Python easier to read and review.
         :param taskipy: (experimental) The complementary task runner for python.
         :param tombi: (experimental) Tombi is a toolkit for TOML; providing a formatter/linter and language server
         :param tox: (experimental) Standardized automated testing of Python packages.
         :param ty: (experimental) An extremely fast Python type checker, written in Rust.
         :param uv: (experimental) An extremely fast Python package installer and resolver, written in Rust.
+        :param workers: (experimental) **Workers** lets you define your project's background programs in one place: the ``pyproject.toml`` file. These programs are called **workers**. They keep running to do work, like sending emails or processing files. A **provider** is a service or tool that runs your application. Providers can support this format to read your configuration and start your workers. Each worker needs a name and a **command** to run:: [tool.workers.my-background-worker] command = "python -m app.worker" [tool.workers.my-tasks-worker] command = "celery -A app.celery worker" [tool.workers.some-important-reports] command = "sheppy work" You choose the worker names: ``my-background-worker``, ``my-tasks-worker``, and ``some-important-reports`` in this example. The provider runs each worker's command in a separate process.
 
         :stability: experimental
         :schema: PyprojectTomlTool
@@ -2074,10 +2038,12 @@ class PyprojectTomlTool:
             type_hints = cached_type_hints(_typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15)
             check_type(argname="argument black", value=black, expected_type=type_hints["black"])
             check_type(argname="argument cibuildwheel", value=cibuildwheel, expected_type=type_hints["cibuildwheel"])
+            check_type(argname="argument complexipy", value=complexipy, expected_type=type_hints["complexipy"])
             check_type(argname="argument dfc", value=dfc, expected_type=type_hints["dfc"])
             check_type(argname="argument docstring_format_checker", value=docstring_format_checker, expected_type=type_hints["docstring_format_checker"])
             check_type(argname="argument fastapi", value=fastapi, expected_type=type_hints["fastapi"])
             check_type(argname="argument hatch", value=hatch, expected_type=type_hints["hatch"])
+            check_type(argname="argument inwards", value=inwards, expected_type=type_hints["inwards"])
             check_type(argname="argument maturin", value=maturin, expected_type=type_hints["maturin"])
             check_type(argname="argument mypy", value=mypy, expected_type=type_hints["mypy"])
             check_type(argname="argument pdm", value=pdm, expected_type=type_hints["pdm"])
@@ -2093,16 +2059,20 @@ class PyprojectTomlTool:
             check_type(argname="argument scikit_build", value=scikit_build, expected_type=type_hints["scikit_build"])
             check_type(argname="argument setuptools", value=setuptools, expected_type=type_hints["setuptools"])
             check_type(argname="argument setuptools_scm", value=setuptools_scm, expected_type=type_hints["setuptools_scm"])
+            check_type(argname="argument simplint", value=simplint, expected_type=type_hints["simplint"])
             check_type(argname="argument taskipy", value=taskipy, expected_type=type_hints["taskipy"])
             check_type(argname="argument tombi", value=tombi, expected_type=type_hints["tombi"])
             check_type(argname="argument tox", value=tox, expected_type=type_hints["tox"])
             check_type(argname="argument ty", value=ty, expected_type=type_hints["ty"])
             check_type(argname="argument uv", value=uv, expected_type=type_hints["uv"])
+            check_type(argname="argument workers", value=workers, expected_type=type_hints["workers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if black is not None:
             self._values["black"] = black
         if cibuildwheel is not None:
             self._values["cibuildwheel"] = cibuildwheel
+        if complexipy is not None:
+            self._values["complexipy"] = complexipy
         if dfc is not None:
             self._values["dfc"] = dfc
         if docstring_format_checker is not None:
@@ -2111,6 +2081,8 @@ class PyprojectTomlTool:
             self._values["fastapi"] = fastapi
         if hatch is not None:
             self._values["hatch"] = hatch
+        if inwards is not None:
+            self._values["inwards"] = inwards
         if maturin is not None:
             self._values["maturin"] = maturin
         if mypy is not None:
@@ -2141,6 +2113,8 @@ class PyprojectTomlTool:
             self._values["setuptools"] = setuptools
         if setuptools_scm is not None:
             self._values["setuptools_scm"] = setuptools_scm
+        if simplint is not None:
+            self._values["simplint"] = simplint
         if taskipy is not None:
             self._values["taskipy"] = taskipy
         if tombi is not None:
@@ -2151,6 +2125,8 @@ class PyprojectTomlTool:
             self._values["ty"] = ty
         if uv is not None:
             self._values["uv"] = uv
+        if workers is not None:
+            self._values["workers"] = workers
 
     @builtins.property
     def black(self) -> typing.Any:
@@ -2170,6 +2146,16 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool#cibuildwheel
         '''
         result = self._values.get("cibuildwheel")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def complexipy(self) -> typing.Any:
+        '''(experimental) Measures how hard Python code is for humans to understand.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#complexipy
+        '''
+        result = self._values.get("complexipy")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -2210,6 +2196,18 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool#hatch
         '''
         result = self._values.get("hatch")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def inwards(self) -> typing.Any:
+        '''(experimental) Architecture linter for Python: layers, bounded contexts and package shapes.
+
+        https://sircypkowskyy.github.io/inwards/guides/configuration/
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#inwards
+        '''
+        result = self._values.get("inwards")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -2380,6 +2378,16 @@ class PyprojectTomlTool:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def simplint(self) -> typing.Any:
+        '''(experimental) Ruff companion linter with extra checks that make Python easier to read and review.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#simplint
+        '''
+        result = self._values.get("simplint")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
     def taskipy(self) -> typing.Any:
         '''(experimental) The complementary task runner for python.
 
@@ -2429,6 +2437,35 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool#uv
         '''
         result = self._values.get("uv")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def workers(self) -> typing.Any:
+        '''(experimental) **Workers** lets you define your project's background programs in one place: the ``pyproject.toml`` file.
+
+        These programs are called **workers**. They keep running to do work, like sending emails or processing files.
+
+        A **provider** is a service or tool that runs your application. Providers can support this format to read your configuration and start your workers.
+
+        Each worker needs a name and a **command** to run::
+
+           [tool.workers.my-background-worker]
+           command = "python -m app.worker"
+
+           [tool.workers.my-tasks-worker]
+           command = "celery -A app.celery worker"
+
+           [tool.workers.some-important-reports]
+           command = "sheppy work"
+
+        You choose the worker names: ``my-background-worker``, ``my-tasks-worker``, and ``some-important-reports`` in this example.
+
+        The provider runs each worker's command in a separate process.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#workers
+        '''
+        result = self._values.get("workers")
         return typing.cast(typing.Any, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -6070,7 +6107,6 @@ __all__ = [
     "Projenrc",
     "ProjenrcOptions",
     "PyprojectToml",
-    "PyprojectTomlDependencyGroups",
     "PyprojectTomlFile",
     "PyprojectTomlProject",
     "PyprojectTomlProjectDynamic",
@@ -6281,16 +6317,9 @@ def _typecheckingstub__7b016d0638a2d569458bc60c6c0631e67606ffba250b97da0a8bb9943
 def _typecheckingstub__e1fc10fe84bb8f10fcd95137adbc465ef44fa0a114d64da3b25bdc76d9324fe3(
     *,
     build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
-    dependency_groups: typing.Optional[typing.Union[PyprojectTomlDependencyGroups, typing.Dict[builtins.str, typing.Any]]] = None,
+    dependency_groups: typing.Any = None,
     project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
     tool: typing.Optional[typing.Union[PyprojectTomlTool, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87(
-    *,
-    dev: typing.Optional[typing.Sequence[typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6299,7 +6328,7 @@ def _typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c
     scope: _constructs_77d1e7e8.IConstruct,
     *,
     build_system: typing.Optional[typing.Union[BuildSystem, typing.Dict[builtins.str, typing.Any]]] = None,
-    dependency_groups: typing.Optional[typing.Union[PyprojectTomlDependencyGroups, typing.Dict[builtins.str, typing.Any]]] = None,
+    dependency_groups: typing.Any = None,
     project: typing.Optional[typing.Union[PyprojectTomlProject, typing.Dict[builtins.str, typing.Any]]] = None,
     tool: typing.Optional[typing.Union[PyprojectTomlTool, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -6342,10 +6371,12 @@ def _typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108c
     *,
     black: typing.Any = None,
     cibuildwheel: typing.Any = None,
+    complexipy: typing.Any = None,
     dfc: typing.Any = None,
     docstring_format_checker: typing.Any = None,
     fastapi: typing.Any = None,
     hatch: typing.Any = None,
+    inwards: typing.Any = None,
     maturin: typing.Any = None,
     mypy: typing.Any = None,
     pdm: typing.Any = None,
@@ -6361,11 +6392,13 @@ def _typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108c
     scikit_build: typing.Any = None,
     setuptools: typing.Any = None,
     setuptools_scm: typing.Any = None,
+    simplint: typing.Any = None,
     taskipy: typing.Any = None,
     tombi: typing.Any = None,
     tox: typing.Any = None,
     ty: typing.Any = None,
     uv: typing.Any = None,
+    workers: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,21 +1,25 @@
 import base64
+import hashlib
 import os
 import unittest
+from email.message import MIMEPart
 from email.mime.image import MIMEImage
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.files.images import ImageFile
 from django.core.mail import EmailMultiAlternatives
+from django.template import Context, Engine, engines
 from django.template.loader import get_template
-from django.test import Client, TestCase
+from django.test import Client, SimpleTestCase, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 
 from post_office.mail import send, send_queued
 from post_office.models import STATUS, Email, EmailTemplate
 from post_office.settings import PRE_DJANGO_6
-from post_office.template import render_to_string
+from post_office.template import compile_template, render_to_string
 from post_office.template.backends.post_office import PostOfficeTemplates
 
 if PRE_DJANGO_6:
@@ -136,6 +140,7 @@ class HTMLMailTest(TestCase):
         subject = '[Django Post-Office unit tests] attached image'
         msg = EmailMultiAlternatives(subject, body, to=['john@example.com'])
         template.attach_related(msg)
+        self.assertIsInstance(msg.attachments[0], MIMEPart)
         msg.content_subtype = 'html'
         # mixed_subtype no longer exists in Django 6+
         # this message can be send by email
@@ -161,6 +166,7 @@ class HTMLMailTest(TestCase):
         msg = EmailMultiAlternatives(subject, body, to=['john@example.com'])
         msg.attach_alternative(html, 'text/html')
         for attachment in attached_images:
+            self.assertIsInstance(attachment, MIMEPart)
             msg.attach(attachment)
         # mixed_subtype no longer exists in Django 6+
         # this message can be send by email
@@ -230,6 +236,80 @@ class HTMLMailTest(TestCase):
         queued_mail = Email.objects.get(id=queued_mail.id)
         send_queued()
         self.assertEqual(Email.objects.get(id=queued_mail.id).status, STATUS.sent)
+
+
+class TemplateCacheTest(SimpleTestCase):
+    def test_compile_template(self):
+        engine = Engine.get_default()
+        template = compile_template('Hi {{ name }}', engine)
+        self.assertIs(compile_template('Hi {{ name }}', engine), template)
+        self.assertIsNot(compile_template('Hi {{ name }}', Engine()), template)
+        self.assertEqual(compile_template('Bye {{ name }}', engine).render(Context({'name': 'Ann'})), 'Bye Ann')
+
+    def test_post_office_from_string_shares_compiled_template(self):
+        engine = engines['post_office']
+        first = engine.from_string('<p>{{ foo }}</p>')
+        second = engine.from_string('<p>{{ foo }}</p>')
+        self.assertIsNot(first, second)
+        self.assertIs(first.template, second.template)
+
+    def test_inline_images_isolated_between_renders(self):
+        engine = engines['post_office']
+        with open(os.path.join(os.path.dirname(__file__), 'static/dummy.png'), 'rb') as fh:
+            png = fh.read()
+        get_wrappers = {
+            'include': lambda: engine.from_string('{% include "image.html" %}'),
+            'include only': lambda: engine.from_string('{% include "image.html" with imgsrc=imgsrc only %}'),
+            'get_template': lambda: get_template('image.html', using='post_office'),
+        }
+
+        def render(wrapper, suffix):
+            # A new file each time because inline_image reads it to the end
+            wrapper.render({'imgsrc': ImageFile(BytesIO(png + suffix), name='dummy.png')})
+
+        def attached_ids(wrapper):
+            return [img['Content-ID'] for img in wrapper._attached_images]
+
+        def content_id(suffix):
+            return f'<{hashlib.md5(png + suffix).hexdigest()}>'
+
+        for name, get_wrapper in get_wrappers.items():
+            with self.subTest(name):
+                first, second = get_wrapper(), get_wrapper()
+                self.assertIs(first.template, second.template)
+                render(first, b'1')
+                render(second, b'2')
+                self.assertEqual(attached_ids(first), [content_id(b'1')])
+                self.assertEqual(attached_ids(second), [content_id(b'2')])
+
+                # Re-rendering replaces the wrapper's images without touching the other wrapper's
+                render(first, b'3')
+                self.assertEqual(attached_ids(first), [content_id(b'3')])
+                self.assertEqual(attached_ids(second), [content_id(b'2')])
+
+    def test_render_to_string_does_not_retry_on_error(self):
+        class Boom:
+            calls = 0
+
+            def __str__(self):
+                Boom.calls += 1
+                raise ValueError('boom')
+
+        with self.assertRaises(ValueError):
+            render_to_string('hello.html', {'foo': Boom()}, using='post_office')
+        self.assertEqual(Boom.calls, 1)
+
+    def test_render_to_string_returns_string_for_django_backend(self):
+        templates = [
+            {
+                'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                'DIRS': [os.path.join(os.path.dirname(__file__), 'templates')],
+            }
+        ]
+        with override_settings(TEMPLATES=templates):
+            content = render_to_string('hello.html', {'foo': 'Bar'}, using='django')
+        self.assertIsInstance(content, str)
+        self.assertHTMLEqual(content, '<h1>Bar</h1>')
 
 
 class EmailAdminTest(TestCase):
@@ -445,18 +525,21 @@ class EmailAdminTest(TestCase):
         response = self.client.get(reverse('admin:post_office_email_preview', args=[email.pk]))
         self.assertEqual(response.status_code, 404)
 
-    def test_email_preview_view_requires_login(self):
+    def test_email_admin_views_require_login(self):
         email = self._send_html_email('<p>Hello</p>')
         anonymous = Client()
         for url in (
             reverse('admin:post_office_email_preview', args=[email.pk]),
             reverse('admin:post_office_email_image', kwargs={'pk': email.pk, 'content_id': 32 * '0'}),
-            reverse('admin:resend', args=[email.pk]),
         ):
             response = anonymous.get(url)
             self.assertEqual(response.status_code, 302, url)
             self.assertIn(reverse('admin:login'), response['Location'])
-        self.assertEqual(email.logs.count(), 0)  # resend was not executed for the anonymous user
+
+        response = anonymous.post(reverse('admin:resend', args=[email.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('admin:login'), response['Location'])
+        self.assertEqual(email.logs.count(), 0)
 
     def test_email_preview_view_object_permission(self):
         email = self._send_html_email('<p>Hello</p>')
@@ -467,13 +550,35 @@ class EmailAdminTest(TestCase):
         staff = get_user_model().objects.create_user(username='staff', password='secret', is_staff=True)
         client = Client()
         client.force_login(staff)
-        for url in (preview_url, image_url, resend_url):
+        for url in (preview_url, image_url):
             self.assertEqual(client.get(url).status_code, 403, url)
+        self.assertEqual(client.post(resend_url).status_code, 403)
 
         staff.user_permissions.add(Permission.objects.get(content_type__app_label='post_office', codename='view_email'))
         self.assertEqual(client.get(preview_url).status_code, 200)
         self.assertEqual(client.get(image_url).status_code, 404)  # allowed, but no such image
-        self.assertEqual(client.get(resend_url).status_code, 403)  # resend needs change permission
+
+        # Resend needs change permission: view-only users are sent back with a helpful message, not a 403.
+        change_url = reverse('admin:post_office_email_change', args=[email.pk])
+        response = client.post(resend_url, follow=True)
+        self.assertRedirects(response, change_url)
+        self.assertContains(response, 'post_office.change_email')
+        self.assertNotContains(response, 'Email has been sent again')
+        self.assertEqual(email.logs.count(), 0)
+
+    def test_resend_requires_post(self):
+        email = self._send_html_email('<p>Hello</p>')
+        resend_url = reverse('admin:resend', args=[email.pk])
+
+        response = self.client.get(resend_url)
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(email.logs.count(), 0)
+
+        response = self.client.post(resend_url)
+        self.assertRedirects(response, reverse('admin:post_office_email_change', args=[email.pk]))
+        email.refresh_from_db()
+        self.assertEqual(email.status, STATUS.sent)
+        self.assertEqual(email.logs.count(), 1)
 
     @override_settings(DEFAULT_CHARSET='iso-8859-1')
     def test_email_preview_view_non_utf8_charset(self):

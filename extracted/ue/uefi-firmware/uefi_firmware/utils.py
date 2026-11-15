@@ -1,16 +1,41 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-
 import os
+import re
 import sys
 import struct
-from builtins import bytes
 import binascii
+import functools
+import threading
+import zlib
 
 nocolor = False
 
+# Control characters, which a terminal acts on rather than shows, and the
+# Unicode marks that hide text or reverse its order.
+_UNPRINTABLE = re.compile(
+    '[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069]')
+
+
+def printable(text):
+    '''Return text with the characters a terminal would act on written as
+    escapes.
+
+    Names in an image are printed as they are, so without this an image
+    could move the cursor, rewrite earlier lines or set the window title.
+    Values that are not strings are returned unchanged.
+    '''
+    if not isinstance(text, str):
+        return text
+
+    def escape(match):
+        code = ord(match.group())
+        return "\\x%02x" % code if code < 0x100 else "\\u%04x" % code
+    return _UNPRINTABLE.sub(escape, text)
+
+
 def blue(msg):
     '''Return the input string as console-escaped blue.'''
+    msg = printable(msg)
     if nocolor:
         return msg
     else:
@@ -19,6 +44,7 @@ def blue(msg):
 
 def red(msg):
     '''Return the input string as console-escaped red.'''
+    msg = printable(msg)
     if nocolor:
         return msg
     else:
@@ -27,6 +53,7 @@ def red(msg):
 
 def green(msg):
     '''Return the input string as console-escaped green.'''
+    msg = printable(msg)
     if nocolor:
         return msg
     else:
@@ -35,6 +62,7 @@ def green(msg):
 
 def purple(msg):
     '''Return the input string as console-escaped purple.'''
+    msg = printable(msg)
     if nocolor:
         return msg
     else:
@@ -93,16 +121,6 @@ def s2aguid(s):
     return aguid(b"".join([bytes.fromhex(part) for part in guid]), True)
 
 
-def a2sguid(a):
-    '''RFC4122 int array GUID as string.'''
-    guid = ""
-    for value in a:
-        value = format(value, 'x')
-        guid += value.zfill(len(value) + len(value) % 2).decode("hex")
-    guid = guid.zfill(len(guid) + len(guid) % 2)
-    return sguid(guid, True)
-
-
 def aguid(b, big=False):
     '''RFC4122 binary GUID as int array.'''
     if len(b) < 16:
@@ -115,6 +133,43 @@ def aguid(b, big=False):
 def bit_set(field, bit):
     '''Check if bit is set (1) in field.'''
     return (field & bit == bit)
+
+
+# Device names Windows reserves, with or without an extension.
+_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL"} | \
+    {"COM%d" % i for i in range(1, 10)} | {"LPT%d" % i for i in range(1, 10)}
+
+
+def safe_path_component(component):
+    '''Return a filesystem-safe representation of a single path component.
+
+    The same rules apply on every platform, so an image extracts to the same
+    names everywhere.
+    '''
+    if isinstance(component, bytes):
+        component = utf8_decode_safe(component)
+    else:
+        component = str(component)
+
+    component = component.replace('\x00', '')
+    # Path separators, the drive and stream separator, and the other
+    # characters Windows does not allow in a name.
+    component = re.sub(r'[/\\:*?"<>|\x01-\x1f\x7f]', '_', component)
+
+    if component in ('', '.', '..'):
+        return '_'
+    # Windows drops trailing dots and spaces, so "a." would name "a".
+    stripped = component.rstrip('. ')
+    component = stripped + '_' * (len(component) - len(stripped))
+    if component.split('.')[0].rstrip(' ').upper() in _RESERVED_NAMES:
+        component = '_' + component
+    return component
+
+
+def safe_path(parent, *components):
+    '''Join parent with sanitized path components.'''
+    return os.path.join(
+        parent, *[safe_path_component(part) for part in components])
 
 
 def dump_data(name, data):
@@ -135,17 +190,108 @@ def dump_data(name, data):
         print("Error: could not write (%s), (%s)." % (name, str(e)))
 
 
-def search_firmware_volumes(data, byte_align=16, limit=None):
-    '''"Search a blob for '_FVH' magics, related to firmware volume headers.'''
+def is_erased(data):
+    '''Check if data holds only erased flash, all 0xFF or all 0x00 bytes.'''
+    return data.strip(b"\xff") == b"" or data.strip(b"\x00") == b""
+
+
+# Volumes, sections and embedded images nest recursively, and compressed
+# sections can expand far beyond their input. Both are bounded for each
+# top-level parse so a crafted image fails cleanly instead of exhausting the
+# stack or memory. Raise these if a real image needs more.
+MAX_NESTING_DEPTH = 64
+MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024
+
+_parse_state = threading.local()
+
+
+def limit_nesting(on_limit):
+    '''Decorate a parse method that may recurse into nested objects.
+
+    The outermost decorated call starts a new parse, which resets the
+    decompression budget.
+
+    Args:
+        on_limit: The value to return instead of recursing past the limit.
+    '''
+    def decorator(method):
+        @functools.wraps(method)
+        def wrapper(*args, **kwargs):
+            depth = getattr(_parse_state, "depth", 0)
+            if depth >= MAX_NESTING_DEPTH:
+                print_error("Error: objects are nested more than %d deep." % (
+                    MAX_NESTING_DEPTH))
+                return on_limit
+            if depth == 0:
+                _parse_state.decompressed = 0
+            _parse_state.depth = depth + 1
+            try:
+                return method(*args, **kwargs)
+            finally:
+                _parse_state.depth = depth
+        return wrapper
+    return decorator
+
+
+def nesting_limit_reached():
+    '''Return whether a parse method called now would stop at the nesting
+    limit without doing any work.'''
+    return getattr(_parse_state, "depth", 0) >= MAX_NESTING_DEPTH
+
+
+def reserve_decompression(size):
+    '''Charge size bytes against the current parse's decompression budget.
+
+    Return:
+        bool: False, without charging, if size does not fit in the budget.
+    '''
+    used = getattr(_parse_state, "decompressed", 0)
+    if used + size > MAX_DECOMPRESSED_BYTES:
+        print_error("Error: decompressed data exceeds %d bytes." % (
+            MAX_DECOMPRESSED_BYTES))
+        return False
+    _parse_state.decompressed = used + size
+    return True
+
+
+def zlib_decompress(data, wbits=zlib.MAX_WBITS):
+    '''Decompress a zlib (or, with wbits, gzip) stream within the budget.
+
+    Raises:
+        zlib.error: The stream is invalid, truncated, or larger than the
+            remaining decompression budget.
+    '''
+    remaining = MAX_DECOMPRESSED_BYTES - getattr(
+        _parse_state, "decompressed", 0)
+    decompressor = zlib.decompressobj(wbits)
+    # A max_length of 0 means unlimited, so always allow at least one byte.
+    output = decompressor.decompress(data, max(remaining, 0) + 1)
+    if not decompressor.eof:
+        raise zlib.error("truncated stream, or output over the budget")
+    if not reserve_decompression(len(output)):
+        raise zlib.error("output over the decompression budget")
+    return output
+
+
+_VOLUME_MAGIC = re.compile(b'_FVH')
+
+
+def search_firmware_volumes(data, byte_align=16, limit=None, start=0):
+    '''"Search a blob for '_FVH' magics, related to firmware volume headers.
+
+    Args:
+        start (Optional[int]): Search as if data began at this offset, without
+            copying it. Returned offsets are relative to data.
+    '''
     potential_volumes = []
-    for aligned in range(32, len(data), byte_align):
-        if data[aligned:aligned + 4] == b'_FVH':
-            potential_volumes.append(aligned)
-            if limit and limit == len(potential_volumes):
-                return potential_volumes
-        magic = data[(aligned + byte_align // 2):(aligned + byte_align // 2 + 4)]
-        if magic == b'_FVH':
-            potential_volumes.append(aligned + byte_align // 2)
+    first = start + 32
+    # A pattern searches any buffer in place. A memoryview has no find(), and
+    # copying one here would cost a copy for each call.
+    for match in _VOLUME_MAGIC.finditer(data, first):
+        index = match.start()
+        # Volumes sit on the alignment, or half way between two alignments.
+        if (index - first) % byte_align in (0, byte_align // 2):
+            potential_volumes.append(index)
             if limit and limit == len(potential_volumes):
                 return potential_volumes
     return potential_volumes

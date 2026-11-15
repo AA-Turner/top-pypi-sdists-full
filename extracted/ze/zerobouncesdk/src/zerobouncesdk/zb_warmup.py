@@ -7,23 +7,45 @@ key, and it authenticates with an ``API-Key`` header instead of an ``api_key`` p
 
 import os
 import re
-from datetime import date, timedelta
+import warnings
+from datetime import date, datetime, timedelta
 from typing import Optional, Union
-from urllib.parse import quote
 
 import requests
 from requests.exceptions import RequestException
 
 from .zb_exceptions import ZBApiException, ZBClientException
-from .zerobouncesdk import _check_api_key, _looks_like_html, _message_from_body, _path_segment, _response_text
+from .zerobouncesdk import (
+    _RefusesPickling,
+    _Secret,
+    API_KEY_HEADER_PROBLEM,
+    _check_api_key,
+    _check_transport_logging,
+    _https_url,
+    _is_safe_https_url,
+    _looks_like_html,
+    _message_from_body,
+    _download_target,
+    _is_json_type,
+    _json_container,
+    _save_file,
+    _timeouts,
+    _path_segment,
+    _redact_secrets,
+    _require_text,
+    _response_text,
+    _strict_bool,
+    _strict_json,
+    _timeout_seconds,
+)
 
 DateLike = Union[date, str]
 
 _SEARCH_FROM = re.compile(r"^[A-Za-z0-9.\-_@+]*$")
-_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 
-class ZeroBounceWarmup:
+class ZeroBounceWarmup(_RefusesPickling):
     """The ZeroBounce Warmup API. One instance per Warmup API key; the key is bound to one team."""
 
     DEFAULT_BASE_URL = "https://warmup-api.zerobounce.net"
@@ -46,41 +68,42 @@ class ZeroBounceWarmup:
         base_url: str or None
             The base URL ZeroBounce gave you; defaults to https://warmup-api.zerobounce.net.
         timeout: timedelta or None
-            Request timeout; 120 seconds by default.
+            120 seconds by default: the per-read socket timeout, with a separate 30 second connect timeout. It is
+            not a total deadline, so a server that keeps sending slowly never times out.
         """
-        if not api_key or not api_key.strip():
-            raise ZBClientException("Empty parameter: api_key")
+        _require_text(api_key, "api_key")
         _check_api_key(api_key)
         base = base_url or self.DEFAULT_BASE_URL
-        if not isinstance(base, str) or not base.lower().startswith("https://"):
+        if not isinstance(base, str) or not base.lower().startswith("https://") or not _is_safe_https_url(base):
             raise ZBClientException("base_url must be an https:// URL")
-        self._api_key = api_key
+        self._api_key = _Secret(api_key)
         self._root = base.rstrip("/") + self.BASE_PATH
-        self._timeout_s = self.DEFAULT_HTTP_TIMEOUT_S if timeout is None else timeout.total_seconds()
+        self._timeout_s = self.DEFAULT_HTTP_TIMEOUT_S if timeout is None else _timeout_seconds(timeout)
 
     # -- transport ----------------------------------------------------------------------------
 
     def _redact(self, text, extra_secrets=()) -> str:
-        text = str(text)
-        for secret in (self._api_key, *extra_secrets):
-            if secret:
-                for form in (secret, quote(secret, safe=""), repr(secret)[1:-1]):
-                    text = text.replace(form, "***")
-        return text
+        return _redact_secrets(text, (self._api_key.value, *extra_secrets))
 
     def _send(self, method: str, path: str, *, params=None, json=None, secrets=()):
+        # self._root can be reassigned: the key goes only to a valid https URL, as the main client checks.
+        url = _https_url(f"{self._root}{path}")
+        _check_transport_logging()
         try:
             response = requests.request(
                 method,
-                f"{self._root}{path}",
+                url,
                 params=params,
                 json=json,
-                headers={"API-Key": self._api_key, "Accept": "application/json"},
-                timeout=self._timeout_s,
+                headers={"API-Key": self._api_key.value, "Accept": "application/json"},
+                timeout=_timeouts(self._timeout_s),
                 allow_redirects=False,
             )
         except RequestException as e:
             error = type(e)(self._redact(e, secrets))
+        except UnicodeError:
+            # Its ``object`` holds the key being encoded: raised below as a fixed message instead.
+            error = ZBClientException(API_KEY_HEADER_PROBLEM)
         else:
             error = None
         if error is not None:
@@ -98,31 +121,47 @@ class ZeroBounceWarmup:
         return response
 
     def _json(self, method: str, path: str, *, params=None, json=None, secrets=()):
-        """JSON payload of a 200, or None for the documented empty successes (204, empty 200)."""
+        """JSON payload of a 200, or None for the documented empty successes (204, empty 200).
+
+        Empty means zero bytes: a blank body (spaces, a newline) is not JSON and is an error with its status.
+        """
         response = self._send(method, path, params=params, json=json, secrets=secrets)
         body = _response_text(response)
-        if response.status_code == 204 or not body.strip():
+        if response.status_code == 204 or body == "":
             return None
         content_type = response.headers.get("Content-Type", "")
         if _looks_like_html(body, content_type):
-            raise ZBApiException(self._redact(_message_from_body(body, response.status_code), secrets))
+            raise ZBApiException(
+                self._redact(_message_from_body(body, response.status_code), secrets), status_code=response.status_code
+            )
         try:
-            return response.json()
+            return _strict_json(body)
         except ValueError:
-            raise ZBApiException(self._redact(_message_from_body(body, response.status_code), secrets)) from None
+            pass
+        # Raised outside the except block: the parser's error quotes the body, so it must not be the __context__.
+        raise ZBApiException(
+            self._redact(_message_from_body(body, response.status_code), secrets), status_code=response.status_code
+        )
 
     def _csv(self, path: str, params=None, download_path: Optional[str] = None) -> str:
+        target = None if download_path is None else _download_target(download_path)
         response = self._send("GET", path, params=params)
         body = _response_text(response)
         content_type = response.headers.get("Content-Type", "")
-        if not body.strip() or _looks_like_html(body, content_type) or "application/json" in content_type.lower():
-            raise ZBApiException(self._redact(_message_from_body(body, response.status_code)))
-        if download_path:
-            directory = os.path.dirname(download_path)
-            if directory:
-                os.makedirs(directory, exist_ok=True)
-            with open(download_path, "wb") as handle:
-                handle.write(response.content)
+        if (
+            not body.strip("\ufeff \t\r\n")
+            or _looks_like_html(body, content_type)
+            or _is_json_type(content_type)
+            or _json_container(body)
+        ):
+            raise ZBApiException(
+                self._redact(_message_from_body(body.lstrip("\ufeff"), response.status_code)),
+                status_code=response.status_code,
+            )
+        if target is not None:
+            # Written to a temporary file and moved into place, so a failed write never truncates or
+            # deletes a file already at download_path.
+            _save_file(target, [response.content])
         return body
 
     # -- argument checks ----------------------------------------------------------------------
@@ -141,11 +180,18 @@ class ZeroBounceWarmup:
 
     @staticmethod
     def _iso_date(value: DateLike, name: str) -> str:
+        if isinstance(value, datetime):
+            return value.date().isoformat()
         if isinstance(value, date):
             return value.isoformat()
-        if not isinstance(value, str) or not _ISO_DATE.match(value):
-            raise ZBClientException(f"Invalid parameter: {name} (expected YYYY-MM-DD)")
-        return value
+        if isinstance(value, str) and _ISO_DATE.fullmatch(value):
+            try:
+                date(int(value[:4]), int(value[5:7]), int(value[8:]))
+            except ValueError:
+                pass
+            else:
+                return value
+        raise ZBClientException(f"Invalid parameter: {name} (expected a real date as YYYY-MM-DD)")
 
     @classmethod
     def _engagement_body(cls, c_from: str, reply_pct: int, important_pct: int, click_pct: int) -> dict:
@@ -170,6 +216,90 @@ class ZeroBounceWarmup:
     def get_sending_account(self, from_address: str):
         """One sending account (GET /sending-account)."""
         return self._json("GET", "/sending-account", params={"from_address": self._required(from_address, "from_address")})
+
+    # Keys the API does not read: not sent (a warning says so), as the Java SDK does.
+    _IGNORED_CONTENT_KEYS = ("industry",)
+    _IGNORED_SENDING_KEYS = ("daily_limit",)
+
+    @staticmethod
+    def _text_field(value, name: str) -> str:
+        if not isinstance(value, str):
+            raise ZBClientException(f"Invalid parameter: {name} must be a string")
+        return value
+
+    @classmethod
+    def _nonblank_text(cls, value, name: str) -> str:
+        if not cls._text_field(value, name).strip():
+            raise ZBClientException(f"Empty parameter: {name}")
+        return value
+
+    @classmethod
+    def _email_content(cls, given) -> dict:
+        if not isinstance(given, dict):
+            raise ZBClientException("Invalid parameter: email_content must be a dict")
+        allowed = ("company_name", "company_website", "website", "company_description", "types_of_emails",
+                   "example_email")
+        for key in given:
+            if key in cls._IGNORED_CONTENT_KEYS:
+                warnings.warn(f"add_sending_account: {key} is not an API field and is not sent", stacklevel=3)
+            elif key not in allowed:
+                warnings.warn(f"add_sending_account: email_content has an unknown key ({key}); it is not sent", stacklevel=3)
+        types = given.get("types_of_emails")
+        if isinstance(types, list) and not types:
+            warnings.warn(
+                "add_sending_account: types_of_emails is empty and is not sent; list at least one type", stacklevel=3
+            )
+        if types is not None and (not isinstance(types, list) or any(t not in cls.EMAIL_TYPES for t in types)):
+            raise ZBClientException("Invalid parameter: types_of_emails (transactional, newsletter and/or marketing)")
+        content = {}
+        for key in ("company_name",):
+            if given.get(key) is not None:
+                content[key] = cls._nonblank_text(given[key], key)
+        # "website" was sent as given before and the API does not read it: it goes out as company_website,
+        # unless company_website is set too.
+        if given.get("website") is not None:
+            if given.get("company_website") is not None:
+                warnings.warn(
+                    "add_sending_account: website is ignored because company_website is set", stacklevel=3
+                )
+            else:
+                warnings.warn(
+                    "add_sending_account: website is deprecated; use company_website", DeprecationWarning, stacklevel=3
+                )
+        website = given.get("company_website") if given.get("company_website") is not None else given.get("website")
+        if website is not None:
+            content["company_website"] = cls._nonblank_text(website, "company_website")
+        if given.get("company_description") is not None:
+            content["company_description"] = cls._nonblank_text(given["company_description"], "company_description")
+        if types:
+            content["types_of_emails"] = list(types)
+        if given.get("example_email") is not None:
+            content["example_email"] = cls._nonblank_text(given["example_email"], "example_email")
+        return content
+
+    @classmethod
+    def _managed_sending(cls, given) -> dict:
+        if not isinstance(given, dict):
+            raise ZBClientException("Invalid parameter: managed_sending must be a dict")
+        allowed = ("weekdays_only", "timezone", "timezone_offset", "warmup_start_date")
+        for key in given:
+            if key in cls._IGNORED_SENDING_KEYS:
+                warnings.warn(f"add_sending_account: {key} is not applied by the API and is not sent", stacklevel=3)
+            elif key not in allowed:
+                warnings.warn(f"add_sending_account: managed_sending has an unknown key ({key}); it is not sent", stacklevel=3)
+        sending = {}
+        if given.get("weekdays_only") is not None:
+            sending["weekdays_only"] = _strict_bool(given["weekdays_only"], "weekdays_only")
+        if given.get("timezone") is not None:
+            sending["timezone"] = cls._text_field(given["timezone"], "timezone")
+        offset = given.get("timezone_offset")
+        if offset is not None:
+            if isinstance(offset, bool) or not isinstance(offset, (int, float)) or not -11 <= offset <= 14:
+                raise ZBClientException("Invalid parameter: timezone_offset (must be -11 to 14)")
+            sending["timezone_offset"] = offset
+        if given.get("warmup_start_date") is not None:
+            sending["warmup_start_date"] = cls._iso_date(given["warmup_start_date"], "warmup_start_date")
+        return sending
 
     def add_sending_account(
         self,
@@ -210,23 +340,11 @@ class ZeroBounceWarmup:
             if email_content is not None or managed_sending is not None:
                 raise ZBClientException("Invalid parameter: email_content and managed_sending are for zb_managed")
         if ignore_conflict is not None:
-            body["ignore_conflict"] = bool(ignore_conflict)
+            body["ignore_conflict"] = _strict_bool(ignore_conflict, "ignore_conflict")
         if email_content is not None:
-            content = dict(email_content)
-            types = content.get("types_of_emails")
-            if types is not None and (not isinstance(types, list) or any(t not in self.EMAIL_TYPES for t in types)):
-                raise ZBClientException(
-                    "Invalid parameter: types_of_emails (transactional, newsletter and/or marketing)"
-                )
-            body["email_content"] = content
+            body["email_content"] = self._email_content(email_content)
         if managed_sending is not None:
-            sending = dict(managed_sending)
-            offset = sending.get("timezone_offset")
-            if offset is not None and (isinstance(offset, bool) or not isinstance(offset, (int, float)) or not -11 <= offset <= 14):
-                raise ZBClientException("Invalid parameter: timezone_offset (must be -11 to 14)")
-            if sending.get("warmup_start_date") is not None:
-                sending["warmup_start_date"] = self._iso_date(sending["warmup_start_date"], "warmup_start_date")
-            body["managed_sending"] = sending
+            body["managed_sending"] = self._managed_sending(managed_sending)
         return self._json("POST", "/sending-accounts", json=body)
 
     def update_sending_account(self, from_address: str, engagement_rule_id: int, status_id: int, auto_enable: bool):
@@ -237,7 +355,7 @@ class ZeroBounceWarmup:
         """
         self._required(from_address, "from_address")
         if not isinstance(auto_enable, bool):
-            raise ZBClientException("Empty parameter: auto_enable (must be True or False)")
+            raise ZBClientException("Invalid parameter: auto_enable (must be True or False)")
         body = {
             "team_id": self._ANY_TEAM_ID,
             "from_address": from_address,

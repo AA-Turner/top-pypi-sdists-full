@@ -1197,11 +1197,6 @@ class RecordKind(StrEnum):
     paper = 'paper'
     group = 'group'
     session = 'session'
-    qa = 'qa'
-    decision = 'decision'
-    file_ref = 'file_ref'
-    code_change = 'code_change'
-    directive = 'directive'
     other = 'other'
 
 

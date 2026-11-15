@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_ACCEPT_LANGUAGE,
     DEFAULT_LOCALE,
     GQL_SMARTHOME_QUERY,
+    GQL_SMARTHOME_QUERY_LEGACY,
     USER_AGENT,
 )
 from .errors import (
@@ -71,6 +72,7 @@ class AlexaAPI:
 
     devices: ClassVar[dict[str, Any]] = {}
     wake_words: ClassVar[dict[str, Any]] = {}
+    _gql_legacy_accounts: ClassVar[set[str]] = set()
     _sequence_queue: ClassVar[dict[Any, list[dict[Any, Any]]]] = {}
     _sequence_lock: ClassVar[dict[Any, asyncio.Lock]] = {}
 
@@ -1681,15 +1683,22 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
-    async def get_wake_words(login: AlexaLogin) -> list[dict[str, Any]] | None:
+    async def get_wake_words(
+        login: AlexaLogin, *, cached: bool = True
+    ) -> list[dict[str, Any]] | None:
         """Get the wake words for the devices."""
         response = await AlexaAPI._static_request(
-            "get", login, "/api/wake-word", query={"cached": "true"}
+            "get",
+            login,
+            "/api/wake-word",
+            query={"cached": "true" if cached else "false"},
         )
 
         wake_words, valid = await get_json_value(response, "wakeWords", list)
 
         if not valid or not wake_words:
+            if not cached:
+                return [] if valid else None
             # Lightweight diagnostics without leaking payload contents
             try:
                 body = await response.json(content_type=None)
@@ -1715,6 +1724,75 @@ class AlexaAPI:
 
         AlexaAPI.wake_words[login.email] = wake_words
         return wake_words
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_available_wake_words(
+        login: AlexaLogin, serial: str, device_type: str, software_version: str
+    ) -> list[str] | None:
+        """Get wake words supported by the device and its current locale."""
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/api/wake-words-locale",
+            query={
+                "deviceSerialNumber": serial,
+                "deviceType": device_type,
+                "softwareVersion": software_version,
+            },
+        )
+        words, valid = await get_json_value(response, "wakeWords", list)
+        if not valid or not all(isinstance(word, str) for word in words):
+            return None
+        return words
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_wake_word(login: AlexaLogin, serial: str, wake_word: str) -> bool:
+        """Change a device's wake word and verify that it has been applied.
+
+        Wake words are sent in the upper case form Amazon uses, so the lower case
+        value returned by ``find_wake_word()`` is accepted. Returns False if the
+        device is unknown, the update is rejected, or the new wake word is not
+        read back within about 80 seconds; in the last case the change may still
+        be applied later.
+        """
+        if not isinstance(wake_word, str) or not wake_word.strip():
+            return False
+        wake_word = wake_word.strip().upper()
+        models = await AlexaAPI.get_wake_words(login, cached=False)
+        model = next(
+            (
+                item
+                for item in models or []
+                if isinstance(item, dict) and item.get("deviceSerialNumber") == serial
+            ),
+            None,
+        )
+        if model is None or not isinstance(model.get("wakeWord"), str):
+            return False
+        if model["wakeWord"] == wake_word:
+            return True
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            f"/api/wake-word/{serial}",
+            data={**model, "wakeWord": wake_word},
+        )
+        if response is None or not 200 <= response.status < 300:
+            return False
+        # The official app re-reads uncached device state after these delays.
+        for delay in (0.5, 5, 15, 30, 30):
+            await asyncio.sleep(delay)
+            models = await AlexaAPI.get_wake_words(login, cached=False)
+            if any(
+                isinstance(item, dict)
+                and item.get("deviceSerialNumber") == serial
+                and item.get("wakeWord") == wake_word
+                for item in models or []
+            ):
+                return True
+        return False
 
     @staticmethod
     @_catch_all_exceptions
@@ -2223,16 +2301,65 @@ class AlexaAPI:
         Args:
         login (AlexaLogin): Successfully logged in AlexaLogin
 
-        Returns json
+        Returns:
+            Endpoint dictionaries containing model, dmsIdentifier and legacyAppliance,
+            or None when the response has no endpoint list. Model and identifier
+            metadata may be null. Only PLAIN model values are readable descriptions;
+            a model description does not necessarily include a hardware generation.
+            Match dmsIdentifier.deviceType and dsn to the REST deviceType and
+            serialNumber rather than matching by a customer-assigned device name.
+            If Amazon rejects the expanded query, the original legacy-only query is
+            used instead and the model and dmsIdentifier keys are absent.
 
         """
+        email = login.email
+        expanded = email not in AlexaAPI._gql_legacy_accounts
         response = await AlexaAPI._static_request(
-            "post", login, "/nexus/v1/graphql", data={"query": GQL_SMARTHOME_QUERY}
+            "post",
+            login,
+            "/nexus/v1/graphql",
+            data={
+                "query": GQL_SMARTHOME_QUERY if expanded else GQL_SMARTHOME_QUERY_LEGACY
+            },
         )
-        # _LOGGER.debug("%s: Response: %s", hide_email(login.email),
-        #               await response.json(content_type=None))
         result, *_ = await get_json_value(response, "data.endpoints.items", list)
+        if result is not None or not expanded:
+            return result
+        if await AlexaAPI._is_gql_throttled(response):
+            return None
+        # Amazon may reject the added metadata fields for some accounts or
+        # marketplaces; keep device discovery working with the original query.
+        _LOGGER.debug(
+            "%s: Expanded smart-home query failed; retrying with the legacy query",
+            hide_email(email),
+        )
+        response = await AlexaAPI._static_request(
+            "post",
+            login,
+            "/nexus/v1/graphql",
+            data={"query": GQL_SMARTHOME_QUERY_LEGACY},
+        )
+        result, *_ = await get_json_value(response, "data.endpoints.items", list)
+        if result is not None:
+            AlexaAPI._gql_legacy_accounts.add(email)
         return result
+
+    @staticmethod
+    async def _is_gql_throttled(response: ClientResponse | None) -> bool:
+        """Return True if a GraphQL response reports throttling."""
+        if response is None:
+            return False
+        try:
+            body = await response.json(content_type=None)
+        except Exception:
+            return False
+        errors = body.get("errors") if isinstance(body, dict) else None
+        return any(
+            isinstance(error, dict)
+            and isinstance(error.get("extensions"), dict)
+            and error["extensions"].get("errorCode") == "TOO_MANY_REQUESTS"
+            for error in errors or []
+        )
 
     @staticmethod
     @_catch_all_exceptions
@@ -2645,6 +2772,165 @@ class AlexaAPI:
         )
         response_json, *_ = await get_json_value(response, None, dict)
         return response_json
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_ascending_alarm_states(
+        login: AlexaLogin,
+    ) -> list[dict[str, Any]] | None:
+        """Get whether ascending alarm volume is on for all devices.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns list of device states with ascendingAlarmEnabled
+
+        """
+        response = await AlexaAPI._static_request("get", login, "/api/ascending-alarm")
+        states, valid = await get_json_value(response, "ascendingAlarmModelList", list)
+        return states if valid else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_ascending_alarm(
+        login: AlexaLogin, serial: str, device_type: str, enabled: bool
+    ) -> bool:
+        """Turn ascending alarm volume on or off for a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        enabled (bool): True to start alarms quietly and get louder
+
+        Returns True if successful
+
+        """
+        _LOGGER.debug(
+            "%s: Setting ascending alarm of %s to %s",
+            hide_email(login.email),
+            hide_serial(serial),
+            enabled,
+        )
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            f"/api/ascending-alarm/{serial}",
+            data={
+                "deviceSerialNumber": serial,
+                "deviceType": device_type,
+                "ascendingAlarmEnabled": enabled,
+            },
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_notification_sounds(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        software_version: str,
+        notification_type: str = "Alarm",
+    ) -> list[dict[str, Any]] | None:
+        """Get the sounds a device can use for alarms or timers.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        software_version (str): Device software version
+        notification_type (str): "Alarm" or "Timer"
+
+        Returns list of sounds with id and displayName
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/api/notification/sounds",
+            query={
+                "deviceType": device_type,
+                "deviceSerialNumber": serial,
+                "softwareVersion": software_version,
+                "alertType": notification_type,
+            },
+        )
+        sounds, valid = await get_json_value(response, "notificationSounds", list)
+        return sounds if valid else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_default_notification_sound(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        notification_type: str = "Alarm",
+    ) -> dict[str, Any] | None:
+        """Get the default alarm or timer sound of a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        notification_type (str): "Alarm" or "Timer"
+
+        Returns sound with id and displayName
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/api/notification/default-sound",
+            query={
+                "deviceType": device_type,
+                "deviceSerialNumber": serial,
+                "notificationType": notification_type,
+            },
+        )
+        sound, valid = await get_json_value(response, "defaultNotificationSound", dict)
+        return sound if valid else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_default_notification_sound(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        sound_id: str,
+        notification_type: str = "Alarm",
+    ) -> bool:
+        """Set the default alarm or timer sound of a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        sound_id (str): Sound id from get_notification_sounds()
+        notification_type (str): "Alarm" or "Timer"
+
+        Returns True if successful
+
+        """
+        _LOGGER.debug(
+            "%s: Setting default %s sound of %s to %s",
+            hide_email(login.email),
+            notification_type,
+            hide_serial(serial),
+            sound_id,
+        )
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            "/api/notification/default-sound",
+            data={
+                "deviceType": device_type,
+                "deviceSerialNumber": serial,
+                "notificationType": notification_type,
+                "soundId": sound_id,
+            },
+        )
+        return response is not None
 
     @staticmethod
     @_catch_all_exceptions

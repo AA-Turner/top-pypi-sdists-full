@@ -27,13 +27,26 @@ import httpx
 from ._core.money import money
 from ._core.names import segment
 from ._core.transport import Transport
-from .errors import (Conflict, GpuBadRequest, GpuNoCard, GpuOverLimit, InvalidRequest, OutOfCredit, SequencesError,
-                     Unavailable)
+from .errors import (Conflict, GpuBadRequest, GpuNoCard, GpuOverLimit, InternalError, InvalidRequest, OutOfCredit,
+                     SequencesError, Unavailable)
 
 
 
 WAIT_S = 25 * 60.0
+START_MOST_S = 20 * 60.0
 LOOK_S = 4.0
+ENDED_READS = 3
+LOG_PAGE = 1000
+
+
+
+
+NOT_STARTED = {
+    "not_up": "had its card and did not come up",
+    "container_ended": "had its card, and its container stopped before it ran",
+    "host_failed": "had its card, and the host its machine ran on failed before it ran",
+    "reclaimed": "had its card, and the cloud it ran on took its machine back before it ran",
+}
 EVERYWHERE = "0.0.0.0/0"
 
 NO_IPV4 = ("with no allow, a GPU's ports open to this machine's IPv4 address, asked over IPv4, and this machine could not "
@@ -122,12 +135,15 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     GpuBadRequest for what cannot be had (a place outside the US, ports, a snapshot of no such name or
     one still saving or failed, a name that cannot be one or is asked of several),
     GpuOverLimit at a limit of your account's or its credit, GpuNoCard where no card is to be had, now
-    or within the 20 minutes the platform gives each - never billed (`details["gpus"]` holds each as it
-    ended or runs). A KeyboardInterrupt while it waits removes those not running yet and is raised on:
-    its `cancelled` the ids removed, its `billed` what each of those was billed, by id, as the platform
-    says it once removed - 0 for none, the seconds one of the places asked for it held a card where one
-    did, None where it could not be read -, and its `running` those left running. Owner-scoped: a
-    full key or a signed-in session, never a robot key.
+    or within the 20 minutes the platform gives each - never billed -, and InternalError where one had
+    its card and did not start, its words saying how it ended (`details["gpus"]` holds each as it ended
+    or runs; `seq gpu logs <id>` says the rest). A KeyboardInterrupt while it waits removes those not
+    running yet and is raised on: its `cancelled` the ids removed, its `billed` what each of those was
+    billed, by id, as the platform says it once removed - 0 for none, the seconds one of the places
+    asked for it held a card where one did, None where it could not be read -, and its `running` those
+    left running. One while the add is asked - the seconds before the platform answers it - stops this
+    call alone: what the platform adds then is yours all the same, and `list()` shows it. Owner-scoped:
+    a full key or a signed-in session, never a robot key.
     """
     body: dict[str, Any] = {"place": place, "gpu": gpu, "count": int(count)}
     if snapshot is not None:
@@ -154,6 +170,18 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     return _running(added, api_key=api_key, base_url=base_url) if wait else added
 
 
+def _card_prices(*, api_key: str | None = None, base_url: str | None = None) -> dict[str, float]:
+    """Each card's own price an hour, by its name, as the price list says it (GET /v1/pricing - what `seq gpus` and the
+    pricing page read): what a GPU's card costs, its CPU and memory billed on top. {} where it could not be read."""
+    try:
+        with _owned(api_key, base_url) as t:
+            rows = t.get("/v1/pricing").get("gpus") or []
+    except SequencesError:
+        return {}
+    return {str(g.get("gpu")): float(g["usd_per_hour"]) for g in rows
+            if isinstance(g.get("usd_per_hour"), (int, float)) and not isinstance(g.get("usd_per_hour"), bool)}
+
+
 def _nap(seconds: float) -> None:
     time.sleep(seconds)
 
@@ -166,14 +194,17 @@ def _running(added: list[dict[str, Any]], *, timeout_s: float = WAIT_S, said: Op
              api_key: str | None = None, base_url: str | None = None) -> list[dict[str, Any]]:
     """`added` (as `add` answered them) once each runs or is over: each as the list says it, or its history once over, with
     the "expected_rtt" `add` answered. `said(seconds, starting)` is told at each read while some still start (`seq gpu
-    add` says how long it has waited). Raises GpuNoCard when one got no card or still starts past `timeout_s`, Unavailable
-    when one had its card and did not start. A KeyboardInterrupt meanwhile removes those not running (_cancel) and is
-    raised on."""
+    add` says how long it has waited). Raises GpuNoCard when one got no card or still starts past `timeout_s`;
+    InternalError when one had its card and did not start, how it ended read from its log (_ended_as) - the platform could
+    not start it, which trying again is unlikely to change (`seq gpu` exits 1); Unavailable for any other end. A
+    KeyboardInterrupt meanwhile removes those not running (_cancel) and is raised on.
+
+"""
     ids = [str(g["id"]) for g in added]
     began = _now()
     by: dict[str, dict[str, Any]] = {}
-    with _owned(api_key, base_url) as t:
-        try:
+    try:
+        with _owned(api_key, base_url) as t:
             while True:
                 by = _read(t, ids)
                 starting = [i for i in ids if (by.get(i) or {}).get("status", "starting") == "starting"]
@@ -182,25 +213,29 @@ def _running(added: list[dict[str, Any]], *, timeout_s: float = WAIT_S, said: Op
                 if said is not None:
                     said(_now() - began, starting)
                 _nap(LOOK_S)
-        except KeyboardInterrupt as stop:
-            _cancel(t, ids, by, stop)
-            expected = {str(g["id"]): g.get("expected_rtt") for g in added}
-            stop.running = [{**g, "expected_rtt": expected.get(str(g["id"]))}
-                            for g in stop.running]
-            raise
-    out = [{**(by.get(i) or {"id": i, "status": "starting"}), "expected_rtt": g.get("expected_rtt")}
-           for i, g in zip(ids, added)]
-    failed = [g for g in out if g.get("status") not in ("running", "starting")]
+            waited = _now() - began
+            out = [{**(by.get(i) or {"id": i, "status": "starting"}), "expected_rtt": g.get("expected_rtt")}
+                   for i, g in zip(ids, added)]
+            failed = [g for g in out if g.get("status") not in ("running", "starting")]
+            ends = {str(g["id"]): _ended_as(t, str(g["id"])) for g in failed if g.get("reason") == "could_not_start"}
+    except KeyboardInterrupt as stop:
+
+
+        raise _stopped(added, stop, by, api_key=api_key, base_url=base_url) from None
     late = [g for g in out if g.get("status") == "starting"]
-    if failed or late:
-        words = [f"{g['id']} {_why(g)}" for g in failed] + [f"{g['id']} still starting after {timeout_s / 60:.0f} minutes"
-                                                            for g in late]
-        no_card = bool(late) or any(g.get("reason") == "gpu_no_card" for g in failed)
-        raise (GpuNoCard if no_card else Unavailable)(
-            "; ".join(words), retryable=True, details={"reason": "gpu_no_card" if no_card else "gpu_not_started",
-                                                       "gpus": out},
-            hint="add again later, or near another place; seq gpu list shows those that run")
-    return out
+    if not (failed or late):
+        return out
+    words = ([f"{g['id']} {_why(g, ends.get(str(g['id'])) or {}, waited)}" for g in failed]
+             + [f"{g['id']} still starting after {timeout_s / 60:.0f} minutes" for g in late])
+    others = "; seq gpu list shows those that run" if any(g.get("status") == "running" for g in out) else ""
+    if late or any(g.get("reason") == "gpu_no_card" for g in failed):
+        raise GpuNoCard("; ".join(words), retryable=True, details={"reason": "gpu_no_card", "gpus": out},
+                        hint="add again later, or near another place" + others)
+    if ends:
+        said = f"seq gpu logs {next(iter(ends))} says why" if len(ends) == 1 else "seq gpu logs <id> says why, for each"
+        raise InternalError("; ".join(words), details={"reason": "gpu_not_started", "gpus": out}, hint=said + others)
+    raise Unavailable("; ".join(words), retryable=True, details={"reason": "gpu_not_started", "gpus": out},
+                      hint="add again later, or near another place" + others)
 
 
 def _read(t: Transport, ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -239,6 +274,24 @@ def _cancel(t: Transport, ids: list[str], by: dict[str, dict[str, Any]], stop: B
     stop.billed = _spent(t, cancelled)
 
 
+def _stopped(added: list[dict[str, Any]], stop: BaseException, by: dict[str, dict[str, Any]] | None = None, *,
+             api_key: str | None = None, base_url: str | None = None) -> BaseException:
+    """`stop`, a Ctrl-C while `added` were asked for or waited on, told what became of them (_cancel, on a connection of
+    its own - the one it stopped may be half open): those not running removed, those that run left running, each with
+    the round trip `add` answered; all of them not cancelled where no connection could be had. Returned, to raise on."""
+    ids = [str(g["id"]) for g in added]
+    try:
+        with _owned(api_key, base_url) as t:
+            _cancel(t, ids, by or {}, stop)
+    except (SequencesError, KeyboardInterrupt):
+        if not hasattr(stop, "cancelled"):
+            stop.cancelled, stop.running, stop.not_cancelled, stop.billed = [], [], ids, {}
+    expected = {str(g["id"]): g.get("expected_rtt") for g in added}
+    stop.running = [{**g, "expected_rtt": expected.get(str(g["id"]))}
+                    for g in stop.running]
+    return stop
+
+
 def _usd(v: Any) -> float | None:
     """An amount the platform said, None where it said none."""
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
@@ -271,14 +324,47 @@ def _billed(usd: float | None) -> str:
     return f"billed {money(usd)} for the seconds one of the places asked for it held a card"
 
 
-def _why(g: dict[str, Any]) -> str:
-    """Why a GPU that failed to start did, in words, and what it was billed (_billed): no card near its place in 20
-    minutes, its card had and no start in them, or what its reason says."""
-    reason = g.get("reason")
+def _ended_as(t: Transport, gpu_id: str) -> dict[str, Any]:
+    """How its log says a GPU ended - its "ended" event's detail: {"reason": "container_ended", "why": "its container
+    stopped", "status": "failed"} -, {} where it says nothing of it. Its end is written as its row ends, after its bill,
+    so a log read a moment after its history said it failed may not have it yet: read again a LOOK_S on, ENDED_READS
+    times at most.
+"""
+    path = f"/v1/gpus/{segment(gpu_id, 'gpu id')}/logs"
+    try:
+        for n in range(ENDED_READS):
+            after = None
+            while True:
+                page = t.get(f"{path}?{urlencode({'limit': LOG_PAGE, **({} if after is None else {'after': after})})}")
+                entries = page.get("entries") or []
+                for e in entries:
+                    if e.get("kind") == "event" and e.get("what") == "ended":
+                        return dict(e.get("detail") or {})
+                if len(entries) < LOG_PAGE:
+                    break
+                after = page.get("next")
+            if n < ENDED_READS - 1:
+                _nap(LOOK_S)
+    except (SequencesError, KeyboardInterrupt):
+        pass
+    return {}
+
+
+def _why(g: dict[str, Any], end: dict[str, Any] | None = None, waited: float = 0.0) -> str:
+    """Why a GPU that failed to start did, in words, and what it was billed (_billed): no card near its place, its card
+    had and how it ended then as its log says it (`end`, _ended_as; NOT_STARTED), or what its reason says - "within 20
+    minutes" only where `waited` was that long: the platform's end of one that did not come up is also said of a machine
+    that ended early.
+"""
+    reason, end = g.get("reason"), end or {}
+    within = " within 20 minutes" if waited >= START_MOST_S - 60.0 else ""
     if reason == "gpu_no_card":
-        return f"got no card near its place within 20 minutes: {_billed(_usd(g.get('usd_so_far')))}"
+        return f"got no card near its place{within}: {_billed(_usd(g.get('usd_so_far')))}"
     if reason == "could_not_start":
-        return f"had its card and did not start within 20 minutes: {_billed(_usd(g.get('usd_so_far')))}"
+        word = str(end.get("reason") or "")
+        said = (NOT_STARTED[word] + (within if word == "not_up" else "") if word in NOT_STARTED else
+                f"had its card and did not start ({end['why']})" if end.get("why") else "had its card and did not start")
+        return f"{said}: {_billed(_usd(g.get('usd_so_far')))}"
     return f"ended as it started ({reason or g.get('status')})"
 
 

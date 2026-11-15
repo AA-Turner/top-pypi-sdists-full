@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import hashlib
-from typing import Optional
 
 from ..totp import TOTP
 
@@ -13,7 +14,7 @@ class Steam(TOTP):
     """
 
     def __init__(
-        self, s: str, name: Optional[str] = None, issuer: Optional[str] = None, interval: int = 30, digits: int = 5
+        self, s: str, *, name: str | None = None, issuer: str | None = None, interval: int = 30, digits: int = 5
     ) -> None:
         """
         :param s: secret in base32 format
@@ -21,6 +22,8 @@ class Steam(TOTP):
         :param name: account name
         :param issuer: issuer
         """
+        if interval <= 0:
+            raise ValueError("interval must be positive")
         self.interval = interval
         super().__init__(s=s, digits=10, digest=hashlib.sha1, name=name, issuer=issuer)
 

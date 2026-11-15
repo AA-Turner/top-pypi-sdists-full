@@ -4,7 +4,9 @@ import contextlib
 import json
 import os
 import re
+import random
 import sys
+import time
 import http.client
 import urllib.parse
 from typing import Any, Callable
@@ -17,6 +19,10 @@ from .guest_auth import refuse_guest_auth
 from .graphql_http import CREDENTIAL_REJECTION_STATUS_CODES, graphql_request_headers
 from .operator_errors import GraphQLRequestError, GraphQLTimeoutError, credential_recovery_guidance
 from .tenancy import (
+    TENANT_FIELD,
+    TENANT_ID_ENVIRONMENT_VARIABLE,
+    is_shared_stack,
+    TENANT_LISTING_QUERIES,
     TENANT_MODELS,
     TenantError,
     row_belongs_to_tenant,
@@ -125,7 +131,7 @@ REVIEW_REQUEST_FIELDS = (
 )
 REVIEW_READ_MARK_FIELDS = "id requestId userKey readAt"
 LOCALIZATION_REQUEST_FIELDS = (
-    "id tenantId languageGroupId language sourceVersionId sourceVersionNumber sourceContentHash state requestedBy requestedAt runKey reason updatedAt"
+    "id tenantId languageGroupId language sourceVersionId sourceVersionNumber sourceContentHash state requestedBy requestedAt runKey reason automationId publish updatedAt"
 )
 STORY_VARIATION_FIELDS = (
     "id storyLineageId variationNumber status point headline deck bodyMarkus section connections origin basedOnVariationIds requestMessageId "
@@ -455,7 +461,8 @@ SCHEDULE_ROW_FIELDS = (
     "scheduledPublishAt scheduledBy scheduledAt scheduleState scheduleName"
 )
 HEAD_INDEX_ROW_FIELDS = "id tenantId lineageId versionNumber versionState versionCreatedAt stage type updatedAt"
-ITEM_LANGUAGE_ROW_FIELDS = "id tenantId lineageId versionNumber versionState updatedAt language languageGroupId"
+ITEM_DECK_ROW_FIELDS = "id tenantId lineageId versionNumber versionState type updatedAt deck metadata"
+ITEM_LANGUAGE_ROW_FIELDS = "id tenantId lineageId versionNumber versionState type updatedAt language languageGroupId"
 
 INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
     "itemsByStage": {"field": "listItemsByStageAndUpdatedAt", "partitionKey": "stage", "fields": STORY_SECTION_LINK_FIELDS},
@@ -468,6 +475,8 @@ INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
     "itemsByLanguageGroup": {"field": "listItemsByLanguageGroupAndLanguage", "partitionKey": "languageGroupId", "sortKey": "language", "fields": ITEM_FIELDS},
     # The rows of one version-state partition with what `stories languages` needs (every Item row has a version state).
     "itemLanguageFieldsByVersionState": {"field": "listItemsByVersionStateAndUpdatedAt", "partitionKey": "versionState", "fields": ITEM_LANGUAGE_ROW_FIELDS},
+    # The rows of one version-state partition with what `stories decks` needs: the stored deck and the front matter it derives from.
+    "itemDeckFieldsByVersionState": {"field": "listItemsByVersionStateAndUpdatedAt", "partitionKey": "versionState", "fields": ITEM_DECK_ROW_FIELDS},
     "itemsBySectionStatus": {"field": "listItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": STORY_SECTION_LINK_FIELDS},
     "messageThreadsByAnchor": {"field": "listMessageThreadsByAnchorAndUpdatedAt", "partitionKey": "primaryAnchorKey", "fields": MESSAGE_THREAD_FIELDS},
     "publishedItemsBySectionStatus": {"field": "listPublishedItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": PUBLISHED_STORY_LIST_FIELDS},
@@ -479,6 +488,7 @@ INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
         "fields": MESSAGE_FIELDS,
     },
     "knowledgeCorporaByRoleAndName": {"field": "listKnowledgeCorporaByRoleAndName", "partitionKey": "role", "fields": KNOWLEDGE_CORPUS_FIELDS},
+    "localizationRequestsByState": {"field": "listLocalizationRequestsByStateAndRequestedAt", "partitionKey": "state", "fields": LOCALIZATION_REQUEST_FIELDS},
     "itemBySlug": {"field": "itemBySlug", "partitionKey": "slug", "fields": ITEM_FIELDS},
     "itemByTenantSlug": {"field": "itemByTenantSlug", "partitionKey": "tenantSlug", "fields": ITEM_FIELDS},
     "itemsByLineageAndVersion": {
@@ -817,6 +827,22 @@ def _without_medium_fields(variables: dict[str, Any] | None) -> dict[str, Any] |
     return {**variables, "input": {key: value for key, value in variables["input"].items() if key not in MEDIUM_REFERENCE_FIELDS}}
 
 
+#: A read (a ``query``) changes nothing, so it is sent again, with a growing pause, when the failure is the network's or the data store's and not the request's:
+#: a reset connection, a timeout, a throttled or briefly unavailable service, or an answer whose only errors are the store's own transient ones (AppSync
+#: reports a DynamoDB client timeout inside a 200 answer). A rejected request (validation, credentials, authorization) is never repeated. A mutation is
+#: never repeated by this rule: it may already have run.
+READ_ATTEMPTS = 5
+READ_BACKOFF_SECONDS = 0.5   # the pause before the second attempt; it doubles each time (to a ceiling of 8 seconds) and is spread by random jitter
+TRANSIENT_STATUS_CODES = (408, 429, 500, 502, 503, 504)
+TRANSIENT_ERROR_TYPES = ("DynamoDB:SdkClientException", "DynamoDB:ProvisionedThroughputExceededException", "DynamoDB:ThrottlingException",
+                         "DynamoDB:InternalServerError")
+
+
+def _only_transient_errors(errors: list[Any]) -> bool:
+    """Whether every error of an answer is one of the data store's transient kinds (so the same read may succeed a moment later)."""
+    return bool(errors) and all(isinstance(entry, dict) and entry.get("errorType") in TRANSIENT_ERROR_TYPES for entry in errors)
+
+
 class PapyrusGraphQLAuthoringClient:
     def __init__(
         self,
@@ -875,7 +901,8 @@ class PapyrusGraphQLAuthoringClient:
         last_error: Exception | None = None
         from .user_auth_mode import user_auth_requested
         # An uncertain user-authenticated mutation must not be submitted again.
-        attempts = 1 if user_auth_requested() else 2
+        is_read = query.lstrip().startswith("query")
+        attempts = READ_ATTEMPTS if is_read else (1 if user_auth_requested() else 2)
         for attempt in range(attempts):
             try:
                 request_meter.record_request(query, aliases=aliases)
@@ -889,6 +916,11 @@ class PapyrusGraphQLAuthoringClient:
                         message = f"{message}\n{credential_recovery_guidance()}"
                     raise GraphQLRequestError(message, status_code=response.status)
                 body = json.loads(response_body)
+                if is_read and attempt < attempts - 1 and _only_transient_errors(body.get("errors") or []):
+                    last_error = GraphQLRequestError("GraphQL request failed: " + "; ".join(str(entry.get("message") or entry) for entry in body["errors"]))
+                    body = None
+                    self._pause_before_retry(attempt)
+                    continue
                 break
             except (TimeoutError, OSError, http.client.HTTPException, json.JSONDecodeError, RuntimeError) as error:
                 last_error = error
@@ -899,6 +931,10 @@ class PapyrusGraphQLAuthoringClient:
                     if isinstance(error, TimeoutError):
                         raise GraphQLTimeoutError(f"GraphQL request failed: {error}") from error
                     raise GraphQLRequestError(f"GraphQL request failed: {error}") from error
+                if is_read:
+                    if isinstance(error, GraphQLRequestError) and error.status_code not in TRANSIENT_STATUS_CODES:
+                        raise   # the request itself was refused: sending it again cannot change the answer
+                    self._pause_before_retry(attempt)
                 continue
         if body is None:
             raise GraphQLRequestError(f"GraphQL request failed: {last_error}")
@@ -911,6 +947,10 @@ class PapyrusGraphQLAuthoringClient:
         if not isinstance(data, dict):
             raise GraphQLRequestError("GraphQL response did not include data.")
         return data
+
+    def _pause_before_retry(self, attempt: int) -> None:
+        """The wait before attempt ``attempt + 2`` of a read: exponential, with jitter so many workers do not come back together."""
+        time.sleep(min(READ_BACKOFF_SECONDS * 2 ** attempt, 8.0) * (0.5 + random.random()))
 
     @contextlib.contextmanager
     def long_call(self, seconds: float):
@@ -1047,6 +1087,27 @@ class PapyrusGraphQLAuthoringClient:
             if not next_token:
                 break
         return self._rows_with_bare_ids(model_name, rows_for_tenant(model_name, self.tenant_id, items))
+
+    def list_tenant_rows(self, model_name: str, fields: str, *, page_size: int = 100) -> list[dict[str, Any]]:
+        """Every row of ``model_name`` that belongs to this client's tenant, read through the model's ``tenantId`` index: one Query, followed page
+        by page, never a whole-table read. What export, deletion and usage read (PPY-1ce06f). The index holds only rows that carry a ``tenantId``,
+        so the list is complete once the tenantId backfill (PPY-8f9462) has stamped every row."""
+        if not self.tenant_id:
+            raise TenantError(f"Listing a tenant's {model_name} rows needs a tenant (--tenant or {TENANT_ID_ENVIRONMENT_VARIABLE}).")
+        if model_name not in TENANT_LISTING_QUERIES:
+            raise TenantError(f"{model_name} has no tenantId index (see docs/tenant-key-inventory.md for how its rows are listed by tenant).")
+        field = TENANT_LISTING_QUERIES[model_name]
+        query = _index_query(field, TENANT_FIELD, fields)
+        items: list[dict[str, Any]] = []
+        next_token = None
+        while True:
+            with request_meter.model(model_name):
+                result = self.graphql(query, {TENANT_FIELD: self.tenant_id, "limit": page_size, "nextToken": next_token})
+            connection = result.get(field) or {}
+            items.extend(entry for entry in connection.get("items") or [] if entry)
+            next_token = connection.get("nextToken")
+            if not next_token:
+                return self._rows_with_bare_ids(model_name, items)
 
     def _rows_with_bare_ids(self, model_name: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [tenant_row_with_bare_record_id(model_name, self.tenant_id, row) for row in rows]
@@ -1268,6 +1329,30 @@ class PapyrusGraphQLAuthoringClient:
         self._require_row_in_tenant(model_name, record_id)
         self.graphql(MUTATIONS[model_name]["delete"], {"input": {"id": self._stored_record_id(model_name, record_id)}})
 
+    def delete_lineage_row(self, model_name: str, record_id: str, lineage_id: str) -> bool:
+        """Delete one row that a lineage's own index partition listed, whether or not it carries this client's ``tenantId``. True when it deleted
+        the row, False when the row is already gone.
+
+        ``delete_record`` refuses a row it cannot read as the tenant's, and a row written before tenant stamping (or by a writer that did not stamp it)
+        has no ``tenantId``: the index lists it, the tenant-checked read cannot see it, and the delete failed with "does not exist in tenant". The row
+        is the lineage's all the same: its ``itemLineageId`` names the lineage whose publish is pruning it, and a lineage id belongs to one tenant. So
+        this reads the row unscoped and deletes it when it is unstamped or this tenant's and names this lineage; a row of another tenant, or of
+        another lineage, is refused. A row that is already gone (an index that lags a delete, or an overlapping publish of the same lineage) is the
+        state the caller wanted, so it is not an error."""
+        if model_name not in MUTATIONS:
+            raise ValueError(f"Unsupported model for delete: {model_name}")
+        stored_id = self._stored_record_id(model_name, record_id)
+        row = self.get_record_unscoped(model_name, stored_id)
+        if row is None:
+            return False
+        owner = row.get("tenantId")
+        if owner and owner != self.tenant_id:
+            raise TenantError(f"{model_name} {record_id} belongs to tenant {owner}, not {self.tenant_id}.")
+        if row.get("itemLineageId") != lineage_id:
+            raise TenantError(f"{model_name} {record_id} belongs to lineage {row.get('itemLineageId')}, not {lineage_id}.")
+        self.graphql(MUTATIONS[model_name]["delete"], {"input": {"id": stored_id}})
+        return True
+
     def safe_list_records(self, model_name: str) -> list[dict[str, Any]]:
         try:
             return self.list_records(model_name)
@@ -1295,7 +1380,7 @@ class PapyrusGraphQLAuthoringClient:
         return result.get("updateNewsroomSummary") or {}
 
     def _require_row_in_tenant(self, model_name: str, record_id: str) -> None:
-        if not self.tenant_id or model_name not in TENANT_MODELS:
+        if not self.tenant_id or not (model_name in TENANT_MODELS or (model_name in TENANT_FIELD_MODELS and is_shared_stack())):
             return
         if self.get_record(model_name, record_id) is None:
             raise TenantError(f"{model_name} {record_id} does not exist in tenant {self.tenant_id}.")
@@ -1318,11 +1403,19 @@ class PapyrusGraphQLAuthoringClient:
             self._primary_language = primary_language(settings_from(GraphQLEditorialStore(execute=self.graphql, tenant_id=self.tenant_id)))
         return self._primary_language
 
+    def _language_source(self, payload: dict[str, Any], current: dict[str, Any] | None) -> dict[str, Any] | None:
+        """The stored row an Item write takes its language from when the payload names none: the row it replaces, else the version it follows
+        (``previousVersionId``), so every version of a lineage is written in the language of the one before it (``item_language.with_item_language``).
+        Read only when the payload names no language, so a writer that carries the language forward costs no read."""
+        if payload.get("language") or (current or {}).get("language") or not payload.get("previousVersionId"):
+            return current
+        return self.get_record("Item", payload["previousVersionId"]) or current
+
     def create_record(self, model_name: str, input_payload: dict[str, Any]) -> None:
         if model_name not in MUTATIONS:
             raise ValueError(f"Unsupported model for create: {model_name}")
         if model_name == "Item":
-            input_payload = with_item_language(input_payload, None, self.primary_language())
+            input_payload = with_item_language(input_payload, self._language_source(input_payload, None), self.primary_language())
         prepared = self._prepared_payload(model_name, input_payload)
         self.graphql(MUTATIONS[model_name]["create"], {"input": prepared})
 
@@ -1330,7 +1423,7 @@ class PapyrusGraphQLAuthoringClient:
         prepared = self._prepared_payload(model_name, input_payload)
         current = self.get_record(model_name, prepared["id"])
         if model_name == "Item":
-            prepared = self._prepared_payload(model_name, with_item_language(input_payload, current, self.primary_language()))
+            prepared = self._prepared_payload(model_name, with_item_language(input_payload, self._language_source(input_payload, current), self.primary_language()))
         mutation = MUTATIONS[model_name]["update" if current else "create"]
         self.graphql(mutation, {"input": prepared})
         return "updated" if current else "created"

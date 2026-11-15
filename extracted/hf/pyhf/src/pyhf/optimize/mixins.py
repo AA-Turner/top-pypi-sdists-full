@@ -1,4 +1,5 @@
 """Helper Classes for use of automatic differentiation."""
+
 import logging
 
 import numpy as np
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 class OptimizerMixin:
     """Mixin Class to build optimizers."""
 
-    __slots__ = ['maxiter', 'verbose']
+    __slots__ = ["maxiter", "verbose"]
 
     def __init__(self, **kwargs):
         """
@@ -23,13 +24,12 @@ class OptimizerMixin:
             maxiter (:obj:`int`): maximum number of iterations. Default is 100000.
             verbose (:obj:`int`): verbose output level during minimization. Default is off (0).
         """
-        self.maxiter = kwargs.pop('maxiter', 100000)
-        self.verbose = kwargs.pop('verbose', 0)
+        self.maxiter = kwargs.pop("maxiter", 100000)
+        self.verbose = kwargs.pop("verbose", 0)
 
         if kwargs:
-            raise exceptions.Unsupported(
-                f"Unsupported kwargs were passed in: {list(kwargs.keys())}."
-            )
+            msg = f"Unsupported kwargs were passed in: {list(kwargs)}."
+            raise exceptions.Unsupported(msg)
 
     def _internal_minimize(
         self,
@@ -38,7 +38,7 @@ class OptimizerMixin:
         do_grad=False,
         bounds=None,
         fixed_vals=None,
-        options={},
+        options=None,
         par_names=None,
     ):
         minimizer = self._get_minimizer(
@@ -49,6 +49,8 @@ class OptimizerMixin:
             do_grad=do_grad,
             par_names=par_names,
         )
+        if options is None:
+            options = {}
         result = self._minimize(
             minimizer,
             func,
@@ -61,9 +63,9 @@ class OptimizerMixin:
 
         try:
             assert result.success
-        except AssertionError:
-            log.error(result, exc_info=True)
-            raise exceptions.FailedMinimization(result)
+        except AssertionError as exc:
+            log.exception(result)
+            raise exceptions.FailedMinimization(result) from exc
         return result
 
     def _internal_postprocess(self, fitresult, stitch_pars, return_uncertainties=False):
@@ -79,7 +81,7 @@ class OptimizerMixin:
         fitted_pars = stitch_pars(tensorlib.astensor(fitresult.x))
 
         # check if uncertainties were provided (and stitch just in case)
-        uncertainties = getattr(fitresult, 'unc', None)
+        uncertainties = getattr(fitresult, "unc", None)
         if uncertainties is not None:
             # extract number of fixed parameters
             num_fixed_pars = len(fitted_pars) - len(fitresult.x)
@@ -98,7 +100,7 @@ class OptimizerMixin:
             if return_uncertainties:
                 fitted_pars = tensorlib.stack([fitted_pars, uncertainties], axis=1)
 
-        correlations = getattr(fitresult, 'corr', None)
+        correlations = getattr(fitresult, "corr", None)
         if correlations is not None:
             _zeros = tensorlib.zeros(num_fixed_pars)
             # possibly a more elegant way to do this

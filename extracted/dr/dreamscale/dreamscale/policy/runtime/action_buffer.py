@@ -12,6 +12,7 @@ from dreamscale.policy.runtime.action_smoothing import (
 )
 from dreamscale.policy.runtime.adaptive_smoothing import resolve_adaptive_smoothing
 from dreamscale.policy.runtime.continuation import continue_motion
+from dreamscale.policy.runtime.crossfade import resolve_crossfade
 
 Action = tuple[float, ...]
 
@@ -247,6 +248,42 @@ class ActionBuffer:
             }
         if smoothing.correction_steps is None:
             raise AssertionError("motion smoothing requires correction steps")
+        if smoothing.mode == "crossfade":
+            crossed = resolve_crossfade(
+                next_action_step=self._next_action_step,
+                action_steps=action_steps,
+                new_actions=actions,
+                existing_actions=existing_actions,
+                window=smoothing.correction_steps,
+                time_scale=smoothing.time_scale,
+                normalized_gripper_indices=smoothing.normalized_gripper_indices,
+            )
+            next_actions = {
+                step: item
+                for step, item in self._actions.items()
+                if self._next_action_step <= step < base
+            }
+            sources = dict(zip(action_steps, map(_as_action, actions), strict=True))
+            next_actions.update({
+                step: _BufferedAction(action=action, source_action=sources[step])
+                for step, action in crossed.actions.items()
+            })
+            self._actions = next_actions
+            return {
+                "requested_mode": smoothing.requested_mode,
+                "resolved_mode": smoothing.mode,
+                "new_action_weight": None,
+                # The window asked for; transition_steps is the window used.
+                "correction_steps": smoothing.correction_steps,
+                "stale_steps": stale_steps,
+                "overlap_steps": crossed.overlap_steps,
+                "resolved_steps": len(crossed.actions),
+                "rebase_offset_steps": 0,
+                "first_executable_source_offset": crossed.first_executable_source_offset,
+                "max_abs_position_revision": crossed.max_abs_position_revision,
+                "transition_steps": crossed.transition_steps,
+                "time_scale": crossed.time_scale,
+            }
         inputs = dict(
             next_action_step=self._next_action_step,
             action_steps=action_steps,

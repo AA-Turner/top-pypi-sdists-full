@@ -336,8 +336,16 @@ def settings_boxes_enroll_token(name=None, ttl_s=None):
     # request origin (the convention's views do not read ``request``).
     tok = res.get("enroll_token")
     if tok:
-        res["install_cmd"] = (f"curl -fsSL {self_base()}/api/fleet/workers/install.sh | "
-                              f"bash -s -- --name {name} --token {tok}")
+        # the box connects its Wrapper to this Core once installed (POST .../fleet/workers/connect, which wants a
+        # "use" key): a key for that box, valid a day, revocable in Settings -> API keys (2026-11-14). The script is
+        # fetched from /fleet-link/ (web/worker_link.py): /api/ sits behind the console's login, which a new box has
+        # not got (a-brain's fetch of /api/fleet/workers/install.sh answered 401)
+        import shlex
+        from hugpy_core.router.observability import store as routing
+        key = routing.KEYS.create(f"worker install {name}", "use", 1, created_by=f"worker-install:{name}")
+        res["core_key_id"] = key["id"]
+        res["install_cmd"] = (f"curl -fsSL {self_base()}/fleet-link/install.sh | sudo bash -s -- "
+                              f"--name {shlex.quote(name)} --token {shlex.quote(tok)} --core-key {shlex.quote(key['key'])}")
     return res
 
 

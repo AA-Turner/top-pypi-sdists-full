@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 import time
+from dataclasses import replace
 from typing import Any, Callable
 
 from probe.sdk.delivery.outbox.progress import STALL_LIMIT_SECONDS, DeliveryErrorKind
@@ -32,8 +33,11 @@ CRASH_RESTARTS = 3
 #: them".
 NO_SENDER_KICKS = 3
 _KICK_EVERY_SECONDS = 2.0
-#: The full count runs at most this often (only once the records say nothing is left).
+#: The full count runs at most this often while the records say writes are still in line.
 _COUNT_EVERY_SECONDS = 5.0
+#: ...and this often once they say nothing is left: the wait may be over, and a close that waited
+#: out `_COUNT_EVERY_SECONDS` after its last write landed spent a short SIGTERM grace for nothing.
+_COUNT_DONE_EVERY_SECONDS = POLL_SECONDS
 _MARK_EVERY_SECONDS = 30.0
 #: Nothing of the run moved this long: the folders are counted (at most every `_COUNT_EVERY_SECONDS`).
 _STILL_SECONDS = 15.0
@@ -118,7 +122,8 @@ class DeliveryWaiter:
             # The records count every write (an older attempt's too): the folders are counted when
             # they say nothing is left, when they may be behind, and when nothing moved for a while.
             doubt = in_line == 0 or self._is_stale(view) or now - moved_at >= _STILL_SECONDS
-            if doubt and (counted_at is None or now - counted_at >= _COUNT_EVERY_SECONDS):
+            every = _COUNT_DONE_EVERY_SECONDS if in_line == 0 else _COUNT_EVERY_SECONDS
+            if doubt and (counted_at is None or now - counted_at >= every):
                 counted_at = now
                 full = self._count()
                 if full.pending + full.best_effort == 0:
@@ -131,7 +136,9 @@ class DeliveryWaiter:
                 if full.pending + full.best_effort == 0:
                     return self._settle(full)
                 # No worker ever wrote a record (no sender at all): only the folders count them.
-                return self._result(ended, view if view.updated_at is not None else full)
+                # Either way what is still in line is the folders' count: the records lag them (a
+                # write queued after the worker's last record), and said "0 still queued".
+                return self._result(ended, _with_counts_of(view, full) if view.updated_at is not None else full)
             if now - self.started >= PROGRESS_EVERY_SECONDS and now - said_at >= PROGRESS_EVERY_SECONDS:
                 said_at = now
                 self.on_progress(self.line.render(view, is_server_storing=self._is_server_storing(view)))
@@ -287,6 +294,14 @@ class DeliveryWaiter:
             holder=self._holder,
             service_version=_get_service_version() if outcome == WaitOutcome.NEEDS_NEWER_SERVICE else None,
         )
+
+
+def _with_counts_of(view: RunView, full: RunView) -> RunView:
+    """The records' view (progress, errors, workers) with the folders' counts of what is left."""
+    return replace(
+        view, pending=full.pending, pending_bytes=full.pending_bytes, held=full.held, failed=full.failed,
+        discarded=full.discarded, set_aside=full.set_aside, best_effort=full.best_effort,
+    )
 
 
 def _get_service_version() -> str | None:

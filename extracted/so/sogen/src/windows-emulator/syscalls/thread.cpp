@@ -74,19 +74,46 @@ namespace sogen
                            : STATUS_UNSUCCESSFUL;
             }
 
+            // RtlpWow64CtxToAmd64 widens a 32-bit context's debug registers and sets DR7.LE when DR7 enables none of L0-L3
+            // while DR0-DR3 hold an address, so a breakpoint staged before it is enabled reads back: RtlpWow64CtxFromAmd64
+            // reports them only while DR7 sets an L, LE or GE bit.
+            uint32_t widened_wow64_dr7(const WOW64_CONTEXT& context)
+            {
+                constexpr uint32_t dr7_local_enables = 0x55; // L0-L3
+                constexpr uint32_t dr7_local_exact = 0x100;  // LE
+                const bool holds_address = context.Dr0 != 0 || context.Dr1 != 0 || context.Dr2 != 0 || context.Dr3 != 0;
+                return (context.Dr7 & dr7_local_enables) == 0 && holds_address ? context.Dr7 | dr7_local_exact : context.Dr7;
+            }
+
+            // A 32-bit context's debug registers as RtlpWow64CtxToAmd64 widens them, for cpu_context::restore to keep what
+            // PspSetContextThreadInternal keeps.
+            CONTEXT64 widened_wow64_debug_registers(const WOW64_CONTEXT& context)
+            {
+                CONTEXT64 debug_registers{};
+                debug_registers.ContextFlags = CONTEXT_DEBUG_REGISTERS_64;
+                debug_registers.Dr0 = context.Dr0;
+                debug_registers.Dr1 = context.Dr1;
+                debug_registers.Dr2 = context.Dr2;
+                debug_registers.Dr3 = context.Dr3;
+                debug_registers.Dr7 = widened_wow64_dr7(context);
+                return debug_registers;
+            }
+
             // Takes the parts of new_wow64_context that its ContextFlags select, as SetThreadContext does.
             void merge_wow64_context(WOW64_CONTEXT& merged_context, const WOW64_CONTEXT& new_wow64_context)
             {
                 merged_context.ContextFlags = new_wow64_context.ContextFlags;
 
+                // PspWow64SetContextThread sets them through PspSetContextThreadInternal, as a 64-bit context's
+                // (cpu_context::restore); a 32-bit breakpoint address is always a user one.
                 if ((new_wow64_context.ContextFlags & CONTEXT_DEBUG_REGISTERS_32) == CONTEXT_DEBUG_REGISTERS_32)
                 {
                     merged_context.Dr0 = new_wow64_context.Dr0;
                     merged_context.Dr1 = new_wow64_context.Dr1;
                     merged_context.Dr2 = new_wow64_context.Dr2;
                     merged_context.Dr3 = new_wow64_context.Dr3;
-                    merged_context.Dr6 = new_wow64_context.Dr6;
-                    merged_context.Dr7 = new_wow64_context.Dr7;
+                    merged_context.Dr6 = 0;
+                    merged_context.Dr7 = widened_wow64_dr7(new_wow64_context) & cpu_context::dr7_legal;
                 }
 
                 if ((new_wow64_context.ContextFlags & CONTEXT_FLOATING_POINT_32) == CONTEXT_FLOATING_POINT_32 &&
@@ -135,17 +162,34 @@ namespace sogen
                 }
             }
 
-            void set_thread_impersonation_token(emulator_thread& thread, const handle token)
+            bool is_impersonation_token(const handle token)
             {
-                thread.impersonation_token = token;
-                if (thread.teb64)
+                return token == 0 || token == DUMMY_IMPERSONATION_TOKEN || token == ANONYMOUS_IMPERSONATION_TOKEN;
+            }
+
+            NTSTATUS set_child_thread_token(const syscall_context& c, const managed_process_thread& thread,
+                                            const uint64_t token_information, const uint32_t token_information_length)
+            {
+                if (token_information_length != sizeof(handle))
                 {
-                    thread.teb64->access([&](TEB64& teb) { teb.IsImpersonating = token != 0; });
+                    return STATUS_BUFFER_OVERFLOW;
                 }
-                if (thread.teb32)
+
+                auto* manager = c.win_emu.processes();
+                if (!manager)
                 {
-                    thread.teb32->access([&](TEB32& teb) { teb.IsImpersonating = token != 0; });
+                    return STATUS_NOT_SUPPORTED;
                 }
+
+                const auto requested_token = c.emu.read_memory<handle>(token_information);
+                const auto token = requested_token == 0 ? requested_token : resolve_token(c, requested_token);
+                if (!is_impersonation_token(token))
+                {
+                    return token == CURRENT_PROCESS_TOKEN ? STATUS_BAD_TOKEN_TYPE : STATUS_INVALID_HANDLE;
+                }
+
+                const auto exported = token == 0 ? process_token{} : c.proc.export_token(resolve_token_object(c, requested_token));
+                return map_process_error(manager->set_thread_token(thread.process, thread.thread_id, exported));
             }
 
             NTSTATUS get_unresolved_handle_status(const handle h, const handle_types::type expected_type)
@@ -155,11 +199,17 @@ namespace sogen
             }
         }
 
+        std::optional<CONTEXT64> read_native_debug_registers(const syscall_context& c, emulator_thread& thread);
+
         NTSTATUS handle_NtSetInformationThread(const syscall_context& c, const handle thread_handle, const THREADINFOCLASS info_class,
                                                const uint64_t thread_information, const uint32_t thread_information_length)
         {
             if (const auto* managed = c.proc.managed_threads.get(thread_handle))
             {
+                if (info_class == ThreadImpersonationToken)
+                {
+                    return set_child_thread_token(c, *managed, thread_information, thread_information_length);
+                }
                 if (info_class != ThreadWow64Context)
                 {
                     return STATUS_NOT_SUPPORTED;
@@ -235,12 +285,7 @@ namespace sogen
                         thread->restore(c.emu, c.proc.gdt_base);
                     }
 
-                    c.x64_cpu().reg(x86_register::dr0, static_cast<uint64_t>(new_wow64_context.Dr0));
-                    c.x64_cpu().reg(x86_register::dr1, static_cast<uint64_t>(new_wow64_context.Dr1));
-                    c.x64_cpu().reg(x86_register::dr2, static_cast<uint64_t>(new_wow64_context.Dr2));
-                    c.x64_cpu().reg(x86_register::dr3, static_cast<uint64_t>(new_wow64_context.Dr3));
-                    c.x64_cpu().reg(x86_register::dr6, static_cast<uint64_t>(new_wow64_context.Dr6));
-                    c.x64_cpu().reg(x86_register::dr7, static_cast<uint64_t>(new_wow64_context.Dr7));
+                    cpu_context::restore(c.x64_cpu(), widened_wow64_debug_registers(new_wow64_context));
 
                     if (needs_switch)
                     {
@@ -327,13 +372,14 @@ namespace sogen
                 }
 
                 const emulator_object<handle> info{c.emu, thread_information};
-                const auto token = info.read();
-                if (token != 0 && token != DUMMY_IMPERSONATION_TOKEN && token != ANONYMOUS_IMPERSONATION_TOKEN)
+                const auto requested_token = info.read();
+                const auto token = requested_token == 0 ? requested_token : resolve_token(c, requested_token);
+                if (!is_impersonation_token(token))
                 {
                     return token == CURRENT_PROCESS_TOKEN ? STATUS_BAD_TOKEN_TYPE : STATUS_INVALID_HANDLE;
                 }
-                set_thread_impersonation_token(*thread, token);
 
+                c.proc.impersonate_token(*thread, c.proc.tokens.get(requested_token) ? requested_token : token);
                 return STATUS_SUCCESS;
             }
 
@@ -504,7 +550,7 @@ namespace sogen
                 return STATUS_SUCCESS;
             }
 
-            const auto* thread = thread_handle == CURRENT_THREAD ? c.vcpu.active_thread : c.proc.threads.get(thread_handle);
+            auto* thread = thread_handle == CURRENT_THREAD ? c.vcpu.active_thread : c.proc.threads.get(thread_handle);
 
             if (!thread)
             {
@@ -561,11 +607,29 @@ namespace sogen
                 }
 
                 // Return the saved context (which was set by NtSetInformationThread)
-                thread->wow64_cpu_reserved->access([&](const WOW64_CPURESERVED& ctx) {
-                    const auto wow64_context = ctx.Context;
-                    context_obj.write(wow64_context);
-                });
+                const auto requested_flags = context_obj.read().ContextFlags;
+                auto wow64_context = thread->wow64_cpu_reserved->read().Context;
 
+                // RtlpWow64GetContextOnAmd64 takes the debug registers from the thread's native context, and
+                // RtlpWow64CtxFromAmd64 keeps L0-L3, LE and the breakpoint conditions of DR7.
+                if ((requested_flags & CONTEXT_DEBUG_REGISTERS_32) == CONTEXT_DEBUG_REGISTERS_32)
+                {
+                    constexpr DWORD wow64_dr7_kept = 0xFFFF0155;
+                    const auto native = read_native_debug_registers(c, *thread);
+                    if (!native)
+                    {
+                        return STATUS_UNSUCCESSFUL;
+                    }
+
+                    wow64_context.Dr0 = static_cast<DWORD>(native->Dr0);
+                    wow64_context.Dr1 = static_cast<DWORD>(native->Dr1);
+                    wow64_context.Dr2 = static_cast<DWORD>(native->Dr2);
+                    wow64_context.Dr3 = static_cast<DWORD>(native->Dr3);
+                    wow64_context.Dr6 = static_cast<DWORD>(native->Dr6);
+                    wow64_context.Dr7 = static_cast<DWORD>(native->Dr7) & wow64_dr7_kept;
+                }
+
+                context_obj.write(wow64_context);
                 return STATUS_SUCCESS;
             }
 
@@ -841,9 +905,14 @@ namespace sogen
         }
 
         NTSTATUS handle_NtOpenThread(const syscall_context& c, const emulator_object<handle> thread_handle, ACCESS_MASK /*desired_access*/,
-                                     emulator_object<OBJECT_ATTRIBUTES<EmulatorTraits<Emu64>>> /*object_attributes*/,
+                                     emulator_object<OBJECT_ATTRIBUTES<EmulatorTraits<Emu64>>> object_attributes,
                                      emulator_object<CLIENT_ID64> client_id)
         {
+            if (const auto status = validate_object_attributes(object_attributes); status != STATUS_SUCCESS)
+            {
+                return status;
+            }
+
             if (!client_id)
             {
                 return STATUS_INVALID_PARAMETER;
@@ -853,31 +922,21 @@ namespace sogen
 
             if (id.UniqueProcess == 0 || id.UniqueProcess == c.proc.process_id)
             {
-                for (auto& [h_val, t] : c.proc.threads)
+                for (auto& [index, thread] : c.proc.threads)
                 {
-                    if (t.id == id.UniqueThread)
+                    if (thread.id == id.UniqueThread)
                     {
-                        const auto handle = c.proc.threads.make_handle(h_val);
-                        if (!c.proc.threads.duplicate(handle))
-                        {
-                            return STATUS_INVALID_HANDLE;
-                        }
-                        thread_handle.write(handle);
+                        thread_handle.write(c.proc.threads.open_by_index(index, get_handle_attributes(object_attributes)));
                         return STATUS_SUCCESS;
                     }
                 }
             }
 
-            for (auto& [h_val, thread] : c.proc.managed_threads)
+            for (auto& [index, thread] : c.proc.managed_threads)
             {
                 if (thread.thread_id == id.UniqueThread && (id.UniqueProcess == 0 || thread.process_id == id.UniqueProcess))
                 {
-                    const auto handle = c.proc.managed_threads.make_handle(h_val);
-                    if (!c.proc.managed_threads.duplicate(handle))
-                    {
-                        return STATUS_INVALID_HANDLE;
-                    }
-                    thread_handle.write(handle);
+                    thread_handle.write(c.proc.managed_threads.open_by_index(index, get_handle_attributes(object_attributes)));
                     return STATUS_SUCCESS;
                 }
             }
@@ -888,21 +947,58 @@ namespace sogen
         NTSTATUS handle_NtOpenThreadToken(const syscall_context& c, const handle thread_handle, const ACCESS_MASK /*desired_access*/,
                                           const BOOLEAN /*open_as_self*/, const emulator_object<handle> token_handle)
         {
-            const auto* thread = thread_handle == CURRENT_THREAD ? c.vcpu.active_thread : c.proc.threads.get(thread_handle);
-            if (!thread)
+            handle impersonation_token{};
+            std::optional<process_token> remote_token{};
+            if (const auto* managed = c.proc.managed_threads.get(thread_handle))
             {
-                return STATUS_INVALID_HANDLE;
+                auto* manager = c.win_emu.processes();
+                if (!manager)
+                {
+                    return STATUS_NOT_SUPPORTED;
+                }
+
+                const auto result = manager->get_thread_token(managed->process, managed->thread_id);
+                if (result.error != process_error::none)
+                {
+                    return map_process_error(result.error);
+                }
+                impersonation_token.bits = result.token.identity;
+                remote_token = result.token;
             }
-            if (thread->impersonation_token == 0)
+            else
+            {
+                const auto* thread = thread_handle == CURRENT_THREAD ? c.vcpu.active_thread : c.proc.threads.get(thread_handle);
+                if (!thread)
+                {
+                    return STATUS_INVALID_HANDLE;
+                }
+                impersonation_token = thread->impersonation_token;
+            }
+
+            if (impersonation_token == 0)
             {
                 return STATUS_NO_TOKEN;
             }
-            if (thread->impersonation_token == ANONYMOUS_IMPERSONATION_TOKEN)
+            if (impersonation_token == ANONYMOUS_IMPERSONATION_TOKEN)
             {
                 return STATUS_CANT_OPEN_ANONYMOUS;
             }
-            token_handle.write(thread->impersonation_token);
 
+            // NtOpenThreadTokenEx opens the token object the thread impersonates, so the privileges it reports and
+            // adjusts are that token's own. Another process's token object can only be copied here.
+            if (remote_token)
+            {
+                token_handle.write(open_token(c, *remote_token));
+                return STATUS_SUCCESS;
+            }
+
+            if (const auto opened = c.proc.tokens.duplicate(impersonation_token))
+            {
+                token_handle.write(*opened);
+                return STATUS_SUCCESS;
+            }
+
+            token_handle.write(open_token(c, impersonation_token));
             return STATUS_SUCCESS;
         }
 
@@ -920,7 +1016,7 @@ namespace sogen
             {
                 return STATUS_INVALID_HANDLE;
             }
-            set_thread_impersonation_token(*thread, ANONYMOUS_IMPERSONATION_TOKEN);
+            c.proc.impersonate_token(*thread, ANONYMOUS_IMPERSONATION_TOKEN);
             return STATUS_SUCCESS;
         }
 
@@ -1251,7 +1347,7 @@ namespace sogen
         }
 
         NTSTATUS handle_NtGetNextThread(const syscall_context& c, const handle process_handle, const handle thread_handle,
-                                        const ACCESS_MASK /*desired_access*/, const ULONG /*handle_attributes*/, const ULONG flags,
+                                        const ACCESS_MASK /*desired_access*/, const ULONG handle_attributes, const ULONG flags,
                                         const emulator_object<handle> new_thread_handle)
         {
             if (!new_thread_handle.try_write(NULL_HANDLE))
@@ -1277,16 +1373,18 @@ namespace sogen
             }
 
             bool return_next_thread = resolved_thread_handle == NULL_HANDLE;
+            const auto* reference_thread = return_next_thread ? nullptr : c.proc.threads.get(resolved_thread_handle);
             for (auto& t : c.proc.threads)
             {
                 if (return_next_thread && !t.second.is_terminated())
                 {
-                    ++t.second.ref_count;
-                    new_thread_handle.write(c.proc.threads.make_handle(t.first));
+                    new_thread_handle.write(
+                        c.proc.threads.open_by_index(t.first, {.inherit = (handle_attributes & OBJ_INHERIT) != 0,
+                                                               .protect_from_close = (handle_attributes & OBJ_PROTECT_CLOSE) != 0}));
                     return STATUS_SUCCESS;
                 }
 
-                if (t.first == resolved_thread_handle.value.id)
+                if (&t.second == reference_thread)
                 {
                     return_next_thread = true;
                 }
@@ -1413,6 +1511,22 @@ namespace sogen
             }
 
             return true;
+        }
+
+        std::optional<CONTEXT64> read_native_debug_registers(const syscall_context& c, emulator_thread& thread)
+        {
+            CONTEXT64 native{};
+            native.ContextFlags = CONTEXT_DEBUG_REGISTERS_64;
+            const auto accessed = access_thread_context<CONTEXT64>(c, thread, [&] {
+                store_context(c.emu, native);
+                return false;
+            });
+            if (!accessed)
+            {
+                return std::nullopt;
+            }
+
+            return native;
         }
 
         NTSTATUS handle_NtGetContextThread(const syscall_context& c, const handle thread_handle,
@@ -1544,6 +1658,11 @@ namespace sogen
                                          const EmulatorTraits<Emu64>::SIZE_T maximum_stack_size,
                                          const emulator_object<PS_ATTRIBUTE_LIST<EmulatorTraits<Emu64>>> attribute_list)
         {
+            if (const auto status = validate_object_attributes(object_attributes); status != STATUS_SUCCESS)
+            {
+                return status;
+            }
+
             constexpr ULONG valid_create_flags = 0x7F;
             if (create_flags & ~valid_create_flags)
             {
@@ -1599,7 +1718,9 @@ namespace sogen
             const auto stack_commit_size = stack_size != 0 ? stack_size : c.win_emu.mod_manager.executable->size_of_stack_commit;
             const auto h =
                 c.proc.create_thread(c.win_emu.memory, start_routine, argument, actual_stack_size, create_flags, false, stack_commit_size);
-            c.proc.threads.get(h)->inherit = object_attributes && (object_attributes.read().Attributes & OBJ_INHERIT) != 0;
+            const auto thread_attributes = get_handle_attributes(object_attributes);
+            (void)c.proc.threads.set_attributes(h, thread_attributes);
+            c.proc.threads.get(h)->inherit = thread_attributes.inherit;
 
             c.win_emu.report_debug_event({
                 .kind = process_debug_event_kind::create_thread,
@@ -1904,7 +2025,15 @@ namespace sogen
         syscalls::access_thread_context<CONTEXT64>(c, thread, [&] {
             if (!runs_x86_code(c.emu))
             {
-                return false;
+                // wow64cpu reloads the saved copy below without the debug registers, so PspWow64SetContextThread sets
+                // them on the native context of a thread outside 32-bit code too, as the direct setter does.
+                if ((update.ContextFlags & CONTEXT_DEBUG_REGISTERS_32) != CONTEXT_DEBUG_REGISTERS_32)
+                {
+                    return false;
+                }
+
+                cpu_context::restore(c.x64_cpu(), syscalls::widened_wow64_debug_registers(update));
+                return true;
             }
 
             CONTEXT64 native{};

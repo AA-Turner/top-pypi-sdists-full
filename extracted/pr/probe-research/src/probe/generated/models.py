@@ -6586,11 +6586,33 @@ class WriterOut(BaseModel):
     state: str = Field(..., title='State')
     world_size: int | None = Field(None, title='World Size')
     write_epoch: int = Field(..., title='Write Epoch')
+    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterReleaseOut(BaseModel):
     closed: bool = Field(..., title='Closed')
     liveness_protocol: str | None = Field(None, title='Liveness Protocol')
+    run_status: str = Field(..., title='Run Status')
+
+
+class LaunchRelease(BaseModel):
+    """
+    Body of `POST /v1/runs/{id}/launches/{launch_id}/release` (rl-trajectory-gaps D29): a Ray
+    launcher's job ended, and Ray stopped its workers before their exit hooks could release their
+    leases. Releases, in one transaction, every lease that launch started and that still beats on
+    the run's current epoch, with the job's verdict.
+    """
+
+    exit_status: ExitStatus = Field(..., title='Exit Status')
+    session_id: UUID | None = Field(None, title='Session Id')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
+class LaunchReleaseOut(BaseModel):
+    closed: bool = Field(..., title='Closed')
+    left: int = Field(..., title='Left')
+    liveness_protocol: str | None = Field(None, title='Liveness Protocol')
+    released: int = Field(..., title='Released')
     run_status: str = Field(..., title='Run Status')
 
 
@@ -9597,6 +9619,7 @@ class WriterBeat(BaseModel):
     session_id: UUID | None = Field(None, title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
     write_epoch: int = Field(..., ge=1, title='Write Epoch')
+    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterLeaseFields(BaseModel):
@@ -9613,6 +9636,7 @@ class WriterLeaseFields(BaseModel):
     role: WriterRole
     session_id: UUID | None = Field(None, title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
+    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterLeaseIn(BaseModel):
@@ -9630,6 +9654,7 @@ class WriterLeaseIn(BaseModel):
     role: WriterRole
     session_id: UUID = Field(..., title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
+    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterRelease(BaseModel):

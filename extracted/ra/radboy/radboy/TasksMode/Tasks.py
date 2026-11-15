@@ -7251,7 +7251,19 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                         cde=bcd_class(data,**options)
                         readme=Path(str(final_out)+'.txt')
                         with readme.open("w+") as rdm:
-                            msg=f"""Name = '{i.Name}'#Barcode = '{i.Barcode}'#Code/SKU = '{i.Code}'#Price = {i.Price}#Tax = {i.Tax}#CRV = {i.CRV}#Total Price Qty of 1 = {(decc(i.Price,cf=6)+decc(i.CRV,cf=6)+decc(i.Tax,cf=6))*1:0.6f}#Tax Rate = {decc(i.Tax,cf=6)/((decc(i.Price,cf=6)+decc(i.CRV,cf=6))):0.6f}#Tax Percent = {(decc(i.Tax,cf=6)/((decc(i.Price,cf=6)+decc(i.CRV,cf=6))))*100:0.6f}#Description = '{i.Description}'#Note = '{i.Note}'#Pallet Load = {i.PalletCount}#Case Count = {i.CaseCount}"""
+                            tax=i.Tax
+                            price=i.Price
+                            crv=i.CRV
+
+                            expense=(decc(price,cf=6)+decc(crv,cf=6)+decc(tax,cf=6))
+                            try:
+                                taxRate=decc(tax,cf=6)/((decc(price,cf=6)+decc(crv,cf=6)))
+                                taxPercent=(decc(tax,cf=6)/((decc(price,cf=6)+decc(crv,cf=6))))*100
+                            except Exception as e:
+                                taxRate=decc(0)
+                                taxPercent=decc(0)
+
+                            msg=f"""Name = '{i.Name}'#Barcode = '{i.Barcode}'#Code/SKU = '{i.Code}'#Price = {i.Price}#Tax = {i.Tax}#CRV = {i.CRV}#Total Price Qty of 1 = {expense*1:0.6f}#Tax Rate = {taxRate:0.6f}#Tax Percent = {taxPercent:0.6f}#Description = '{i.Description}'#Note = '{i.Note}'#Pallet Load = {i.PalletCount}#Case Count = {i.CaseCount}"""
                             msg=[i for i in msg.split("#")]
                             m2=[]
                             ctaz=len(msg)

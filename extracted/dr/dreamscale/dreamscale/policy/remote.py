@@ -1707,13 +1707,14 @@ def _validate_dreamzero_strategy(
     sampling = resolve_dreamzero_sampling(model, strategy.dreamzero_sampling)
     if contract.joint_groups and sampling != "upstream_eval":
         smoothing = resolve_action_smoothing(strategy, contract)
-        if smoothing.mode == "output":
+        if smoothing.mode in ("output", "crossfade"):
             raise ValueError("stateful joint control requires motion smoothing")
     elif (
         strategy.action_smoothing != "auto"
         or strategy.smoothing_new_weight is not None
         or strategy.smoothing_correction_steps is not None
         or strategy.smoothing_reference_speed is not None
+        or strategy.smoothing_time_scale is not None
     ):
         raise ValueError(f"{public_model(model)} action smoothing is not supported for {sampling}")
     return replace(

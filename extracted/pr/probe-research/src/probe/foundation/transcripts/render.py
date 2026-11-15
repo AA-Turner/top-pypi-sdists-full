@@ -264,11 +264,9 @@ def _render_tool_use(block: dict[str, Any]) -> str:
 
     The `stats` and `args` fields are the sanitizer's COMPACTION of inputs it
     would otherwise have deleted outright — counts, never content. Rendering
-    them here is what makes them retrievable, and it is what lets the
-    extraction model read the shape of a change instead of recalling it: an
-    `Edit` used to reach the extractor as a bare file path, and
-    `code_change.before` / `after` could only ever be the model's recollection
-    of a diff nobody sent it.
+    them here is what makes them retrievable, and it is what lets a reader see
+    the shape of a change instead of recalling it: an `Edit` used to reach the
+    engine as a bare file path.
     """
     name = block.get("name") or "tool"
     summary = block.get("summary") or ""

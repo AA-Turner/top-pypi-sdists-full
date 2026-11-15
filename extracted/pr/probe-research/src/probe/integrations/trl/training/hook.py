@@ -86,6 +86,10 @@ class LossHook:
         ``dtype``, the loss's precision, or its own in ``dtypes``; eval keys once per `evaluate()` prefix seen."""
         return {}
 
+    def get_loss_tolerance(self) -> float | None:
+        """The train `loss` series' declared bound for a rounded loss, or None (the dtype's own bound)."""
+        return None
+
     def get_reduction(self) -> str:
         """TRL's own reduction setting, as a label (`loss_type`)."""
         return str(getattr(self.trainer, "loss_type", None) or getattr(self.trainer.args, "loss_type", "") or "loss")

@@ -3,7 +3,7 @@
 Each entry is keyed by the words that name the command (`"stories create"`, `"ops content publish"`) and holds a one-line
 summary, the usage (flags), the lane and what the command does to the site:
 
-* lane: `editor` (works signed in with `papyrus login`), `operator` (needs AWS credentials, `PAPYRUS_GRAPHQL_AUTH=iam`),
+* lane: `editor` (works signed in with `papyrus login`), `operator` (needs AWS credentials, named with `papyrus --auth iam`),
   `both`, or `unverified` (an entry drafted from the code that nobody has run on the editor lane yet: treat it as operator-only).
 * writes: `reads` (never writes), `local` (writes only a local file), `dry-run` (writes unless `--dry-run`), `writes` (writes immediately, no `--dry-run`),
   `unknown` (drafted from the code: assume it writes immediately when the usage shows no `--dry-run`).
@@ -43,10 +43,10 @@ class Usage:
 
 
 LANE_TEXT = {
-  "editor": "editor (signed in with `papyrus login`); the operator lane (AWS credentials) is not needed.",
-  "operator": "operator (AWS credentials, PAPYRUS_GRAPHQL_AUTH=iam). A signed-in editor session is refused.",
-  "both": "both (signed-in editor with `papyrus login`, or operator with AWS credentials).",
-  "unverified": "not verified on the signed-in editor lane; treat it as operator-only (AWS credentials).",
+  "editor": "editor (signed in with `papyrus login`, the default lane); the operator lane (AWS credentials) is not needed.",
+  "operator": "operator (AWS credentials, named with `papyrus --auth iam ...` or PAPYRUS_GRAPHQL_AUTH=iam). A signed-in editor session is refused.",
+  "both": "both (signed-in editor with `papyrus login`, the default, or operator with AWS credentials named with `papyrus --auth iam`).",
+  "unverified": "not verified on the signed-in editor lane; treat it as operator-only (`papyrus --auth iam` with AWS credentials).",
 }
 WRITES_TEXT = {
   "reads": "nothing; read only.",
@@ -170,9 +170,11 @@ _ENTRIES = dict([
   _e("stories repair-versions", "Repair a Story's version records.", "--story LINEAGE [--dry-run]", "operator", _DRY, ""),
   _e("stories head-index", "Fill in and check the head stage key (one row per Story in the head stage index). A dry run unless --apply.",
      "[--apply] [--dry-run] [--stage STAGE ...] [--rate N]  (a dry run unless --apply; --rate is writes a second, default 5)", "both", "apply", ""),
-  _e("stories localize", "Ask for a translation of a published Story into one language: writes the translation request and starts the site's translation automation. Never publishes.",
-     "--story LINEAGE --language TAG [--automation ID] [--ceiling-usd N] [--dry-run]  (--automation is required unless --dry-run)", "both", _DRY, ""),
+  _e("stories localize", "Ask for a translation of a published Story into one language: writes the translation request and runs the site's registered translation procedure (here with `--auth iam`, or through --automation). Never publishes.",
+     "--story LINEAGE --language TAG [--procedure KEY] [--automation ID] [--openai-key-parameter SSM_PARAMETER] [--ceiling-usd N] [--dry-run]  (without --automation the run happens in this process: operator lane, key in OPENAI_API_KEY or the parameter)  |  --all (--language TAG | --all-languages) [--publish-clean] [--concurrency N] [--dry-run] [--json]  (every published primary-language Story with no up-to-date translation; one row per Story and language)", "both", _DRY, ""),
   _e("stories languages", "Write the language and the language group on every Item row written before those fields existed (the site's primary language).",
+     "[--dry-run] [--rate N]  (--rate is writes a second, default 5)", "both", _DRY, ""),
+  _e("stories decks", "Bring every Item's and published row's deck column to the dek its front matter holds. Writes only the derived column.",
      "[--dry-run] [--rate N]  (--rate is writes a second, default 5)", "both", _DRY, ""),
   _e("stories backfill-published-dates", "Give published Stories their first publication time and the served version's publish time, from what their versions recorded. A dry run unless --apply.",
      "[--apply] [--dry-run] [--rate N]  (a dry run unless --apply; --rate is writes a second, default 5)", "both", "apply", ""),
@@ -241,6 +243,8 @@ _ENTRIES = dict([
   _e("editorial check-version", "Run the editorial rules on a saved version and store the result with it.", "--item LINEAGE-vN [--json]", "both", "writes", "checks"),
   _e("editorial check", "Check a draft file against the site's editorial policies (read only).", "--draft FILE [--story LINEAGE] [--section KEY] [--language TAG] [--pack FILE] [--output FILE]", "both", "reads", ""),
   _e("editorial check-drafts", "Check every unpublished draft version not yet checked.", "[--limit N] [--dry-run]", "operator", _DRY, ""),
+  _e("editorial languages", "Show how the site serves its languages (public, URL prefix, slug policy per language), or change them. The same rules as Administration > Editorial checks.",
+     "[--set-public TAGS] [--set-prefix TAG=PREFIX] [--set-slug TAG=POLICY] [--auto on|off] [--auto-automation ID] [--auto-publish on|off] [--dry-run] [--json]", "both", _DRY, ""),
   _e("editorial suggest", "Rewrite options for one finding or a passage; never edits the draft.", "--draft FILE [--finding-id ID] [--select N] [--note TEXT] [--story LINEAGE] [--section KEY] [--language TAG]", "both", "reads", ""),
   # ---- sign-in ----------------------------------------------------------------------------------------------------
   _e("login", "Sign in with Google in a browser; prints nothing secret.", "SITE_HOST", "editor", "writes", "orientation"),

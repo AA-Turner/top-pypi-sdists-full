@@ -1,7 +1,7 @@
 from typing import List
 
-from . import ZBConfidence, ZBApiException
-from ._zb_response import ZBResponse
+from . import ZBConfidence
+from ._zb_response import ARRAY, STRING, ZBResponse, items_as_received
 from ._zb_utils import safe_enum_convert
 from .zb_guess_format_response import ZBDomainFormat
 
@@ -10,7 +10,6 @@ class ZBFindDomainResponse(ZBResponse):
     """This is the response for the find_domain request."""
 
     # A body made only of message keys is a rejected request, not a result.
-    _MESSAGE_ONLY_IS_ERROR = True
 
     domain: str = None
     """The domain that was used or found."""
@@ -33,15 +32,16 @@ class ZBFindDomainResponse(ZBResponse):
     other_domain_formats: List[ZBDomainFormat] = []
     """List of other possible domain formats with their confidence levels."""
 
+    _FIELD_TYPES = {
+        "domain": STRING, "company_name": STRING, "format": STRING, "confidence": STRING,
+        "did_you_mean": STRING, "failure_reason": STRING, "other_domain_formats": ARRAY,
+    }
+    _ITEMS = {"other_domain_formats": ZBDomainFormat}
+
     def __init__(self, data):
         super().__init__(data)
-        if "Message" in data or "message" in data:
-            message = data.get("message") or data.get("Message")
-            raise ZBApiException(message)
 
         self.confidence = safe_enum_convert(ZBConfidence, self.confidence, "confidence", lowercase=True)
 
-        self.other_domain_formats = [
-            ZBDomainFormat(df_data) for df_data in data.get("other_domain_formats", [])
-        ]
+        self.other_domain_formats = items_as_received(data, "other_domain_formats", ZBDomainFormat)
 

@@ -1,9 +1,11 @@
 """Piecewise-linear Interpolation. (Code 0)."""
+
 import logging
+
 import pyhf
-from pyhf.tensor.manager import get_backend
 from pyhf import events
 from pyhf.interpolators import _slow_interpolator_looper
+from pyhf.tensor.manager import get_backend
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +41,7 @@ class code0:
         )
         self._precompute()
         if subscribe:
-            events.subscribe('tensorlib_changed')(self._precompute)
+            events.subscribe("tensorlib_changed")(self._precompute)
 
     def _precompute(self):
         tensorlib, _ = get_backend()
@@ -70,15 +72,15 @@ class code0:
         # h: histogram affected by modifier
         # b: bin of histogram
         alphas_times_deltas_up = tensorlib.einsum(
-            'sa,shb->shab', alphasets, self.deltas_up
+            "sa,shb->shab", alphasets, self.deltas_up
         )
         alphas_times_deltas_dn = tensorlib.einsum(
-            'sa,shb->shab', alphasets, self.deltas_dn
+            "sa,shb->shab", alphasets, self.deltas_dn
         )
 
         masks = tensorlib.astensor(
             tensorlib.einsum(
-                'sa,shb->shab', where_alphasets_positive, self.broadcast_helper
+                "sa,shb->shab", where_alphasets_positive, self.broadcast_helper
             ),
             dtype="bool",
         )
@@ -90,13 +92,9 @@ class _slow_code0:
     def summand(self, down, nom, up, alpha):
         delta_up = up - nom
         delta_down = nom - down
-        if alpha > 0:
-            delta = delta_up * alpha
-        else:
-            delta = delta_down * alpha
-        return delta
+        return delta_up * alpha if alpha > 0 else delta_down * alpha
 
-    def __init__(self, histogramssets, subscribe=True):
+    def __init__(self, histogramssets, subscribe=True):  # noqa: ARG002
         self._histogramssets = histogramssets
 
     def __call__(self, alphasets):

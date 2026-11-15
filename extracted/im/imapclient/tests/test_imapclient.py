@@ -15,16 +15,57 @@ from unittest.mock import Mock, patch, sentinel
 from imapclient.exceptions import CapabilityError, IMAPClientError, ProtocolError
 from imapclient.fixed_offset import FixedOffset
 from imapclient.imapclient import (
-    _literal,
     _parse_quota,
+)
+from imapclient.imapclient import IMAPClient as RealIMAPClient
+from imapclient.imapclient import (
     IMAPlibLoggerAdapter,
+    literal,
     MailboxQuotaRoots,
     Quota,
     require_capability,
+    SocketTimeout,
 )
 from imapclient.testable_imapclient import TestableIMAPClient as IMAPClient
 
 from .imapclient_test import IMAPClientTest
+
+
+class TestCreateIMAP4(IMAPClientTest):
+    @patch("imapclient.imapclient.sys.version_info", (3, 8, 0))
+    @patch("imapclient.imapclient.tls.IMAP4_TLS")
+    @patch("imapclient.imapclient.imap4.IMAP4WithTimeout")
+    def test_python_38_does_not_pass_connect_timeout(self, plain_imap, tls_imap):
+        self.client._timeout = SocketTimeout(None, 30)
+        self.client.ssl_context = sentinel.ssl_context
+
+        self.client.ssl = True
+        self.assertIs(RealIMAPClient._create_IMAP4(self.client), tls_imap.return_value)
+        tls_imap.assert_called_once_with("somehost", 993, sentinel.ssl_context)
+        plain_imap.assert_not_called()
+
+        self.client.ssl = False
+        self.assertIs(
+            RealIMAPClient._create_IMAP4(self.client), plain_imap.return_value
+        )
+        plain_imap.assert_called_once_with("somehost", 993)
+
+    @patch("imapclient.imapclient.sys.version_info", (3, 8, 0))
+    @patch("imapclient.imapclient.tls.IMAP4_TLS")
+    @patch("imapclient.imapclient.imap4.IMAP4WithTimeout")
+    def test_python_38_rejects_connect_timeout(self, plain_imap, tls_imap):
+        self.client._timeout = SocketTimeout(10, 30)
+
+        for use_ssl in (True, False):
+            with self.subTest(ssl=use_ssl):
+                self.client.ssl = use_ssl
+                with self.assertRaisesRegex(
+                    ValueError, "connection timeout is not supported"
+                ):
+                    RealIMAPClient._create_IMAP4(self.client)
+
+        tls_imap.assert_not_called()
+        plain_imap.assert_not_called()
 
 
 class TestListFolders(IMAPClientTest):
@@ -416,11 +457,11 @@ class TestAppend(IMAPClientTest):
                 b'"foobar"',
                 b"(FLAG WAVE)",
                 b'"05-Apr-2009 11:00:05 +0200"',
-                _literal(b"msg1"),
+                literal(b"msg1"),
                 b"(FLAG WAVE)",
-                _literal(b"msg2"),
+                literal(b"msg2"),
                 b'"05-Apr-2009 11:00:05 +0200"',
-                _literal(b"msg3"),
+                literal(b"msg3"),
             ],
             uid=False,
         )
@@ -749,6 +790,40 @@ class TestIdleAndNoop(IMAPClientTest):
         self.assertListEqual([(99, b"EXISTS")], responses)
 
 
+class TestRawCommandRejectsControlCharacters(IMAPClientTest):
+    def setUp(self):
+        super().setUp()
+        self.client._imap.send = Mock()
+        self.client._cached_capabilities = (b"IMAP4REV1",)
+
+    def test_crlf_in_a_line_argument_is_rejected_before_sending(self):
+        criterion = b'x"\r\nX1 STORE 1:* +FLAGS (\\Deleted)\r\nX2 EXPUNGE'
+
+        with self.assertRaises(ValueError):
+            self.client._raw_command(b"SEARCH", [b"HEADER", b"Message-ID", criterion])
+
+        self.client._imap.send.assert_not_called()
+
+    def test_crlf_via_search_criteria_is_rejected_before_sending(self):
+        with self.assertRaises(ValueError):
+            self.client.search(["HEADER", "Message-ID", 'x"\r\nX1 NOOP'])
+
+        self.client._imap.send.assert_not_called()
+
+    def test_nul_is_rejected_even_inside_a_literal(self):
+        with self.assertRaises(ValueError):
+            self.client._raw_command(b"SEARCH", [b"TEXT", literal(b"a\x00b")])
+
+        self.client._imap.send.assert_not_called()
+
+    def test_crlf_inside_a_literal_is_allowed(self):
+        self.client._send_literal = Mock()
+
+        self.client._raw_command(b"SEARCH", [b"TEXT", literal(b"line one\r\nline two")])
+
+        self.client._send_literal.assert_called_once()
+
+
 class TestDebugLogging(IMAPClientTest):
     def test_IMAP_is_patched(self):
         # Remove all logging handlers so that the order of tests does not
@@ -1006,7 +1081,7 @@ class TestRawCommand(IMAPClientTest):
         self.client._cached_capabilities = (b"LITERAL+",)
 
         typ, data = self.client._raw_command(
-            b"APPEND", [b"\xff", _literal(b"hello")], uid=False
+            b"APPEND", [b"\xff", literal(b"hello")], uid=False
         )
         self.assertEqual(typ, "OK")
         self.assertEqual(data, ["done"])
@@ -1020,7 +1095,7 @@ class TestRawCommand(IMAPClientTest):
 
         typ, data = self.client._raw_command(
             b"APPEND",
-            [b"\xff", _literal(b"hello"), b"TEXT", _literal(b"test")],
+            [b"\xff", literal(b"hello"), b"TEXT", literal(b"test")],
             uid=False,
         )
         self.assertEqual(typ, "OK")

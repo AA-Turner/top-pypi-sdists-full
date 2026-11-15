@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: pyhf
-Version: 0.7.6
+Version: 0.8.0
 Summary: pure-Python HistFactory implementation with tensors and autodiff
 Project-URL: Documentation, https://pyhf.readthedocs.io/
 Project-URL: Homepage, https://github.com/scikit-hep/pyhf
@@ -10,91 +10,53 @@ Project-URL: Releases, https://github.com/scikit-hep/pyhf/releases
 Project-URL: Source Code, https://github.com/scikit-hep/pyhf
 Author-email: Lukas Heinrich <lukas.heinrich@cern.ch>, Matthew Feickert <matthew.feickert@cern.ch>, Giordon Stark <gstark@cern.ch>
 Maintainer-email: The Scikit-HEP admins <scikit-hep-admins@googlegroups.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: AUTHORS
 License-File: LICENSE
-Keywords: fitting,jax,numpy,physics,pytorch,scipy,tensorflow
+Keywords: fitting,jax,numpy,physics,scipy
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: WebAssembly :: Emscripten
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Requires-Dist: click>=8.0.0
-Requires-Dist: importlib-resources>=1.4.0; python_version < '3.9'
 Requires-Dist: jsonpatch>=1.15
-Requires-Dist: jsonschema>=4.15.0
-Requires-Dist: numpy
+Requires-Dist: jsonschema>=4.18.0
+Requires-Dist: numpy>=1.22.0
 Requires-Dist: pyyaml>=5.1
-Requires-Dist: scipy>=1.2.0
-Requires-Dist: tqdm>=4.56.0
-Requires-Dist: typing-extensions>=3.7.4.3; python_version == '3.7'
+Requires-Dist: referencing
+Requires-Dist: rich>=12.3.0
+Requires-Dist: scipy!=1.16.0,!=1.16.1,!=1.16.2,>=1.7.2
 Provides-Extra: all
-Requires-Dist: pyhf[backends,contrib,shellcomplete,xmlio]; extra == 'all'
+Requires-Dist: iminuit>=2.9.0; extra == 'all'
+Requires-Dist: jax>=0.4.1; extra == 'all'
+Requires-Dist: jaxlib>=0.4.1; extra == 'all'
+Requires-Dist: matplotlib>=3.0.0; extra == 'all'
+Requires-Dist: requests>=2.22.0; extra == 'all'
+Requires-Dist: uproot>=4.1.1; extra == 'all'
 Provides-Extra: backends
-Requires-Dist: pyhf[jax,minuit,tensorflow,torch]; extra == 'backends'
+Requires-Dist: iminuit>=2.9.0; extra == 'backends'
+Requires-Dist: jax>=0.4.1; extra == 'backends'
+Requires-Dist: jaxlib>=0.4.1; extra == 'backends'
 Provides-Extra: contrib
 Requires-Dist: matplotlib>=3.0.0; extra == 'contrib'
 Requires-Dist: requests>=2.22.0; extra == 'contrib'
-Provides-Extra: develop
-Requires-Dist: codemetapy>=2.3.0; extra == 'develop'
-Requires-Dist: nox; extra == 'develop'
-Requires-Dist: pre-commit; extra == 'develop'
-Requires-Dist: pyhf[docs,test]; extra == 'develop'
-Requires-Dist: tbump>=6.7.0; extra == 'develop'
-Provides-Extra: docs
-Requires-Dist: ipython!=8.7.0; extra == 'docs'
-Requires-Dist: ipywidgets; extra == 'docs'
-Requires-Dist: jupyterlite-pyodide-kernel>=0.0.7; extra == 'docs'
-Requires-Dist: jupyterlite-sphinx>=0.8.0; extra == 'docs'
-Requires-Dist: jupytext>=1.14.0; extra == 'docs'
-Requires-Dist: nbsphinx!=0.8.8; extra == 'docs'
-Requires-Dist: pyhf[contrib,xmlio]; extra == 'docs'
-Requires-Dist: sphinx-click; extra == 'docs'
-Requires-Dist: sphinx-copybutton!=0.5.1,>=0.3.2; extra == 'docs'
-Requires-Dist: sphinx-issues; extra == 'docs'
-Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == 'docs'
-Requires-Dist: sphinx>=7.0.0; extra == 'docs'
-Requires-Dist: sphinxcontrib-bibtex~=2.1; extra == 'docs'
 Provides-Extra: jax
-Requires-Dist: jax>=0.2.10; extra == 'jax'
-Requires-Dist: jaxlib!=0.1.68,>=0.1.61; extra == 'jax'
+Requires-Dist: jax>=0.4.1; extra == 'jax'
+Requires-Dist: jaxlib>=0.4.1; extra == 'jax'
 Provides-Extra: minuit
-Requires-Dist: iminuit>=2.7.0; extra == 'minuit'
-Provides-Extra: shellcomplete
-Requires-Dist: click-completion; extra == 'shellcomplete'
-Provides-Extra: tensorflow
-Requires-Dist: tensorflow-macos>=2.7.0; (platform_machine == 'arm64' and platform_system == 'Darwin') and extra == 'tensorflow'
-Requires-Dist: tensorflow-probability!=0.20.0,>=0.11.0; extra == 'tensorflow'
-Requires-Dist: tensorflow>=2.7.0; (platform_machine != 'arm64') and extra == 'tensorflow'
-Provides-Extra: test
-Requires-Dist: graphviz; extra == 'test'
-Requires-Dist: ipympl>=0.3.0; extra == 'test'
-Requires-Dist: jupyter; extra == 'test'
-Requires-Dist: papermill~=2.3.4; extra == 'test'
-Requires-Dist: pydocstyle; extra == 'test'
-Requires-Dist: pyhf[all]; extra == 'test'
-Requires-Dist: pytest-benchmark[histogram]; extra == 'test'
-Requires-Dist: pytest-console-scripts>=1.4.0; extra == 'test'
-Requires-Dist: pytest-cov>=2.5.1; extra == 'test'
-Requires-Dist: pytest-mock; extra == 'test'
-Requires-Dist: pytest-mpl; extra == 'test'
-Requires-Dist: pytest-socket>=0.2.0; extra == 'test'
-Requires-Dist: pytest>=6.0; extra == 'test'
-Requires-Dist: requests-mock>=1.9.0; extra == 'test'
-Requires-Dist: scikit-hep-testdata>=0.4.11; extra == 'test'
-Requires-Dist: scrapbook~=0.5.0; extra == 'test'
-Provides-Extra: torch
-Requires-Dist: torch>=1.10.0; extra == 'torch'
+Requires-Dist: iminuit>=2.9.0; extra == 'minuit'
 Provides-Extra: xmlio
 Requires-Dist: uproot>=4.1.1; extra == 'xmlio'
 Description-Content-Type: text/x-rst
@@ -107,16 +69,7 @@ Description-Content-Type: text/x-rst
 pure-python fitting/limit-setting/interval estimation HistFactory-style
 =======================================================================
 
-|GitHub Project| |DOI| |JOSS DOI| |Scikit-HEP| |NSF Award Number IRIS-HEP v1| |NSF Award Number IRIS-HEP v2| |NumFOCUS Affiliated Project|
-
-|Docs from latest| |Docs from main| |Jupyter Book tutorial| |Binder|
-
-|PyPI version| |Conda-forge version| |Supported Python versions| |Docker Hub pyhf| |Docker Hub pyhf CUDA|
-
-|Code Coverage| |CodeFactor| |pre-commit.ci Status| |Code style: black|
-
-|GitHub Actions Status: CI| |GitHub Actions Status: Docs| |GitHub Actions Status: Publish|
-|GitHub Actions Status: Docker|
+|PyPI version| |Conda-forge version| |Supported Python versions| |DOI| |JOSS DOI| |Scikit-HEP|
 
 The HistFactory p.d.f. template
 [`CERN-OPEN-2012-016 <https://cds.cern.ch/record/1456844>`__] is per-se
@@ -129,9 +82,8 @@ multi-bin histogram-based analysis and its interval estimation is based
 on the asymptotic formulas of “Asymptotic formulae for likelihood-based
 tests of new physics”
 [`arXiv:1007.1727 <https://arxiv.org/abs/1007.1727>`__]. The aim is also
-to support modern computational graph libraries such as PyTorch and
-TensorFlow in order to make use of features such as autodifferentiation
-and GPU acceleration.
+to support modern computational graph libraries such as JAX in order to
+make use of features such as automatic differentiation and GPU acceleration.
 
 ..
   Comment: JupyterLite segment goes here in docs
@@ -162,7 +114,7 @@ This is how you use the ``pyhf`` Python API to build a statistical model and run
    ...     test_mu, data, model, test_stat="qtilde", return_expected=True
    ... )
    >>> print(f"Observed: {CLs_obs:.8f}, Expected: {CLs_exp:.8f}")
-   Observed: 0.05251497, Expected: 0.06445321
+   Observed: 0.05251497, Expected: 0.06445319
 
 Alternatively the statistical model and observational data can be read from its serialized JSON representation (see next section).
 
@@ -245,8 +197,6 @@ Implemented variations:
 
 Computational Backends:
   - ☑ NumPy
-  - ☑ PyTorch
-  - ☑ TensorFlow
   - ☑ JAX
 
 Optimizers:
@@ -354,6 +304,11 @@ A two bin example
 Installation
 ------------
 
+``pyhf`` is distributed on both `PyPI <https://pypi.org/project/pyhf/>`__ and `conda-forge <https://prefix.dev/channels/conda-forge/packages/pyhf>`__.
+
+PyPI
+~~~~
+
 To install ``pyhf`` from PyPI with the NumPy backend run
 
 .. code:: bash
@@ -374,10 +329,35 @@ To uninstall run
 
    python -m pip uninstall pyhf
 
+conda-forge
+~~~~~~~~~~~
+
+To add ``pyhf`` from conda-forge with the NumPy backend to a `Pixi <https://pixi.sh/>`__ project run
+
+.. code:: bash
+
+   pixi add pyhf
+
+or to install it with ``conda`` run
+
+.. code:: bash
+
+   conda install --channel conda-forge pyhf
+
+The conda-forge package does not provide the additional backends as extras, so install the backend packages (e.g. ``jax``) from conda-forge alongside ``pyhf`` as needed.
+
+Docker
+~~~~~~
+
+Docker images with ``pyhf`` preinstalled are also published to Docker Hub:
+|Docker Hub pyhf|
+
 Documentation
 -------------
 
 For model specification, API reference, examples, and answers to FAQs visit the |pyhf documentation|_.
+
+|Docs from latest| |Docs from main| |Jupyter Book tutorial| |Binder|
 
 .. |pyhf documentation| replace:: ``pyhf`` documentation
 .. _pyhf documentation: https://pyhf.readthedocs.io/
@@ -410,11 +390,11 @@ the preferred BibTeX entry for citation of ``pyhf`` includes both the
 
    @software{pyhf,
      author = {Lukas Heinrich and Matthew Feickert and Giordon Stark},
-     title = "{pyhf: v0.7.6}",
-     version = {0.7.6},
+     title = "{pyhf: v0.8.0}",
+     version = {0.8.0},
      doi = {10.5281/zenodo.1169739},
      url = {https://doi.org/10.5281/zenodo.1169739},
-     note = {https://github.com/scikit-hep/pyhf/releases/tag/v0.7.6}
+     note = {https://github.com/scikit-hep/pyhf/releases/tag/v0.8.0}
    }
 
    @article{pyhf_joss,
@@ -455,8 +435,8 @@ and grant `OAC-1450377 <https://www.nsf.gov/awardsearch/showAward?AWD_ID=1450377
 
 ``pyhf`` is a `NumFOCUS Affiliated Project <https://numfocus.org/sponsored-projects/affiliated-projects>`__.
 
-.. |GitHub Project| image:: https://img.shields.io/badge/GitHub--blue?style=social&logo=GitHub
-   :target: https://github.com/scikit-hep/pyhf
+|NSF Award Number IRIS-HEP v1| |NSF Award Number IRIS-HEP v2| |NumFOCUS Affiliated Project|
+
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.1169739.svg
    :target: https://doi.org/10.5281/zenodo.1169739
 .. |JOSS DOI| image:: https://joss.theoj.org/papers/10.21105/joss.02823/status.svg
@@ -469,11 +449,11 @@ and grant `OAC-1450377 <https://www.nsf.gov/awardsearch/showAward?AWD_ID=1450377
    :target: https://nsf.gov/awardsearch/showAward?AWD_ID=2323298
 .. |NumFOCUS Affiliated Project| image:: https://img.shields.io/badge/NumFOCUS-Affiliated%20Project-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
    :target: https://numfocus.org/sponsored-projects/affiliated-projects
-.. |Docs from latest| image:: https://img.shields.io/badge/docs-v0.7.6-blue.svg
+.. |Docs from latest| image:: https://img.shields.io/badge/docs-v0.8.0-blue.svg
    :target: https://pyhf.readthedocs.io/
 .. |Docs from main| image:: https://img.shields.io/badge/docs-main-blue.svg
    :target: https://scikit-hep.github.io/pyhf
-.. |Jupyter Book tutorial| image:: https://jupyterbook.org/_images/badge.svg
+.. |Jupyter Book tutorial| image:: https://raw.githubusercontent.com/jupyter-book/jupyter-book/next/docs/media/images/badge.svg
    :target: https://pyhf.github.io/pyhf-tutorial/
 .. |Binder| image:: https://mybinder.org/badge_logo.svg
    :target: https://mybinder.org/v2/gh/scikit-hep/pyhf/main?labpath=docs%2Fexamples%2Fnotebooks%2Fbinderexample%2FStatisticalAnalysis.ipynb
@@ -484,26 +464,5 @@ and grant `OAC-1450377 <https://www.nsf.gov/awardsearch/showAward?AWD_ID=1450377
    :target: https://prefix.dev/channels/conda-forge/packages/pyhf
 .. |Supported Python versions| image:: https://img.shields.io/pypi/pyversions/pyhf.svg
    :target: https://pypi.org/project/pyhf/
-.. |Docker Hub pyhf| image:: https://img.shields.io/badge/pyhf-v0.7.6-blue?logo=Docker
+.. |Docker Hub pyhf| image:: https://img.shields.io/badge/pyhf-v0.8.0-blue?logo=Docker
    :target: https://hub.docker.com/r/pyhf/pyhf/tags
-.. |Docker Hub pyhf CUDA| image:: https://img.shields.io/badge/pyhf-CUDA-blue?logo=Docker
-   :target: https://hub.docker.com/r/pyhf/cuda/tags
-
-.. |Code Coverage| image:: https://codecov.io/gh/scikit-hep/pyhf/graph/badge.svg?branch=main
-   :target: https://codecov.io/gh/scikit-hep/pyhf?branch=main
-.. |CodeFactor| image:: https://www.codefactor.io/repository/github/scikit-hep/pyhf/badge
-   :target: https://www.codefactor.io/repository/github/scikit-hep/pyhf
-.. |pre-commit.ci Status| image:: https://results.pre-commit.ci/badge/github/scikit-hep/pyhf/main.svg
-  :target: https://results.pre-commit.ci/latest/github/scikit-hep/pyhf/main
-  :alt: pre-commit.ci status
-.. |Code style: black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-
-.. |GitHub Actions Status: CI| image:: https://github.com/scikit-hep/pyhf/actions/workflows/ci.yml/badge.svg
-   :target: https://github.com/scikit-hep/pyhf/actions/workflows/ci.yml?query=branch%3Amain
-.. |GitHub Actions Status: Docs| image:: https://github.com/scikit-hep/pyhf/actions/workflows/docs.yml/badge.svg
-   :target: https://github.com/scikit-hep/pyhf/actions/workflows/docs.yml?query=branch%3Amain
-.. |GitHub Actions Status: Publish| image:: https://github.com/scikit-hep/pyhf/actions/workflows/publish-package.yml/badge.svg
-   :target: https://github.com/scikit-hep/pyhf/actions/workflows/publish-package.yml?query=branch%3Amain
-.. |GitHub Actions Status: Docker| image:: https://github.com/scikit-hep/pyhf/actions/workflows/docker.yml/badge.svg
-   :target: https://github.com/scikit-hep/pyhf/actions/workflows/docker.yml?query=branch%3Amain

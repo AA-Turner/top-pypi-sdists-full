@@ -55,16 +55,17 @@ def test_search_daily_bars_rank_first_for_colloquial_query():
     # 新浪的分钟接口（stock_zh_a_hist_min_sina）与腾讯日线同分，取前五
     assert set(_names("A股 日线", 5)) >= {
         "stock_zh_a_hist_em",
-        "stock_zh_a_daily_sina",
+        "stock_zh_a_hist_sina",
         "stock_zh_a_hist_tx",
     }
     # 港股指数的日线接口（index_hk_daily_sina）与个股日线同分，取前三
-    assert set(_names("港股 日线", 3)) >= {"stock_hk_daily_sina", "stock_hk_hist_em"}
+    assert set(_names("港股 日线", 3)) >= {"stock_hk_hist_sina", "stock_hk_hist_em"}
     assert "futures_zh_daily_sina" in _names("期货 日线", 3)
     # 各交易所的日行情接口（futures_daily_cffex 等）补文档后与 futures_hist_em 同分
     assert "futures_hist_em" in _names("期货 日线", 12)
     assert _names("期货 分钟", 1) == ["futures_zh_min_sina"]
-    assert set(_names("A股 实时行情", 2)) == {
+    # 腾讯的实时行情接口（stock_zh_a_spot_tx）补文档后与新浪同分，取前三
+    assert set(_names("A股 实时行情", 3)) >= {
         "stock_zh_a_spot_em",
         "stock_zh_a_spot_sina",
     }
@@ -77,7 +78,7 @@ def test_search_unknown_word_still_returns_matches_for_known_word():
 
 def test_interface_info_carries_alternatives():
     info = registry.interface_info("stock_zh_a_hist_em")
-    assert info["alternatives"] == ["stock_zh_a_daily_sina", "stock_zh_a_hist_tx"]
+    assert info["alternatives"] == ["stock_zh_a_hist_sina", "stock_zh_a_hist_tx"]
     # 单向关系：分市场的实时行情可改用全市场接口，反过来不成立
     assert registry.interface_info("stock_sh_a_spot_em")["alternatives"] == [
         "stock_zh_a_spot_sina"
@@ -87,3 +88,24 @@ def test_interface_info_carries_alternatives():
         not in registry.interface_info("stock_zh_a_spot_sina")["alternatives"]
     )
     assert registry.interface_info("macro_china_cpi")["alternatives"] == []
+
+
+def test_search_ignores_security_codes():
+    """证券代码不是接口的属性：只有代码时没有结果，与其他词一起出现时不影响排序"""
+    assert len(registry.search("600519")) == 0
+    assert len(registry.search("sh600519")) == 0
+    assert _names("sh600519 日线", 1) == _names("日线", 1)
+
+
+def test_search_prefers_stock_and_home_market_on_ties():
+    # 证券名称无法识别时，带“日线”的接口同分，股票的日线应排在可转债、ETF 之前
+    assert _names("贵州茅台 日线", 1) == ["stock_zh_a_hist_em"]
+    # 没有说明国家时，中国的指标排在最前
+    assert _names("CPI", 1) == ["macro_china_cpi"]
+    assert _names("GDP", 1) == ["macro_china_gdp"]
+    assert _names("美国 CPI", 1) == ["macro_usa_cpi_yoy"]
+
+
+def test_search_finds_stock_list_and_trade_calendar():
+    assert _names("股票列表", 1) == ["stock_info_a_code_name"]
+    assert _names("交易日历", 1) == ["calendar_trade_date_hist_sina"]

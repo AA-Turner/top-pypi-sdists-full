@@ -144,7 +144,7 @@ def run_mmu_filter_cli(args: argparse.Namespace) -> None:
 
 def _run_cube_cli(args: argparse.Namespace, name: str, compute, *, lazy: bool = True, extras=None) -> None:
     """Shared body of the commands of the cube functions (phenology, smooth, tmask, twdtw,
-    snic, classify, som): read the input (lazily, in blocks of --chunk-size), compute, and
+    snic, fields, classify, som): read the input (lazily, in blocks of --chunk-size), compute, and
     write <output_dir>/<prefix>.tif in one pass, one band per map or date. ``extras(result,
     stem)`` writes what is not a raster (polygons, prototypes) next to it and returns the
     paths."""
@@ -247,6 +247,52 @@ def run_snic_cli(args: argparse.Namespace) -> None:
         lazy=False, extras=polygons)
 
 
+def run_fields_cli(args: argparse.Namespace) -> None:
+    from ._fields import fields, fields_to_polygons
+
+    band = args.band
+    if band is not None and band.lstrip("-").isdigit():
+        band = int(band)
+
+    if args.tile is not None:  # a raster too large for one call: overlapping tiles, stitched
+        from ._fields_tiled import fields_tiled
+
+        try:
+            res = fields_tiled(
+                args.input, args.output_dir, tile=args.tile, overlap=args.overlap, polygons=args.polygons,
+                n_jobs=args.jobs, random_state=args.random_state, gradient=args.gradient, method=args.method,
+                realizations=args.realizations, marker_density=args.marker_density, min_distance=args.min_distance,
+                marker_radius=args.marker_radius, low=args.low, high=args.high, min_size=args.min_size,
+                final=args.final, mask_threshold=args.mask_threshold, band=band, combine=args.combine,
+                **({"markers": args.markers} if args.markers is not None else {}),
+                **({"mask_quantile": args.mask_quantile} if args.mask_quantile is not None else {}),
+                **({"preset": args.preset} if args.preset is not None else {}))
+        except Exception as e:
+            print(f"Error running fields: {e}")
+            sys.exit(1)
+        print(f"Successfully processed {res['tiles'][0]} x {res['tiles'][1]} tiles (overlap {res['overlap']}): "
+              f"{res['n_fields']} fields")
+        for key in ("labels", "boundary", "polygons"):
+            if res[key]:
+                print(f"Saved {res[key]}")
+        return
+
+    def polygons(result, stem):
+        if not args.polygons:
+            return []
+        fields_to_polygons(result).to_file(stem + ".gpkg")
+        return [stem + ".gpkg"]
+
+    _run_cube_cli(args, "fields", lambda cube: fields(
+        cube, gradient=args.gradient, method=args.method, realizations=args.realizations, markers=args.markers,
+        min_distance=args.min_distance, marker_radius=args.marker_radius, low=args.low, high=args.high,
+        min_size=args.min_size, final=args.final, mask_threshold=args.mask_threshold, band=band,
+        marker_density=args.marker_density, mask_quantile=args.mask_quantile, combine=args.combine,
+        preset=args.preset,
+        random_state=args.random_state, n_jobs=args.jobs),
+        lazy=False, extras=polygons)
+
+
 def run_classify_cli(args: argparse.Namespace) -> None:
     from ._classify_api import classify, train_classifier
 
@@ -335,9 +381,54 @@ def run_embeddings_cli(args: argparse.Namespace) -> None:
                           crs=args.crs, res=args.res, version=args.version, variant=args.variant, depth=args.depth,
                           backend=args.backend, store=args.store, cache_dir=args.cache_dir)
     os.makedirs(args.output_dir, exist_ok=True)
-    path = save_raster(emb, os.path.join(args.output_dir, f"{args.prefix or args.source}.tif"))
+    path = save_raster(emb, os.path.join(args.output_dir, f"{args.prefix or args.source}.tif"),
+                       compact=getattr(args, "compact", False))
     print(f"Saved {emb.sizes['time']} years x {emb.sizes['band']} dimensions "
           f"({emb.sizes['y']} x {emb.sizes['x']} cells) to {path}")
+
+
+def run_level2_cli(args: argparse.Namespace) -> None:
+    """One Sentinel-2 scene (``zeit.level2``) or a series of a tile (``run_series``), written to ``--out``."""
+    import os
+
+    if (args.input is None) == (args.tile is None):
+        raise SystemExit("give one scene (a .SAFE folder or a product name) or a series with --tile TILE --start DATE --end DATE")
+    if args.tile is not None and (args.start is None or args.end is None):
+        raise SystemExit("--tile needs --start and --end (the dates of the search)")
+    if args.input is not None and (args.start or args.end or args.keep_safe or args.max_cloud is not None):
+        raise SystemExit("--start, --end, --max-cloud and --keep-safe are for a series (--tile); a scene has none")
+    dem = None if str(args.dem).lower() == "none" else args.dem
+    options = {"brdf": not args.no_brdf, "topography": not args.no_topography}
+    if args.merge is not None:
+        options["merge"] = args.merge
+    try:
+        if args.tile is not None:
+            from ._level2_series import run_series
+
+            table = run_series(args.tile, args.start, args.end, args.out,
+                               max_cloud=100.0 if args.max_cloud is None else args.max_cloud, dem=dem,
+                               level2_kw=options, keep_safe=args.keep_safe, n_jobs=args.threads)
+        else:
+            import zeit
+
+            zeit.level2(args.input, dem=dem, n_jobs=args.threads, **options).zeit.save(args.out)
+            print(f"Saved the surface reflectance of {args.input} to {args.out}")
+            return
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    from ._level2_series import JOURNAL
+
+    counts = table["status"].value_counts() if len(table) else {}
+    print(", ".join(f"{counts.get(s, 0)} {s}" for s in ("done", "skipped", "failed", "duplicate")) + f" ({len(table)} products)")
+    failed = table.loc[table["status"] == "failed", "product"].tolist() if len(table) else []
+    for name in failed:
+        print(f"  failed: {name}")
+    print(f"Journal: {os.path.join(args.out, JOURNAL)}")
+    if failed or not (counts.get("done", 0) + counts.get("skipped", 0)):
+        sys.exit(1)
 
 
 def _add_tile_args(p: argparse.ArgumentParser) -> None:
@@ -543,6 +634,8 @@ def _add_embeddings_args(em_parser: argparse.ArgumentParser) -> None:
     em_parser.add_argument("--store", default=None, help="A local copy of the product to read instead of the public one")
     em_parser.add_argument("--cache-dir", default=None, help="Where downloads are kept (default: the embeddings folder of ZEIT_CACHE_DIR, by default ~/.cache/zeit)")
     em_parser.add_argument("--prefix", default=None, help="Name of the output file (default: the source)")
+    em_parser.add_argument("--compact", action="store_true",
+                           help="Save as int8 (about 1/4 of the size of float32; zeit.load_raster reads it back as float32)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -704,6 +797,29 @@ def build_parser() -> argparse.ArgumentParser:
     sn_parser.add_argument("--grid", choices=["rectangular", "diamond", "hexagonal", "random"], default="rectangular", help="Seed grid (default: rectangular)")
     sn_parser.add_argument("--polygons", action="store_true", help="Also write the segments as polygons with their means (<prefix>.gpkg)")
 
+    fi_parser = subparsers.add_parser("fields", help="Delineate fields by the stochastic watershed (labels, boundary probability)")
+    _add_cube_args(fi_parser, "fields", what="Path to the input raster (one image, or a stack or series for --gradient multitemporal)")
+    fi_parser.add_argument("--gradient", choices=["tophat", "sobel", "multitemporal"], default=None, help="Edge image to flood (default: sobel for one image, multitemporal for several layers; tophat is the notebook's)")
+    fi_parser.add_argument("--combine", choices=["mean", "max"], default="mean", help="With the multitemporal gradient: how the layers' gradients are combined (default: mean)")
+    fi_parser.add_argument("--method", choices=["montecarlo", "exact"], default="montecarlo", help="Boundary probability: Monte Carlo of watersheds, or the exact one (thresholds not yet calibrated; default: montecarlo)")
+    fi_parser.add_argument("--realizations", type=int, default=None, help="Monte Carlo: number of watersheds (default: 200; 500 with --preset notebook)")
+    fi_parser.add_argument("--markers", type=int, default=None, help="Random markers per watershed (default: a density of 1000 per million pixels; a count of 1000 with --preset notebook)")
+    fi_parser.add_argument("--marker-density", type=float, default=None, help="Markers per million pixels of the image, instead of --markers (default 1000; F rises up to about 400-1000 and is flat above)")
+    fi_parser.add_argument("--min-distance", type=float, default=20, help="Pixels between markers after thinning (default: 20)")
+    fi_parser.add_argument("--marker-radius", type=int, default=3, help="Radius of the disk each marker is dilated to (default: 3)")
+    fi_parser.add_argument("--low", type=float, default=None, help="Hysteresis, low threshold on the boundary probability (default: 0.1; 0.3 with --preset notebook)")
+    fi_parser.add_argument("--high", type=float, default=0.6, help="Hysteresis, high threshold on the boundary probability (default: 0.6)")
+    fi_parser.add_argument("--min-size", type=int, default=None, help="Drop objects of fewer pixels before the final watershed (default: 10; 50 with --preset notebook)")
+    fi_parser.add_argument("--final", choices=["image", "gradient"], default=None, help="Surface of the final watershed (default: image for one image, else gradient)")
+    fi_parser.add_argument("--mask-threshold", type=float, default=None, help="Keep only the pixels where the image is greater than this (e.g. 2000 for Landsat SWIR1 x 10000)")
+    fi_parser.add_argument("--mask-quantile", type=float, default=None, help="Keep only the pixels where the image is above its own percentile (0-100), a mask that transfers between regions")
+    fi_parser.add_argument("--band", default=None, help="With a stack: the band (name or number) to delineate")
+    fi_parser.add_argument("--preset", choices=["notebook"], default=None, help="The MappingDemo notebook's values for every option not given (tophat gradient, 500 realizations, 1000 markers, low 0.3, min size 50, final image, mask threshold 2000)")
+    fi_parser.add_argument("--random-state", type=int, default=None, help="Seed of the Monte Carlo")
+    fi_parser.add_argument("--polygons", action="store_true", help="Also write the fields as polygons with their area (<prefix>.gpkg)")
+    fi_parser.add_argument("--tile", type=int, default=None, help="A raster too large for one call: process tiles of this many pixels per side, each with an overlap, and stitch them; writes labels.tif, boundary.tif and (--polygons) fields.gpkg in the output directory (e.g. 512)")
+    fi_parser.add_argument("--overlap", type=int, default=None, help="With --tile: pixels of window around each tile's core (default: max(64, 4 x --min-distance))")
+
     cl_parser = subparsers.add_parser("classify", help="Classify every pixel with a random forest trained on sample points")
     _add_cube_args(cl_parser, "classes", what="Path to the raster to classify (each band, or date and band, a feature)")
     cl_parser.add_argument("--samples", default=None, help="Vector file of sample points with their class")
@@ -813,6 +929,30 @@ def build_parser() -> argparse.ArgumentParser:
                                                      "zeit.load_raster reads (the same as zeit embeddings)")
     _add_embeddings_args(fm_parser)
 
+    l2_parser = subparsers.add_parser("level2", help="Sentinel-2 Level 1C to surface reflectance (FORCE's force-l2ps): "
+                                                     "one scene, or every scene of a tile and dates; one scene needs "
+                                                     "about 22 GiB of RAM (29 with --merge)")
+    l2_parser.add_argument("input", nargs="?", default=None, help="One scene: a .SAFE folder or the name of a product "
+                           "(downloaded first). Not with --tile")
+    l2_parser.add_argument("--out", required=True, help="Output folder: the scene's products (boa.tif, qai.tif, ...), "
+                           "or with --tile one folder per scene, dem/ and the journal level2_series.json")
+    l2_parser.add_argument("--tile", default=None, help="A series: the MGRS tile to search (e.g. 23LKC); finished "
+                           "scenes are skipped when run again")
+    l2_parser.add_argument("--start", default=None, help="With --tile: first date of the search (e.g. 2023-07-01)")
+    l2_parser.add_argument("--end", default=None, help="With --tile: last date of the search, included")
+    l2_parser.add_argument("--max-cloud", type=float, default=None, help="With --tile: largest cloud cover, in percent "
+                           "(default: 100)")
+    l2_parser.add_argument("--dem", default="glo30", help="glo30 (Copernicus GLO-30, downloaded), a DEM raster in "
+                           "metres, or none (needs --no-topography) (default: glo30)")
+    l2_parser.add_argument("--merge", choices=["improphe", "regression"], default=None, help="Merge the 20 m bands to "
+                           "10 m before the correction (default: no merge)")
+    l2_parser.add_argument("--no-brdf", action="store_true", help="Do not normalise the BRDF")
+    l2_parser.add_argument("--no-topography", action="store_true", help="Do not correct the illumination of the terrain "
+                           "(no DEM needed)")
+    l2_parser.add_argument("--keep-safe", action="store_true", help="With --tile: keep the downloaded .SAFE folders "
+                           "(default: deleted once the scene is done)")
+    l2_parser.add_argument("--threads", type=int, default=8, help="Threads of each scene (default: 8)")
+
     dr_parser = subparsers.add_parser("doctor", help="What zeit finds here: threads and where their number comes "
                                                      "from, the job, the caches, the network, the versions")
     dr_parser.add_argument("--no-network", action="store_true", help="Do not check the services zeit downloads from")
@@ -870,6 +1010,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         run_twdtw_cli(args)
     elif args.command == "snic":
         run_snic_cli(args)
+    elif args.command == "fields":
+        run_fields_cli(args)
     elif args.command == "classify":
         run_classify_cli(args)
     elif args.command == "som":
@@ -880,6 +1022,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         run_bandpass_cli(args)
     elif args.command == "embeddings":
         run_embeddings_cli(args)
+    elif args.command == "level2":
+        run_level2_cli(args)
     elif args.command == "fetch":
         run_fetch_cli(args, parser)
     elif args.command == "doctor":

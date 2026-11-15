@@ -617,27 +617,67 @@ def _ranking_metadata_json(page: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
-def _ranking_metadata(
-    raw: str, frontmatter_memo: dict[str, dict] | None = None,
-) -> RankingPage:
+def _ranking_frontmatter(authored: str, memo: dict[str, dict] | None) -> dict:
+    """Decode exact authored types only when a ranking consumer needs the complete subject."""
     import yaml
 
     from . import vault
 
-    payload = json.loads(raw)
-    authored = payload.pop("frontmatter_yaml")
     try:
-        frontmatter = None if frontmatter_memo is None else frontmatter_memo.get(authored)
+        frontmatter = None if memo is None else memo.get(authored)
         if frontmatter is None:
             frontmatter = vault.yaml_safe_load(authored)
     except yaml.YAMLError as error:
         raise ValueError("invalid ranking frontmatter") from error
     if not isinstance(frontmatter, dict):
         raise ValueError("invalid ranking frontmatter")
-    if frontmatter_memo is not None:
+    if memo is not None:
         # Exact serialized metadata can repeat across pages; each page still owns its mutable values.
-        frontmatter_memo[authored] = frontmatter
+        memo[authored] = frontmatter
         frontmatter = copy.deepcopy(frontmatter)
+    return frontmatter
+
+
+class _RankingFrontmatter(Mapping[str, Any]):
+    """One request's exact structural YAML, with its existing typed status projection."""
+
+    def __init__(self, authored: str, status: list[Any] | None, memo: dict[str, dict] | None) -> None:
+        self._authored = authored
+        self._status = status
+        self._memo = memo
+        self._decoded: dict | None = None
+
+    def _load(self) -> dict:
+        if self._decoded is None:
+            self._decoded = _ranking_frontmatter(self._authored, self._memo)
+        return self._decoded
+
+    def __getitem__(self, key: str) -> Any:
+        # These are fixed projection fields and wire tags from _eligibility_view_json, not vocabulary.
+        if key == "status":
+            if self._status is None:
+                raise KeyError(key)
+            if self._status[0] == "scalar":
+                return self._status[1]
+        return self._load()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._load())
+
+    def __len__(self) -> int:
+        return len(self._load())
+
+
+def _ranking_metadata(
+    raw: str, frontmatter_memo: dict[str, dict] | None = None,
+    *, status_view: Mapping[str, Any] | None = None,
+) -> RankingPage:
+    payload = json.loads(raw)
+    authored = payload.pop("frontmatter_yaml")
+    frontmatter = (
+        _ranking_frontmatter(authored, frontmatter_memo) if status_view is None
+        else _RankingFrontmatter(authored, status_view.get("status"), frontmatter_memo)
+    )
     for key in ("stem_set", "outbound_targets", "superseded_by"):  # nosemgrep: ep-word-set -- fixed ranking payload fields
         if not isinstance(payload[key], list) or not all(isinstance(value, str) for value in payload[key]):
             raise ValueError("invalid ranking text projection")
@@ -1900,7 +1940,8 @@ def _remove_lexical_rebuild_artifact(
         )
 
 
-_CATALOG_IDENTITY_SCHEMA = "exomem.semantic-catalog.row-identity.v4"
+# v5 retires NULL payload hashes derived before legacy Evidence identity support.
+_CATALOG_IDENTITY_SCHEMA = "exomem.semantic-catalog.row-identity.v5"
 
 
 def catalog_semantic_identity(vault_root: Path) -> str:
@@ -4518,6 +4559,7 @@ def _eligibility_metadata_query(
     ).fetchall()
     result = {}
     frontmatter_memo: dict[str, dict] = {}
+    stored_ranking = include_ranking and store_rows_serve(vault_root)
     try:
         for path, payload, parent, updated, ranking, content_hash in rows:
             payload = None if payload is None else json.loads(payload)
@@ -4534,7 +4576,10 @@ def _eligibility_metadata_query(
                 updated,
                 None if payload is None else payload["media_file"],
                 None if payload is None else payload["frame_ts"],
-                ranking=None if ranking is None else _ranking_metadata(ranking, frontmatter_memo),
+                ranking=None if ranking is None else _ranking_metadata(
+                    ranking, frontmatter_memo,
+                    status_view=payload["view"] if stored_ranking and payload is not None else None,
+                ),
                 content_hash=content_hash,
             )
         if not (include_units or include_occurrences or include_structure):
@@ -4743,6 +4788,7 @@ def _duplicate_index_store(vault_root: Path, *, verify: bool = False) -> Lexical
     A catalogue that is missing, at an older schema or built under another semantic identity is rebuilt from
     canonical pages in the background (`rebuild_atomic`) and reads as None until that lands: the rebuild is
     O(vault) and a storing door asks under its mutation boundary (D5), so the door stores unchecked meanwhile.
+    In store mode the owner's bounded background pass repairs old rows, without a file-catalogue rebuild.
     A store flagged by a failed `record_payload_commit` is reconciled inline, which costs one pass over the
     pages and never rebuilds whole, because the identity was proved first. `verify` reconciles the catalogue
     against the pages even when nothing flags it, because the audit counts every row and a row lost to a failed
@@ -4755,7 +4801,8 @@ def _duplicate_index_store(vault_root: Path, *, verify: bool = False) -> Lexical
     if store._failed:
         return None
     if not store.catalogue_current():
-        _schedule_repair(vault_root, cause=RepairCause.DUPLICATE_INDEX_NOT_CURRENT)
+        if not store._reads_store():
+            _schedule_repair(vault_root, cause=RepairCause.DUPLICATE_INDEX_NOT_CURRENT)
         return None
     if store._payload_stale or verify:
         try:
@@ -11632,13 +11679,17 @@ class LexicalStore:
             return dict.fromkeys(rel_paths, None)
 
     def catalogue_current(self) -> bool:
-        """Whether the sidecar exists at the current schema, shape and semantic identity. Read-only, no DDL.
+        """Whether derived rows are current for duplicate lookup. Read-only, no DDL.
 
-        A catalogue that fails any of these is one that `ensure_fresh` rebuilds whole, so a caller that must not
-        wait for that (the duplicate lookup) treats it as absent.
+        A file catalogue must match this build's schema, shape and semantic identity.
+        Store rows must finish their owner-version pass before the index can answer.
         """
         if self._reads_store():
-            return True  # the store derives each page's rows in its commit
+            from .vault_store import rederive
+
+            # Old store rows stay incomplete until the owner's background pass finishes.
+            with self._store_connection() as conn:
+                return conn is not None and not rederive.owner_schema_behind(conn)
         from .vocabulary.registry import RegistryError
 
         if self._sidecar_unreadable():
@@ -12175,8 +12226,8 @@ class LexicalStore:
         stored: dict[str, bool] = {}
         # A collection store decides its pages on one thread, so the pages it owns share one store request.
         with deciding(plan.missing):
-            for path in plan.missing:
-                allowed, page_local = admission.decide(path, True)
+            # The predicate's set rule decides each ordinary scope class once; the rest stay scalar.
+            for path, (allowed, page_local) in admission.decide_many(plan.missing, True).items():
                 decided[path] = allowed
                 if page_local and path not in plan.live and plan.signatures is not None:
                     signature = plan.signatures.get(path)

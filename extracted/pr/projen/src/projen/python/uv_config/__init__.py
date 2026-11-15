@@ -80,7 +80,12 @@ class AnnotationStyle(enum.Enum):
 @jsii.data_type(
     jsii_type="projen.python.uvConfig.AuditOptions",
     jsii_struct_bases=[],
-    name_mapping={"ignore": "ignore", "ignore_until_fixed": "ignoreUntilFixed"},
+    name_mapping={
+        "ignore": "ignore",
+        "ignore_until_fixed": "ignoreUntilFixed",
+        "malware_check": "malwareCheck",
+        "malware_check_url": "malwareCheckUrl",
+    },
 )
 class AuditOptions:
     def __init__(
@@ -88,10 +93,14 @@ class AuditOptions:
         *,
         ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_until_fixed: typing.Optional[typing.Sequence[builtins.str]] = None,
+        malware_check: typing.Optional[builtins.bool] = None,
+        malware_check_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param ignore: (experimental) A list of vulnerability IDs to ignore during auditing. Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from the audit results.
         :param ignore_until_fixed: (experimental) A list of vulnerability IDs to ignore during auditing, but only while no fix is available. Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from the audit results as long as they have no known fix versions. Once a fix version becomes available, the vulnerability will be reported again.
+        :param malware_check: (experimental) Whether to run the automatic malware check during sync operations.
+        :param malware_check_url: (experimental) The vulnerability service URL to use for automatic malware checks.
 
         :stability: experimental
         :schema: AuditOptions
@@ -100,11 +109,17 @@ class AuditOptions:
             type_hints = cached_type_hints(_typecheckingstub__bcc5ea2182f854183dcda32a05103b5bcbd741be7788d5bb3cd14a68c55f9dd9)
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
             check_type(argname="argument ignore_until_fixed", value=ignore_until_fixed, expected_type=type_hints["ignore_until_fixed"])
+            check_type(argname="argument malware_check", value=malware_check, expected_type=type_hints["malware_check"])
+            check_type(argname="argument malware_check_url", value=malware_check_url, expected_type=type_hints["malware_check_url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if ignore is not None:
             self._values["ignore"] = ignore
         if ignore_until_fixed is not None:
             self._values["ignore_until_fixed"] = ignore_until_fixed
+        if malware_check is not None:
+            self._values["malware_check"] = malware_check
+        if malware_check_url is not None:
+            self._values["malware_check_url"] = malware_check_url
 
     @builtins.property
     def ignore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -132,6 +147,26 @@ class AuditOptions:
         '''
         result = self._values.get("ignore_until_fixed")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def malware_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to run the automatic malware check during sync operations.
+
+        :stability: experimental
+        :schema: AuditOptions#malware-check
+        '''
+        result = self._values.get("malware_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def malware_check_url(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The vulnerability service URL to use for automatic malware checks.
+
+        :stability: experimental
+        :schema: AuditOptions#malware-check-url
+        '''
+        result = self._values.get("malware_check_url")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -560,6 +595,7 @@ class ForkStrategy(enum.Enum):
         "exclude_newer": "excludeNewer",
         "explicit": "explicit",
         "format": "format",
+        "hash_algorithm": "hashAlgorithm",
         "ignore_error_codes": "ignoreErrorCodes",
         "name": "name",
         "publish_url": "publishUrl",
@@ -576,6 +612,7 @@ class Index:
         exclude_newer: typing.Optional["ExcludeNewerOverride"] = None,
         explicit: typing.Optional[builtins.bool] = None,
         format: typing.Optional["IndexFormat"] = None,
+        hash_algorithm: typing.Optional["IndexHashAlgorithm"] = None,
         ignore_error_codes: typing.Optional[typing.Sequence[jsii.Number]] = None,
         name: typing.Optional[builtins.str] = None,
         publish_url: typing.Optional[builtins.str] = None,
@@ -588,6 +625,7 @@ class Index:
         :param exclude_newer: (experimental) An index-specific ``exclude-newer`` cutoff. Accepts the same date, timestamp, and duration values as the global ``exclude-newer`` setting. Set this to ``false`` to disable ``exclude-newer`` for this index entirely. When set to a value, packages resolved from this index will use that cutoff instead of the globally-specified value, unless a package-specific ``exclude-newer-package`` override is present. This option is in preview and may change in any future release:: [tool.uv] exclude-newer = "2025-01-01T00:00:00Z" [[tool.uv.index]] name = "internal" url = "https://internal.example.com/simple" exclude-newer = "7 days"
         :param explicit: (experimental) Mark the index as explicit. Explicit indexes will *only* be used when explicitly requested via a ``[tool.uv.sources]`` definition, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" explicit = true [tool.uv.sources] torch = { index = "pytorch" }
         :param format: (experimental) The format used by the index. Indexes can either be PEP 503-compliant (i.e., a PyPI-style registry implementing the Simple API) or structured as a flat list of distributions (e.g., ``--find-links``). In both cases, indexes can point to either local or remote resources.
+        :param hash_algorithm: (experimental) The hash algorithm that must be used for distributions resolved from this index. If a distribution does not advertise a hash using this algorithm, lockfile generation will fail. This option is in preview and may change in any future release:: [[tool.uv.index]] name = "my-index" url = "https://<omitted>/simple" hash-algorithm = "sha256"
         :param ignore_error_codes: (experimental) Status codes that uv should ignore when deciding whether to continue resolution after a request to this index fails. Example:: [[tool.uv.index]] name = "my-index" url = "https://<omitted>/simple" ignore-error-codes = [401, 403]
         :param name: (experimental) The name of the index. Index names can be used to reference indexes elsewhere in the configuration. For example, you can pin a package to a specific index by name:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" [tool.uv.sources] torch = { index = "pytorch" }
         :param publish_url: (experimental) The URL of the upload endpoint. When using ``uv publish --index <name>``, this URL is used for publishing. A configuration for the default index PyPI would look as follows:: [[tool.uv.index]] name = "pypi" url = "https://pypi.org/simple" publish-url = "https://upload.pypi.org/legacy/"
@@ -606,6 +644,7 @@ class Index:
             check_type(argname="argument exclude_newer", value=exclude_newer, expected_type=type_hints["exclude_newer"])
             check_type(argname="argument explicit", value=explicit, expected_type=type_hints["explicit"])
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument hash_algorithm", value=hash_algorithm, expected_type=type_hints["hash_algorithm"])
             check_type(argname="argument ignore_error_codes", value=ignore_error_codes, expected_type=type_hints["ignore_error_codes"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument publish_url", value=publish_url, expected_type=type_hints["publish_url"])
@@ -624,6 +663,8 @@ class Index:
             self._values["explicit"] = explicit
         if format is not None:
             self._values["format"] = format
+        if hash_algorithm is not None:
+            self._values["hash_algorithm"] = hash_algorithm
         if ignore_error_codes is not None:
             self._values["ignore_error_codes"] = ignore_error_codes
         if name is not None:
@@ -758,6 +799,26 @@ class Index:
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional["IndexFormat"], result)
+
+    @builtins.property
+    def hash_algorithm(self) -> typing.Optional["IndexHashAlgorithm"]:
+        '''(experimental) The hash algorithm that must be used for distributions resolved from this index.
+
+        If a distribution does not advertise a hash using this algorithm, lockfile generation
+        will fail.
+
+        This option is in preview and may change in any future release::
+
+           [[tool.uv.index]]
+           name = "my-index"
+           url = "https://<omitted>/simple"
+           hash-algorithm = "sha256"
+
+        :stability: experimental
+        :schema: Index#hash-algorithm
+        '''
+        result = self._values.get("hash_algorithm")
+        return typing.cast(typing.Optional["IndexHashAlgorithm"], result)
 
     @builtins.property
     def ignore_error_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
@@ -912,6 +973,41 @@ class IndexFormat(enum.Enum):
     '''
 
 
+@jsii.enum(jsii_type="projen.python.uvConfig.IndexHashAlgorithm")
+class IndexHashAlgorithm(enum.Enum):
+    '''(experimental) A hash algorithm that can be required for distributions resolved from an index.
+
+    :stability: experimental
+    :schema: IndexHashAlgorithm
+    '''
+
+    MD5 = "MD5"
+    '''(experimental) md5.
+
+    :stability: experimental
+    '''
+    SHA256 = "SHA256"
+    '''(experimental) sha256.
+
+    :stability: experimental
+    '''
+    SHA384 = "SHA384"
+    '''(experimental) sha384.
+
+    :stability: experimental
+    '''
+    SHA512 = "SHA512"
+    '''(experimental) sha512.
+
+    :stability: experimental
+    '''
+    BLAKE2B = "BLAKE2B"
+    '''(experimental) blake2b.
+
+    :stability: experimental
+    '''
+
+
 @jsii.enum(jsii_type="projen.python.uvConfig.IndexStrategy")
 class IndexStrategy(enum.Enum):
     '''
@@ -1026,6 +1122,66 @@ class LinkMode(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.python.uvConfig.MinimumLibcVersion",
+    jsii_struct_bases=[],
+    name_mapping={"glibc": "glibc", "musl": "musl"},
+)
+class MinimumLibcVersion:
+    def __init__(
+        self,
+        *,
+        glibc: typing.Optional[builtins.str] = None,
+        musl: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) The oldest required release of each Linux libc.
+
+        :param glibc: 
+        :param musl: 
+
+        :stability: experimental
+        :schema: MinimumLibcVersion
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3804e05e4888453fee7e0e2d71caea8e8657150738aedd25a5c9b960e78684d)
+            check_type(argname="argument glibc", value=glibc, expected_type=type_hints["glibc"])
+            check_type(argname="argument musl", value=musl, expected_type=type_hints["musl"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if glibc is not None:
+            self._values["glibc"] = glibc
+        if musl is not None:
+            self._values["musl"] = musl
+
+    @builtins.property
+    def glibc(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        :schema: MinimumLibcVersion#glibc
+        '''
+        result = self._values.get("glibc")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def musl(self) -> typing.Optional[builtins.str]:
+        '''
+        :stability: experimental
+        :schema: MinimumLibcVersion#musl
+        '''
+        result = self._values.get("musl")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MinimumLibcVersion(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -1147,6 +1303,7 @@ class PipGroupName:
         "python_version": "pythonVersion",
         "reinstall": "reinstall",
         "reinstall_package": "reinstallPackage",
+        "require_build_hashes": "requireBuildHashes",
         "require_hashes": "requireHashes",
         "resolution": "resolution",
         "strict": "strict",
@@ -1214,6 +1371,7 @@ class PipOptions:
         python_version: typing.Optional[builtins.str] = None,
         reinstall: typing.Optional[builtins.bool] = None,
         reinstall_package: typing.Optional[typing.Sequence[builtins.str]] = None,
+        require_build_hashes: typing.Optional[builtins.bool] = None,
         require_hashes: typing.Optional[builtins.bool] = None,
         resolution: typing.Optional["ResolutionMode"] = None,
         strict: typing.Optional[builtins.bool] = None,
@@ -1275,12 +1433,13 @@ class PipOptions:
         :param only_binary: (experimental) Only use pre-built wheels; don't build source distributions. When enabled, uv will reuse cached wheels from previously built source distributions, but operations that require building a source distribution for the given packages will exit with an error. uv may still build editable requirements, and their build backends may run arbitrary Python code. Multiple packages may be provided. Disable binaries for all packages with ``:all:``. Clear previously specified packages with ``:none:``.
         :param output_file: (experimental) Write the requirements generated by ``uv pip compile`` to the given ``requirements.txt`` file. If the file already exists, the existing versions will be preferred when resolving dependencies, unless ``--upgrade`` is also specified.
         :param prefix: (experimental) Install packages into ``lib``, ``bin``, and other top-level folders under the specified directory, as if a virtual environment were present at that location. In general, prefer the use of ``--python`` to install into an alternate environment, as scripts and other artifacts installed via ``--prefix`` will reference the installing interpreter, rather than any interpreter added to the ``--prefix`` directory, rendering them non-portable.
-        :param prerelease: (experimental) The strategy to use when considering pre-release versions. By default, uv will accept pre-releases for packages that *only* publish pre-releases, along with first-party requirements that contain an explicit pre-release marker in the declared specifiers (``if-necessary-or-explicit``).
+        :param prerelease: (experimental) The strategy to use when considering pre-release versions. By default, uv will prefer stable candidates, falling back to pre-releases only after every stable candidate that satisfies the active constraints is rejected (``if-necessary``).
         :param python: (experimental) The Python interpreter into which packages should be installed. By default, uv installs into the virtual environment in the current working directory or any parent directory. The ``--python`` option allows you to specify a different interpreter, which is intended for use in continuous integration (CI) environments or other automated workflows. Supported formats: - ``3.10`` looks for an installed Python 3.10 in the registry on Windows (see ``py --list-paths``), or ``python3.10`` on Linux and macOS. - ``python3.10`` or ``python.exe`` looks for a binary with the given name in ``PATH``. - ``/home/ferris/.local/bin/python3.10`` uses the exact Python at the given path.
         :param python_platform: (experimental) The platform for which requirements should be resolved. Represented as a "target triple", a string that describes the target platform in terms of its CPU, vendor, and operating system name, like ``x86_64-unknown-linux-gnu`` or ``aarch64-apple-darwin``.
         :param python_version: (experimental) The minimum Python version that should be supported by the resolved requirements (e.g., ``3.8`` or ``3.8.17``). If a patch version is omitted, the minimum patch version is assumed. For example, ``3.8`` is mapped to ``3.8.0``.
         :param reinstall: (experimental) Reinstall all packages, regardless of whether they're already installed. Implies ``refresh``.
         :param reinstall_package: (experimental) Reinstall a specific package, regardless of whether it's already installed. Implies ``refresh-package``.
+        :param require_build_hashes: (experimental) Require hashes for all build dependencies in ``uv pip`` commands. Overrides ``require-build-hashes`` in ``[tool.uv]``. This does not require hashes for runtime dependencies; use ``require-hashes`` for those.
         :param require_hashes: (experimental) Require a matching hash for each requirement. Hash-checking mode is all or nothing. If enabled, *all* requirements must be provided with a corresponding hash or set of hashes. Additionally, if enabled, *all* requirements must either be pinned to exact versions (e.g., ``==1.0.0``), or be specified via direct URL. Hash-checking mode introduces a number of additional constraints: - Git dependencies are not supported. - Editable installations are not supported. - Local dependencies are not supported, unless they point to a specific wheel (``.whl``) or source archive (``.zip``, ``.tar.gz``), as opposed to a directory.
         :param resolution: (experimental) The strategy to use when selecting between the different compatible versions for a given package requirement. By default, uv will use the latest compatible version of each package (``highest``).
         :param strict: (experimental) Validate the Python environment, to detect packages with missing dependencies and other issues.
@@ -1348,6 +1507,7 @@ class PipOptions:
             check_type(argname="argument python_version", value=python_version, expected_type=type_hints["python_version"])
             check_type(argname="argument reinstall", value=reinstall, expected_type=type_hints["reinstall"])
             check_type(argname="argument reinstall_package", value=reinstall_package, expected_type=type_hints["reinstall_package"])
+            check_type(argname="argument require_build_hashes", value=require_build_hashes, expected_type=type_hints["require_build_hashes"])
             check_type(argname="argument require_hashes", value=require_hashes, expected_type=type_hints["require_hashes"])
             check_type(argname="argument resolution", value=resolution, expected_type=type_hints["resolution"])
             check_type(argname="argument strict", value=strict, expected_type=type_hints["strict"])
@@ -1461,6 +1621,8 @@ class PipOptions:
             self._values["reinstall"] = reinstall
         if reinstall_package is not None:
             self._values["reinstall_package"] = reinstall_package
+        if require_build_hashes is not None:
+            self._values["require_build_hashes"] = require_build_hashes
         if require_hashes is not None:
             self._values["require_hashes"] = require_hashes
         if resolution is not None:
@@ -2106,9 +2268,9 @@ class PipOptions:
     def prerelease(self) -> typing.Optional["PrereleaseMode"]:
         '''(experimental) The strategy to use when considering pre-release versions.
 
-        By default, uv will accept pre-releases for packages that *only* publish pre-releases,
-        along with first-party requirements that contain an explicit pre-release marker in the
-        declared specifiers (``if-necessary-or-explicit``).
+        By default, uv will prefer stable candidates, falling back to pre-releases only after every
+        stable candidate that satisfies the active constraints is rejected
+        (``if-necessary``).
 
         :stability: experimental
         :schema: PipOptions#prerelease
@@ -2189,6 +2351,19 @@ class PipOptions:
         '''
         result = self._values.get("reinstall_package")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def require_build_hashes(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Require hashes for all build dependencies in ``uv pip`` commands.
+
+        Overrides ``require-build-hashes`` in ``[tool.uv]``. This does not require hashes for runtime
+        dependencies; use ``require-hashes`` for those.
+
+        :stability: experimental
+        :schema: PipOptions#require-build-hashes
+        '''
+        result = self._values.get("require_build_hashes")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def require_hashes(self) -> typing.Optional[builtins.bool]:
@@ -2369,21 +2544,22 @@ class PrereleaseMode(enum.Enum):
     :stability: experimental
     '''
     IF_HYPHEN_NECESSARY = "IF_HYPHEN_NECESSARY"
-    '''(experimental) Allow pre-release versions if all versions of a package are pre-release.
+    '''(experimental) Prefer stable versions, falling back to pre-release versions when necessary.
 
     (if-necessary)
 
     :stability: experimental
     '''
     EXPLICIT = "EXPLICIT"
-    '''(experimental) Allow pre-release versions for first-party packages with explicit pre-release markers in their version requirements.
+    '''(experimental) Prefer stable versions for first-party packages with explicit pre-release specifiers, falling back to pre-release versions when necessary.
 
-    (explicit)
+    Disallow pre-release versions for all
+    other packages. (explicit)
 
     :stability: experimental
     '''
     IF_HYPHEN_NECESSARY_HYPHEN_OR_HYPHEN_EXPLICIT = "IF_HYPHEN_NECESSARY_HYPHEN_OR_HYPHEN_EXPLICIT"
-    '''(experimental) Allow pre-release versions if all versions of a package are pre-release, or if the package has an explicit pre-release marker in its version requirements.
+    '''(experimental) Deprecated alias for ``if-necessary``.
 
     (if-necessary-or-explicit)
 
@@ -2773,6 +2949,27 @@ class TargetTriple(enum.Enum):
 
     :stability: experimental
     '''
+    S390X_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU = "S390X_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU"
+    '''(experimental) An s390x Linux target.
+
+    Equivalent to ``s390x-manylinux_2_28``. (s390x-unknown-linux-gnu)
+
+    :stability: experimental
+    '''
+    POWERPC64LE_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU = "POWERPC64LE_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU"
+    '''(experimental) A little-endian ``PowerPC64`` Linux target.
+
+    Equivalent to ``ppc64le-manylinux_2_28``. (powerpc64le-unknown-linux-gnu)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU = "LOONGARCH64_HYPHEN_UNKNOWN_HYPHEN_LINUX_HYPHEN_GNU"
+    '''(experimental) A ``LoongArch64`` Linux target.
+
+    Equivalent to ``loongarch64-manylinux_2_36``. (loongarch64-unknown-linux-gnu)
+
+    :stability: experimental
+    '''
     RISCV64_HYPHEN_UNKNOWN_HYPHEN_LINUX = "RISCV64_HYPHEN_UNKNOWN_HYPHEN_LINUX"
     '''(experimental) A RISCV64 Linux target.
 
@@ -2959,6 +3156,223 @@ class TargetTriple(enum.Enum):
     '''(experimental) An ARM64 target for the ``manylinux_2_40`` platform.
 
     (aarch64-manylinux_2_40)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX2014 = "S390X_HYPHEN_MANYLINUX2014"
+    '''(experimental) An s390x target for the ``manylinux2014`` platform.
+
+    Equivalent to ``s390x-manylinux_2_17``. (s390x-manylinux2014)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_17 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_17"
+    '''(experimental) An s390x target for the ``manylinux_2_17`` platform.
+
+    (s390x-manylinux_2_17)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_28 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_28"
+    '''(experimental) An s390x target for the ``manylinux_2_28`` platform.
+
+    (s390x-manylinux_2_28)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_31 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_31"
+    '''(experimental) An s390x target for the ``manylinux_2_31`` platform.
+
+    (s390x-manylinux_2_31)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_32 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_32"
+    '''(experimental) An s390x target for the ``manylinux_2_32`` platform.
+
+    (s390x-manylinux_2_32)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_33 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_33"
+    '''(experimental) An s390x target for the ``manylinux_2_33`` platform.
+
+    (s390x-manylinux_2_33)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_34 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_34"
+    '''(experimental) An s390x target for the ``manylinux_2_34`` platform.
+
+    (s390x-manylinux_2_34)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_35 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_35"
+    '''(experimental) An s390x target for the ``manylinux_2_35`` platform.
+
+    (s390x-manylinux_2_35)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36"
+    '''(experimental) An s390x target for the ``manylinux_2_36`` platform.
+
+    (s390x-manylinux_2_36)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37"
+    '''(experimental) An s390x target for the ``manylinux_2_37`` platform.
+
+    (s390x-manylinux_2_37)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38"
+    '''(experimental) An s390x target for the ``manylinux_2_38`` platform.
+
+    (s390x-manylinux_2_38)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39"
+    '''(experimental) An s390x target for the ``manylinux_2_39`` platform.
+
+    (s390x-manylinux_2_39)
+
+    :stability: experimental
+    '''
+    S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40 = "S390X_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40"
+    '''(experimental) An s390x target for the ``manylinux_2_40`` platform.
+
+    (s390x-manylinux_2_40)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX2014 = "PPC64LE_HYPHEN_MANYLINUX2014"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux2014`` platform.
+
+    Equivalent to ``ppc64le-manylinux_2_17``. (ppc64le-manylinux2014)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_17 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_17"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_17`` platform.
+
+    (ppc64le-manylinux_2_17)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_28 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_28"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_28`` platform.
+
+    (ppc64le-manylinux_2_28)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_31 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_31"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_31`` platform.
+
+    (ppc64le-manylinux_2_31)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_32 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_32"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_32`` platform.
+
+    (ppc64le-manylinux_2_32)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_33 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_33"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_33`` platform.
+
+    (ppc64le-manylinux_2_33)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_34 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_34"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_34`` platform.
+
+    (ppc64le-manylinux_2_34)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_35 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_35"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_35`` platform.
+
+    (ppc64le-manylinux_2_35)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_36`` platform.
+
+    (ppc64le-manylinux_2_36)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_37`` platform.
+
+    (ppc64le-manylinux_2_37)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_38`` platform.
+
+    (ppc64le-manylinux_2_38)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_39`` platform.
+
+    (ppc64le-manylinux_2_39)
+
+    :stability: experimental
+    '''
+    PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40 = "PPC64LE_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40"
+    '''(experimental) A little-endian ``PowerPC64`` target for the ``manylinux_2_40`` platform.
+
+    (ppc64le-manylinux_2_40)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36 = "LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_36"
+    '''(experimental) A ``LoongArch64`` target for the ``manylinux_2_36`` platform.
+
+    (loongarch64-manylinux_2_36)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37 = "LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_37"
+    '''(experimental) A ``LoongArch64`` target for the ``manylinux_2_37`` platform.
+
+    (loongarch64-manylinux_2_37)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38 = "LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_38"
+    '''(experimental) A ``LoongArch64`` target for the ``manylinux_2_38`` platform.
+
+    (loongarch64-manylinux_2_38)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39 = "LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_39"
+    '''(experimental) A ``LoongArch64`` target for the ``manylinux_2_39`` platform.
+
+    (loongarch64-manylinux_2_39)
+
+    :stability: experimental
+    '''
+    LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40 = "LOONGARCH64_HYPHEN_MANYLINUX_UNDERSCORE_2_UNDERSCORE_40"
+    '''(experimental) A ``LoongArch64`` target for the ``manylinux_2_40`` platform.
+
+    (loongarch64-manylinux_2_40)
 
     :stability: experimental
     '''
@@ -3414,6 +3828,7 @@ class TrustedPublishing(enum.Enum):
         "extra_index_url": "extraIndexUrl",
         "find_links": "findLinks",
         "fork_strategy": "forkStrategy",
+        "graalpy_install_mirror": "graalpyInstallMirror",
         "http_proxy": "httpProxy",
         "https_proxy": "httpsProxy",
         "index": "index",
@@ -3422,6 +3837,7 @@ class TrustedPublishing(enum.Enum):
         "keyring_provider": "keyringProvider",
         "link_mode": "linkMode",
         "managed": "managed",
+        "minimum_libc_version": "minimumLibcVersion",
         "native_tls": "nativeTls",
         "no_binary": "noBinary",
         "no_binary_package": "noBinaryPackage",
@@ -3439,9 +3855,11 @@ class TrustedPublishing(enum.Enum):
         "package": "package",
         "pip": "pip",
         "prerelease": "prerelease",
+        "prerelease_package": "prereleasePackage",
         "preview": "preview",
         "preview_features": "previewFeatures",
         "publish_url": "publishUrl",
+        "pyodide_install_mirror": "pyodideInstallMirror",
         "pypy_install_mirror": "pypyInstallMirror",
         "python_downloads": "pythonDownloads",
         "python_downloads_json_url": "pythonDownloadsJsonUrl",
@@ -3449,6 +3867,7 @@ class TrustedPublishing(enum.Enum):
         "python_preference": "pythonPreference",
         "reinstall": "reinstall",
         "reinstall_package": "reinstallPackage",
+        "require_build_hashes": "requireBuildHashes",
         "required_environments": "requiredEnvironments",
         "required_version": "requiredVersion",
         "resolution": "resolution",
@@ -3469,7 +3888,7 @@ class UvConfiguration:
         allow_insecure_host: typing.Optional[typing.Sequence[builtins.str]] = None,
         audit: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_backend: typing.Optional[typing.Union["BuildBackendSettings", typing.Dict[builtins.str, typing.Any]]] = None,
-        build_constraint_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
+        build_constraint_dependencies: typing.Optional[typing.Sequence[typing.Any]] = None,
         cache_dir: typing.Optional[builtins.str] = None,
         cache_keys: typing.Optional[typing.Sequence[typing.Any]] = None,
         check_url: typing.Optional[builtins.str] = None,
@@ -3494,6 +3913,7 @@ class UvConfiguration:
         extra_index_url: typing.Optional[typing.Sequence[builtins.str]] = None,
         find_links: typing.Optional[typing.Sequence[builtins.str]] = None,
         fork_strategy: typing.Optional["ForkStrategy"] = None,
+        graalpy_install_mirror: typing.Optional[builtins.str] = None,
         http_proxy: typing.Optional[builtins.str] = None,
         https_proxy: typing.Optional[builtins.str] = None,
         index: typing.Optional[typing.Sequence[typing.Union["Index", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3502,6 +3922,7 @@ class UvConfiguration:
         keyring_provider: typing.Optional["KeyringProviderType"] = None,
         link_mode: typing.Optional["LinkMode"] = None,
         managed: typing.Optional[builtins.bool] = None,
+        minimum_libc_version: typing.Optional[typing.Union["MinimumLibcVersion", typing.Dict[builtins.str, typing.Any]]] = None,
         native_tls: typing.Optional[builtins.bool] = None,
         no_binary: typing.Optional[builtins.bool] = None,
         no_binary_package: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3519,9 +3940,11 @@ class UvConfiguration:
         package: typing.Optional[builtins.bool] = None,
         pip: typing.Optional[typing.Union["PipOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         prerelease: typing.Optional["PrereleaseMode"] = None,
+        prerelease_package: typing.Optional[typing.Mapping[builtins.str, "PrereleaseMode"]] = None,
         preview: typing.Optional[builtins.bool] = None,
         preview_features: typing.Any = None,
         publish_url: typing.Optional[builtins.str] = None,
+        pyodide_install_mirror: typing.Optional[builtins.str] = None,
         pypy_install_mirror: typing.Optional[builtins.str] = None,
         python_downloads: typing.Optional["PythonDownloads"] = None,
         python_downloads_json_url: typing.Optional[builtins.str] = None,
@@ -3529,6 +3952,7 @@ class UvConfiguration:
         python_preference: typing.Optional["PythonPreference"] = None,
         reinstall: typing.Optional[builtins.bool] = None,
         reinstall_package: typing.Optional[typing.Sequence[builtins.str]] = None,
+        require_build_hashes: typing.Optional[builtins.bool] = None,
         required_environments: typing.Optional[typing.Sequence[builtins.str]] = None,
         required_version: typing.Optional[builtins.str] = None,
         resolution: typing.Optional["ResolutionMode"] = None,
@@ -3546,7 +3970,7 @@ class UvConfiguration:
         :param allow_insecure_host: (experimental) Allow insecure connections to host. Expects to receive either a hostname (e.g., ``localhost``), a host-port pair (e.g., ``localhost:8080``), or a URL (e.g., ``https://localhost``). WARNING: Hosts included in this list will not be verified against the system's certificate store. Only use ``--allow-insecure-host`` in a secure network with verified sources, as it bypasses SSL verification and could expose you to MITM attacks.
         :param audit: 
         :param build_backend: (experimental) Configuration for the uv build backend. Note that those settings only apply when using the ``uv_build`` backend, other build backends (such as hatchling) have their own configuration.
-        :param build_constraint_dependencies: (experimental) PEP 508-style requirements, e.g., ``ruff==0.5.0``, or ``ruff @ https://...``.
+        :param build_constraint_dependencies: (experimental) Constraints to apply when solving build dependencies. Build constraints are used to restrict the versions of build dependencies that are selected when building a package during resolution or installation. Including a package as a constraint will *not* trigger installation of the package during a build; instead, the package must be requested elsewhere in the project's build dependency graph. !!! note In ``uv lock``, ``uv sync``, and ``uv run``, uv will only read ``build-constraint-dependencies`` from the ``pyproject.toml`` at the workspace root, and will ignore any declarations in other workspace members or ``uv.toml`` files. Hashes can be included to verify downloaded build dependency archives. To provide hashes, use a table with ``requirement`` and ``hashes``. uv records these hashes in ``uv.lock``.
         :param cache_dir: (experimental) Path to the cache directory.
         :param cache_keys: (experimental) The keys to consider when caching builds for the project. Cache keys enable you to specify the files or directories that should trigger a rebuild when modified. By default, uv will rebuild a project whenever the ``pyproject.toml``, ``setup.py``, or ``setup.cfg`` files in the project directory are modified, or if a ``src`` directory is added or removed, i.e.:: cache-keys = [{ file = "pyproject.toml" }, { file = "setup.py" }, { file = "setup.cfg" }, { dir = "src" }] As an example: if a project uses dynamic metadata to read its dependencies from a ``requirements.txt`` file, you can specify ``cache-keys = [{ file = "requirements.txt" }, { file = "pyproject.toml" }]`` to ensure that the project is rebuilt whenever the ``requirements.txt`` file is modified (in addition to watching the ``pyproject.toml``). Globs are supported, following the syntax of the ```glob`` <https://docs.rs/glob/0.3.1/glob/struct.Pattern.html>`_ crate. For example, to invalidate the cache whenever a ``.toml`` file in the project directory or any of its subdirectories is modified, you can specify ``cache-keys = [{ file = "*_/*.toml" }]``. Note that the use of globs can be expensive, as uv may need to walk the filesystem to determine whether any files have changed. Cache keys can also include version control information. For example, if a project uses ``setuptools_scm`` to read its version from a Git commit, you can specify ``cache-keys = [{ git = { commit = true }, { file = "pyproject.toml" }]`` to include the current Git commit hash in the cache key (in addition to the ``pyproject.toml``). Git tags are also supported via ``cache-keys = [{ git = { commit = true, tags = true } }]``. Cache keys can also include environment variables. For example, if a project relies on ``MACOSX_DEPLOYMENT_TARGET`` or other environment variables to determine its behavior, you can specify ``cache-keys = [{ env = "MACOSX_DEPLOYMENT_TARGET" }]`` to invalidate the cache whenever the environment variable changes. Cache keys only affect the project defined by the ``pyproject.toml`` in which they're specified (as opposed to, e.g., affecting all members in a workspace), and all paths and globs are interpreted as relative to the project directory.
         :param check_url: (experimental) Check an index URL for existing files to skip duplicate uploads. This option allows retrying publishing that failed after only some, but not all files have been uploaded, and handles error due to parallel uploads of the same file. Before uploading, the index is checked. If the exact same file already exists in the index, the file will not be uploaded. If an error occurred during the upload, the index is checked again, to handle cases where the identical file was uploaded twice in parallel. The exact behavior will vary based on the index. When uploading to PyPI, uploading the same file succeeds even without ``--check-url``, while most other indexes error. The index must provide one of the supported hashes (SHA-256, SHA-384, or SHA-512).
@@ -3571,6 +3995,7 @@ class UvConfiguration:
         :param extra_index_url: (experimental) Extra URLs of package indexes to use, in addition to ``--index-url``. Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. All indexes provided via this flag take priority over the index specified by ```index_url`` <#index-url>`_ or ```index`` <#index>`_ with ``default = true``. When multiple indexes are provided, earlier values take priority. To control uv's resolution strategy when multiple indexes are present, see ```index_strategy`` <#index-strategy>`_. (Deprecated: use ``index`` instead.)
         :param find_links: (experimental) Locations to search for candidate distributions, in addition to those found in the registry indexes. If a path, the target must be a directory that contains packages as wheel files (``.whl``) or source distributions (e.g., ``.tar.gz`` or ``.zip``) at the top level. If a URL, the page must contain a flat list of links to package files adhering to the formats described above.
         :param fork_strategy: (experimental) The strategy to use when selecting multiple versions of a given package across Python versions and platforms. By default, uv will optimize for selecting the latest version of each package for each supported Python version (``requires-python``), while minimizing the number of selected versions across platforms. Under ``fewest``, uv will minimize the number of selected versions for each package, preferring older versions that are compatible with a wider range of supported Python versions or platforms.
+        :param graalpy_install_mirror: (experimental) Mirror URL to use for downloading managed GraalPy installations. By default, managed GraalPy installations are downloaded from `GitHub <https://github.com/oracle/graalpython/releases>`_. This variable can be set to a mirror URL to use a different source for GraalPy installations. The provided URL will replace ``https://github.com/oracle/graalpython/releases/download`` in, e.g., ``https://github.com/oracle/graalpython/releases/download/graal-24.2.2/graalpy-24.2.2-macos-aarch64.tar.gz``. Distributions can be read from a local directory by using the ``file://`` URL scheme.
         :param http_proxy: (experimental) The URL of the HTTP proxy to use.
         :param https_proxy: (experimental) The URL of the HTTPS proxy to use.
         :param index: (experimental) The indexes to use when resolving dependencies. Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. Indexes are considered in the order in which they're defined, such that the first-defined index has the highest priority. Further, the indexes provided by this setting are given higher priority than any indexes specified via ```index_url`` <#index-url>`_ or ```extra_index_url`` <#extra-index-url>`_. uv will only consider the first index that contains a given package, unless an alternative `index strategy <#index-strategy>`_ is specified. If an index is marked as ``explicit = true``, it will be used exclusively for the dependencies that select it explicitly via ``[tool.uv.sources]``, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" explicit = true [tool.uv.sources] torch = { index = "pytorch" } If an index is marked as ``default = true``, it will be moved to the end of the prioritized list, such that it is given the lowest priority when resolving packages. Additionally, marking an index as default will disable the PyPI default index.
@@ -3579,13 +4004,14 @@ class UvConfiguration:
         :param keyring_provider: (experimental) Attempt to use ``keyring`` for authentication for index URLs. At present, only ``--keyring-provider subprocess`` is supported, which configures uv to use the ``keyring`` CLI to handle authentication.
         :param link_mode: (experimental) The method to use when installing packages from the global cache. Defaults to ``clone`` (also known as Copy-on-Write) on macOS and Linux, and ``hardlink`` on Windows. WARNING: The use of symlink link mode is discouraged, as they create tight coupling between the cache and the target environment. For example, clearing the cache (``uv cache clean``) will break all installed packages by way of removing the underlying source files. Use symlinks with caution. Default: clone``(also known as Copy-on-Write) on macOS and Linux, and``hardlink` on
         :param managed: (experimental) Whether the project is managed by uv. If ``false``, uv will ignore the project when ``uv run`` is invoked.
+        :param minimum_libc_version: (experimental) The minimum libc versions to support when resolving for Linux. During universal resolution, wheels must support the configured libc versions to satisfy ``required-environments``. For example, ``{ glibc = "2.31" }`` accepts ``manylinux_2_17`` wheels as coverage, but not ``manylinux_2_34`` wheels. Both are retained in the lockfile so installation can select the best wheel for the current machine. An omitted libc is not required. Use ``required-environments`` to specify the Linux architectures to support. Each configured libc version needs compatible wheels for those environments. Generic Linux wheels do not constrain libc and can satisfy either implementation. Packages with a usable source distribution can still be selected. This setting is respected by ``uv lock`` and ``uv pip compile --universal``. This option is in preview and may change in any future release. Use ``--preview-features minimum-libc-version`` or configure ``preview-features = ["minimum-libc-version"]`` to disable the warning.
         :param native_tls: (experimental) Whether to load TLS certificates from the platform's native certificate store. By default, uv uses bundled Mozilla root certificates. When enabled, this loads certificates from the platform's native certificate store instead. (Deprecated: use ``system-certs`` instead.)
         :param no_binary: (experimental) Don't install pre-built wheels. The given packages will be built and installed from source. The resolver will still use pre-built wheels to extract package metadata, if available.
         :param no_binary_package: (experimental) Don't install pre-built wheels for a specific package.
-        :param no_build: (experimental) Don't build source distributions. When enabled, uv will reuse cached wheels from previously built source distributions, but operations that require building a source distribution will exit with an error. uv may still build editable requirements, and their build backends may run arbitrary Python code.
+        :param no_build: (experimental) Don't build source distributions. When enabled, uv will reuse cached wheels from previously built source distributions, but operations that require building a source distribution will exit with an error. First-party packages, such as projects in the workspace, will still be built. uv will also still build editable requirements, and their build backends may run arbitrary Python code.
         :param no_build_isolation: (experimental) Disable isolation when building source distributions. Assumes that build dependencies specified by `PEP 518 <https://peps.python.org/pep-0518/>`_ are already installed.
         :param no_build_isolation_package: (experimental) Disable isolation when building source distributions for a specific package. Assumes that the packages' build dependencies specified by `PEP 518 <https://peps.python.org/pep-0518/>`_ are already installed.
-        :param no_build_package: (experimental) Don't build source distributions for a specific package.
+        :param no_build_package: (experimental) Don't build source distributions for a specific package. First-party packages, such as projects in the workspace, will still be built.
         :param no_cache: (experimental) Avoid reading from or writing to the cache, instead using a temporary directory for the duration of the operation.
         :param no_index: (experimental) Ignore all registry indexes (e.g., PyPI), instead relying on direct URL dependencies and those provided via ``--find-links``.
         :param no_proxy: (experimental) A list of hosts to exclude from proxying.
@@ -3595,10 +4021,12 @@ class UvConfiguration:
         :param override_dependencies: (experimental) Overrides to apply when resolving the project's dependencies. Overrides are used to force selection of a specific version of a package, regardless of the version requested by any other package, and regardless of whether choosing that version would typically constitute an invalid resolution. While constraints are *additive*, in that they're combined with the requirements of the constituent packages, overrides are *absolute*, in that they completely replace the requirements of any constituent packages. Including a package as an override will *not* trigger installation of the package on its own; instead, the package must be requested elsewhere in the project's first-party or transitive dependencies. Overrides can be limited to the dependencies declared by a specific package version by using a table with ``package`` and ``dependencies``. The ``package`` table identifies the package whose dependencies will be overridden by ``name`` and, optionally, ``version``. If ``version`` is omitted, the overrides apply to all versions of that package. Requirements in ``dependencies`` replace dependencies with the same name and add dependencies that are not declared by the package. Dependencies not listed in ``dependencies`` are left unchanged. Scoped overrides currently support registry version specifiers only. Direct URL and path sources, including Git sources, and explicit indexes are not supported. !!! note In ``uv lock``, ``uv sync``, and ``uv run``, uv will only read ``override-dependencies`` from the ``pyproject.toml`` at the workspace root, and will ignore any declarations in other workspace members or ``uv.toml`` files.
         :param package: (experimental) Whether the project should be considered a Python package, or a non-package ("virtual") project. Packages are built and installed into the virtual environment in editable mode and thus require a build backend, while virtual projects are *not* built or installed; instead, only their dependencies are included in the virtual environment. Creating a package requires that a ``build-system`` is present in the ``pyproject.toml``, and that the project adheres to a structure that adheres to the build backend's expectations (e.g., a ``src`` layout).
         :param pip: 
-        :param prerelease: (experimental) The strategy to use when considering pre-release versions. By default, uv will accept pre-releases for packages that *only* publish pre-releases, along with first-party requirements that contain an explicit pre-release marker in the declared specifiers (``if-necessary-or-explicit``).
+        :param prerelease: (experimental) The strategy to use when considering pre-release versions. By default, uv will prefer stable candidates, falling back to pre-releases only after every stable candidate that satisfies the active constraints is rejected (``if-necessary``).
+        :param prerelease_package: (experimental) The strategy to use when considering pre-release versions for specific packages. Package-specific modes take precedence over the global ```prerelease`` <#prerelease>`_ mode. Accepts a dictionary mapping package names to any supported pre-release mode.
         :param preview: (experimental) Whether to enable all experimental, preview features. Use ``preview-features`` instead.
         :param preview_features: (experimental) Whether to enable specific or all experimental preview features. Unknown feature names are ignored with a warning.
         :param publish_url: (experimental) The URL for publishing packages to the Python package index (by default: `https://upload.pypi.org/legacy/ <https://upload.pypi.org/legacy/>`_).
+        :param pyodide_install_mirror: (experimental) Mirror URL to use for downloading managed Pyodide installations. By default, managed Pyodide installations are downloaded from `GitHub <https://github.com/pyodide/pyodide/releases>`_. This variable can be set to a mirror URL to use a different source for Pyodide installations. The provided URL will replace ``https://github.com/pyodide/pyodide/releases/download`` in, e.g., ``https://github.com/pyodide/pyodide/releases/download/0.29.5/xbuildenv-0.29.5.tar.gz``. Distributions can be read from a local directory by using the ``file://`` URL scheme.
         :param pypy_install_mirror: (experimental) Mirror URL to use for downloading managed PyPy installations. By default, managed PyPy installations are downloaded from `downloads.python.org <https://downloads.python.org/>`_. This variable can be set to a mirror URL to use a different source for PyPy installations. The provided URL will replace ``https://downloads.python.org/pypy`` in, e.g., ``https://downloads.python.org/pypy/pypy3.8-v7.3.7-osx64.tar.bz2``. Distributions can be read from a local directory by using the ``file://`` URL scheme.
         :param python_downloads: (experimental) Whether to allow Python downloads.
         :param python_downloads_json_url: (experimental) URL pointing to JSON of custom Python installations.
@@ -3606,6 +4034,7 @@ class UvConfiguration:
         :param python_preference: (experimental) Whether to prefer using Python installations that are already present on the system, or those that are downloaded and installed by uv.
         :param reinstall: (experimental) Reinstall all packages, regardless of whether they're already installed. Implies ``refresh``.
         :param reinstall_package: (experimental) Reinstall a specific package, regardless of whether it's already installed. Implies ``refresh-package``.
+        :param require_build_hashes: (experimental) Require hashes for all build dependencies. uv checks hashes provided in ``build-constraint-dependencies`` when downloading build dependencies. Enable this setting to require a hash for every build dependency, including transitive dependencies. You can also provide hashes as URL fragments in ``build-system.requires``. Hashes returned by a build backend do not count. Hashes are not required for the ``uv_build`` backend bundled in uv. When build isolation is disabled, build dependencies must already be installed and their hashes are not checked. Already-installed packages and previously built wheels are not checked. This setting also applies to ``uv pip`` commands, where it can be overridden in ``[tool.uv.pip]``.
         :param required_environments: (experimental) A list of environment markers, e.g., `sys_platform == 'darwin'.
         :param required_version: (experimental) Enforce a requirement on the version of uv. If the version of uv does not meet the requirement at runtime, uv will exit with an error. Accepts a `PEP 440 <https://peps.python.org/pep-0440/>`_ specifier, like ``==0.5.0`` or ``>=0.5.0``.
         :param resolution: (experimental) The strategy to use when selecting between the different compatible versions for a given package requirement. By default, uv will use the latest compatible version of each package (``highest``).
@@ -3624,6 +4053,8 @@ class UvConfiguration:
             audit = AuditOptions(**audit)
         if isinstance(build_backend, dict):
             build_backend = BuildBackendSettings(**build_backend)
+        if isinstance(minimum_libc_version, dict):
+            minimum_libc_version = MinimumLibcVersion(**minimum_libc_version)
         if isinstance(pip, dict):
             pip = PipOptions(**pip)
         if isinstance(workspace, dict):
@@ -3659,6 +4090,7 @@ class UvConfiguration:
             check_type(argname="argument extra_index_url", value=extra_index_url, expected_type=type_hints["extra_index_url"])
             check_type(argname="argument find_links", value=find_links, expected_type=type_hints["find_links"])
             check_type(argname="argument fork_strategy", value=fork_strategy, expected_type=type_hints["fork_strategy"])
+            check_type(argname="argument graalpy_install_mirror", value=graalpy_install_mirror, expected_type=type_hints["graalpy_install_mirror"])
             check_type(argname="argument http_proxy", value=http_proxy, expected_type=type_hints["http_proxy"])
             check_type(argname="argument https_proxy", value=https_proxy, expected_type=type_hints["https_proxy"])
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
@@ -3667,6 +4099,7 @@ class UvConfiguration:
             check_type(argname="argument keyring_provider", value=keyring_provider, expected_type=type_hints["keyring_provider"])
             check_type(argname="argument link_mode", value=link_mode, expected_type=type_hints["link_mode"])
             check_type(argname="argument managed", value=managed, expected_type=type_hints["managed"])
+            check_type(argname="argument minimum_libc_version", value=minimum_libc_version, expected_type=type_hints["minimum_libc_version"])
             check_type(argname="argument native_tls", value=native_tls, expected_type=type_hints["native_tls"])
             check_type(argname="argument no_binary", value=no_binary, expected_type=type_hints["no_binary"])
             check_type(argname="argument no_binary_package", value=no_binary_package, expected_type=type_hints["no_binary_package"])
@@ -3684,9 +4117,11 @@ class UvConfiguration:
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
             check_type(argname="argument pip", value=pip, expected_type=type_hints["pip"])
             check_type(argname="argument prerelease", value=prerelease, expected_type=type_hints["prerelease"])
+            check_type(argname="argument prerelease_package", value=prerelease_package, expected_type=type_hints["prerelease_package"])
             check_type(argname="argument preview", value=preview, expected_type=type_hints["preview"])
             check_type(argname="argument preview_features", value=preview_features, expected_type=type_hints["preview_features"])
             check_type(argname="argument publish_url", value=publish_url, expected_type=type_hints["publish_url"])
+            check_type(argname="argument pyodide_install_mirror", value=pyodide_install_mirror, expected_type=type_hints["pyodide_install_mirror"])
             check_type(argname="argument pypy_install_mirror", value=pypy_install_mirror, expected_type=type_hints["pypy_install_mirror"])
             check_type(argname="argument python_downloads", value=python_downloads, expected_type=type_hints["python_downloads"])
             check_type(argname="argument python_downloads_json_url", value=python_downloads_json_url, expected_type=type_hints["python_downloads_json_url"])
@@ -3694,6 +4129,7 @@ class UvConfiguration:
             check_type(argname="argument python_preference", value=python_preference, expected_type=type_hints["python_preference"])
             check_type(argname="argument reinstall", value=reinstall, expected_type=type_hints["reinstall"])
             check_type(argname="argument reinstall_package", value=reinstall_package, expected_type=type_hints["reinstall_package"])
+            check_type(argname="argument require_build_hashes", value=require_build_hashes, expected_type=type_hints["require_build_hashes"])
             check_type(argname="argument required_environments", value=required_environments, expected_type=type_hints["required_environments"])
             check_type(argname="argument required_version", value=required_version, expected_type=type_hints["required_version"])
             check_type(argname="argument resolution", value=resolution, expected_type=type_hints["resolution"])
@@ -3763,6 +4199,8 @@ class UvConfiguration:
             self._values["find_links"] = find_links
         if fork_strategy is not None:
             self._values["fork_strategy"] = fork_strategy
+        if graalpy_install_mirror is not None:
+            self._values["graalpy_install_mirror"] = graalpy_install_mirror
         if http_proxy is not None:
             self._values["http_proxy"] = http_proxy
         if https_proxy is not None:
@@ -3779,6 +4217,8 @@ class UvConfiguration:
             self._values["link_mode"] = link_mode
         if managed is not None:
             self._values["managed"] = managed
+        if minimum_libc_version is not None:
+            self._values["minimum_libc_version"] = minimum_libc_version
         if native_tls is not None:
             self._values["native_tls"] = native_tls
         if no_binary is not None:
@@ -3813,12 +4253,16 @@ class UvConfiguration:
             self._values["pip"] = pip
         if prerelease is not None:
             self._values["prerelease"] = prerelease
+        if prerelease_package is not None:
+            self._values["prerelease_package"] = prerelease_package
         if preview is not None:
             self._values["preview"] = preview
         if preview_features is not None:
             self._values["preview_features"] = preview_features
         if publish_url is not None:
             self._values["publish_url"] = publish_url
+        if pyodide_install_mirror is not None:
+            self._values["pyodide_install_mirror"] = pyodide_install_mirror
         if pypy_install_mirror is not None:
             self._values["pypy_install_mirror"] = pypy_install_mirror
         if python_downloads is not None:
@@ -3833,6 +4277,8 @@ class UvConfiguration:
             self._values["reinstall"] = reinstall
         if reinstall_package is not None:
             self._values["reinstall_package"] = reinstall_package
+        if require_build_hashes is not None:
+            self._values["require_build_hashes"] = require_build_hashes
         if required_environments is not None:
             self._values["required_environments"] = required_environments
         if required_version is not None:
@@ -3913,16 +4359,29 @@ class UvConfiguration:
         return typing.cast(typing.Optional["BuildBackendSettings"], result)
 
     @builtins.property
-    def build_constraint_dependencies(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) PEP 508-style requirements, e.g., ``ruff==0.5.0``, or ``ruff @ https://...``.
+    def build_constraint_dependencies(self) -> typing.Optional[typing.List[typing.Any]]:
+        '''(experimental) Constraints to apply when solving build dependencies.
+
+        Build constraints are used to restrict the versions of build dependencies that are selected
+        when building a package during resolution or installation.
+
+        Including a package as a constraint will *not* trigger installation of the package during
+        a build; instead, the package must be requested elsewhere in the project's build dependency
+        graph.
+
+        !!! note
+        In ``uv lock``, ``uv sync``, and ``uv run``, uv will only read ``build-constraint-dependencies`` from
+        the ``pyproject.toml`` at the workspace root, and will ignore any declarations in other
+        workspace members or ``uv.toml`` files.
+
+        Hashes can be included to verify downloaded build dependency archives. To provide hashes,
+        use a table with ``requirement`` and ``hashes``. uv records these hashes in ``uv.lock``.
 
         :stability: experimental
         :schema: UvConfiguration#build-constraint-dependencies
         '''
         result = self._values.get("build_constraint_dependencies")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Any]], result)
 
     @builtins.property
     def cache_dir(self) -> typing.Optional[builtins.str]:
@@ -4341,6 +4800,22 @@ class UvConfiguration:
         return typing.cast(typing.Optional["ForkStrategy"], result)
 
     @builtins.property
+    def graalpy_install_mirror(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Mirror URL to use for downloading managed GraalPy installations.
+
+        By default, managed GraalPy installations are downloaded from `GitHub <https://github.com/oracle/graalpython/releases>`_.
+        This variable can be set to a mirror URL to use a different source for GraalPy installations.
+        The provided URL will replace ``https://github.com/oracle/graalpython/releases/download`` in, e.g., ``https://github.com/oracle/graalpython/releases/download/graal-24.2.2/graalpy-24.2.2-macos-aarch64.tar.gz``.
+
+        Distributions can be read from a local directory by using the ``file://`` URL scheme.
+
+        :stability: experimental
+        :schema: UvConfiguration#graalpy-install-mirror
+        '''
+        result = self._values.get("graalpy_install_mirror")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def http_proxy(self) -> typing.Optional[builtins.str]:
         '''(experimental) The URL of the HTTP proxy to use.
 
@@ -4474,6 +4949,32 @@ class UvConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def minimum_libc_version(self) -> typing.Optional["MinimumLibcVersion"]:
+        '''(experimental) The minimum libc versions to support when resolving for Linux.
+
+        During universal resolution, wheels must support the configured libc versions to satisfy
+        ``required-environments``. For example, ``{ glibc = "2.31" }`` accepts ``manylinux_2_17`` wheels
+        as coverage, but not ``manylinux_2_34`` wheels. Both are retained in the lockfile so installation
+        can select the best wheel for the current machine. An omitted libc is not required.
+
+        Use ``required-environments`` to specify the Linux architectures to support. Each configured
+        libc version needs compatible wheels for those environments. Generic Linux wheels do not
+        constrain libc and can satisfy either implementation. Packages with a usable source
+        distribution can still be selected.
+
+        This setting is respected by ``uv lock`` and ``uv pip compile --universal``.
+
+        This option is in preview and may change in any future release. Use
+        ``--preview-features minimum-libc-version`` or configure
+        ``preview-features = ["minimum-libc-version"]`` to disable the warning.
+
+        :stability: experimental
+        :schema: UvConfiguration#minimum-libc-version
+        '''
+        result = self._values.get("minimum_libc_version")
+        return typing.cast(typing.Optional["MinimumLibcVersion"], result)
+
+    @builtins.property
     def native_tls(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Whether to load TLS certificates from the platform's native certificate store.
 
@@ -4516,8 +5017,9 @@ class UvConfiguration:
         '''(experimental) Don't build source distributions.
 
         When enabled, uv will reuse cached wheels from previously built source distributions, but
-        operations that require building a source distribution will exit with an error. uv may
-        still build editable requirements, and their build backends may run arbitrary Python code.
+        operations that require building a source distribution will exit with an error. First-party
+        packages, such as projects in the workspace, will still be built. uv will also still build
+        editable requirements, and their build backends may run arbitrary Python code.
 
         :stability: experimental
         :schema: UvConfiguration#no-build
@@ -4554,6 +5056,8 @@ class UvConfiguration:
     @builtins.property
     def no_build_package(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Don't build source distributions for a specific package.
+
+        First-party packages, such as projects in the workspace, will still be built.
 
         :stability: experimental
         :schema: UvConfiguration#no-build-package
@@ -4689,15 +5193,30 @@ class UvConfiguration:
     def prerelease(self) -> typing.Optional["PrereleaseMode"]:
         '''(experimental) The strategy to use when considering pre-release versions.
 
-        By default, uv will accept pre-releases for packages that *only* publish pre-releases,
-        along with first-party requirements that contain an explicit pre-release marker in the
-        declared specifiers (``if-necessary-or-explicit``).
+        By default, uv will prefer stable candidates, falling back to pre-releases only after every
+        stable candidate that satisfies the active constraints is rejected
+        (``if-necessary``).
 
         :stability: experimental
         :schema: UvConfiguration#prerelease
         '''
         result = self._values.get("prerelease")
         return typing.cast(typing.Optional["PrereleaseMode"], result)
+
+    @builtins.property
+    def prerelease_package(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PrereleaseMode"]]:
+        '''(experimental) The strategy to use when considering pre-release versions for specific packages.
+
+        Package-specific modes take precedence over the global ```prerelease`` <#prerelease>`_ mode.
+        Accepts a dictionary mapping package names to any supported pre-release mode.
+
+        :stability: experimental
+        :schema: UvConfiguration#prerelease-package
+        '''
+        result = self._values.get("prerelease_package")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PrereleaseMode"]], result)
 
     @builtins.property
     def preview(self) -> typing.Optional[builtins.bool]:
@@ -4731,6 +5250,22 @@ class UvConfiguration:
         :schema: UvConfiguration#publish-url
         '''
         result = self._values.get("publish_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pyodide_install_mirror(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Mirror URL to use for downloading managed Pyodide installations.
+
+        By default, managed Pyodide installations are downloaded from `GitHub <https://github.com/pyodide/pyodide/releases>`_.
+        This variable can be set to a mirror URL to use a different source for Pyodide installations.
+        The provided URL will replace ``https://github.com/pyodide/pyodide/releases/download`` in, e.g., ``https://github.com/pyodide/pyodide/releases/download/0.29.5/xbuildenv-0.29.5.tar.gz``.
+
+        Distributions can be read from a local directory by using the ``file://`` URL scheme.
+
+        :stability: experimental
+        :schema: UvConfiguration#pyodide-install-mirror
+        '''
+        result = self._values.get("pyodide_install_mirror")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4820,6 +5355,27 @@ class UvConfiguration:
         '''
         result = self._values.get("reinstall_package")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def require_build_hashes(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Require hashes for all build dependencies.
+
+        uv checks hashes provided in ``build-constraint-dependencies`` when downloading build
+        dependencies. Enable this setting to require a hash for every build dependency, including
+        transitive dependencies. You can also provide hashes as URL fragments in
+        ``build-system.requires``. Hashes returned by a build backend do not count.
+
+        Hashes are not required for the ``uv_build`` backend bundled in uv. When build isolation is
+        disabled, build dependencies must already be installed and their hashes are not checked.
+        Already-installed packages and previously built wheels are not checked.
+
+        This setting also applies to ``uv pip`` commands, where it can be overridden in ``[tool.uv.pip]``.
+
+        :stability: experimental
+        :schema: UvConfiguration#require-build-hashes
+        '''
+        result = self._values.get("require_build_hashes")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def required_environments(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5093,9 +5649,11 @@ __all__ = [
     "Index",
     "IndexCacheControl",
     "IndexFormat",
+    "IndexHashAlgorithm",
     "IndexStrategy",
     "KeyringProviderType",
     "LinkMode",
+    "MinimumLibcVersion",
     "PipGroupName",
     "PipOptions",
     "PrereleaseMode",
@@ -5118,6 +5676,8 @@ def _typecheckingstub__bcc5ea2182f854183dcda32a05103b5bcbd741be7788d5bb3cd14a68c
     *,
     ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
     ignore_until_fixed: typing.Optional[typing.Sequence[builtins.str]] = None,
+    malware_check: typing.Optional[builtins.bool] = None,
+    malware_check_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5164,6 +5724,7 @@ def _typecheckingstub__075e56d66f36a514ad1fafdc5b03260161a84fb1d2c5ce8069204ee4b
     exclude_newer: typing.Optional[ExcludeNewerOverride] = None,
     explicit: typing.Optional[builtins.bool] = None,
     format: typing.Optional[IndexFormat] = None,
+    hash_algorithm: typing.Optional[IndexHashAlgorithm] = None,
     ignore_error_codes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     name: typing.Optional[builtins.str] = None,
     publish_url: typing.Optional[builtins.str] = None,
@@ -5175,6 +5736,14 @@ def _typecheckingstub__dadc80a7c1e7527e1cc3946322c9b1d4206a4fd507f1046ab12982196
     *,
     api: typing.Optional[builtins.str] = None,
     files: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3804e05e4888453fee7e0e2d71caea8e8657150738aedd25a5c9b960e78684d(
+    *,
+    glibc: typing.Optional[builtins.str] = None,
+    musl: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5240,6 +5809,7 @@ def _typecheckingstub__945d6160c5542e9b39ed19c707a1b0e7ee5ea909cc55041a32f162098
     python_version: typing.Optional[builtins.str] = None,
     reinstall: typing.Optional[builtins.bool] = None,
     reinstall_package: typing.Optional[typing.Sequence[builtins.str]] = None,
+    require_build_hashes: typing.Optional[builtins.bool] = None,
     require_hashes: typing.Optional[builtins.bool] = None,
     resolution: typing.Optional[ResolutionMode] = None,
     strict: typing.Optional[builtins.bool] = None,
@@ -5288,7 +5858,7 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     allow_insecure_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     audit: typing.Optional[typing.Union[AuditOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     build_backend: typing.Optional[typing.Union[BuildBackendSettings, typing.Dict[builtins.str, typing.Any]]] = None,
-    build_constraint_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
+    build_constraint_dependencies: typing.Optional[typing.Sequence[typing.Any]] = None,
     cache_dir: typing.Optional[builtins.str] = None,
     cache_keys: typing.Optional[typing.Sequence[typing.Any]] = None,
     check_url: typing.Optional[builtins.str] = None,
@@ -5313,6 +5883,7 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     extra_index_url: typing.Optional[typing.Sequence[builtins.str]] = None,
     find_links: typing.Optional[typing.Sequence[builtins.str]] = None,
     fork_strategy: typing.Optional[ForkStrategy] = None,
+    graalpy_install_mirror: typing.Optional[builtins.str] = None,
     http_proxy: typing.Optional[builtins.str] = None,
     https_proxy: typing.Optional[builtins.str] = None,
     index: typing.Optional[typing.Sequence[typing.Union[Index, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5321,6 +5892,7 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     keyring_provider: typing.Optional[KeyringProviderType] = None,
     link_mode: typing.Optional[LinkMode] = None,
     managed: typing.Optional[builtins.bool] = None,
+    minimum_libc_version: typing.Optional[typing.Union[MinimumLibcVersion, typing.Dict[builtins.str, typing.Any]]] = None,
     native_tls: typing.Optional[builtins.bool] = None,
     no_binary: typing.Optional[builtins.bool] = None,
     no_binary_package: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5338,9 +5910,11 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     package: typing.Optional[builtins.bool] = None,
     pip: typing.Optional[typing.Union[PipOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     prerelease: typing.Optional[PrereleaseMode] = None,
+    prerelease_package: typing.Optional[typing.Mapping[builtins.str, PrereleaseMode]] = None,
     preview: typing.Optional[builtins.bool] = None,
     preview_features: typing.Any = None,
     publish_url: typing.Optional[builtins.str] = None,
+    pyodide_install_mirror: typing.Optional[builtins.str] = None,
     pypy_install_mirror: typing.Optional[builtins.str] = None,
     python_downloads: typing.Optional[PythonDownloads] = None,
     python_downloads_json_url: typing.Optional[builtins.str] = None,
@@ -5348,6 +5922,7 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     python_preference: typing.Optional[PythonPreference] = None,
     reinstall: typing.Optional[builtins.bool] = None,
     reinstall_package: typing.Optional[typing.Sequence[builtins.str]] = None,
+    require_build_hashes: typing.Optional[builtins.bool] = None,
     required_environments: typing.Optional[typing.Sequence[builtins.str]] = None,
     required_version: typing.Optional[builtins.str] = None,
     resolution: typing.Optional[ResolutionMode] = None,

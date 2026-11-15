@@ -555,7 +555,21 @@ def reconcile_completed_assignments(
         # no `failure_reason` — invisible to `coord status`/`coord health`,
         # `coord retry`, and the GitHub failure comment, which is the exact
         # "nothing said the word asleep" gap #2638 exists to close.
-        _failure_reason = (
+        # #4018: `entry.get("error")` is a DIFFERENT column — `AgentAssignment
+        # .error`, set by `AgentServer.assign`/`_fail` when the agent fails
+        # BEFORE a worker ever spawns (worktree setup, a `pull_repos` pull,
+        # a bare process-spawn `OSError`), or loses track of one entirely
+        # (an agent restart, the #3363 phantom-assignment sweep). None of
+        # the seven reasons above can ever be set on such an entry — they
+        # are all stamped by `_reap`, which only runs after a worker process
+        # has started and exited — so this is a pure fallback, tried last.
+        # Without it, a pre-spawn failure landed FAILED with
+        # `failure_reason` left `None`: invisible to `coord status`/the
+        # drive's die message, and `coord log <aid>` 404s because no log
+        # file was ever created to begin with, so this was the ONLY
+        # surviving copy of the diagnostic.
+        _agent_error = entry.get("error")
+        _reap_stamped_reason = (
             entry.get("usage_limit_reason")
             or entry.get("api_error_reason")
             or entry.get("push_failure_reason")
@@ -564,6 +578,30 @@ def reconcile_completed_assignments(
             or entry.get("runtime_ceiling_reason")
             or entry.get("host_sleep_reason")
         )
+        _failure_reason = _reap_stamped_reason or _agent_error
+        # #4018 review: every `AgentAssignment.error` string (see the block
+        # above) is written by the agent's own code describing the agent's
+        # or the worker's bookkeeping, never a worker's terminal output —
+        # the worker in question either never spawned at all or the agent
+        # lost track of it (a restart, the phantom-assignment sweep). None
+        # of those is evidence the WORK is broken. `classify_failure`'s own
+        # vocabulary only recognizes three such strings (the `_SETUP_RE`
+        # prefixes) and defaults everything else to `WORK` by design (#1590
+        # — unrecognized text IS evidence, for ordinary worker prose). That
+        # default is wrong here because this text was never worker prose in
+        # the first place, so a `type="smoke"` leg whose `_failure_reason`
+        # resolved from this fallback — i.e. none of the seven more
+        # specific, `_reap`-stamped reasons fired — is passed straight
+        # through as `environmental=True`, the same override
+        # `_reconcile_no_agent_record` already uses for its own
+        # coordinator-authored "the agent forgot" text: it skips
+        # `classify_failure` entirely rather than risk it landing on `WORK`
+        # for a signature the regex doesn't happen to know yet. Without
+        # this, a smoke leg's agent restarting mid-run (an ordinary `coord
+        # agent update`) would record `test_state="failed"` and spend a
+        # `coord fix` round on code that was never tested (#3705's own
+        # silent-death guard is bypassed by this field being non-empty).
+        _smoke_environmental_override = bool(_agent_error) and not _reap_stamped_reason
         _escalate_spend_ceiling_best_effort(a, entry)
         update_state_fn(
             assignment_id=aid,
@@ -594,6 +632,12 @@ def reconcile_completed_assignments(
             propagate_smoke_terminal_failure(
                 parent_assignment_id=a.review_of_assignment_id,
                 failure_reason=_failure_reason,
+                # #4018 review: see `_smoke_environmental_override` above —
+                # `True` only when `_failure_reason` resolved from the
+                # agent-authored `error` fallback (no worker ever ran, or
+                # the agent lost track of one), `None` otherwise so every
+                # pre-#4018 call keeps classifying from the text as before.
+                environmental=True if _smoke_environmental_override else None,
                 exit_code=entry.get("exit_code"),
             )
 
@@ -945,6 +989,7 @@ def _environmental_cause_phrase(classification: "FailureClassification") -> str:
         KIND_API_ERROR,
         KIND_INFRA,
         KIND_NETWORK,
+        KIND_SETUP,
         KIND_SILENT,
         KIND_USAGE_LIMIT,
     )
@@ -969,6 +1014,11 @@ def _environmental_cause_phrase(classification: "FailureClassification") -> str:
         # failing — a worktree repeatedly vanishing mid-run, a runner
         # repeatedly killed before it could report — never the code.
         return "a sustained Test-stage infrastructure failure"
+    if classification.kind == KIND_SETUP:
+        # #4018: the agent itself kept failing BEFORE a worker ever spawned
+        # — a worktree checkout or dependency pull, never the code (no
+        # worker ran to have a code defect in the first place).
+        return "a sustained agent pre-spawn setup failure (worktree/pull)"
     return "a sustained environmental failure"  # pragma: no cover — defensive
 
 
@@ -1878,6 +1928,7 @@ def _reassign(
     issue_labels: list[str] | None = None,
     credential_fetcher=None,
     issue_liveness_fetcher=None,
+    branch_exists_fetcher=None,
 ) -> Assignment | None:
     """Re-dispatch a failed assignment to a machine with spare capacity.
 
@@ -1924,6 +1975,20 @@ def _reassign(
     ``failed.branch`` — the exact branch a retry would land on — so a
     merged sibling branch for the same issue no longer masquerades as
     "this issue's work already merged".
+
+    *branch_exists_fetcher* (#4017) is an optional ``(repo_github: str,
+    branch: str) -> bool`` callable, same opt-in shape as the two fetchers
+    above — ``None`` (the default here) performs no check, preserving this
+    function's old unconditional behavior for every direct caller/test that
+    doesn't pass it. The real wiring (`coord.github_ops.
+    branch_exists_on_remote`) happens at `reconcile()`'s and `coord
+    retry`'s own call sites. A leg that dies before its first push (e.g. a
+    dependency-pull failure) never puts ``failed.branch`` on origin, so a
+    plain ``target_branch`` continuation of it is exactly the payload
+    `_setup_worktree` (#3857) permanently refuses — wedging every later
+    retry. When the fetcher confirms the branch is absent, this also sets
+    ``payload["fresh_branch"] = True`` so the agent starts a fresh branch
+    under the SAME name instead of refusing.
 
     Raises :class:`UnsupportedRetryType` when ``failed.type`` is not in
     :data:`coord.models.WORK_LIKE_TYPES` — a ``smoke``/``review``/other
@@ -2130,10 +2195,22 @@ def _reassign(
     # already committed and pushed must not be orphaned by a retry. Mirrors
     # the `target_branch` wire field `--fix-of`/`--rework-of`/
     # `_dispatch_followup` already use; the agent checks out this exact
-    # branch (hard-reset to the remote tip) when it exists on origin, and
-    # falls back to a fresh branch off `branch` above when it doesn't.
+    # branch (hard-reset to the remote tip) when it exists on origin. #4017:
+    # it does NOT fall back to a fresh branch on its own when the branch is
+    # missing — `_setup_worktree` (#3857) hard-refuses an unresolvable
+    # `target_branch` instead, since for most callers (a `review`/`smoke`
+    # leg grading a specific PR) a missing branch means something is
+    # already wrong. A retry's failed leg may simply have died before its
+    # first push, so when *branch_exists_fetcher* (opt-in — see this
+    # function's own docstring) confirms the branch never reached origin,
+    # tell the agent explicitly to start fresh under the same name rather
+    # than assume it can resolve `target_branch` itself.
     if failed.branch:
         payload["target_branch"] = failed.branch
+        if branch_exists_fetcher is not None:
+            repo_github = repo_cfg.github if repo_cfg is not None else None
+            if repo_github and not branch_exists_fetcher(repo_github, failed.branch):
+                payload["fresh_branch"] = True
 
     url = f"http://{machine.host}:{AGENT_PORT}/assign"
     try:
@@ -2471,6 +2548,12 @@ def _record_usage_limit_reason(assignment_id: str | None, entry: dict) -> None:
         # `reconcile_completed_assignments`.
         or entry.get("runtime_ceiling_reason")
         or entry.get("host_sleep_reason")
+        # #4018: `AgentAssignment.error` — a pre-spawn failure (worktree
+        # setup, a `pull_repos` pull) that never reaches `_reap` at all, so
+        # none of the reasons above are ever set on it. Same fallback-last
+        # placement as the identical chain in
+        # `reconcile_completed_assignments`.
+        or entry.get("error")
     )
     if not reason or not assignment_id:
         return
@@ -2914,12 +2997,21 @@ def reconcile(board: Board, config: Config) -> list[str]:
                 # already-fetched state (the local `issues` cache table,
                 # this same in-memory `board`) — no GitHub call from this
                 # passive tick, matching `cached_labels` just above.
+                #
+                # #4017: also wire a real *branch_exists_fetcher* — a leg
+                # that died before its first push recorded a branch that
+                # was never pushed, and every auto-retry of it would
+                # otherwise carry a `target_branch` `_setup_worktree`
+                # (#3857) permanently refuses, wedging the issue forever.
+                from coord import github_ops  # noqa: PLC0415
+
                 reassigned = _reassign(
                     failed_a, board, config, issue_labels=cached_labels,
                     credential_fetcher=claude_credential_reachable,
                     issue_liveness_fetcher=lambda repo, num, branch=None: (
                         _issue_liveness_from_cache(board, repo, num, branch)
                     ),
+                    branch_exists_fetcher=github_ops.branch_exists_on_remote,
                 )
             except RetryProviderMismatch:
                 # Refuse rather than substitute (#2323) — leave the failed

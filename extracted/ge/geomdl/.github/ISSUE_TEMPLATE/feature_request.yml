@@ -1,0 +1,35 @@
+name: Feature Request
+description: Suggest a change or a new capability
+title: "[FEATURE]: <short description>"
+labels:
+  - feature-request
+assignees:
+  - orbingol
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a change.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or difficult today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should geomdl do instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-ideas
+    attributes:
+      label: Implementation ideas
+      description: Optional sketches, examples, or references

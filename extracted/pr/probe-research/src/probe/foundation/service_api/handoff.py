@@ -197,8 +197,13 @@ def ensure_service(*, wait: float = START_WAIT_S, outbox_root=None) -> str:
     """Make sure a service answers here, starting one when none does: this machine's CLI install's
     machine service where there is one (H-3), else a delivery service on this interpreter (plan D9,
     D28). `start.Ensured`'s RUNNING when one answers within `wait`, else why not. Never raises."""
+    from ..durable import removal
     from . import start
 
+    watched = removal.get_watched_folder()
+    if removal.was_removed() or (watched is not None and removal.is_removed(watched)):
+        # Probe was uninstalled under this process (a run that kept training): never a service again.
+        return start.Ensured.UNINSTALLING
     try:
         prepare_state_root(outbox_root)
         python = sys.executable if sys.executable and os.path.isabs(sys.executable) else ""

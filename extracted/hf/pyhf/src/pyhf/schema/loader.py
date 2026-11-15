@@ -1,15 +1,8 @@
-from pathlib import Path
-import sys
 import json
+from importlib import resources
+
 import pyhf.exceptions
 from pyhf.schema import variables
-
-# importlib.resources.as_file wasn't added until Python 3.9
-# c.f. https://docs.python.org/3.9/library/importlib.html#importlib.resources.as_file
-if sys.version_info >= (3, 9):
-    from importlib import resources
-else:
-    import importlib_resources as resources
 
 
 def load_schema(schema_id: str):
@@ -37,26 +30,25 @@ def load_schema(schema_id: str):
     Raises:
         ~pyhf.exceptions.SchemaNotFound: if the provided ``schema_id`` cannot be found.
     """
+    # Keyed by the relative path rather than the schema $id, so that custom
+    # schemas under pyhf.schema.path with relative $ids also hit the cache.
     try:
-        return variables.SCHEMA_CACHE[
-            f'{Path(variables.SCHEMA_BASE).joinpath(schema_id)}'
-        ]
+        return variables.SCHEMA_CACHE[schema_id]
     except KeyError:
         pass
 
     ref = variables.schemas.joinpath(schema_id)
     with resources.as_file(ref) as path:
         if not path.exists():
-            raise pyhf.exceptions.SchemaNotFound(
-                f'The schema {schema_id} was not found. Do you have the right version or the right path? {path}'
-            )
+            msg = f"The schema {schema_id} was not found. Do you have the right version or the right path? {path}"
+            raise pyhf.exceptions.SchemaNotFound(msg)
         with path.open(encoding="utf-8") as json_schema:
             schema = json.load(json_schema)
-            variables.SCHEMA_CACHE[schema['$id']] = schema
-        return variables.SCHEMA_CACHE[schema['$id']]
+    variables.SCHEMA_CACHE[schema_id] = schema
+    return schema
 
 
 # pre-populate the cache to avoid network access
 # on first validation in standard usage
 # (not in pyhf.schema.variables to avoid circular imports)
-load_schema(f'{variables.SCHEMA_VERSION}/defs.json')
+load_schema(f"{variables.SCHEMA_VERSION}/defs.json")

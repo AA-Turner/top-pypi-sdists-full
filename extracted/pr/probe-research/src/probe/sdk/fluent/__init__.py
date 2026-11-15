@@ -77,6 +77,7 @@ _HOMES = {
     "_owned_here": "probe.sdk.fluent.bindings",
     "_previous_in_scope": "probe.sdk.fluent.bindings",
     "_has_open_run": "probe.sdk.fluent.bindings",
+    "_start_delivery_for_preemption": "probe.sdk.fluent.bindings",
     # probe.sdk.fluent.at_exit
     "os": "probe.sdk.fluent.at_exit",
     "TYPE_CHECKING": "probe.sdk.fluent.at_exit",

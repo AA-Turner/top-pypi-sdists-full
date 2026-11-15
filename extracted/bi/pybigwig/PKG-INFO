@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: pyBigWig
-Version: 0.3.29
+Version: 0.3.30
 Summary: A package for accessing bigWig files using libBigWig
 Author-email: "Devon P. Ryan" <dryan79@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Bug Tracker, https://github.com/deeptools/pyBigWig/issues
 Project-URL: Download, https://pypi.python.org/pypi/pyBigWig
 Project-URL: Homepage, https://github.com/deeptools/pyBigWig
 Keywords: bioinformatics,bigWig,bigBed
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

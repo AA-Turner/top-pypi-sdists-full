@@ -15,6 +15,9 @@ def main(argv=None) -> int:
     parser.add_argument("--port", type=int, default=7020)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO)
+    import os
+    # where Core's own services reach this process: a linked worker's saved address (web/worker_link.py)
+    os.environ.setdefault("HUGPY_CORE_PORT", str(args.port))
 
     from hugpy_core import schema
     schema.ensure()

@@ -4,18 +4,18 @@
 {
     "distutils": {
         "depends": [
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include/numpy/ufuncobject.h"
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include/numpy/ufuncobject.h"
         ],
         "include_dirs": [
             "/home/runner/work/joulescope_driver/joulescope_driver/include",
             "/home/runner/work/joulescope_driver/joulescope_driver/include_private",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/tinyprintf",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/miniz",
-            "/tmp/build-env-ehvx72ax/lib/python3.14/site-packages/numpy/_core/include",
+            "/tmp/build-env-svafbx3u/lib/python3.14/site-packages/numpy/_core/include",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/libusb/libusb",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/libusb/include/linux"
         ],

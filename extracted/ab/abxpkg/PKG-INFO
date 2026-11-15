@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abxpkg
-Version: 1.13.87
+Version: 1.13.98
 Summary: System package manager interfaces with Python type hints
 Project-URL: Homepage, https://abxpkg.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg
@@ -38,14 +38,16 @@ Requires-Dist: abxbus>=2.5.9; extra == 'all'
 Requires-Dist: ansible-core>=2.0.0; extra == 'all'
 Requires-Dist: ansible-runner>=2.4.2; extra == 'all'
 Requires-Dist: ansible>=12.3.0; extra == 'all'
-Requires-Dist: pyinfra>=3.6.1; extra == 'all'
+Requires-Dist: paramiko>=5.0.0; extra == 'all'
+Requires-Dist: pyinfra>=3.11.0; extra == 'all'
 Requires-Dist: rich>=14.0.0; extra == 'all'
 Provides-Extra: ansible
 Requires-Dist: ansible-core>=2.0.0; extra == 'ansible'
 Requires-Dist: ansible-runner>=2.4.2; extra == 'ansible'
 Requires-Dist: ansible>=12.3.0; extra == 'ansible'
 Provides-Extra: pyinfra
-Requires-Dist: pyinfra>=3.6.1; extra == 'pyinfra'
+Requires-Dist: paramiko>=5.0.0; extra == 'pyinfra'
+Requires-Dist: pyinfra>=3.11.0; extra == 'pyinfra'
 Provides-Extra: rich
 Requires-Dist: rich>=14.0.0; extra == 'rich'
 Description-Content-Type: text/markdown
@@ -1046,6 +1048,7 @@ install_root = None                  # None = global install, Path(...) = prefix
 - Shells out to `pnpm` directly. Honors `PNPM_BINARY=/abs/path/to/pnpm`. Use `NpmProvider` for `npm`.
 - `dry_run`: shared behavior.
 - Security: supports both `min_release_age` and `postinstall_scripts=False`, and hydrates their provider defaults from `ABXPKG_MIN_RELEASE_AGE` and `ABXPKG_POSTINSTALL_SCRIPTS`. `min_release_age` requires pnpm 10.16+, and `supports_min_release_age()` returns `False` on older hosts (then it logs a warning and continues).
+- Native dependencies: managed projects default `pnpm.supportedArchitectures.libc` to `["current"]`, so fresh installs and newly resolved versions exclude incompatible glibc/musl optional packages. Existing architecture settings and explicit `--libc` overrides remain supported; workspace and global configuration are not changed.
 - Overrides: `install_args` is passed as pnpm package specs; unpinned specs get rewritten to `pkg@>=<min_version>` when `min_version` is supplied.
 - Notes: pnpm has no `--min-release-age` CLI flag; this provider passes `--config.minimumReleaseAge=<minutes>` (the camelCase / kebab-case form pnpm exposes via its `--config.<key>=<value>` override). Installs always include `--loglevel=error`, and `PNPM_HOME` is auto-populated so `pnpm add -g` works without polluting the user's shell config. `puppeteer` is special-cased to install both `puppeteer` and `@puppeteer/browsers`, and `puppeteer-browsers` resolves to `@puppeteer/browsers`.
 
@@ -1267,6 +1270,7 @@ bin_dir = install_root / "extensions"
 ```
 
 - Install root: set `install_root` for the extension cache root, and `bin_dir` for the unpacked extension output dir.
+- Download cache: CRX archives live in `install_root.parent/cache/chromewebstore`, or `ABXPKG_CHROMEWEBSTORE_CACHE_DIR` when set. Clearing downloaded archives leaves installed extensions usable offline. Explicit no-cache installs use `ABXPKG_TMP_CACHE_DIR` outside the installed library.
 - Auto-switching: none.
 - `dry_run`: shared behavior.
 - Security: `min_release_age` is unsupported and is ignored with a warning if explicitly requested. `postinstall_scripts=False` is supported as a standard kwarg and `ABXPKG_POSTINSTALL_SCRIPTS` hydrates the provider default here, but there is no extra install-time toggle beyond the packaged JS helper this provider already uses.

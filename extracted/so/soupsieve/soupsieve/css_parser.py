@@ -703,16 +703,18 @@ CSS_OPTIONAL = CSSPattern(
 # CSS pattern for `:placeholder-shown`
 CSS_PLACEHOLDER_SHOWN = CSSPattern(
     f'''
-    html|input:is(
-        {INPUT_TEXT_STATE},
-        [type=search],
-        [type=url],
-        [type=tel],
-        [type=email],
-        [type=password],
-        [type=number]
-    )[placeholder]:not([placeholder='']):is(:not([value]), [value=""]),
-    html|textarea[placeholder]:not([placeholder=''])
+    html|*:is(
+        input:is(
+            {INPUT_TEXT_STATE},
+            [type=search],
+            [type=url],
+            [type=tel],
+            [type=email],
+            [type=password],
+            [type=number]
+        ),
+        textarea
+    )[placeholder]:not([placeholder=''])
     ''',
     FLG_PSEUDO | FLG_HTML | FLG_PLACEHOLDER_SHOWN
 )
@@ -742,42 +744,36 @@ CSS_READ_WRITE = CSSPattern(
 )
 # CSS pattern for `:read-only`
 CSS_READ_ONLY = CSSPattern('html|*:not(:read-write)', FLG_PSEUDO | FLG_HTML)
+# `:in-range` and `:out-of-range` only consider an input that has range limitations and is a candidate
+# for constraint validation. See `CSSMatch.match_range()` for the full rules and where they follow
+# browsers instead of the letter of the HTML spec.
+#
+# - A `range` input always has range limitations: its minimum and maximum default to 0 and 100.
+#   The other types need a `min` or `max`; `match_range()` rejects one that does not parse.
+# - An input that is disabled (including through a disabled `fieldset`, outside its first `legend`),
+#   `readonly`, or inside a `datalist` is barred from constraint validation and matches neither.
+#   The spec says `readonly` does not apply to `range` and so does not bar it, but all browsers
+#   treat a `readonly` `range` input as barred, so we do too.
+RANGE_INPUT = """
+    html|input:is(
+        :is(
+            [type="date"],
+            [type="month"],
+            [type="week"],
+            [type="time"],
+            [type="datetime-local"],
+            [type="number"]
+        ):is(
+            [min],
+            [max]
+        ),
+        [type="range"]
+    ):not(:disabled, [readonly], html|datalist html|*)
+"""
 # CSS pattern for `:in-range`
-CSS_IN_RANGE = CSSPattern(
-    '''
-    html|input:is(
-        [type="date"],
-        [type="month"],
-        [type="week"],
-        [type="time"],
-        [type="datetime-local"],
-        [type="number"],
-        [type="range"]
-    ):is(
-        [min],
-        [max]
-    )
-    ''',
-    FLG_PSEUDO | FLG_HTML | FLG_IN_RANGE
-)
+CSS_IN_RANGE = CSSPattern(RANGE_INPUT, FLG_PSEUDO | FLG_HTML | FLG_IN_RANGE)
 # CSS pattern for `:out-of-range`
-CSS_OUT_OF_RANGE = CSSPattern(
-    '''
-    html|input:is(
-        [type="date"],
-        [type="month"],
-        [type="week"],
-        [type="time"],
-        [type="datetime-local"],
-        [type="number"],
-        [type="range"]
-    ):is(
-        [min],
-        [max]
-    )
-    ''',
-    FLG_PSEUDO | FLG_HTML | FLG_OUT_OF_RANGE
-)
+CSS_OUT_OF_RANGE = CSSPattern(RANGE_INPUT, FLG_PSEUDO | FLG_HTML | FLG_OUT_OF_RANGE)
 # CSS pattern for :open
 CSS_OPEN = CSSPattern('html|*:is(details, dialog)[open]', FLG_PSEUDO | FLG_HTML)
 # CSS pattern for :muted

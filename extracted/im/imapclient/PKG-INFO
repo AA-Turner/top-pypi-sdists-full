@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: IMAPClient
-Version: 4.1.0
+Version: 4.2.0
 Summary: Easy-to-use, Pythonic and complete IMAP client library
 Author-email: Menno Finlay-Smits <hello@menno.io>
 Maintainer-email: IMAPClient Maintainers <imapclient@groups.io>
+License: BSD-3-Clause
 Project-URL: Homepage, https://github.com/mjs/imapclient/
 Keywords: imap,client,email,mail
 Classifier: Development Status :: 5 - Production/Stable

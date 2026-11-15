@@ -85,8 +85,9 @@ def run(worker: dict, task: str, model: str, lease_id: str, knobs: dict | None =
     body = fixture(task, model, knobs)
     url = worker["url"].rstrip("/") + TASK_PATHS[task]
     headers = {"Content-Type": "application/json", "Accept": "application/json",
-               "Authorization": "Bearer " + worker["key"], "X-Hugpy-Station-Lease": lease_id,
-               "X-Task": task}
+               "X-Hugpy-Station-Lease": lease_id, "X-Task": task}
+    if worker.get("key"):                 # a worker connected without a key (a Wrapper on loopback) gets none
+        headers["Authorization"] = "Bearer " + worker["key"]
     request = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
     began = time.monotonic()
     try:

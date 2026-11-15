@@ -130,7 +130,10 @@ def test_declared_from_the_profile_on_every_host(monkeypatch, platform):
         dev = W.gfx_device_for(prof.gpu.renderer, prof.gpu.device)
         assert dev is not None and dev == W.choose_gfx_device(persona, seed)
         prefs = translate_profile_to_prefs(prof, timezone="America/New_York")
-        assert prefs["zoom.stealth.gfx.feature_status"] == dev["feature_status"]
+        # the device's own outcomes, with the compositing features at the software decision
+        # (test_software_compositing_is_declared)
+        from test_software_compositing_is_declared import expected_declaration
+        assert prefs["zoom.stealth.gfx.feature_status"] == expected_declaration(dev["feature_status"])
 
 
 def test_replacement_slots_declare_their_own_device():

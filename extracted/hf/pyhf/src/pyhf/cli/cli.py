@@ -1,25 +1,26 @@
 """The pyhf Command Line Interface."""
+
 import logging
 
 import click
 
-from pyhf import __version__
-from pyhf.cli import rootio, spec, infer, patchset, complete
+from pyhf import __version__, utils
+from pyhf.cli import complete, infer, patchset, rootio, spec
+from pyhf.cli import utils as utils_cli
 from pyhf.contrib import cli as contrib
-from pyhf import utils
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
 
 
-def _print_citation(ctx, param, value):
+def _print_citation(ctx, param, value):  # noqa: ARG001
     if not value or ctx.resilient_parsing:
         return
     click.echo(utils.citation())
     ctx.exit()
 
 
-@click.group(context_settings=dict(help_option_names=['-h', '--help']))
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(version=__version__)
 @click.option(
     "--cite",
@@ -52,6 +53,8 @@ pyhf.add_command(infer.fit)
 pyhf.add_command(infer.cls)
 
 pyhf.add_command(patchset.cli)
+
+pyhf.add_command(utils_cli.cli)
 
 pyhf.add_command(complete.cli)
 

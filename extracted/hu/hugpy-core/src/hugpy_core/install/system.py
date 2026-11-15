@@ -99,16 +99,28 @@ def _unit(lay, executable: str, host: str, port: int, *, intake: bool, paths: li
     ])
 
 
+SYSTEM_WRAPPER_ENDPOINT = Path("/etc/hugpy/wrapper.endpoint.json")     # the system Wrapper's own record (hugpy-wrapper
+SYSTEM_WRAPPER_KEY = Path("/etc/hugpy/wrapper/api.key")                 # system install) and its API key
+
+
 def _local_wrapper(lay, executable: str, dsn: str) -> None:
-    endpoint_file = lay.wrapper_endpoint
-    if not endpoint_file.exists():
+    """Enter the Wrapper on this box as a worker: the account's own record (older installs), else the system
+    Wrapper's (2026-11-14: Core on ae found no worker, its Wrapper being a system install), with its API key."""
+    endpoint_file = next((f for f in (lay.wrapper_endpoint, SYSTEM_WRAPPER_ENDPOINT) if f.exists()), None)
+    if endpoint_file is None:
         return
     endpoint = json.loads(endpoint_file.read_text(encoding="utf-8"))
     url = str(endpoint.get("url") or "").rstrip("/")
     if not url:
         return
-    token_path = Path(endpoint.get("token_file") or str(lay.wrapper_config))
-    key = read_env(token_path).get(endpoint.get("token_env") or WRAPPER_TOKEN_ENV, "")
+    if endpoint_file == SYSTEM_WRAPPER_ENDPOINT:
+        try:
+            key = SYSTEM_WRAPPER_KEY.read_text(encoding="ascii").strip()
+        except OSError:
+            key = ""
+    else:
+        token_path = Path(endpoint.get("token_file") or str(lay.wrapper_config))
+        key = read_env(token_path).get(endpoint.get("token_env") or WRAPPER_TOKEN_ENV, "")
     try:
         with urllib.request.urlopen(url + "/health", timeout=3) as response:
             name = str(json.load(response).get("worker") or "")
@@ -263,11 +275,15 @@ def install(args) -> int:
         core_dsn = db_command(toolserver, "ensure-database", target,
                               "--env-file", str(lay.toolserver_config))["dsn"]
 
+    # the public address other boxes reach this Core at (the worker install line is built from it): one the operator
+    # set is kept across upgrades (2026-11-14: dev.hugpy.ai), only a loopback one follows the listener
+    said_base = str(current.get("HUGPY_SELF_BASE") or "")
+    keep_base = bool(said_base) and not said_base.split("://", 1)[-1].startswith(("127.", "localhost", "[::1]", "0.0.0.0"))
     current.update({
         ENV_CORE_DB: core_dsn, ENV_CALLLOG_DSN: core_dsn,
         ENV_CORE_HOST: host, ENV_CORE_PORT: str(port),
         ENV_CORE_URL: f"http://{host}:{port}",
-        "HUGPY_SELF_BASE": f"http://{host}:{port}",
+        "HUGPY_SELF_BASE": said_base if keep_base else f"http://{host}:{port}",
         "HUGPY_CORE_HOME": str(lay.state), "HUGPY_CORE_SHARED_PRESENCE": "1",
         "HUGPY_ROUTER_KEY": current.get("HUGPY_ROUTER_KEY") or "hpk_box_" + secrets.token_urlsafe(32),
     })
@@ -282,6 +298,9 @@ def install(args) -> int:
     current.pop("HUGPY_BASIC_COMPAT_DB", None)
     current.setdefault("HUGPY_LOG_DIR", str(lay.state / "logs"))
     current.setdefault("HUGPY_COMMS_DB", str(lay.state / "downloads.sqlite3"))
+    # the model catalog's database inside the services' writable state (their sandbox keeps ~/.hugpy read-only:
+    # the catalog service could not open ~/.hugpy/state/model_metadata.db, 2026-11-14)
+    current.setdefault("HUGPY_MODEL_METADATA_DB", str(lay.state / "model_metadata.db"))
     write_file(lay.config, "".join(f"{key}={json.dumps(value)}\n" for key, value in sorted(current.items())),
                mode=0o640, gid=account.pw_gid)
     # runuser needs the new env; systemctl loads it for all Core service units.

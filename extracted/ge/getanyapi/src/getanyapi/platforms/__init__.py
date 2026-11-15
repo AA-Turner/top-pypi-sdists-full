@@ -14,7 +14,6 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
     "alibaba": ("alibaba", "AlibabaNamespace", "AsyncAlibabaNamespace"),
     "aliexpress": ("aliexpress", "AliexpressNamespace", "AsyncAliexpressNamespace"),
     "amazon": ("amazon", "AmazonNamespace", "AsyncAmazonNamespace"),
-    "apollo": ("apollo", "ApolloNamespace", "AsyncApolloNamespace"),
     "appstore": ("appstore", "AppstoreNamespace", "AsyncAppstoreNamespace"),
     "asos": ("asos", "AsosNamespace", "AsyncAsosNamespace"),
     "bestbuy": ("bestbuy", "BestbuyNamespace", "AsyncBestbuyNamespace"),
@@ -29,7 +28,6 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
         "CoinmarketcapNamespace",
         "AsyncCoinmarketcapNamespace",
     ),
-    "company": ("company", "CompanyNamespace", "AsyncCompanyNamespace"),
     "company_enrichment": (
         "company_enrichment",
         "CompanyEnrichmentNamespace",
@@ -103,6 +101,7 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
     "linkedin": ("linkedin", "LinkedinNamespace", "AsyncLinkedinNamespace"),
     "linktree": ("linktree", "LinktreeNamespace", "AsyncLinktreeNamespace"),
     "maps": ("maps", "MapsNamespace", "AsyncMapsNamespace"),
+    "mercari": ("mercari", "MercariNamespace", "AsyncMercariNamespace"),
     "mobile_phone": (
         "mobile_phone",
         "MobilePhoneNamespace",

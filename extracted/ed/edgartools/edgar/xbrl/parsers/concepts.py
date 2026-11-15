@@ -12,7 +12,7 @@ See Issue #463 analysis for details.
 """
 from functools import lru_cache
 from importlib import resources
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 # =============================================================================
 # DEPRECATED CONCEPT LISTS (No longer used as of Issue #463)
@@ -156,20 +156,36 @@ LEGITIMATE_NEGATIVE_CONCEPTS = {
 # concepts, three of which the taxonomy contradicted (#1728).
 
 TAXONOMY_ELEMENTS_FILE = 'taxonomy_elements.parquet'
+TAXONOMY_ENUMERATIONS_FILE = 'taxonomy_enumerations.parquet'
 _STANDARD_PREFIXES = ('us-gaap', 'srt')
+
+
+@lru_cache(maxsize=1)
+def _standard_elements():
+    """The bundled us-gaap and srt declarations, one row per element."""
+    import pandas as pd
+
+    ref = resources.files('edgar.xbrl.data').joinpath(TAXONOMY_ELEMENTS_FILE)
+    with resources.as_file(ref) as path:
+        return pd.read_parquet(path, columns=['prefix', 'name', 'type', 'balance', 'period_type',
+                                              'abstract', 'substitution_group'])
 
 
 @lru_cache(maxsize=1)
 def _standard_balances() -> Dict[str, str]:
     """``prefix:name`` -> 'debit'/'credit' for every bundled element that has a balance."""
-    import pandas as pd
-
-    ref = resources.files('edgar.xbrl.data').joinpath(TAXONOMY_ELEMENTS_FILE)
-    with resources.as_file(ref) as path:
-        df = pd.read_parquet(path, columns=['prefix', 'name', 'balance'])
+    df = _standard_elements()
     df = df[df['balance'].notna()]
     return {f"{prefix}:{name}": balance
             for prefix, name, balance in zip(df['prefix'].astype(str), df['name'], df['balance'].astype(str), strict=True)}
+
+
+@lru_cache(maxsize=1)
+def _standard_abstracts() -> Dict[str, bool]:
+    """``prefix:name`` -> the declared abstract flag for every bundled element."""
+    df = _standard_elements()
+    return {f"{prefix}:{name}": bool(abstract)
+            for prefix, name, abstract in zip(df['prefix'].astype(str), df['name'], df['abstract'], strict=True)}
 
 
 def _standard_key(concept: str) -> str:
@@ -211,6 +227,104 @@ def get_balance_type(concept: str) -> Optional[str]:
     if not concept:
         return None
     return _standard_balances().get(_standard_key(concept))
+
+
+@lru_cache(maxsize=1)
+def _standard_declarations() -> Dict[str, Dict[str, Any]]:
+    """``prefix:name`` -> the element's bundled declaration, missing values as None."""
+    df = _standard_elements()
+    df = df.astype(object).where(df.notna(), None)
+    return {f"{row['prefix']}:{row['name']}": row for row in df.to_dict('records')}
+
+
+def get_standard_declaration(concept: str) -> Optional[Dict[str, Any]]:
+    """
+    The standard taxonomy's declaration of a us-gaap or srt concept.
+
+    A dict with ``type``, ``balance``, ``period_type``, ``abstract`` and
+    ``substitution_group`` (None where FASB declares no value), or None for a
+    concept the bundled table does not declare (company extensions, dei).
+
+    Example:
+        >>> get_standard_declaration('us-gaap:Assets')['period_type']
+        'instant'
+    """
+    if not concept:
+        return None
+    declaration = _standard_declarations().get(_standard_key(concept))
+    return dict(declaration) if declaration is not None else None
+
+
+@lru_cache(maxsize=1)
+def _standard_enumerations() -> Dict[str, Tuple[Tuple[int, Optional[str], Optional[str], Optional[str]], ...]]:
+    """``prefix:name`` -> ((year, domain, linkrole, head_usable), ...) in ascending year order."""
+    import pandas as pd
+
+    ref = resources.files('edgar.xbrl.data').joinpath(TAXONOMY_ENUMERATIONS_FILE)
+    with resources.as_file(ref) as path:
+        df = pd.read_parquet(path)
+    df = df.astype(object).where(df.notna(), None)
+    table: Dict[str, list] = {}
+    for prefix, name, year, domain, linkrole, head_usable in zip(
+            df['prefix'], df['name'], df['year'], df['domain'], df['linkrole'], df['head_usable'], strict=True):
+        table.setdefault(f"{prefix}:{name}", []).append((int(year), domain, linkrole, head_usable))
+    return {key: tuple(sorted(rows, key=lambda row: row[0])) for key, rows in table.items()}
+
+
+def get_standard_enumeration(concept: str, year: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """
+    The extensible-enumeration attributes FASB declares for a us-gaap or srt
+    concept, as published in one taxonomy year (GH #1255).
+
+    The attributes change between releases (in 2026 every us-gaap linkrole moved
+    from .../us-gaap/role/eedm/... to .../srt/role/srt-eedm/...), so the table
+    keeps one row per year that declares them. The row used is the newest one
+    whose year is at or below ``year``; when there is none (``year`` is older
+    than the element's first enumeration year) or ``year`` is None, the newest
+    row is used. A ``year`` newer than the table therefore gets the newest row.
+
+    Returns a dict with ``year``, ``domain``, ``linkrole`` and ``head_usable``
+    (attribute values verbatim, None where absent), or None for a concept no
+    year declares as an enumeration.
+
+    Example:
+        >>> get_standard_enumeration('us-gaap:HedgedAssetStatementOfFinancialPositionExtensibleEnumeration', 2023)['linkrole']
+        'http://fasb.org/us-gaap/role/eedm/ExtensibleEnumerationLists'
+    """
+    if not concept:
+        return None
+    rows = _standard_enumerations().get(_standard_key(concept))
+    if not rows:
+        return None
+    chosen = rows[-1]
+    if year is not None:
+        at_or_below = [row for row in rows if row[0] <= year]
+        if at_or_below:
+            chosen = at_or_below[-1]
+    row_year, domain, linkrole, head_usable = chosen
+    return {'year': row_year, 'domain': domain, 'linkrole': linkrole, 'head_usable': head_usable}
+
+
+def get_standard_abstract(concept: str) -> Optional[bool]:
+    """
+    Whether the standard taxonomy declares a concept abstract.
+
+    Reads the bundled us-gaap and srt element declarations and accepts the colon
+    and underscore spellings. Returns None for a concept the taxonomy does not
+    declare (company extensions, dei), so the caller can tell "not abstract"
+    from "not known".
+
+    Example:
+        >>> get_standard_abstract('us-gaap:AwardTypeAxis')
+        True
+        >>> get_standard_abstract('us-gaap_Revenues')
+        False
+        >>> get_standard_abstract('abc_CustomHeading') is None
+        True
+    """
+    if not concept:
+        return None
+    return _standard_abstracts().get(_standard_key(concept))
 
 
 def resolve_balance(declared: Optional[str], concept: str) -> Optional[str]:

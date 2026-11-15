@@ -221,8 +221,7 @@ FAKE_INIT = '''"""模块文档字符串"""
 
 from akshare._version import __version__
 from akshare.index.index_cni import index_all_cni, index_hist_cni
-from akshare.pro.data_pro import pro_api
-from akshare.utils.token_process import set_token, get_token
+from akshare.utils.context import set_proxies, set_timeout, get_timeout
 from akshare.registry import search, interface_info, list_categories
 from .exceptions import APIError, NetworkError
 from pandas import DataFrame
@@ -246,7 +245,7 @@ def test_collect_exports_drops_non_data_interfaces(tmp_path):
     """
     三类名字都不得进入导出表，各自由不同规则拦下：
 
-    - __version__/pro_api/set_token/search 等：可推断 category，靠 EXCLUDE 显式排除；
+    - __version__/set_proxies/set_timeout/search 等：可推断 category，靠 EXCLUDE 显式排除；
     - DataFrame：模块名不以 "akshare." 开头，第三方导入一律忽略；
     - optional_iface：嵌套在 try 内，collect_exports 只遍历 tree.body 顶层节点。
     """
@@ -255,9 +254,9 @@ def test_collect_exports_drops_non_data_interfaces(tmp_path):
     exports = collect_exports(init_file)
     for name in (
         "__version__",
-        "pro_api",
-        "set_token",
-        "get_token",
+        "set_proxies",
+        "set_timeout",
+        "get_timeout",
         "APIError",
         "NetworkError",
         "search",
@@ -401,7 +400,7 @@ def test_collect_all_names_includes_non_data_public_api(tmp_path):
     assert "index_all_cni" in names
     assert "index_hist_cni" in names
     # registry 排除、但仍属公开 API 的工具函数与异常类
-    for name in ("pro_api", "set_token", "search", "APIError", "NetworkError"):
+    for name in ("set_proxies", "set_timeout", "search", "APIError", "NetworkError"):
         assert name in names
 
 
@@ -668,7 +667,7 @@ def test_real_registry_marks_push2_interfaces():
     # 东方财富数据中心（宏观、龙虎榜）与其他数据源不受 push2 限流影响
     assert ak.interface_info("macro_china_cpi")["rate_limit"] is None
     assert ak.interface_info("stock_lhb_detail_em")["rate_limit"] is None
-    assert ak.interface_info("stock_zh_a_daily_sina")["rate_limit"] is None
+    assert ak.interface_info("stock_zh_a_hist_sina")["rate_limit"] is None
 
 
 # ---- alternatives：人工维护的同类接口对照表 ----

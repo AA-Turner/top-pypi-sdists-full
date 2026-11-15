@@ -75,8 +75,12 @@ class OutputFound(BaseModel, Generic[T]):
 # exist, or returned nothing for it. ``suspended``: the platform has suspended the
 # account. ``unavailable``: the platform did not show this to the source: it may not
 # exist, or it may be visible only to signed-in users. ``too_long``: the video is
-# too long to transcribe.
-NotFoundReason = Literal["not_found", "suspended", "unavailable", "too_long"] | str
+# too long to transcribe. ``banned``: the platform has banned the community.
+# ``private``: the community is private, so only its approved members can see it.
+NotFoundReason = (
+    Literal["not_found", "suspended", "unavailable", "too_long", "banned", "private"]
+    | str
+)
 
 
 class OutputNotFound(BaseModel):

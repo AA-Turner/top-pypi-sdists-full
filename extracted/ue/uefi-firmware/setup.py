@@ -20,7 +20,6 @@ class LintCommand(Command):
         "uefi_firmware/*/*.py",
         "tests/*.py",
         "scripts/*.py",
-        "scripts/contrib/*.py",
     ]
 
     def initialize_options(self):
@@ -42,7 +41,7 @@ class LintCommand(Command):
         )
 
 
-with open("README.rst") as f:
+with open("README.md") as f:
     README = f.read()
 
 with open("uefi_firmware/__init__.py", "r") as f:
@@ -87,10 +86,11 @@ setup(
     },
     description="Various data structures and parsing tools for UEFI firmware.",
     long_description=README,
+    long_description_content_type="text/markdown",
     author=AUTHOR,
     author_email="",
     url="https://github.com/theopolis/uefi-firmware-parser",
-    license="BSD-3-Clause",
+    license="MIT",
     packages=find_packages(exclude=("tests", "docs")),
     cmdclass={
         "lint": LintCommand,
@@ -110,7 +110,7 @@ setup(
     scripts=[
         "bin/uefi-firmware-parser",
     ],
-    install_requires=["future"],
+    install_requires=[],
     extras_require={
         "tests": ["dictdiffer"],
     },

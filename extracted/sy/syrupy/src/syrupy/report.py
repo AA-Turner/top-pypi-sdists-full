@@ -63,6 +63,11 @@ class SnapshotReport:
     assertions: list["SnapshotAssertion"]
     # True when --lf removed tests during collection. See SnapshotSession._lf_filtered.
     lf_filtered: bool = False
+    # True when pytest-xdist worker syrupy reports are incomplete; unused
+    # accounting from a partial merge must not be printed or acted on.
+    unused_detection_incomplete: bool = False
+    # The test modules pytest collected (whether or not they yielded any test item).
+    collected_modules: set[str] = field(default_factory=set)
 
     # All of these are derived from the initial arguments and via walking the filesystem
     discovered: "SnapshotCollections" = field(default_factory=SnapshotCollections)
@@ -86,7 +91,10 @@ class SnapshotReport:
 
     @property
     def disable_unused_snapshots(self) -> bool:
-        return bool(getattr(self.options, "disable_unused_snapshots", False))
+        return bool(
+            getattr(self.options, "disable_unused_snapshots", False)
+            or self.unused_detection_incomplete
+        )
 
     @property
     def should_delete_unused_snapshots(self) -> bool:
@@ -323,6 +331,15 @@ class SnapshotReport:
             ):
                 # Paths/Packages were provided to pytest and the snapshot location does
                 # not match any of ran tests therefore ignore this unused snapshot file
+                continue
+
+            if not self._provided_test_paths and self._owning_module_not_collected(
+                snapshot_location
+            ):
+                # No path was provided, so pytest collected from `testpaths` or the
+                # invocation directory. A test module that exists on disk but was kept
+                # out of collection (`--ignore`, `pytest_ignore_collect`) still owns
+                # these snapshots: they are not unused.
                 continue
 
             provided_nodes = self._get_matching_path_nodes(snapshot_location)
@@ -636,8 +653,8 @@ class SnapshotReport:
         Check that a snapshot name would match a test node using the Pytest location
         """
         for location in self._candidates(self._ran_locations, snapshot_location):
-            if location.matches_snapshot_location(
-                snapshot_location
+            if self._matches_location(
+                location, snapshot_location
             ) and location.matches_snapshot_name(snapshot_name):
                 return True
         return False
@@ -650,8 +667,8 @@ class SnapshotReport:
         This being true means that it will not be deleted even if the it is unused
         """
         for location in self._candidates(self._skipped_locations, snapshot_location):
-            if location.matches_snapshot_location(
-                snapshot_location
+            if self._matches_location(
+                location, snapshot_location
             ) and location.matches_snapshot_name(snapshot_name):
                 return True
         return False
@@ -676,8 +693,37 @@ class SnapshotReport:
         should be discarded as obsolete
         """
         return any(
-            location.matches_snapshot_location(snapshot_location)
+            self._matches_location(location, snapshot_location)
             for location in self._candidates(self._ran_locations, snapshot_location)
+        )
+
+    def _matches_location(
+        self, location: "PyTestLocation", snapshot_location: str
+    ) -> bool:
+        """
+        Associate a snapshot path with a test.
+
+        Prefer the extension that discovered the file. Single-file snapshots
+        truncate long parametrized names, and only that extension knows the
+        resulting filename.
+        """
+        extension = self._extensions.get(snapshot_location)
+        if extension is None:
+            return location.matches_snapshot_location(snapshot_location)
+        return extension.matches_test_location(
+            test_location=location, snapshot_location=snapshot_location
+        )
+
+    def _owning_module_not_collected(self, snapshot_location: str) -> bool:
+        """
+        True when the test module that owns this snapshot collection exists on disk
+        but was not collected. A module that was collected and yields no test (its
+        tests were removed) is not this case: its snapshots are unused.
+        """
+        modules = PyTestLocation.owning_test_modules(snapshot_location)
+        return bool(modules) and not any(
+            PyTestLocation.module_path_key(module) in self.collected_modules
+            for module in modules
         )
 
     def _directory_selection_allows_cleanup(self, snapshot_location: str) -> bool:

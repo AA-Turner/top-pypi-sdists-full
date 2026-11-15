@@ -3,6 +3,7 @@
 use crate::constants::{
     ALLOWED_QUALIFIERS_OPTION, DEFAULT_PUBLISHED_LAYERS, PUBLISHED_LAYERS_OPTION,
 };
+use crate::python_rules::main::python_rule_options::python_rule_options;
 use crate::rules::models::{BuiltinOption, BuiltinOptionKind};
 
 const fn boolean(name: &'static str, description: &'static str) -> BuiltinOption {
@@ -66,12 +67,20 @@ pub fn builtin_options(code: &str) -> Vec<BuiltinOption> {
                               whose file path matches a glob.",
             },
         ],
+        "SQBRORCHESTRATION101" => vec![BuiltinOption {
+            kind: BuiltinOptionKind::Integer {
+                default: 3,
+                minimum: 0,
+            },
+            name: "max_named_selectors",
+            description: "Most nodes one job or sensor-condition selection may name one by one.",
+        }],
         "SQBRTEST203" => vec![BuiltinOption {
             kind: BuiltinOptionKind::StringList(&[]),
             name: "allowed_tests",
             description: "Reviewed SQL test names that may assert only that empty inputs produce \
                           no rows; listed tests count toward min_tests_per_model.",
         }],
-        _ => Vec::new(),
+        _ => python_rule_options(code),
     }
 }

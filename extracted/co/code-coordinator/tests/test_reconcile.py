@@ -63,9 +63,11 @@ from coord.models import Assignment, Board, Machine, Repo
 from coord.reconcile import (
     RetryProviderMismatch,
     _reassign,
+    _record_usage_limit_reason,
     _resolve_retry_provider,
     describe_retry_provider_mismatch,
     reconcile,
+    reconcile_completed_assignments,
 )
 from coord.state import get_connection
 
@@ -375,6 +377,77 @@ class TestReassignThreadsProvider:
         assert result is not None
         payload = mock_post.call_args.kwargs["json"]
         assert payload["model"] == cfg.models.resolve("opus")
+
+
+class TestReassignBranchExistsFetcher:
+    """#4017: a work leg that dies before its first push never puts
+    `failed.branch` on origin — a plain `target_branch` continuation of it
+    is exactly the payload `coord.agent`'s `_setup_worktree` (#3857)
+    permanently refuses, wedging every later retry. `_reassign` must set
+    `fresh_branch=True` alongside `target_branch` when an opted-in
+    *branch_exists_fetcher* confirms the branch is gone."""
+
+    @patch("coord.reconcile.httpx.post")
+    def test_missing_branch_sets_fresh_branch_alongside_target_branch(
+        self, mock_post: MagicMock,
+    ) -> None:
+        resp = MagicMock()
+        resp.json.return_value = {"id": "newid"}
+        mock_post.return_value = resp
+        failed = _failed(branch="issue-1-never-pushed")
+
+        result = _reassign(
+            failed, Board(), _plain_cfg(),
+            branch_exists_fetcher=lambda repo, branch: False,
+        )
+
+        assert result is not None
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["target_branch"] == "issue-1-never-pushed"
+        assert payload["fresh_branch"] is True
+
+    @patch("coord.reconcile.httpx.post")
+    def test_existing_branch_continues_without_fresh_branch(
+        self, mock_post: MagicMock,
+    ) -> None:
+        """Control: when the fetcher confirms the branch IS still on
+        origin, the payload must stay exactly as before #4017 — no
+        `fresh_branch` field at all, so a genuine continuation (real work
+        already pushed) is never silently re-forked."""
+        resp = MagicMock()
+        resp.json.return_value = {"id": "newid"}
+        mock_post.return_value = resp
+        failed = _failed(branch="issue-1-already-pushed")
+
+        result = _reassign(
+            failed, Board(), _plain_cfg(),
+            branch_exists_fetcher=lambda repo, branch: True,
+        )
+
+        assert result is not None
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["target_branch"] == "issue-1-already-pushed"
+        assert "fresh_branch" not in payload
+
+    @patch("coord.reconcile.httpx.post")
+    def test_no_fetcher_is_unconditional_as_before(
+        self, mock_post: MagicMock,
+    ) -> None:
+        """Every existing direct caller/test that doesn't pass the fetcher
+        (the default, `None`) must see byte-identical behavior to before
+        #4017 — only `reconcile()`'s and `coord retry`'s own call sites
+        wire a real one."""
+        resp = MagicMock()
+        resp.json.return_value = {"id": "newid"}
+        mock_post.return_value = resp
+        failed = _failed(branch="issue-1-x")
+
+        result = _reassign(failed, Board(), _plain_cfg())
+
+        assert result is not None
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["target_branch"] == "issue-1-x"
+        assert "fresh_branch" not in payload
 
 
 # ── #3376: the dispatch-liveness gate, applied to auto-reassign ────────────
@@ -799,6 +872,56 @@ class TestCliRetryProviderRouting:
         payload = mock_post.call_args.kwargs["json"]
         assert payload["model"] == "opus"
         assert "provider" not in payload
+
+
+class TestCliRetryNeverPushedBranch:
+    """#4017: `coord retry` of a work leg that died before its first push
+    must not permanently wedge on `_setup_worktree`'s (#3857) hard refusal
+    — the CLI call site wires `github_ops.branch_exists_on_remote` into
+    `_reassign` for exactly this reason."""
+
+    @patch("coord.commands.dispatch.github_ops.branch_exists_on_remote")
+    @patch("coord.reconcile.httpx.post")
+    def test_retry_sets_fresh_branch_when_branch_never_reached_origin(
+        self, mock_post: MagicMock, mock_branch_exists: MagicMock,
+        tmp_path: Path, coord_db,
+    ) -> None:
+        mock_branch_exists.return_value = False
+        config_file = tmp_path / "coordinator.yml"
+        config_file.write_text(
+            "repos:\n  - name: api\n    github: acme/api\n"
+            "machines:\n"
+            "  - name: laptop\n    host: l\n    repos: [api]\n"
+            "    repo_paths:\n      api: /tmp/api\n"
+            "  - name: server\n    host: s\n    repos: [api]\n"
+            "    repo_paths:\n      api: /tmp/api\n"
+            "models:\n  default: sonnet\n  escalation: [haiku, sonnet, opus]\n"
+        )
+        board = Board(completed=[
+            _failed(
+                assignment_id="workid3", issue_number=3,
+                branch="issue-3-never-pushed",
+            ),
+        ])
+        resp = MagicMock()
+        resp.json.return_value = {"id": "retry3"}
+        resp.raise_for_status = lambda: None
+        mock_post.return_value = resp
+
+        with (
+            patch("coord.board_service.read_board", return_value=board),
+            patch("coord.board_service.write_board"),
+        ):
+            result = CliRunner().invoke(
+                main, ["retry", "workid3", "--config", str(config_file)],
+            )
+
+        out = output_and_stderr(result)
+        assert result.exit_code == 0, out
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["target_branch"] == "issue-3-never-pushed"
+        assert payload["fresh_branch"] is True
+        mock_branch_exists.assert_called_once_with("acme/api", "issue-3-never-pushed")
 
 
 # ── auto_reassign: the passive reconcile() tick shares _reassign too ───────
@@ -2059,3 +2182,178 @@ class TestReconcileConflictFixRewordMismatchMarker:
         assert "reword-commit worker refused to push" in posted_body
         assert "Manual reword required" in posted_body
         assert f"Refs #{entry.issue_number}" in posted_body
+
+
+# ── #4018: a pre-spawn agent failure (worktree setup, a dependency pull) ───
+# must reach the board's `failure_reason` the same way a usage-limit kill or
+# an API error already does, even though it is stamped onto a different
+# field (`AgentAssignment.error`, not one of the `_reap`-only reasons).
+
+
+class _RecordUpdateState:
+    """Mirrors `tests/test_reconcile_usage_limit_done.py`'s `_Recorder`."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def __call__(
+        self, *, assignment_id, terminal_status, branch, review_state,
+        failure_reason=None, exit_code=None,
+    ) -> None:
+        self.calls.append(
+            {
+                "assignment_id": assignment_id,
+                "terminal_status": terminal_status,
+                "branch": branch,
+                "failure_reason": failure_reason,
+                "exit_code": exit_code,
+            }
+        )
+
+
+def _setup_cfg() -> Config:
+    return Config(
+        repos=[Repo(name="cc", github="acme/cc")],
+        machines=[Machine(name="precision", host="precision", repos=["cc"])],
+    )
+
+
+def _setup_board(aid: str = "presp00001", *, atype: str = "work") -> Board:
+    return Board(
+        repos=[Repo(name="cc", github="acme/cc")], machines=[],
+        active=[
+            Assignment(
+                machine_name="precision", repo_name="cc",
+                issue_number=4018, issue_title="pre-spawn failure",
+                status="running", assignment_id=aid, type=atype,
+            ),
+        ],
+    )
+
+
+class TestPreSpawnFailureReachesFailureReason:
+    def test_worktree_setup_failure_lands_in_failure_reason(self) -> None:
+        """`AgentServer.assign`'s worktree-setup branch never spawns a
+        worker, so none of the `_reap`-only reasons are ever set — the
+        agent's own `error` field is the ONLY place this diagnostic lives."""
+        rec = _RecordUpdateState()
+        error = (
+            "worktree setup failed: _setup_worktree: target_branch "
+            "'issue-4018-x' was requested but origin/issue-4018-x could "
+            "not be resolved"
+        )
+        out = reconcile_completed_assignments(
+            _setup_cfg(),
+            board=_setup_board(),
+            agent_status_fn=lambda host: {"completed": [
+                {"id": "presp00001", "status": "failed", "error": error},
+            ]},
+            update_state_fn=rec,
+            capture_plan=False,
+        )
+        assert out[0]["to_status"] == "failed"
+        assert len(rec.calls) == 1
+        assert rec.calls[0]["failure_reason"] == error
+
+    def test_a_more_specific_reason_still_wins_over_error(self) -> None:
+        """`error` is the last-tried fallback — a `_reap`-stamped reason
+        (here, a usage-limit kill) must still win when both are present,
+        exactly like the other six reasons already in the chain."""
+        rec = _RecordUpdateState()
+        kill = "usage limit — resets 8:30pm (America/Chicago)"
+        out = reconcile_completed_assignments(
+            _setup_cfg(),
+            board=_setup_board(),
+            agent_status_fn=lambda host: {"completed": [
+                {
+                    "id": "presp00001", "status": "failed",
+                    "usage_limit_reason": kill,
+                    "error": "worktree setup failed: unrelated",
+                },
+            ]},
+            update_state_fn=rec,
+            capture_plan=False,
+        )
+        assert out[0]["to_status"] == "failed"
+        assert rec.calls[0]["failure_reason"] == kill
+
+    def test_record_usage_limit_reason_also_falls_back_to_error(self) -> None:
+        """The `coord resume` write path (`_record_usage_limit_reason`)
+        exercises the SAME fallback — it is the other producer of this
+        column (see that function's docstring)."""
+        from coord.state import load_board, save_board
+
+        board = _setup_board(aid="presp00002")
+        save_board(board)
+        error = "pull failed for dep-repo: git pull --ff-only exited 1"
+        _record_usage_limit_reason("presp00002", {"error": error})
+        reloaded = load_board()
+        updated = next(
+            a for a in reloaded.active + reloaded.completed
+            if a.assignment_id == "presp00002"
+        )
+        assert updated.failure_reason == error
+
+
+class TestSmokeLegLostAgentStaysEnvironmental:
+    def test_agent_restart_during_smoke_leg_does_not_record_a_work_failure(
+        self, coord_db,
+    ) -> None:
+        """#4018 review: `error="agent restarted; subprocess lost"` (and
+        every other `AgentAssignment.error` string — a worktree write
+        check, a raw spawn `OSError`, the #3363 phantom-assignment sweep)
+        is agent-authored bookkeeping prose describing a lost/never-spawned
+        worker, never a worker's own verdict — `_reap` never ran, so
+        `exit_code` stays `None` too. A `type="smoke"` leg dying this way
+        (an ordinary `coord agent update` restart, not a code defect) must
+        still take the #3705 silent/environmental path and clear the
+        parent's `test_state` for a fresh re-dispatch, never record
+        `test_state="failed"` and spend a bounded `coord fix` round on code
+        that was never actually tested."""
+        from coord.state import (  # noqa: PLC0415
+            _record_dispatched_assignment_local,
+            get_connection,
+        )
+
+        work = Assignment(
+            assignment_id="w-4018-restart", machine_name="precision",
+            repo_name="cc", issue_number=4018, issue_title="X", type="work",
+            status="done", branch="issue-4018",
+        )
+        _record_dispatched_assignment_local(assignment=work, repo_github="acme/cc")
+
+        board = Board(
+            repos=[Repo(name="cc", github="acme/cc")], machines=[],
+            active=[
+                Assignment(
+                    machine_name="precision", repo_name="cc",
+                    issue_number=4018, issue_title="[smoke] X",
+                    status="running", assignment_id="presp00003", type="smoke",
+                    review_of_assignment_id="w-4018-restart",
+                ),
+            ],
+        )
+        rec = _RecordUpdateState()
+        out = reconcile_completed_assignments(
+            _setup_cfg(),
+            board=board,
+            agent_status_fn=lambda host: {"completed": [
+                {
+                    "id": "presp00003", "status": "failed",
+                    "error": "agent restarted; subprocess lost",
+                },
+            ]},
+            update_state_fn=rec,
+            capture_plan=False,
+        )
+        assert out[0]["to_status"] == "failed"
+        assert rec.calls[0]["failure_reason"] == "agent restarted; subprocess lost"
+
+        row = get_connection().execute(
+            "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+            ("w-4018-restart",),
+        ).fetchone()
+        assert row["test_state"] is None, (
+            "an agent-lost smoke leg must clear the parent's test_state for "
+            f"re-dispatch, never record a work failure — got {row['test_state']!r}"
+        )

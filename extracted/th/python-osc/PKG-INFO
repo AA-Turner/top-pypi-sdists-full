@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: python-osc
-Version: 1.10.2
+Version: 1.10.3
 Summary: Open Sound Control server and client implementations in pure Python
 Keywords: osc,sound,midi,music
 Author: attwad

@@ -1,9 +1,24 @@
 import struct
 import os
+import re
+import zlib
 
 from .base import FirmwareObject, RawObject, BaseObject, AutoRawObject
 from .uefi import FirmwareVolume
-from .utils import print_error, dump_data, sguid, green, blue
+from .utils import print_error, dump_data, sguid, green, blue, \
+    limit_nesting, zlib_decompress
+
+
+def _checksum(data):
+    '''PFS stores each checksum as the CRC32 with its bits inverted.'''
+    return zlib.crc32(data) ^ 0xFFFFFFFF
+
+
+def _object_data(obj):
+    '''Return the bytes an object was parsed from.'''
+    if isinstance(obj, FirmwareVolume):
+        return obj._data
+    return obj.data
 
 
 PFS_GUIDS = {
@@ -17,9 +32,10 @@ PFS_GUIDS = {
 def _discover_volumes(data):
     # Assume a series of firmware volumes
     volumes = []
+    view = memoryview(data)
     fv_offset = 0
     while fv_offset < len(data):
-        fv = FirmwareVolume(data[fv_offset:], hex(fv_offset))
+        fv = FirmwareVolume(view[fv_offset:], hex(fv_offset))
         if not fv.valid_header:
             break
         if not fv.process():
@@ -34,14 +50,16 @@ class PFRegion(FirmwareObject):
         self.offset, self.size, self.address, self.name_offset = struct.unpack(
             '<IIQI', header[:20])
         self.header = header
-        self.data = data[:self.size]
+        # data may be a memoryview of the remaining images; copy this one.
+        self.data = bytes(data[:self.size])
 
     @property
     def objects(self):
         return [self.obj]
 
     def process(self):
-        self.obj = AutoRawObject(self.data)
+        # Regions dump to the same folder, so name their volumes by offset.
+        self.obj = AutoRawObject(self.data, offset=self.offset)
         if not self.obj.process():
             self.obj = RawObject(self.data)
         else:
@@ -111,11 +129,15 @@ class PFHeader(FirmwareObject, BaseObject):
             return False
 
         self.objs = []
+        view = memoryview(self.data)
         data_offset = self.hdr_size
         for i in range(self.image_count):
             region_offset = 0xDC + (i * 20)
+            if region_offset + 20 > len(self.data):
+                # image_count is larger than the region table.
+                break
             entry = PFRegion(self.data[region_offset:region_offset + 20],
-                self.data[data_offset:])
+                view[data_offset:])
             data_offset += entry.size
             if entry.process():
                 self.objs.append(entry)
@@ -195,6 +217,22 @@ class PFSPartitionedSection(FirmwareObject, BaseObject):
     def objects(self):
         return self.section_objects
 
+    def build(self, generate_checksum=False, debug=False):
+        body = b"".join(
+            volume.build(generate_checksum) for volume in self.section_objects)
+        if body != self.section_data[:len(body)]:
+            # The volumes are split across the partitions' chunks.
+            print_error("Error: cannot rebuild a changed partitioned section.")
+        return self.data
+
+    def to_dict(self):
+        return {
+            'guid': sguid(self.uuid),
+            'partitions': self.partitions,
+            'size': len(self.section_data),
+            'objects': [volume.to_dict() for volume in self.section_objects],
+        }
+
     def showinfo(self, ts='', index=None):
         print("%s%s %s partitions %d size 0x%x (%d bytes)" % (
             ts, blue("Dell PFSPartitionedSection:"), green(sguid(self.uuid)),
@@ -223,7 +261,9 @@ class PFSSection(FirmwareObject, BaseObject):
         self.section_objects = []
 
     def process(self):
-        hdr = self.data[:self.HEADER_SIZE]
+        # self.data may be a memoryview of the remaining sections, so copy
+        # each part kept from it.
+        hdr = bytes(self.data[:self.HEADER_SIZE])
         self.uuid = hdr[:0x10]
         self.header = hdr
 
@@ -248,15 +288,18 @@ class PFSSection(FirmwareObject, BaseObject):
 
         # This seems to be a set of 8byte CRCs for each chunk (4 total)
         self.crcs = hdr[0x20 + 0x18:self.HEADER_SIZE]
-        self.section_data = self.data[
-            self.HEADER_SIZE:self.HEADER_SIZE + section_size]
+        self.section_data = bytes(self.data[
+            self.HEADER_SIZE:self.HEADER_SIZE + section_size])
 
         rsa1_offset = self.HEADER_SIZE + section_size
-        self.rsa1 = RawObject(self.data[rsa1_offset:rsa1_offset + rsa1_size])
+        self.rsa1 = RawObject(
+            bytes(self.data[rsa1_offset:rsa1_offset + rsa1_size]))
         pmim_offset = rsa1_offset + rsa1_size
-        self.pmim = RawObject(self.data[pmim_offset:pmim_offset + pmim_size])
+        self.pmim = RawObject(
+            bytes(self.data[pmim_offset:pmim_offset + pmim_size]))
         rsa2_offset = pmim_offset + pmim_size
-        self.rsa2 = RawObject(self.data[rsa2_offset:rsa2_offset + rsa2_size])
+        self.rsa2 = RawObject(
+            bytes(self.data[rsa2_offset:rsa2_offset + rsa2_size]))
 
         # Unknown 8byte variable
         # _u3 = self.data[64+total_chunk_size:64+total_chunk_size+8]
@@ -305,13 +348,32 @@ class PFSSection(FirmwareObject, BaseObject):
 
     def build(self, generate_checksum=False, debug=False):
         body = b""
+        parsed = 0
         for sub_object in self.section_objects:
             body += sub_object.build(generate_checksum, debug=debug)
-        return self.header + body + \
+            parsed += len(_object_data(sub_object))
+        # Keep any data after the last volume found in the section.
+        body += self.section_data[parsed:]
+
+        header = self.header
+        if body != self.section_data:
+            # Update the data size and its checksum, the third of four.
+            header = bytearray(header)
+            struct.pack_into("<I", header, 0x28, len(body))
+            struct.pack_into("<I", header, 0x40, _checksum(body))
+            header = bytes(header)
+        return header + body + \
             self.rsa1.build(generate_checksum) + \
             self.pmim.build(generate_checksum) + \
             self.rsa2.build(generate_checksum)
-        pass
+
+    def to_dict(self):
+        return {
+            'guid': sguid(self.uuid),
+            'version': self.version,
+            'size': self.section_size,
+            'objects': [obj.to_dict() for obj in self.section_objects],
+        }
 
     def showinfo(self, ts=0, index=None):
         print("%s%s %s spec 0x%02x ts 0x%02x type 0x%02x version %s size 0x%x (%d bytes)" % (
@@ -324,8 +386,12 @@ class PFSSection(FirmwareObject, BaseObject):
             sub_object.showinfo("%s  " % ts)
         pass
 
-    def dump(self, parent="", index=None):
-        path = os.path.join(parent, "%s" % sguid(self.uuid))
+    def dump(self, parent="", index=None, duplicate=0):
+        name = sguid(self.uuid)
+        if duplicate > 0:
+            # Keep each section that repeats an earlier section's GUID.
+            name += "-%d" % duplicate
+        path = os.path.join(parent, name)
         dump_data("%s.data" % path, self.section_data)
 
         # Instead of calling dump on each chunk RawObject, dump with a better
@@ -337,7 +403,7 @@ class PFSSection(FirmwareObject, BaseObject):
         if len(self.rsa2.data) > 0:
             dump_data("%s.rsa2" % path, self.rsa2.data)
 
-        path = os.path.join(parent, "section-%s" % sguid(self.uuid))
+        path = os.path.join(parent, "section-%s" % name)
         for sub_object in self.section_objects:
             sub_object.dump(path)
         pass
@@ -360,18 +426,24 @@ class PFSFile(FirmwareObject):
             return False
 
         header = self.data[:0x10]
-        magic, spec, size = struct.unpack("<8sII", header)
+        magic, spec, body_size = struct.unpack("<8sII", header)
 
         self.spec = spec
-        self.size = size
+        self.body_size = body_size
+        # The header and footer are 0x10 bytes each.
+        self.size = body_size + 0x20
 
         if magic != self.PFS_HEADER:
             print_error(
                 "Data does not contain the header magic (%s)." % self.PFS_HEADER)
             return False
 
-        footer_offset = self.size + 0x10
+        footer_offset = self.body_size + 0x10
         footer = self.data[footer_offset:footer_offset + 0x10]
+        if len(footer) < 0x10:
+            print_error("Data is too short for the footer at 0x%x." % (
+                footer_offset))
+            return False
         # Footer size is a repeated body size.
         footer_size, _u2, footer_magic = struct.unpack("<II8s", footer)
         if footer_magic != self.PFS_FOOTER:
@@ -379,27 +451,26 @@ class PFSFile(FirmwareObject):
                 "Data does not container the footer magic (%s)." % self.PFS_FOOTER)
             return False
 
+        # Keep only this PFS, the caller parses any data that follows.
+        self.data = self.data[:self.size]
         return True
 
     def process(self):
         '''Chunks are assumed to contain a chunk header.'''
-        data = self.data[16:-16]
         if not self.valid_header:
             return False
+        data = self.data[0x10:0x10 + self.body_size]
 
+        view = memoryview(data)
         chunk_num = 0
-        offset = 16
-        while True:
-            section = PFSSection(data)
+        offset = 0
+        while len(data) - offset >= PFSSection.HEADER_SIZE:
+            section = PFSSection(view[offset:])
             section.process()
             self.sections.append(section)
 
             chunk_num += 1
             offset += section.section_size
-            data = data[section.section_size:]
-
-            if len(data) < 64:
-                break
         return True
 
     @property
@@ -407,24 +478,113 @@ class PFSFile(FirmwareObject):
         return self.sections
 
     def build(self, generate_checksum=False, debug=False):
+        original = self.data[0x10:-0x10]
         body = b""
+        parsed = 0
         for section in self.sections:
             body += section.build(generate_checksum, debug=debug)
-        return self.data[:16] + body + self.data[-16:]
-        pass
+            parsed += section.section_size
+        # Keep the bytes after the last section, too few for a header.
+        body += original[parsed:]
+        header = self.data[:0x10]
+        footer = self.data[-0x10:]
+        if body != original:
+            # The header and footer hold the body size, and the footer its
+            # checksum.
+            header = header[:0x0C] + struct.pack("<I", len(body))
+            footer = struct.pack("<II", len(body), _checksum(body)) + \
+                footer[0x08:]
+        return header + body + footer
+
+    def to_dict(self):
+        return {
+            'spec': self.spec,
+            'size': self.body_size,
+            'sections': [section.to_dict() for section in self.sections],
+        }
 
     def showinfo(self, ts='', index=None):
         print("%s%s spec 0x%x size 0x%x (%d bytes)" % (
             ts, blue("DellPFS:"),
-            self.spec, self.size, self.size
+            self.spec, self.body_size, self.body_size
         ))
         for section in self.sections:
             section.showinfo("%s  " % ts)
 
     def dump(self, parent='', index=None):
-        path = os.path.join(parent, "pfsobject.pfs")
-        dump_data(path, self.data)
+        name = "pfsobject"
+        if index:
+            # Another PFS may come first in the same file.
+            name += "-%d" % index
+        dump_data(os.path.join(parent, "%s.pfs" % name), self.data)
 
-        path = os.path.join(parent, "pfsobject")
+        path = os.path.join(parent, name)
+        seen = {}
         for section in self.sections:
-            section.dump(path)
+            guid = sguid(section.uuid)
+            section.dump(path, duplicate=seen.get(guid, 0))
+            seen[guid] = seen.get(guid, 0) + 1
+
+
+class DellUpdateBinary(FirmwareObject):
+    '''A Dell BIOS update program (PE) with an embedded, compressed PFS.
+
+    The PFS follows a 16-byte header: its little-endian compressed size, a
+    static marker, and one unknown byte. The marker appears several times in
+    the program, so the zlib header (0x789C) is matched to find the right one.
+
+    See https://forums.mydigitallife.net/threads/i-present-you-a-tool-to-decompress-dell-uefi-bios.44785/
+    '''
+    HDR_PATTERN = re.compile(
+        b'.{4}\xAA\xEE\xAA\x76\x1B\xEC\xBB\x20\xF1\xE6\x51.\x78\x9C',
+        re.DOTALL)
+    HDR_SIZE = 0x10
+
+    def __init__(self, data):
+        self.data = data
+        self.size = len(data)
+        self.pfs = None
+        self.pfs_offset = None
+        self.valid_header = False
+        if data[:2] == b"MZ":
+            match = self.HDR_PATTERN.search(data)
+            if match is not None:
+                self.pfs_offset = match.start()
+                self.valid_header = True
+
+    @limit_nesting(False)
+    def process(self):
+        if not self.valid_header:
+            return False
+        compressed_size, = struct.unpack(
+            "<I", self.data[self.pfs_offset:self.pfs_offset + 4])
+        compressed_offset = self.pfs_offset + self.HDR_SIZE
+        try:
+            pfs_data = zlib_decompress(
+                self.data[compressed_offset:compressed_offset + compressed_size])
+        except zlib.error as err:
+            print_error("Cannot decompress Dell PFS: %s" % str(err))
+            return False
+        self.pfs = PFSFile(pfs_data)
+        return self.pfs.process()
+
+    @property
+    def objects(self):
+        return [self.pfs]
+
+    def to_dict(self):
+        return {
+            'size': self.size,
+            'pfsOffset': self.pfs_offset,
+            'pfs': self.pfs.to_dict(),
+        }
+
+    def showinfo(self, ts='', index=None):
+        print("%s%s size 0x%x (%d bytes) PFS offset 0x%x" % (
+            ts, blue("DellUpdateBinary:"),
+            self.size, self.size, self.pfs_offset
+        ))
+        self.pfs.showinfo("%s  " % ts)
+
+    def dump(self, parent='', index=None):
+        self.pfs.dump(parent)

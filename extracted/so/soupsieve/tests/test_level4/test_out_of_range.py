@@ -6,6 +6,38 @@ from .. import util
 class TestOutOfRange(util.TestCase):
     """Test out of range selectors."""
 
+    BARRED_TYPES = (
+        ('number', 'min="0" max="10"', '50', '5'),
+        ('date', 'min="2000-01-01" max="2010-01-01"', '2020-01-01', '2005-01-01'),
+        ('month', 'min="2000-01" max="2010-01"', '2020-01', '2005-01'),
+        ('week', 'min="2000-W01" max="2010-W01"', '2020-W01', '2005-W01'),
+        ('time', 'min="01:00" max="02:00"', '03:00', '01:30'),
+        ('datetime-local', 'min="2000-01-01T00:00" max="2010-01-01T00:00"', '2020-01-01T00:00', '2005-01-01T00:00'),
+    )
+
+    def barred_markup(self):
+        """
+        Inputs of every type that are barred from constraint validation, which match neither selector.
+
+        Ids are `<type>-<in|out>-<case>`: `plain` and `legend` (the first `legend` of a disabled
+        `fieldset` is not disabled) are evaluated as usual; the rest are barred.
+        """
+
+        markup = []
+        for itype, bounds, out_value, in_value in self.BARRED_TYPES:
+            for kind, value in (('out', out_value), ('in', in_value)):
+                attrs = f'type="{itype}" {bounds} value="{value}"'
+                prefix = f'{itype}-{kind}'
+                markup.extend((
+                    f'<input id="{prefix}-plain" {attrs}>',
+                    f'<input id="{prefix}-disabled" {attrs} disabled>',
+                    f'<input id="{prefix}-readonly" {attrs} readonly>',
+                    f'<fieldset disabled><input id="{prefix}-fieldset" {attrs}></fieldset>',
+                    f'<fieldset disabled><legend><input id="{prefix}-legend" {attrs}></legend></fieldset>',
+                    f'<datalist><input id="{prefix}-datalist" {attrs}></datalist>',
+                ))
+        return '\n'.join(markup)
+
     def test_out_of_range_numeric_exponents(self):
         """Match numeric values and bounds written in scientific notation."""
 
@@ -23,11 +55,13 @@ class TestOutOfRange(util.TestCase):
         <input id="10" type="number" min="0" max="10" value="1E-1">
         """
 
-        for itype in ('number', 'range'):
+        # A range input clamps its value to its minimum and maximum, so it is out of range only when its maximum is
+        # less than its minimum, which none of these are
+        for itype, expected in (('number', ['1', '2', '3']), ('range', [])):
             self.assert_selector(
                 markup.replace('type="number"', f'type="{itype}"'),
                 ':out-of-range',
-                ['1', '2', '3'],
+                expected,
                 flags=util.HTML
             )
 
@@ -78,19 +112,39 @@ class TestOutOfRange(util.TestCase):
         <input id="7" type="range" max="8.8">
         <input id="8" type="range" max="8.8" value="invalid">
 
-        <!-- These should match -->
+        <!-- Nor these: the value is clamped to the minimum and maximum, 0 and 100 by default -->
         <input id="9" type="range" min="0" max="10" value="-1">
         <input id="10" type="range" min="0" max="10" value="10.1">
-
-        <!-- These cannot match -->
         <input id="11" type="range" value="10">
         <input id="12" type="range" min="invalid" value="10">
+        <input id="13" type="range" value="150">
+        <input id="15" type="RANGE" min="0" max="10" value="20">
+
+        <!-- The maximum is less than the minimum: out of range -->
+        <input id="14" type="range" min="10" max="0" value="3">
+        <!-- The maximum is less than the minimum, which default to 100 and 0: out of range -->
+        <input id="16" type="range" min="200">
+        <input id="17" type="range" max="-5">
+        <input id="18" type="range" min="invalid" max="-5">
+        <input id="19" type="range" min="10" max="0" value="">
+
+        <!-- Barred from constraint validation: neither in range nor out of range -->
+        <input id="20" type="range" disabled>
+        <input id="21" type="range" min="0" max="10" value="50" disabled>
+        <input id="22" type="range" min="0" max="10" value="50" readonly>
+        <fieldset disabled><input id="23" type="range" min="0" max="10" value="50"></fieldset>
+        <datalist><input id="24" type="range" min="0" max="10" value="50"></datalist>
+        <fieldset disabled><legend></legend><legend><input id="25" type="range" value="5"></legend></fieldset>
+
+        <!-- In the first legend of a disabled fieldset: not disabled, so evaluated as usual -->
+        <fieldset disabled><legend><input id="26" type="range" min="0" max="10" value="50"></legend></fieldset>
+        <fieldset disabled><legend><input id="27" type="range" min="10" max="0"></legend></fieldset>
         """
 
         self.assert_selector(
             markup,
             ":out-of-range",
-            ['9', '10'],
+            ['14', '16', '17', '18', '19', '27'],
             flags=util.HTML
         )
 
@@ -313,5 +367,73 @@ class TestOutOfRange(util.TestCase):
             markup,
             ":out-of-range",
             ['6'],
+            flags=util.HTML
+        )
+
+    def test_out_of_range_barred(self):
+        """An input that is disabled, `readonly` or in a `datalist` is barred from constraint validation."""
+
+        self.assert_selector(
+            self.barred_markup(),
+            ":out-of-range",
+            [f'{t[0]}-out-{case}' for t in self.BARRED_TYPES for case in ('plain', 'legend')],
+            flags=util.HTML
+        )
+
+    def test_out_of_range_max_year(self):
+        """
+        Browsers reject a date or time after 275760-09-13T00:00:00Z, the end of a JavaScript time.
+
+        The spec has no upper limit on the year, but all browsers agree. An invalid value is in range,
+        and an invalid bound is ignored.
+        """
+
+        markup = """
+        <input id="0" type="date" max="2000-01-01" value="275760-09-13">
+        <input id="1" type="date" max="2000-01-01" value="275760-09-14">
+        <input id="2" type="date" min="275760-09-14" max="275760-09-20" value="2000-01-01">
+        <input id="3" type="month" max="2000-01" value="275760-09">
+        <input id="4" type="month" max="2000-01" value="275760-10">
+        <input id="5" type="week" max="2000-W01" value="275760-W37">
+        <input id="6" type="week" max="2000-W01" value="275760-W38">
+        <input id="7" type="datetime-local" max="2000-01-01T00:00" value="275760-09-13T00:00">
+        <input id="8" type="datetime-local" max="2000-01-01T00:00" value="275760-09-13T00:00:00.001">
+        <input id="9" type="date" max="2000-01-01" value="300000-01-01">
+        """
+
+        self.assert_selector(
+            markup,
+            ":out-of-range",
+            ['0', '3', '5', '7'],
+            flags=util.HTML
+        )
+
+    def test_out_of_range_strict_bounds(self):
+        """
+        A `min` or `max` must use the same strict syntax as a value, as in browsers.
+
+        The spec parses a `number` or `range` bound leniently, skipping leading whitespace and a `+`
+        and ignoring trailing characters, and accepts any number of fractional second digits in a
+        `time` or `datetime-local` bound. All browsers reject these, so the bound is ignored.
+        """
+
+        markup = """
+        <input id="0" type="number" min=" 20" max="30" value="10">
+        <input id="1" type="number" min="+20" max="30" value="10">
+        <input id="2" type="number" min="20abc" max="30" value="10">
+        <input id="3" type="number" min="20." max="30" value="10">
+        <input id="4" type="number" min="2e+" max="30" value="10">
+        <input id="5" type="range" min="+20" max="5">
+        <input id="6" type="range" min="20 " max="5">
+        <input id="7" type="time" min="12:00:00.0001" max="13:00" value="12:00">
+        <input id="8" type="datetime-local" min="2000-01-01T12:00:00.0001" max="2000-01-02T00:00"
+            value="2000-01-01T12:00">
+        <input id="9" type="number" min="20" max="30" value="10">
+        """
+
+        self.assert_selector(
+            markup,
+            ":out-of-range",
+            ['9'],
             flags=util.HTML
         )

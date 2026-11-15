@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-from . import instrumentation
+__lazy_modules__ = ["stamina", "stamina._config", "stamina._core"]
+
+from . import exceptions, instrumentation
 from ._config import is_active, is_testing, set_active, set_testing
 from ._core import (
     AsyncRetryingCaller,
@@ -21,6 +23,7 @@ __all__ = [
     "BoundAsyncRetryingCaller",
     "BoundRetryingCaller",
     "RetryingCaller",
+    "exceptions",
     "instrumentation",
     "is_active",
     "is_testing",

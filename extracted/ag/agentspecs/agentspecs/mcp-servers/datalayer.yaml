@@ -238,3 +238,16 @@ actions:
     cancel_query: write
     save_query_as_revision: write
     mount_local_folder: read
+
+# The UI plugins it brings to the chat that uses it (agentspecs 0.0.196):
+# injected after the agent's own while it is in use.
+ui:
+  - plugin: pap-sign-in
+  - plugin: earth-scenes
+    renderer: a2ui
+  - plugin: earth-index
+    renderer: a2ui
+  - plugin: bank-reconciliation
+    renderer: a2ui
+  - plugin: trial-balance
+  - plugin: vat-summary

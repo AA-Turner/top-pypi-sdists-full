@@ -21,6 +21,7 @@ from slackblocks._limits import (
     MESSAGE_BLOCKS_MAX_ITEMS,
     MESSAGE_CHANNEL_MIN_LENGTH,
     MESSAGE_DATA_VISUALIZATIONS_MAX_ITEMS,
+    TABLE_TOTAL_CONTENT_MAX_LENGTH,
 )
 from slackblocks._surfaces import validate_surface_blocks
 from slackblocks.utils import coerce_to_list, validate_string_nonnull
@@ -74,6 +75,13 @@ def _validate_message_totals(
             f"Markdown block text ({markdown} characters) exceeds the message-wide limit of "
             f"{MARKDOWN_TOTAL_TEXT_MAX_LENGTH} characters."
         )
+    table = sum(
+        _text_character_count(block["rows"])
+        for block in rendered_blocks
+        if block.get("type") == "table"
+    )
+    if table > TABLE_TOTAL_CONTENT_MAX_LENGTH:
+        raise LengthError("Table cell text exceeds the message-wide 10,000-character limit.")
     data_table = sum(
         _text_character_count(block["rows"])
         for block in rendered_blocks
@@ -99,9 +107,11 @@ class _MessagePayloadMixin:
         raise NotImplementedError
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a fresh Slack-shaped dictionary, validating the resolved payload."""
         return self._resolve()
 
     def json(self) -> str:
+        """Return the validated Slack-shaped payload as indented JSON."""
         return dumps(self._resolve(), indent=4)
 
     def __repr__(self) -> str:
@@ -111,6 +121,7 @@ class _MessagePayloadMixin:
         return self._resolve()[item]
 
     def keys(self) -> list[str]:
+        """Return the serialized field names for mapping-style SDK argument unpacking."""
         return list(self._resolve().keys())
 
 
@@ -184,7 +195,7 @@ class Message(BaseMessage):
             automatically unfurl.
         metadata: optional message metadata, including `event_type` and `event_payload`.
     Throws:
-        InvalidUsageException: in the event that the items passed to `blocks`
+        InvalidUsageError: in the event that the items passed to `blocks`
             are not valid [`Blocks`](/slackblocks/latest/reference/blocks).
     """
 

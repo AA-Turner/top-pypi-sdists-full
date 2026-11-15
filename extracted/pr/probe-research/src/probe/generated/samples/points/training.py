@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from probe.foundation.compat.compat import StrEnum
 from ..outcome import SampleSplit
-from .points import MAX_POINT_METRICS, Dtype, LossRole, PointKey
+from .points import MAX_POINT_METRICS, MAX_ROUNDED_TOLERANCE, Dtype, LossRole, PointKey
 
 MAX_UNSUPPORTED = 64
 MAX_UNSUPPORTED_CHARS = 1024
@@ -98,6 +98,9 @@ class Rollup(BaseModel):
     #: The framework's own series is approximate, and why (TRL's `eval_loss` repeats the last eval batch through
     #: `gather_for_metrics`): the check shows both numbers and never calls the step unreconciled for it.
     approximate: str | None = Field(default=None, min_length=1, max_length=MAX_APPROXIMATE_CHARS)
+    #: The trainer check's bound in place of the dtype's, for a series the framework rounds several times per call
+    #: (`get_rounding_tolerance`: TRL's bf16 SFT loss): a step past it reads unreconciled. None: `TOLERANCES[dtype]`.
+    tolerance: float | None = Field(default=None, gt=0, le=MAX_ROUNDED_TOLERANCE)
     #: The framework logs the key every N steps, pooling every call since its last log before the step level (TRL
     #: `logging_steps`): the trainer check compares its point at step S with the declared levels over steps
     #: S - N + 1 .. S (from the step after its previous point), or reads unchecked when it cannot see them all.

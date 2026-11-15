@@ -6,6 +6,7 @@ See: <https://api.slack.com/reference/block-kit/composition-objects>.
 
 from __future__ import annotations
 
+import math
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -19,7 +20,6 @@ from slackblocks._limits import (
     CONFIRMATION_TEXT_MAX_LENGTH,
     CONFIRMATION_TITLE_MAX_LENGTH,
     CONVERSATION_FILTER_INCLUDE_MIN_ITEMS,
-    DATA_TABLE_CELL_TEXT_MIN_LENGTH,
     DATA_VISUALIZATION_AXIS_LABEL_MAX_LENGTH,
     DATA_VISUALIZATION_CATEGORIES_MAX_ITEMS,
     DATA_VISUALIZATION_CATEGORIES_MIN_ITEMS,
@@ -130,7 +130,7 @@ class Text(CompositionObject):
             names, user names will not automatically be rendered as links.
 
     Throws:
-        InvalidUsageException: if the provided `text` fails validation.
+        InvalidUsageError: if the provided `text` fails validation.
     """
 
     def __init__(
@@ -641,7 +641,7 @@ class ConversationFilter(CompositionObject):
         exclude_bot_users: whether to remove bot users from the list of conversations.
 
     Throws:
-        InvalidUsageException: in the event that the user provides none of `include`,
+        InvalidUsageError: in the event that the user provides none of `include`,
             `exclude_external_shared_channels`, or `exclude_bot_users` arguments.
     """
 
@@ -907,7 +907,7 @@ class RawText:
             escaped into text format (e.g. `:smile:`).
 
     Throws:
-        InvalidUsageException: if the provided `text` fails validation.
+        InvalidUsageError: if the provided `text` fails validation.
     """
 
     def __init__(
@@ -931,14 +931,14 @@ class RawText:
 
 class RawNumber(RenderableMixin):
     """
-    A numeric cell for a
+    A numeric cell for a table or
     [`DataTableBlock`](/slackblocks/latest/reference/blocks/#blocks.DataTableBlock).
 
     See: <https://docs.slack.dev/reference/block-kit/blocks/data-table-block>.
 
     Args:
         value: the numeric value Slack uses for sorting and display.
-        text: the non-empty text Slack displays in the cell.
+        text: the non-empty text Slack displays.
 
     Throws:
         InvalidUsageError: if any of the provided arguments fail validation.
@@ -947,11 +947,11 @@ class RawNumber(RenderableMixin):
     def __init__(self, value: int | float, text: str) -> None:
         if isinstance(value, bool) or not isinstance(value, int | float):
             raise TypeMismatchError("`value` must be a number.")
+        if isinstance(value, float) and not math.isfinite(value):
+            raise InvalidUsageError("`value` must be finite.")
         self.type = "raw_number"
         self.value = value
-        self.text = validate_string_nonnull(
-            text, field_name="text", min_length=DATA_TABLE_CELL_TEXT_MIN_LENGTH
-        )
+        self.text = validate_string_nonnull(text, field_name="text", min_length=1)
 
     def _resolve(self) -> dict[str, Any]:
         return {"type": self.type, "value": self.value, "text": self.text}

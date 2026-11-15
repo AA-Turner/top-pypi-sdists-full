@@ -35,7 +35,7 @@ help:
 	echo " - check.black: run black formatter checks"
 	echo " - check.coverage: run coverage and generate html report"
 	echo " - check.rstcheck: check rest files"
-	echo " - check: run all above checks"
+	echo " - check: run most of above checks"
 	echo " - publish: publish a new release on pypi (for maintainers)"
 
 #
@@ -73,6 +73,9 @@ venv.last: venv
 
 .PHONY: dev
 dev: venv/.dev
+
+.PHONY: venv.dev
+venv.dev: dev
 
 # direct module installation for github or docker
 ifdef VENV
@@ -145,7 +148,7 @@ check.black: $(VENV)
 .PHONY: check.rstcheck
 check.rstcheck: $(VENV)
 	[ "$(VENV)" ] && source $(VENV)/bin/activate
-	rstcheck --ignore-directives=toctree,literalinclude --ignore-roles=doc,ref docs/source/*.rst
+	rstcheck --ignore-directives=toctree,literalinclude --ignore-roles=doc,ref,py:func docs/source/*.rst
 
 .PHONY: check.pytest
 check.pytest: check.pytest.local
@@ -159,6 +162,7 @@ check.pytest.local: check.pytest.misc check.pytest.postgres.local check.pytest.$
 .PHONY: check.coverage
 check.coverage: check.coverage.local
 
+# NOTE only a subset of possible checks are triggered here.
 .PHONY: check
 check: check.ruff check.pyright check.pytest check.coverage check.rstcheck
 
@@ -199,13 +203,15 @@ check.pytest.postgres.local: check.pytest.postgres
 check.pytest.postgres: $(INSTALL)
 	[ "$(VENV)" ] && source $(VENV)/bin/activate
 	$(WAIT) $(PG_HOST) $(PG_PORT) 5 || exit 1
+	echo "# running pg tests..."
 	$(PYTEST) $(PYTOPT) \
 	  tests/test_psycopg2.py \
 	  tests/test_psycopg3.py \
 	  tests/test_apsycopg3.py \
 	  tests/test_pygresql.py \
 	  tests/test_pg8000.py \
-	  tests/test_asyncpg.py
+	  tests/test_asyncpg.py \
+	  tests/test_aiopg.py
 
 #
 # MySQL
@@ -240,6 +246,7 @@ check.pytest.mysql: $(INSTALL)
 	$(WAIT) $(MY_HOST) $(MY_PORT) 10 || exit 1
 	set -e
 	# run with all 3 drivers
+	echo "# running mysql tests..."
 	$(PYTEST) $(PYTOPT) --mysql-driver=MySQLdb tests/test_mysqldb.py
 	$(PYTEST) $(PYTOPT) --mysql-driver=mysql.connector tests/test_myco.py
 	$(PYTEST) $(PYTOPT) --mysql-driver=pymysql tests/test_pymysql.py
@@ -278,6 +285,7 @@ check.pytest.mariadb.detached: check.pytest.mariadb
 check.pytest.mariadb: $(INSTALL)
 	[ "$(VENV)" ] && source $(VENV)/bin/activate
 	$(WAIT) $(MA_HOST) $(MA_PORT) 5 || exit 1
+	echo "# running mariadb tests..."
 	$(PYTEST) $(PYTOPT) --mysql-driver=mariadb tests/test_mariadb.py
 
 #
@@ -307,7 +315,10 @@ check.pytest.mssql: $(INSTALL)
 	[ "$(VENV)" ] && source $(VENV)/bin/activate
 	sleep 5
 	$(WAIT) $(MS_HOST) $(MS_PORT) 10 || exit 1
-	$(PYTEST) $(PYTOPT) tests/test_pymssql.py
+	echo "# running mssql tests..."
+	$(PYTEST) $(PYTOPT) \
+	  tests/test_pymssql.py \
+	  tests/test_mssql.py
 
 #
 # SQLite3, DuckDB and Misc
@@ -318,7 +329,7 @@ check.pytest.misc: $(INSTALL)
 	[ "$(VENV)" ] && source $(VENV)/bin/activate
 	$(PYTEST) $(PYTOPT) \
 	  tests/test_loading.py \
-	  tests/test_patterns.py \
+	  tests/test_miscellaneous.py \
 	  tests/test_sqlite3.py \
 	  tests/test_apsw.py \
 	  tests/test_aiosqlite.py \
@@ -365,7 +376,9 @@ check.coverage.local: check.coverage.misc check.coverage.postgres.local check.co
 	$(MAKE) check.coverage.combine
 
 IS_DOCKER	=
-FAIL_UNDER  = $(shell python -c 'import sys; import platform; print(100.0 if sys.version_info < (3, 13) and platform.python_implementation() == "CPython" else 83.9)')
+
+# this depends on what drivers and bases are active
+FAIL_UNDER  = 100.0
 
 .PHONY: check.coverage.combine
 check.coverage.combine: $(VENV)
@@ -432,7 +445,7 @@ docker.coverage:
 	  -e ACCEPT_EULA=1 \
 	  -e MSSQL_PID=Developer \
 	  -e MSSQL_SA_PASSWORD=$(MS_PASS) \
-	  mcr.microsoft.com/mssql/server:2022-latest
+	  mcr.microsoft.com/mssql/server:2025-latest
 	sleep 5
 	touch $@
 

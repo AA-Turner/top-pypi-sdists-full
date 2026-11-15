@@ -152,6 +152,7 @@ def run_so101(
     smoothing_new_weight: float | None = None,
     smoothing_correction_steps: int | None = None,
     smoothing_reference_speed: float | None = None,
+    smoothing_time_scale: float | None = None,
     trace_dir=None,
     trace_images: bool = False,
     hud: bool = False,
@@ -182,6 +183,7 @@ def run_so101(
         smoothing_new_weight=smoothing_new_weight,
         smoothing_correction_steps=smoothing_correction_steps,
         smoothing_reference_speed=smoothing_reference_speed,
+        smoothing_time_scale=smoothing_time_scale,
     )
     resolve_action_smoothing(strategy, contract)
     from dreamscale.homing import _valid_pose

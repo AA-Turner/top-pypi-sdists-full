@@ -7,9 +7,11 @@ in addition to the computed values (e.g., logging).
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol, cast, overload
 
-from .typing import Functor, Monad, Monoid
+from .typing import Functor, Monad
+
+_MISSING = object()
 
 
 class Writer[T, Log]:
@@ -28,15 +30,17 @@ class Writer[T, Log]:
         """
         self._value: tuple[T, Log] = (value, log)
 
-    def map[U](self, func: Callable[[tuple[T, Log]], tuple[U, Log]]) -> Writer[U, Log]:
+    def map[U](self, func: Callable[[T], U]) -> Writer[U, Log]:
         """Map a function func over the Writer value.
 
-        Haskell:
-        fmap f m = Writer $ let (a, w) = runWriter m in (f a, w)
+        The log is preserved, as required by Functor.map.
         """
         a, w = self.run()
-        b, w_ = func((a, w))
-        return Writer(b, w_)
+        return Writer(func(a), w)
+
+    def map_with_log[U](self, func: Callable[[tuple[T, Log]], tuple[U, Log]]) -> Writer[U, Log]:
+        """Transform the value and log together."""
+        return Writer(*func(self.run()))
 
     def bind[U](self, func: Callable[[T], Writer[U, Log]]) -> Writer[U, Log]:
         """Flat is better than nested.
@@ -52,16 +56,24 @@ class Writer[T, Log]:
         # Any: Log type is generic and determined at runtime
         return Writer(b, w__)  # type: ignore[arg-type]
 
+    @overload
     @classmethod
-    def unit(cls, value: T) -> Writer[T, Log]:
+    def unit[U](cls, value: U) -> Writer[U, str]: ...
+
+    @overload
+    @classmethod
+    def unit[U, EmptyLog](cls, value: U, *, empty_log: EmptyLog) -> Writer[U, EmptyLog]: ...
+
+    @classmethod
+    def unit[U](cls: type[Writer[Any, Any]], value: U, *, empty_log: object = _MISSING) -> Writer[U, Any]:
         """Wrap a single value in a Writer.
 
-        Use the factory method to create Writer classes that
-        use a different monoid than str, or use the constructor
-        directly.
+        The default log is an empty string. Supply empty_log for another
+        log type, or use a class created with create().
         """
-        # Log: Empty log is empty string by default
-        return Writer(value, log="")  # type: ignore
+        # The default writer uses string logs; other log types must supply
+        # their own identity element (or use a class created with create()).
+        return cls(value, cast(Any, "" if empty_log is _MISSING else empty_log))
 
     def run(self) -> tuple[T, Log]:
         """Extract value from Writer.
@@ -82,28 +94,31 @@ class Writer[T, Log]:
         # Log: Monoid append operation
         return new, log + entry  # type: ignore
 
-    @classmethod
-    def create(cls, class_name: str, monoid_type: type[Monoid[Log]] | type[str] = str) -> type[Writer[T, Log]]:
-        """Create Writer subclass using specified monoid type.
+    @overload
+    @staticmethod
+    def create(class_name: str) -> WriterFactory[str]: ...
 
-        Lets us create a Writer that uses a different monoid than str for the log.
+    @overload
+    @staticmethod
+    def create[FactoryLog](class_name: str, monoid_type: type[FactoryLog]) -> WriterFactory[FactoryLog]: ...
 
-        Usage:
-            StringWriter = Writer.create("StringWriter", str)
-            IntWriter = Writer.create("IntWriter", int)
-            ...
+    @staticmethod
+    def create(class_name: str, monoid_type: type[Any] = str) -> WriterFactory[Any]:
+        """Create a Writer class with a configured log identity.
+
+        The factory's unit(value) uses monoid_type.empty() when available,
+        otherwise monoid_type(). Use Writer.unit for an explicit empty_log.
         """
 
-        def unit(cls: type[Writer[T, Log]], value: T) -> Writer[T, Log]:
-            log: Any  # Any: Dynamic monoid type determined at runtime
+        def unit[U](cls: type[Writer[Any, Any]], value: U) -> Writer[U, Any]:
+            log: Any  # Dynamic monoid identity construction.
             if hasattr(monoid_type, "empty"):
-                log = monoid_type.empty()  # type: ignore[attr-defined]
+                log = monoid_type.empty()
             else:
-                log = monoid_type()  # type: ignore[misc]
+                log = monoid_type()
+            return cls(value, log)
 
-            return cls(value, log)  # type: ignore[arg-type]
-
-        return type(class_name, (Writer,), {"unit": classmethod(unit)})  # type: ignore
+        return cast(WriterFactory[Any], type(class_name, (Writer,), {"unit": classmethod(unit)}))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Writer):
@@ -128,9 +143,19 @@ class MonadWriter[Log](Writer[None, Log]):
         return cls(None, log)  # type: ignore
 
 
-# Convenience: Pre-created StringWriter
-# Any: Dynamic type creation via type() cannot be statically typed
-StringWriter: type[Writer[Any, str]] = Writer.create("StringWriter", str)  # type: ignore[assignment]
+class WriterFactory[Log](Protocol):
+    """Callable interface of a dynamically created Writer class.
+
+    A factory fixes the log type, while each call infers its own value type.
+    Instances are annotated as Writer[T, Log], not with the factory name.
+    """
+
+    def __call__[T](self, value: T, log: Log) -> Writer[T, Log]: ...
+
+    def unit[T](self, value: T) -> Writer[T, Log]: ...
+
+
+StringWriter: WriterFactory[str] = Writer.create("StringWriter", str)
 
 # Type assertions for runtime checking
 assert isinstance(Writer, Functor)

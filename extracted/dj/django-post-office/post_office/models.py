@@ -1,8 +1,8 @@
 import os
 
 from collections import namedtuple
+from functools import partial
 from uuid import uuid4
-from email.mime.nonmultipart import MIMENonMultipart
 
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage, EmailMultiAlternatives
@@ -14,6 +14,7 @@ from django.utils import timezone
 from post_office import cache
 from post_office.fields import CommaSeparatedEmailField
 
+from .attachments import attach_to_message
 from .connections import connections
 from .logutils import setup_loghandlers
 from .settings import (
@@ -24,6 +25,8 @@ from .settings import (
     get_override_recipients,
     get_template_engine,
 )
+from .template import compile_template
+from .template.backends.post_office import PostOfficeTemplates
 from .validators import validate_email_with_name, validate_template_syntax
 
 
@@ -137,9 +140,14 @@ class Email(models.Model):
 
         if self.template is not None and self.context is not None:
             engine = get_template_engine()
-            subject = engine.from_string(self.template.subject).render(self.context)
-            plaintext_message = engine.from_string(self.template.content).render(self.context)
-            multipart_template = engine.from_string(self.template.html_content)
+            if isinstance(engine, PostOfficeTemplates):
+                # Caches compiled templates itself; its wrappers hold per-render inline images, so can't be shared
+                from_string = engine.from_string
+            else:
+                from_string = partial(compile_template, engine=engine)
+            subject = from_string(self.template.subject).render(self.context)
+            plaintext_message = from_string(self.template.content).render(self.context)
+            multipart_template = from_string(self.template.html_content)
             html_message = multipart_template.render(self.context)
 
         else:
@@ -195,18 +203,7 @@ class Email(models.Model):
             )
 
         for attachment in self.attachments.all():
-            if attachment.headers:
-                mime_part = MIMENonMultipart(*attachment.mimetype.split('/'))
-                mime_part.set_payload(attachment.file.read())
-                for key, val in attachment.headers.items():
-                    try:
-                        mime_part.replace_header(key, val)
-                    except KeyError:
-                        mime_part.add_header(key, val)
-                msg.attach(mime_part)
-            else:
-                msg.attach(attachment.name, attachment.file.read(), mimetype=attachment.mimetype or None)
-            attachment.file.close()
+            attach_to_message(msg, attachment)
 
         self._cached_email_message = msg
         return msg

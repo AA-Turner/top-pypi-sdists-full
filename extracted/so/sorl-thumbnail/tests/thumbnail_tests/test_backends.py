@@ -2,8 +2,11 @@ import os
 import platform
 import shutil
 import sys
+import tempfile
 import unittest
+import warnings
 from io import StringIO
+from unittest import mock
 
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -13,7 +16,7 @@ from sorl.thumbnail import default, delete, get_thumbnail
 from sorl.thumbnail.base import ThumbnailBackend
 from sorl.thumbnail.conf import settings
 from sorl.thumbnail.helpers import get_module_class
-from sorl.thumbnail.images import ImageFile
+from sorl.thumbnail.images import DummyImageFile, ImageFile
 
 from .models import Item
 from .utils import BaseTestCase, FakeFile, same_open_fd_count
@@ -44,6 +47,40 @@ class BackendTest(BaseTestCase):
         delete(im2, delete_file=False)
         self.assertFalse(bool(default.kvstore.get(ImageFile(im2))))
         self.assertTrue(ImageFile(im2).exists())
+
+
+class RaiseErrorsTest(BaseTestCase):
+    """A source that can't be read, with and without ``raise_errors``"""
+
+    def test_raises_when_asked(self):
+        with self.assertRaises(OSError):
+            get_thumbnail('644-raise.jpg', '50x50', raise_errors=True)
+
+    def test_warns_when_not_set(self):
+        with self.assertWarns(FutureWarning) as warned:
+            thumbnail = get_thumbnail('644-warn.jpg', '50x50')
+
+        # The warning points at the caller, not at sorl
+        self.assertEqual(warned.filename, __file__)
+        self.assertFalse(thumbnail.exists())
+
+    def test_quiet_when_false(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', FutureWarning)
+            thumbnail = get_thumbnail('644-quiet.jpg', '50x50', raise_errors=False)
+
+        self.assertFalse(thumbnail.exists())
+
+    @override_settings(THUMBNAIL_DUMMY=True)
+    def test_dummy_comes_first(self):
+        thumbnail = get_thumbnail('644-dummy.jpg', '50x50', raise_errors=True)
+        self.assertIsInstance(thumbnail, DummyImageFile)
+
+    def test_keeps_the_thumbnail_name(self):
+        self.create_image('644-name.jpg', (100, 100))
+        plain = get_thumbnail('644-name.jpg', '50x50')
+        asked = get_thumbnail('644-name.jpg', '50x50', raise_errors=True)
+        self.assertEqual(plain.name, asked.name)
 
 
 @override_settings(THUMBNAIL_PRESERVE_FORMAT=True, THUMBNAIL_FORMAT='XXX')
@@ -90,6 +127,28 @@ class TestDescriptors(unittest.TestCase):
         with same_open_fd_count(self):
             with self.assertRaises(IOError):
                 self.ENGINE.get_image(source)
+
+    def test_no_source_leaves_no_temp_file(self):
+        source = ImageFile('nonexistent-tempfile.jpeg')
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(tempfile, 'tempdir', tmp):
+            with self.assertRaises(IOError):
+                self.ENGINE.get_image(source)
+
+            self.assertEqual(os.listdir(tmp), [])
+
+    @unittest.skipUnless('convert_engine' in settings.THUMBNAIL_ENGINE,
+                         'Only the convert engine copies the source to a temp file')
+    def test_failed_write_leaves_no_temp_file(self):
+        source = mock.Mock()
+        source.name = 'text.jpeg'
+        source.read.return_value = 'not bytes'
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(tempfile, 'tempdir', tmp):
+            with self.assertRaises(TypeError):
+                self.ENGINE.get_image(source)
+
+            self.assertEqual(os.listdir(tmp), [])
 
     def test_is_valid_image(self):
         with same_open_fd_count(self):

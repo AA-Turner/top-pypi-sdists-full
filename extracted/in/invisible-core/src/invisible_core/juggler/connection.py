@@ -43,6 +43,8 @@ import weakref
 from typing import Any, Callable, Optional
 
 from .. import _engine_env
+from .._offloop import off_the_loop
+from ..process import TOKEN_VAR, TREE_REFRESH, EngineTree, SessionToken, register_tree
 from .deadline import Deadline
 
 NUL = b"\x00"
@@ -884,6 +886,12 @@ class Connection(EventListeners):
         pipe (see `__init__`).
         """
         self._closed = True
+        # ⛔ THE TREE IS LISTED BEFORE THE PIPE CLOSES, while the engine can still say whose its children are
+        # (POSIX: what a dead engine left is reparented). One pass over the parents of the machine's processes,
+        # on the thread that closes; nothing of anybody's environment is read.
+        tree = getattr(self._process, "tree", None)
+        if tree is not None:
+            tree.remember()
         with self._write_lock:
             fd, self._to_browser = self._to_browser, -1
             if fd >= 0:
@@ -897,13 +905,35 @@ class Connection(EventListeners):
         if not p:
             return
         deadline = time.monotonic() + timeout
+        refreshed = time.monotonic()
         while p.poll() is None and time.monotonic() < deadline:
             time.sleep(0.05)
+            if tree is not None and time.monotonic() - refreshed >= TREE_REFRESH:
+                tree.remember()
+                refreshed = time.monotonic()
+        # ⛔ ON WINDOWS THE PROCESS THE SPAWN RETURNED MAY BE THE LAUNCHER STUB, which has exited while the
+        # browser is still shutting down, so its exit says nothing about the tree: the tree is waited for
+        # through the launch's own job (its count of live processes, nothing of the machine is read), up
+        # to the same deadline.
+        if tree is not None:
+            tree.wait_job_empty(deadline)
         if p.poll() is None:
             try:
                 p.terminate()
             except OSError:
                 pass
+        # Then the launch's job is ended and closed: what is left of THIS launch goes, and no other
+        # browser's, and `close` returns once the kernel has finished (`EngineTree.release`).
+        if tree is not None:
+            tree.release()
+
+    async def aclose(self, timeout: float = 5.0) -> None:
+        """`close()` for an event loop: the waits happen in a thread of their own
+        and the loop serves its other tasks meanwhile. Like `close()`, it returns
+        once the browser's processes have exited (the contract does not change,
+        only where the waiting is done), and a cancelled awaiter does not stop
+        the close."""
+        await off_the_loop(self.close, timeout)
 
 
 # ── launch ──────────────────────────────────────────────────────────────────
@@ -935,6 +965,12 @@ class _WindowsProcess:
         self._handle = handle
         self.pid = pid
         self.stdout = stdout
+        #: Whether the spawn put the process inside the job (`_spawn_windows`).
+        self.in_job = False
+        #: The launch's `EngineJob`, or None (`_spawn_windows`); closed by `tree.release()`.
+        self.job = None
+        #: The launch's `EngineTree`, from the spawn: how its processes are listed, waited for and ended.
+        self.tree = None
         self.returncode: Optional[int] = None
         # Resolved now: `__del__` may run while the interpreter exits, when
         # an import inside it raises instead of closing anything.
@@ -1149,10 +1185,27 @@ def _spawn_windows(executable, argv, env):
     cmdline = ctypes.create_unicode_buffer(
         subprocess.list2cmdline([executable] + argv))
     create_unicode_environment, extended_startupinfo_present = 0x400, 0x80000
+    create_suspended = 0x4
+    # ⛔ THE ENGINE IS BORN INSIDE A JOB OF ITS OWN, not adopted into one later.
+    # Created suspended, assigned while it is alone, then resumed: every process
+    # it creates after that (the launcher's browser, content, GPU, socket, and
+    # the pingsender that outlives the browser) is created inside the job by the
+    # kernel, so the tree dies with this process by construction and nothing
+    # searches the machine for it. The search this replaces ran on every launch
+    # (`LifetimeGuard.bind`: every process of the machine, its environment read
+    # under the GIL, a quarter of a second apart, up to ten seconds), measured
+    # at 12-29% of the launching thread. Adopting afterwards cannot work for this
+    # browser anyway (`JobObjectGuard.spawn_into`). ONE JOB PER LAUNCH: closing
+    # this browser (`Connection.close`) ends its tree and no other browser's,
+    # and its tree can be listed by the job itself. No job (not Windows, or it
+    # could not be made) is an ordinary launch.
+    from ..process import EngineJob
+    job = EngineJob.create()
     pi = PROCESS_INFORMATION()
     ok = k32.CreateProcessW(
         None, cmdline, None, None, True,
-        create_unicode_environment | extended_startupinfo_present,
+        create_unicode_environment | extended_startupinfo_present
+        | (create_suspended if job is not None else 0),
         env_block, None, ctypes.byref(si), ctypes.byref(pi))
     err = ctypes.get_last_error()
     k32.DeleteProcThreadAttributeList(attrs)
@@ -1161,14 +1214,31 @@ def _spawn_windows(executable, argv, env):
     for h in (its_read, its_write, out_write, err_write, in_read):
         _winapi.CloseHandle(h)
     if not ok:
+        if job is not None:
+            job.close()
         for h in (our_read, our_write, out_read):
             _winapi.CloseHandle(h)
         raise OSError(err, "CreateProcessW failed for %s%s: %s" % (
             executable, (" on desktop %r" % desktop) if desktop else "",
             ctypes.FormatError(err).strip()))
+    in_job = False
+    if job is not None:
+        try:
+            # A refusal warns from inside, naming the assignment's own error.
+            in_job, _ = job.adopt_and_resume(pi.hProcess, pi.hThread)
+        except BaseException:
+            # A suspended engine nobody can resume is ended, with its pipes.
+            k32.TerminateProcess(ctypes.c_void_p(pi.hProcess), 1)
+            job.close()
+            for h in (pi.hThread, pi.hProcess, our_read, our_write, out_read):
+                _winapi.CloseHandle(h)
+            raise
     k32.CloseHandle(pi.hThread)
     stdout = os.fdopen(msvcrt.open_osfhandle(out_read, os.O_RDONLY), "rb")
     p = _WindowsProcess(int(pi.hProcess), int(pi.dwProcessId), stdout)
+    p.in_job = in_job
+    p.job = job
+    p.tree = EngineTree(p.pid, job)
     return (msvcrt.open_osfhandle(our_write, 0),
             msvcrt.open_osfhandle(our_read, os.O_RDONLY), p)
 
@@ -1182,6 +1252,9 @@ class _PosixProcess:
         self.stdout = stdout
         self.returncode: Optional[int] = None
         self._lock = threading.Lock()
+        #: The launch's `EngineTree`: the engine is the leader of a process group of its own (`_spawn_posix`), and
+        #: the tree is that group.
+        self.tree = EngineTree(pid, group=True, poll=self.poll)
 
     def poll(self) -> Optional[int]:
         with self._lock:
@@ -1280,7 +1353,7 @@ def _spawn_posix(executable, argv, env):
                     except OSError:
                         pass
             try:
-                pid = os.posix_spawn(executable, [executable] + argv, env, file_actions=actions,
+                pid = os.posix_spawn(executable, [executable] + argv, env, file_actions=actions, setpgroup=0,
                                      setsigdef=[getattr(signal, name) for name in ("SIGPIPE", "SIGXFSZ") if hasattr(signal, name)])
                 break
             except OSError as error:
@@ -1349,6 +1422,11 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
     full_env = _engine_env.compose(os.environ if env is None else env, locale)
     spawn = _spawn_windows if sys.platform == "win32" else _spawn_posix
     to_browser, from_browser, p = spawn(executable, argv, full_env)
+    # ⛔ THE SESSION'S TOKEN MEANS THIS LAUNCH'S TREE from here on: `find_processes` and `reap` list and end it from the
+    # tree (its job, its engine's descendants) instead of searching the machine for the processes that carry the token.
+    tree = getattr(p, "tree", None)
+    if tree is not None:
+        register_tree(SessionToken(full_env.get(TOKEN_VAR, "")), tree)
 
     # ⛔ Readiness is read on stdout, not on the pipe, and the line may
     # not come out at all on a MOZILLA_OFFICIAL build without the fix in
@@ -1373,7 +1451,11 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
     # PREVIOUS engine - all to recover information the browser had already
     # written and nobody had kept.
     if p.poll() is not None:
-        # No Connection will own these two ends: released here, once.
+        # No Connection will own these two ends: released here, once. Nor the tree: what the
+        # engine left running goes with it.
+        tree = getattr(p, "tree", None)
+        if tree is not None:
+            tree.release()
         os.close(to_browser)
         os.close(from_browser)
         coda = "\n".join(("    " + r) for r in output.tail()) or "    (nothing)"

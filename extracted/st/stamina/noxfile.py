@@ -4,22 +4,15 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
-import re
-import shutil
-import sys
+import tomllib
 
 import nox
-
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+import nox_uv
 
 
 nox.options.sessions = [
+    "ruff",
     "pre_commit",
     "tests",
     "typing_api",
@@ -32,8 +25,8 @@ nox.options.sessions = [
 nox.options.reuse_existing_virtualenvs = True
 nox.options.error_on_external_run = True
 
-nox.needs_version = ">=2025.5.1"
-nox.options.default_venv_backend = "uv|virtualenv"
+nox.needs_version = ">=2026.08.10"
+nox.options.default_venv_backend = "uv"
 
 
 pyp = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
@@ -43,47 +36,73 @@ ALL_SUPPORTED = [
     if pv.startswith("Programming Language :: Python :: ")
 ]
 
-DOCS_PYTHON = re.search(  # type: ignore[union-attr]
-    r'^ +python: "(3\.\d+)"$',
-    pathlib.Path(".readthedocs.yaml").read_text(),
-    flags=re.MULTILINE,
-).group(1)
+
+def _install_pkg(
+    session: nox.Session, pkg: str = ".", *, editable: bool = False
+) -> None:
+    """
+    Install *pkg* on top of the locked dependencies installed by nox-uv.
+
+    Always reinstall it, so reused virtualenvs never test a stale build.
+    """
+    session.install(
+        "--no-deps",
+        "--reinstall-package=stamina",
+        *(["-e"] if editable else []),
+        pkg,
+    )
 
 
-@nox.session
+@nox_uv.session(tags=["lint"], allow_parallel=True, uv_only_groups=["lint"])
+def ruff(session: nox.Session) -> None:
+    session.run("ruff", "check", "--fix", "--exit-non-zero-on-fix", ".")
+    session.run("ruff", "format", "--exit-non-zero-on-format", ".")
+
+
+@nox_uv.session(tags=["lint"], allow_parallel=True, uv_only_groups=["lint"])
 def pre_commit(session: nox.Session) -> None:
-    session.install("prek")
-
     session.run("prek", "run", "--all-files")
 
 
-@nox.session(python=ALL_SUPPORTED, tags=["typing"])
+@nox_uv.session(
+    python=ALL_SUPPORTED,
+    tags=["typing"],
+    allow_parallel=True,
+    uv_groups=["mypy"],
+    uv_no_install_project=True,
+)
 def mypy_api(session: nox.Session) -> None:
-    session.install(
-        ".", "--group", "typing", "mypy", "structlog", "prometheus-client"
-    )
+    _install_pkg(session)
 
-    session.run("mypy", "tests/typing")
+    session.run("mypy", "typing_tests")
 
 
-@nox.session(tags=["typing"])
+@nox_uv.session(
+    tags=["typing"],
+    allow_parallel=True,
+    uv_groups=["mypy"],
+    uv_no_install_project=True,
+)
 def mypy_pkg(session: nox.Session) -> None:
-    session.install(
-        ".", "--group", "typing", "mypy", "structlog", "prometheus-client"
-    )
+    _install_pkg(session)
 
-    session.run("mypy", "src", "tests/typing", "noxfile.py")
+    session.run("mypy", "src", "typing_tests", "noxfile.py")
 
 
-@nox.session(python=ALL_SUPPORTED[-1], tags=["typing"])
+@nox_uv.session(
+    python=ALL_SUPPORTED[-1],
+    tags=["typing"],
+    allow_parallel=True,
+    # nox-uv's groups can't depend on parameters, so install all tools.
+    uv_groups=["pyright", "pyrefly", "ty"],
+    uv_no_install_project=True,
+)
 @nox.parametrize("tool", ["pyright", "pyrefly", "ty"])
 def typing_api(session: nox.Session, tool: str) -> None:
     """
     Check type hints using Python version-independent tools.
     """
-    session.install(
-        ".", "--group", "typing", tool, "structlog", "prometheus-client"
-    )
+    _install_pkg(session)
 
     cmd_line = {
         "pyright": ("pyright",),
@@ -91,7 +110,7 @@ def typing_api(session: nox.Session, tool: str) -> None:
         "ty": ("ty", "check"),
     }
 
-    session.run(*cmd_line[tool], "tests/typing")
+    session.run(*cmd_line[tool], "typing_tests")
 
 
 def _get_pkg(posargs: list[str]) -> tuple[str, list[str]]:
@@ -110,65 +129,60 @@ def _get_pkg(posargs: list[str]) -> tuple[str, list[str]]:
     return pkg, posargs
 
 
-@nox.session(python=ALL_SUPPORTED)
+@nox.session(python=ALL_SUPPORTED, allow_parallel=True)
 @nox.parametrize(
-    "opt_deps", [[], ["structlog", "prometheus-client"], ["trio"]]
+    "opt_group",
+    [None, "instrumentation", "trio"],
+    ids=["minimal", "instrumentation", "trio"],
 )
-def tests(session: nox.Session, opt_deps: list[str]) -> None:
+def tests(session: nox.Session, opt_group: str | None) -> None:
     pkg, posargs = _get_pkg(session.posargs)
 
-    session.install(pkg, "coverage[toml]", "--group", "tests", *opt_deps)
+    # nox-uv's groups can't depend on parameters, so we have to sync by hand.
+    # Don't sync on top of nox-uv: uv may recreate the venv on each sync.
+    session.run_install(
+        "uv", "sync", "--locked", "--no-default-groups", "--no-install-project",
+        "--group=cov", *([f"--group={opt_group}"] if opt_group else []),
+    )  # fmt: skip
+    _install_pkg(session, pkg)
 
     session.run("coverage", "run", "-m", "pytest", *posargs)
 
-    if os.environ.get("CI") != "true":
-        session.notify("coverage_report")
 
-
-@nox.session
+@nox_uv.session(requires=ALL_SUPPORTED, uv_only_groups=["cov"])
 def coverage_report(session: nox.Session) -> None:
-    session.install("coverage[toml]")
-
     session.run("coverage", "combine")
     session.run("coverage", "report")
 
 
-@nox.session(python=DOCS_PYTHON)
+@nox_uv.session(uv_only_groups=["docs"])
 def docs(session: nox.Session) -> None:
-    shutil.rmtree("docs/_build", ignore_errors=True)
+    """
+    Build the documentation site strictly with Zensical into site/.
 
-    if session.posargs and session.posargs[0] == "watch":
-        session.install("-e", ".", "--group", "docs", "watchfiles")
-        session.run(
-            "watchfiles",
-            "--ignore-paths",
-            "docs/_build",
-            "python -Im sphinx "
-            "-T -E "
-            "-W --keep-going "
-            "-b html "
-            "-d docs/_build/doctrees "
-            "-D language=en "
-            "-n "
-            "docs "
-            "docs/_build/html",
-        )
+    This is also what Read the Docs runs.
+
+    zensical.toml enables strict mode, but it doesn't catch Griffe's warnings
+    about broken docstrings, so we fail on them ourselves. And since Zensical
+    doesn't repeat warnings for cached pages, always build from scratch.
+    """
+    out = session.run(
+        "zensical", "build", "--clean", *session.posargs, silent=True
+    )
+    if not isinstance(out, str):  # e.g., --install-only
         return
 
-    session.install(".", "--group", "docs")
-    cmds = session.posargs or ["html", "doctest"]
+    session.log(out.strip())
 
-    dest = os.environ.get("READTHEDOCS_OUTPUT", "docs/_build/")
+    if griffe := [ln for ln in out.splitlines() if ln.startswith("griffe:")]:
+        session.error(
+            f"Found {len(griffe)} docstring problem(s):\n" + "\n".join(griffe)
+        )
 
-    for cmd in cmds:
-        session.run(
-            "python", "-Im", "sphinx",
-            "-T", "-E",
-            "-W", "--keep-going",
-            "-b", cmd,
-            "-d", "docs/_build/doctrees",
-            "-D", "language=en",
-            "-n",
-            "docs",
-            pathlib.Path(dest, "html")
-        )  # fmt: skip
+
+@nox_uv.session(uv_only_groups=["docs"], default=False)
+def docs_serve(session: nox.Session) -> None:
+    """
+    Serve the documentation with live-reloading.
+    """
+    session.run("zensical", "serve", *session.posargs)

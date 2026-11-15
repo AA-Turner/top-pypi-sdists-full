@@ -41,7 +41,7 @@ class LongWamSessionDeployment(PresetSessionDeployment):
     def from_json(cls, data: Any) -> LongWamSessionDeployment:
         """The YAM preset's block exactly (the shared preset session), or a custom robot's: its
         cameras (1-3, each filling a view once, in the views' order, distinct keys), widths
-        (1-32), rate (20-30 Hz), units and grippers, RTC off."""
+        (1-32), rate (MIN_HZ-MAX_HZ: 10-30 Hz), units and grippers, RTC off."""
         if not isinstance(data, dict) or data.get("preset") != C.CUSTOM:
             return super().from_json(data)
         if data.get("base_model") != cls.units.name:

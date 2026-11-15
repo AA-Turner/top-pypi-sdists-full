@@ -22,6 +22,7 @@ _DB = {
     "sqlite3": "sqlite3",
     "apsw": "sqlite3",
     "aiosqlite": "sqlite3",
+    "aiopg": "postgres",
     "psycopg": "postgres",
     "apsycopg": "postgres",
     "psycopg2": "postgres",
@@ -30,6 +31,7 @@ _DB = {
     "pg8000": "postgres",
     "pymysql": "mysql",
     "pymssql": "mssql",
+    "mssql-python": "mssql",
     "mysql-connector": "mysql",
     "mysqldb": "mysql",
     "mariadb": "mariadb",
@@ -82,8 +84,13 @@ def to_tuple(v):
         return tuple(v)
     elif isinstance(v, dict):
         return tuple(v.values())
+    elif hasattr(v, "_values"):  # mssql-python Row class
+        return tuple(v._values)
     else:
         raise Exception(f"unexpected row type: {type(v).__name__}")
+
+# supported drivers
+_ASYNC_DRIVERS: set[str] = { "asyncpg", "aiosqlite", "apsycopg", "aiopg" }
 
 class Queries:
     """Queries wrapper
@@ -96,7 +103,7 @@ class Queries:
         self._db = _DB[driver]
         self._dir = _DIR[self._db]
         self._queries = queries
-        self.is_async = driver in ("asyncpg", "aiosqlite", "apsycopg")
+        self.is_async = driver in _ASYNC_DRIVERS
         self.driver_adapter = queries.driver_adapter
         assert self.is_async == hasattr(queries.driver_adapter, "is_aio_driver")
 
@@ -117,7 +124,7 @@ class Queries:
         raise Exception(f"query function not found: {name}")
 
 @pytest.fixture(scope="module")
-def queries(driver: str):
+def queries(driver):
     """Load queries into AioSQL, plus a convenient test wrapper."""
     RECORD_CLASSES = {"UserBlogSummary": UserBlogSummary}
     dir_path = Path(__file__).parent / "blogdb" / "sql"
@@ -168,18 +175,24 @@ def run_cursor(conn, queries):
     cur.close()
     conn.commit()
 
+BOB = {
+    "userid": 1,
+    "username": "bobsmith",
+    "firstname": "Bob",
+    "lastname": "Smith",
+}
+
 def run_record_query(dconn, queries):
     get_all = queries.f("users.get_all")
     raw_actual = get_all(dconn)
     assert isinstance(raw_actual, Iterable)
     actual = list(raw_actual)
     assert len(actual) == 3
-    assert actual[0] == {
-        "userid": 1,
-        "username": "bobsmith",
-        "firstname": "Bob",
-        "lastname": "Smith",
-    }
+    bob = actual[0]
+    if isinstance(bob, dict):
+        assert bob == BOB
+    else:  # mssql-python Row?
+        assert all(bob.__getattr__(k) == BOB[k] for k in BOB)
 
 def run_parameterized_query(conn, queries):
     # select on a parameter
@@ -202,6 +215,18 @@ def run_parameterized_query(conn, queries):
 
     conn.commit()
 
+PIE = {
+    "title": "How to make a pie.",
+    "username": "bobsmith",
+    "published": "2018-11-23 00:00",
+}
+
+TEST = {
+    "title": "Testing",
+    "username": "janedoe",
+    "published": "2018-01-01 00:00"
+}
+
 def run_parameterized_record_query(dconn, queries, date):
     get_blogs_published_after = queries.f("blogs.get_blogs_published_after")
 
@@ -209,16 +234,13 @@ def run_parameterized_record_query(dconn, queries, date):
     assert isinstance(raw_actual, Iterable)
     actual = list(raw_actual)
 
-    expected = [
-        {
-            "title": "How to make a pie.",
-            "username": "bobsmith",
-            "published": "2018-11-23 00:00",
-        },
-        {"title": "Testing", "username": "janedoe", "published": "2018-01-01 00:00"},
-    ]
+    expected = [ PIE, TEST ]
 
-    assert actual == expected
+    if any(isinstance(i, dict) for i in actual):
+        assert actual == expected
+    else:  # mssql-python Row
+        for a, e in zip(actual, expected):
+            assert all(a.__getattr__(k) == e[k] for k in e)
 
     dconn.commit()
 
@@ -297,6 +319,8 @@ def run_insert_returning(conn, queries, date):
         assert driver in ("duckdb", "pymssql")
         title = blogid.get("title")
         blogid = blogid.get("blogid")
+    elif hasattr(blogid, "_values"):  # mssql-python Row?
+        title, blogid = blogid.title, blogid.blogid
     else:
         assert driver in ("sqlite3", "apsw")
         blogid, title = blogid, "My first blog"
@@ -398,6 +422,8 @@ def run_object_attributes(conn, queries):
         assert name == calvin.name and age == calvin.age
     elif isinstance(r, dict):
         assert r["name"] == calvin.name and r["age"] == calvin.age
+    elif hasattr(r, "_values"):  # mssql-python Row
+        assert r.name == calvin.name and r.age == calvin.age
     else:
         pytest.fail("unexpected query output")
 
@@ -417,9 +443,14 @@ def run_object_attributes(conn, queries):
     conn.commit()
 
 def run_execute_script(conn, queries):
+    # NOTE some drivers/database want that as one tx
     create_table = queries.f("comments.create_table")
     actual = create_table(conn)
     assert actual in ("DONE", "CREATE TABLE")
+    drop_table = queries.f("comments.drop_table")
+    conn.commit()
+    actual = drop_table(conn)
+    assert actual in ("DONE", "DROP TABLE")
     conn.commit()
 
 def run_modulo(conn, queries):

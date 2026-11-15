@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hugpy-core
-Version: 0.4.96
+Version: 0.4.105
 Summary: Hugpy Core: a small fleet API, worker console, dispatch and consolidated history.
 Author-email: putkoff <support@hugpy.ai>
 License: Proprietary
