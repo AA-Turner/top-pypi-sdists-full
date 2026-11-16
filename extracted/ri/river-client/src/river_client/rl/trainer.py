@@ -756,6 +756,8 @@ class AsyncTrainer:
                         "max_batch_bytes",
                         "max_sample_requests",
                         "max_rpc_workers",
+                        "max_poll_rpcs",
+                        "stream_window_bytes",
                     }
                 },
                 "admit_ahead": self._fingerprint_ahead,

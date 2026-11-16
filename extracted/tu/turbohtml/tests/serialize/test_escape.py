@@ -132,7 +132,7 @@ def test_escape_rejects_non_str() -> None:
         turbohtml.escape(123)  # ty: ignore[invalid-argument-type]  # non-str on purpose to exercise the TypeError path
 
 
-@pytest.mark.parametrize("quote", [False, True], ids=["text", "quoted"])
+@pytest.mark.parametrize("quote", [pytest.param(False, id="text"), pytest.param(True, id="quoted")])
 @pytest.mark.parametrize("offset", range(8), ids=lambda value: f"offset-{value}")
 @pytest.mark.parametrize(
     "pair",
@@ -150,5 +150,5 @@ def test_escape_rejects_non_str() -> None:
     ],
 )
 def test_escape_adjacent_byte_lanes(pair: str, offset: int, *, quote: bool) -> None:
-    text: Final = "x" * offset + pair * 8 + "tail"
+    text: Final = f"{'x' * offset}{pair * 8}tail"
     assert escape(text, quote=quote) == html.escape(text, quote=quote)

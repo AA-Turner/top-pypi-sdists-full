@@ -9,13 +9,13 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, Field, FiniteFloat
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, FiniteFloat
 
 from probe.foundation.compat.compat import StrEnum
 from .record import Record
 from .outcome import SampleOutcome, SampleSplit, validate_drop_reason
 from .provenance import Generation, Scorer, Sha256
-from .result import SampleErrorReason, SampleResult
+from .result import MAX_FAILURE_REASON_CHARS, SampleErrorReason, SampleResult, cut_failure_reason
 from .task import MAX_TASK_KEY_CHARS, BlobRef, InlineText, Scenario
 from .turns import SampleEvent, Turn, TurnsSource
 
@@ -35,6 +35,8 @@ MAX_TRIAL_FILES = 256
 MAX_TRIAL_PATH_CHARS = 1024
 
 DropReasonText = Annotated[str, AfterValidator(validate_drop_reason)]
+#: Cut, never refused: a 422 would dead-letter the batch.
+FailureReasonText = Annotated[str, BeforeValidator(cut_failure_reason), Field(max_length=MAX_FAILURE_REASON_CHARS)]
 
 
 def check_log_tail(value: str) -> str:
@@ -139,6 +141,16 @@ class EngineStats(BaseModel):
     non_generation_s: float | None = Field(default=None, ge=0)
 
 
+class SamplingSettings(BaseModel):
+    """How the policy sampled this attempt (shown in a rollout compare, never grouped)."""
+
+    temperature: FiniteFloat | None = None
+    top_p: FiniteFloat | None = None
+    top_k: int | None = None
+    #: The cap on new tokens (Miles/sglang `max_new_tokens`).
+    max_response_tokens: int | None = None
+
+
 class TokenStats(BaseModel):
     """Per-sample summaries of the per-token arrays, computed by the SDK when it writes them: sortable columns."""
 
@@ -238,6 +250,8 @@ class Sample(Record):
     # Result (§3.3b): read `result`; producers send the error facts.
     result: SampleResult | None = None
     error_reason: SampleErrorReason | None = None
+    #: The run's own one-line reason it failed, owned like `reward`: a regrade carries its own, or clears it.
+    failure_reason: FailureReasonText | None = None
     #: One line: type + message.
     error_message: str | None = Field(default=None, max_length=MAX_ERROR_MESSAGE_CHARS)
     log_tail: LogTail | None = None
@@ -260,6 +274,7 @@ class Sample(Record):
     #: when not sent, a read takes `timing` (`derive_duration_s`). Quantiles are read over the merged samples.
     duration_s: FiniteFloat | None = Field(default=None, ge=0)
     engine_stats: EngineStats | None = None
+    sampling: SamplingSettings | None = None
     #: read: the newest attempt heartbeat and command time (the in-flight sandboxes view).
     last_heartbeat_at: datetime | None = None
     last_command_at: datetime | None = None

@@ -132,7 +132,8 @@ static const char *qafiro_tiny_qp(void) {
   scs_printf("primal obj error %4e\n", perr);
   scs_printf("dual obj error %4e\n", derr);
 
-  success = ABS(perr) < 1e-4 && ABS(derr) < 1e-4 && exitflag == SCS_SOLVED;
+  success = ABS(perr) < SOL_TOL && ABS(derr) < SOL_TOL &&
+            exitflag == SCS_SOLVED;
 
   mu_assert("qafiro_tiny_qp: SCS failed to produce outputflag SCS_SOLVED",
             success);
@@ -141,13 +142,28 @@ static const char *qafiro_tiny_qp(void) {
   /* test warm-starting */
   stgs->warm_start = 1;
   exitflag = scs(d, k, stgs, sol, &info);
-  /* 25 iters should be enough if warm-started */
+  /* 25 iters should be enough if warm-started. Not in single precision: there
+   * the cold solve ends on a point that meets the tolerance by a margin of
+   * the order of the rounding, and the warm-started solve can wander away
+   * from it before converging. With Apple's Accelerate, whose factorization
+   * differs from run to run, it took 0 to 2,000 iterations over 300 local
+   * runs without LAPACK and 1,500 on a CI runner; with QDLDL and the indirect
+   * solver it takes 0. */
+#ifndef SFLOAT
   mu_assert("qafiro_tiny_qp: warm-start failure", info.iter <= 100);
-  success = ABS(perr) < 1e-4 && ABS(derr) < 1e-4 && exitflag == SCS_SOLVED;
+#endif
+  perr = info.pobj - opt;
+  derr = info.dobj - opt;
+  success = ABS(perr) < SOL_TOL && ABS(derr) < SOL_TOL &&
+            exitflag == SCS_SOLVED;
 
   mu_assert("qafiro_tiny_qp: SCS failed to produce outputflag SCS_SOLVED",
             success);
 
+  /* The solves below turn off normalization and adaptive scaling, which this
+   * badly scaled instance only survives with double precision: in single
+   * precision the iterates diverge and SCS reports it infeasible. */
+#ifndef SFLOAT
   /* test other settings */
   stgs->warm_start = 0;
   stgs->normalize = 0;
@@ -164,7 +180,8 @@ static const char *qafiro_tiny_qp(void) {
   scs_printf("primal obj error %4e\n", perr);
   scs_printf("dual obj error %4e\n", derr);
 
-  success = ABS(perr) < 1e-4 && ABS(derr) < 1e-4 && exitflag == SCS_SOLVED;
+  success = ABS(perr) < SOL_TOL && ABS(derr) < SOL_TOL &&
+            exitflag == SCS_SOLVED;
 
   mu_assert("qafiro_tiny_qp: SCS failed to produce outputflag SCS_SOLVED",
             success);
@@ -187,11 +204,14 @@ static const char *qafiro_tiny_qp(void) {
   scs_printf("primal obj error %4e\n", perr);
   scs_printf("dual obj error %4e\n", derr);
 
-  success = ABS(perr) < 1e-4 && ABS(derr) < 1e-4 && exitflag == SCS_SOLVED;
+  success = ABS(perr) < SOL_TOL && ABS(derr) < SOL_TOL &&
+            exitflag == SCS_SOLVED;
 
   mu_assert("qafiro_tiny_qp: SCS failed to produce outputflag SCS_SOLVED",
             success);
 
+  remove("qafiro_tiny_qp.csv");
+#endif
   SCS(free_sol)(sol);
   scs_free(d->A);
   scs_free(d->P);

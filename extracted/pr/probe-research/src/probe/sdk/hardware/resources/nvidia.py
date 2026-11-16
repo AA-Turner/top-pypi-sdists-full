@@ -23,7 +23,7 @@ class NvidiaResource:
         self._err = getattr(nvml, "NVMLError", Exception)
 
     @classmethod
-    def create(cls, nvml=None, pid: int | None = None, visible_devices=_UNSET):
+    def create(cls, nvml=None, pid: int | None = None, visible_devices=_UNSET, *, strict_visible=False):
         if nvml is None:
             try:
                 import pynvml as nvml  # lazy: absence disables the source
@@ -39,6 +39,9 @@ class NvidiaResource:
             visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
         res = cls(nvml, pid, None)
         res._visible = res._resolve_visible(visible_devices)
+        if strict_visible and visible_devices is not None and res._visible is None:
+            res.close()
+            return None
         return res
 
     # -- visibility ---------------------------------------------------------
@@ -101,6 +104,9 @@ class NvidiaResource:
             "driver_version": str(self._nvml.nvmlSystemGetDriverVersion()),
             "cuda_driver_version": f"{cuda // 1000}.{(cuda % 1000) // 10}",
         }
+
+    def get_device_uuid(self, index: int) -> str:
+        return str(self._nvml.nvmlDeviceGetUUID(self._nvml.nvmlDeviceGetHandleByIndex(index)))
 
     def sample(self, ts: float) -> list[HwSample]:
         samples: list[HwSample] = []

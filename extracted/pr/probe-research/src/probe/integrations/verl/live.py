@@ -165,8 +165,17 @@ class VerlLive:
                 guard(_keep_stop_reason, loop, output)
                 return output
             number = turns.get(key, 0) + 1
+            from .gpu import CONTEXT_FIELD, GpuCapture
+
+            context = {"run_id": str(self.run.id), "write_epoch": self.run.write_epoch, "attempt_key": key}
+            engine = getattr(getattr(getattr(getattr(client, "config", None), "actor_rollout_ref", None), "rollout", None), "name", None)
+            if engine == "vllm":
+                kwargs[CONTEXT_FIELD] = context
             attempts.send_progress([key], phase=AttemptPhase.GENERATING, turns=number - 1, activity=f"model call {number}")
-            output = await generate(*args, **kwargs)
+            capture = GpuCapture(context, loop.recording)
+            with capture.enter():
+                output = await generate(*args, **kwargs)
+            guard(capture.record_output, output)
             guard(_keep_stop_reason, loop, output)
             turns[key] = number
             guard(self._record_version, output)
@@ -316,6 +325,9 @@ def watch_agent_loop_import() -> None:
 
     watch_import(AGENT_LOOP_MODULE, _install, framework="verl")
     watch_tool_loop_imports()
+    from .gpu import watch_gpu_imports
+
+    watch_gpu_imports()
 
 
 def _as_step(*values: Any) -> int | None:

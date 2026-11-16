@@ -13,6 +13,10 @@ class RunOptionsParam(TypedDict, total=False):
   policy, run validation when global_step % val_interval_steps == 0, and evaluate the final
   policy on normal completion. Resuming preserves the global step and validation cadence.
   """
+  full_parameter: bool
+  """
+  Train every weight instead of a LoRA adapter. Supported for Qwen3.6-35B-A3B.
+  """
   density_aware_training: bool | None
   """
   Train each task at four output-token budgets, with group_size trajectories per budget. Turns

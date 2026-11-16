@@ -16,19 +16,38 @@ default handling.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Final, Literal
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import Field, dataclass, field, fields
+from typing import Final, Literal, TypeAlias
 
-from turbohtml._html import Formatter, Indent, Minify, _register_render_configs
+from ._cssmin import CSSMinify  # ruff:ignore[unused-import]  # registers the CSSMinify record type on import
+from ._jsminify import JSMinify  # ruff:ignore[unused-import]  # registers the JSMinify record type on import
+from ._native import (
+    Element,
+    Formatter,
+    Indent,
+    Minify,
+)
+from ._native import (
+    register_render_configs as _register_render_configs,
+)
 
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping
-
-    from turbohtml._html import Element
+_Option: TypeAlias = (
+    str
+    | bool
+    | int
+    | Formatter
+    | Indent
+    | Minify
+    | tuple[str, ...]
+    | Iterable[str]
+    | Mapping[str, Callable[[Element, str], str]]
+    | None
+)
 
 
 @dataclass(frozen=True)
-class Markdown:
+class Markdown:  # simplint: ignore[too-many-attributes]  # each field is a public keyword of the 1.x constructor
     """
     How :meth:`Node.to_markdown` renders a subtree as Markdown.
 
@@ -46,6 +65,7 @@ class Markdown:
     :param escaping: which Markdown-significant characters are escaped.
     :param wrapping: word-wrapping of prose and constructs.
     :param document: line breaks, block spacing, trimming, and transliteration.
+
     :param google: reading inline-CSS styling the way a Google Docs export encodes it.
     :param strip: tags rendered as their text only, dropping the markup; mutually exclusive with ``convert``.
     :param convert: the only tags to render as Markdown, every other tag dropped to text; mutually exclusive with
@@ -105,8 +125,11 @@ class Markdown:
         """
         How code blocks are rendered.
 
-        :param block_style: ``fenced`` (triple-backtick) or ``indented`` (four-space).
-        :param language: default fence language when the element declares none.
+        :param block_style: ``fenced`` (triple-backtick) or ``indented`` (four-space). With ``indented``, a block that
+            four-space lines cannot hold where it stands (opening a list item, right after a list, past the nesting cap,
+            or with a blank first line) is fenced.
+        :param language: default fence language when the element declares none; a language containing a backtick is not
+            written.
         :param mark: wrap inline code in ``[code]``/``[/code]`` markers.
         """
 
@@ -156,7 +179,8 @@ class Markdown:
         :param cell_blocks: what a table or list *inside* a cell becomes, since a pipe cell holds no block:
             ``html`` keeps its source markup (and a ``<br>`` for a line break), ``text`` flattens block layout while
             keeping compact list markers.
-        :param pad: align columns to a common width.
+        :param pad: align columns to a common width. A table too uneven to align within the padding budget is written
+            as plain pipe rows.
         """
 
         mode: Literal["markdown", "strip", "html"] = "markdown"
@@ -200,7 +224,8 @@ class Markdown:
         Document-level layout: line breaks, block spacing, trimming, and transliteration.
 
         :param line_break: render a hard break as trailing ``spaces`` or a ``backslash``.
-        :param block_spacing: a ``double`` blank line between blocks, or a ``single`` newline.
+        :param block_spacing: a ``double`` blank line between blocks, or a ``single`` newline. A blank line still
+            follows raw HTML, which a reader would otherwise keep reading as HTML.
         :param trim: trim document edges: ``strip``, ``lstrip``, ``rstrip``, or ``none``.
         :param transliterate: fold common non-ASCII typography in prose to ASCII.
         """
@@ -238,7 +263,11 @@ class Markdown:
     converters: Mapping[str, Callable[[Element, str], str]] | None = None
 
     def __post_init__(self) -> None:
-        """Reject the one mutually exclusive pair up front, so the renderer never has to."""
+        """
+        Reject the one mutually exclusive pair up front, so the renderer never has to.
+
+        :raises ValueError: if both ``strip`` and ``convert`` are set.
+        """
         if self.strip is not None and self.convert is not None:
             msg = "strip and convert are mutually exclusive"
             raise ValueError(msg)
@@ -255,8 +284,8 @@ class Markdown:
             google=cls.GoogleDoc(enabled=True),
         )
 
-    def _unpack(self) -> dict[str, object]:
-        """Flatten to the renderer's keyword names, emitting only values that differ from its defaults."""
+    def _unpack(self) -> dict[str, _Option]:
+        # Flatten to the renderer's keyword names, emitting only values that differ from its defaults.
         default = _MARKDOWN_DEFAULT
         flat = {
             "heading_style": (self.headings.style, default.headings.style),
@@ -298,7 +327,7 @@ class Markdown:
             "google_doc": (self.google.enabled, default.google.enabled),
             "google_list_indent": (self.google.list_indent, default.google.list_indent),
         }
-        unpacked: dict[str, object] = {name: value for name, (value, base) in flat.items() if value != base}
+        unpacked: dict[str, _Option] = {name: value for name, (value, base) in flat.items() if value != base}
         # pass the tag filters through unchanged: the renderer rejects a bare str (so
         # ``strip="div"`` is an error, not "strip tags d, i, v") and accepts any other iterable
         if self.strip is not None:
@@ -310,7 +339,7 @@ class Markdown:
         return unpacked
 
 
-_MARKDOWN_DEFAULT: Final = Markdown()
+_MARKDOWN_DEFAULT: Final[Markdown] = Markdown()
 
 
 @dataclass(frozen=True)
@@ -336,8 +365,8 @@ class PlainText:
     table_cell_separator: str = "  "
     bullet: str = "* "
 
-    def _unpack(self) -> dict[str, object]:
-        """Flatten to the renderer's keyword names, emitting only values that differ from its defaults."""
+    def _unpack(self) -> dict[str, _Option]:
+        # Flatten to the renderer's keyword names, emitting only values that differ from its defaults.
         default = _PLAINTEXT_DEFAULT
         return {
             field_.name: value
@@ -346,8 +375,8 @@ class PlainText:
         }
 
 
-_PLAINTEXT_DEFAULT: Final = PlainText()
-_PLAINTEXT_FIELDS: Final = fields(PlainText)
+_PLAINTEXT_DEFAULT: Final[PlainText] = PlainText()
+_PLAINTEXT_FIELDS: Final[tuple[Field[_Option], ...]] = fields(PlainText)
 
 
 @dataclass(frozen=True)
@@ -359,7 +388,9 @@ class Html:
     :param layout: ``None`` emits the compact WHATWG form, an :class:`~turbohtml.Indent` pretty-prints, a
         :class:`~turbohtml.Minify` minifies.
     :param sort_attributes: emit each element's attributes in name order rather than source order.
-    :param meta_charset: normalize (or inject) the ``<meta charset>`` declaration to the output encoding.
+    :param meta_charset: normalize (or inject) the ``<meta charset>`` declaration to the WHATWG name of the output
+        encoding; :meth:`Node.encode` raises :class:`ValueError` for a codec no WHATWG label names.
+
     :param xml: emit XML/XHTML syntax -- every empty element self-closes (``<br/>``), foreign SVG and MathML
         subtrees carry their namespace declarations, and text and attribute values follow the XML escaping rules.
         The HTML void-element and raw-text special casing (and the ``formatter``/``meta_charset`` options) do not
@@ -375,8 +406,8 @@ class Html:
     meta_charset: bool = False
     xml: bool = False
 
-    def _unpack(self) -> dict[str, object]:
-        """Flatten to the renderer's keyword names, emitting only values that differ from its defaults."""
+    def _unpack(self) -> dict[str, _Option]:
+        # Flatten to the renderer's keyword names, emitting only values that differ from its defaults.
         default = _HTML_DEFAULT
         return {
             field_.name: value
@@ -385,8 +416,8 @@ class Html:
         }
 
 
-_HTML_DEFAULT: Final = Html()
-_HTML_FIELDS: Final = fields(Html)
+_HTML_DEFAULT: Final[Html] = Html()
+_HTML_FIELDS: Final[tuple[Field[_Option], ...]] = fields(Html)
 
 
 @dataclass(frozen=True)
@@ -416,7 +447,11 @@ class Canonical:
     inclusive_ns_prefixes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Reject the option pairs the c14n algorithms leave undefined, so the renderer never has to."""
+        """
+        Reject the option pairs the c14n algorithms leave undefined, so the renderer never has to.
+
+        :raises ValueError: if the exclusive mode is paired with version 1.1, or inclusive prefixes are set without it.
+        """
         if self.exclusive and self.version == "1.1":
             msg = "exclusive canonicalization is defined only over version 1.0"
             raise ValueError(msg)
@@ -424,8 +459,8 @@ class Canonical:
             msg = "inclusive_ns_prefixes applies only in exclusive mode"
             raise ValueError(msg)
 
-    def _unpack(self) -> dict[str, object]:
-        """Flatten to the renderer's keyword names, emitting only values that differ from its defaults."""
+    def _unpack(self) -> dict[str, _Option]:
+        # Flatten to the renderer's keyword names, emitting only values that differ from its defaults.
         default = _CANONICAL_DEFAULT
         return {
             field_.name: value
@@ -434,8 +469,8 @@ class Canonical:
         }
 
 
-_CANONICAL_DEFAULT: Final = Canonical()
-_CANONICAL_FIELDS: Final = fields(Canonical)
+_CANONICAL_DEFAULT: Final[Canonical] = Canonical()
+_CANONICAL_FIELDS: Final[tuple[Field[_Option], ...]] = fields(Canonical)
 
 _register_render_configs(Markdown, PlainText, Html, Canonical)
 

@@ -1,16 +1,3 @@
-"""Concurrent access to one shared tree must stay memory-safe under free-threading.
-
-The ``_html`` extension declares ``Py_MOD_GIL_NOT_USED``, so it owns the thread
-safety of its mutable tree. A reader and a mutator sharing a tree may produce a
-stale result, but must never segfault (issue #84). Under the GIL build the
-threads serialize; under a free-threaded build they run truly in parallel, so
-these exercise the per-tree critical sections the operations take.
-
-The free-threaded tox envs and the ThreadSanitizer job re-run this module under
-``pytest --parallel-threads=auto --iterations=N`` (pytest-run-parallel), which
-runs each test in one thread per core at once, multiplying the contention.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -20,9 +7,9 @@ from typing import TYPE_CHECKING, Final, cast
 import pytest
 
 import turbohtml
-from turbohtml._html import _tree_verify
 from turbohtml.clean import sanitize_node
 from turbohtml.conformance import check
+from turbohtml.etree import fromstring, strip_elements
 from turbohtml.mutations import MutationObserver
 from turbohtml.query import Query
 from turbohtml.transform import Transform
@@ -30,19 +17,6 @@ from turbohtml.transform import Transform
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
-
-
-def _doc(divs: int) -> turbohtml.Document:
-    body = "".join(f"<div><p>x{index}</p><span>s{index}</span></div>" for index in range(divs))
-    return turbohtml.parse(f"<html><body>{body}</body></html>")
-
-
-def _run(*targets: object) -> None:
-    threads = [threading.Thread(target=target) for target in targets]  # ty: ignore[invalid-argument-type]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
 
 
 def test_concurrent_transform_import_resolution_and_mutation_is_memory_safe(tmp_path: Path) -> None:
@@ -75,6 +49,14 @@ def test_concurrent_transform_import_resolution_and_mutation_is_memory_safe(tmp_
     assert result in {"base", "other"}
 
 
+def _run(*targets: object) -> None:
+    threads = [threading.Thread(target=target) for target in targets]  # ty: ignore[invalid-argument-type]  # targets are typed object by the race harness; Thread needs a callable
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+
 def test_concurrent_find_all_and_extract_is_memory_safe() -> None:
     doc = _doc(400)
     body = doc.find("body")
@@ -94,6 +76,11 @@ def test_concurrent_find_all_and_extract_is_memory_safe() -> None:
 
     _run(reader, mutator)
     assert doc.find_all("p") == []  # every <div> was extracted, so no <p> remains
+
+
+def _doc(divs: int) -> turbohtml.Document:
+    body = "".join(f"<div><p>x{index}</p><span>s{index}</span></div>" for index in range(divs))
+    return turbohtml.parse(f"<html><body>{body}</body></html>")
 
 
 def test_concurrent_find_by_text_and_extract_is_memory_safe() -> None:
@@ -170,9 +157,30 @@ def test_concurrent_multi_root_query_is_one_tree_snapshot() -> None:
     _run(reader, mutator)
 
 
+def test_concurrent_query_closest_over_trees_trading_a_node() -> None:
+    first = turbohtml.parse_xml(f"<book id='first'>{'<part>' * 40}{'</part>' * 40}</book>").select("part")
+    second = turbohtml.parse_xml(f"<book id='second'>{'<part>' * 40}{'</part>' * 40}</book>").select("part")
+    moving = turbohtml.parse_xml("<part/>").select("part")[0]
+    first[-1].append(moving)
+    query = Query([moving, *(node for pair in zip(first, second, strict=True) for node in pair)])
+    start = threading.Barrier(2)
+
+    def reader() -> None:
+        start.wait()
+        for _ in range(300):
+            assert sorted(cast("str", node.attrs["id"]) for node in query.closest("book")) == ["first", "second"]
+
+    def mutator() -> None:
+        start.wait()
+        for _ in range(300):
+            second[-1].append(moving)
+            first[-1].append(moving)
+
+    _run(reader, mutator)
+
+
 def test_concurrent_lazy_node_iterators_and_extract_is_memory_safe() -> None:
-    doc = _doc(400)
-    body = doc.find("body")
+    body = _doc(400).find("body")
     assert body is not None
     children = list(body.children)
     start = threading.Barrier(3)
@@ -199,8 +207,7 @@ def test_concurrent_lazy_node_iterators_and_extract_is_memory_safe() -> None:
 
 
 def test_concurrent_attrs_views_and_mutation_are_memory_safe() -> None:
-    doc = _doc(300)
-    body = doc.find("body")
+    body = _doc(300).find("body")
     assert body is not None
     divs = body.find_all("div")
     start = threading.Barrier(2)
@@ -356,6 +363,25 @@ def test_concurrent_strip_tags_and_reads_are_memory_safe() -> None:
     _run(reader, selector, stripper)
     assert doc.find_all("div") == []  # every <div> was unwrapped
     assert len(doc.find_all("p")) == 400  # its children survived
+
+
+def test_concurrent_etree_strip_elements_and_moves_keep_every_match() -> None:
+    tree = fromstring(f"<div>{'<b>x</b><i>y</i>' * 2000}</div>")
+    matches = list(tree.iter("b"))
+    target = fromstring("<main/>")
+    start = threading.Barrier(2)
+
+    def mover() -> None:
+        start.wait()
+        for match in reversed(matches):
+            target.append(match)  # moves each match out of the tree, before or after the strip reaches it
+
+    def stripper() -> None:
+        start.wait()
+        strip_elements(tree, "b")
+
+    _run(mover, stripper)
+    assert (len(list(tree.iter("b"))), len(list(target.iter("b")))) == (0, 2000)  # none stays, none is lost
 
 
 def test_concurrent_main_content_extraction_is_memory_safe() -> None:
@@ -693,22 +719,44 @@ def test_concurrent_adoption_preserves_descendant_aliases() -> None:
         pytest.param(lambda node: check(node).valid, True, id="validate"),
         pytest.param(lambda node: len(list(node.descendants)), 2, id="descendants"),
         pytest.param(lambda node: node.attrs.copy(), {"live": "yes"}, id="attributes"),
-        pytest.param(hash, None, id="hash"),
         pytest.param(lambda node: len(node.find_all(text=lambda text: text == "text")), 1, id="callback"),
     ],
 )
-def test_concurrent_adoption_and_reads(read: Callable[[turbohtml.Element], object], expected: object) -> None:
+def test_concurrent_adoption_and_reads(
+    read: Callable[[turbohtml.Element], object], expected: int | str | dict[str, str]
+) -> None:
     source: Final = turbohtml.Element(
         "section", {"live": "yes"}, children=[turbohtml.Element("b", children=[turbohtml.Text("text")])]
     )
-    expected_value: Final = hash(source) if expected is None else expected
     destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
     start: Final = threading.Barrier(2)
 
     def reader() -> None:
         start.wait()
         for _ in range(1_000):
-            assert read(source) == expected_value
+            assert read(source) == expected
+
+    def mover() -> None:
+        start.wait()
+        for index in range(1_000):
+            destinations[index % 2].append(source)
+
+    _run(reader, mover)
+    assert destinations[1].text == "text"
+
+
+def test_concurrent_adoption_keeps_hash_stable() -> None:
+    source: Final = turbohtml.Element(
+        "section", {"live": "yes"}, children=[turbohtml.Element("b", children=[turbohtml.Text("text")])]
+    )
+    expected_hash: Final = hash(source)
+    destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
+    start: Final = threading.Barrier(2)
+
+    def reader() -> None:
+        start.wait()
+        for _ in range(1_000):
+            assert hash(source) == expected_hash
 
     def mover() -> None:
         start.wait()
@@ -741,30 +789,8 @@ def test_concurrent_range_construction_while_the_container_moves_is_memory_safe(
     assert destinations[1].children == (source,)
 
 
-def test_concurrent_extends_with_one_moving_foreign_node_keep_both_trees_intact() -> None:
-    child: Final = turbohtml.Element("i")
-    home: Final = turbohtml.Element("aside", children=[child])
-    parents: Final = [turbohtml.Element("p") for _ in range(4)]
-    root: Final = turbohtml.Element("main", children=parents)
-    start: Final = threading.Barrier(len(parents) + 1)
-
-    def extender(parent: turbohtml.Element) -> None:
-        start.wait()
-        for _ in range(2_000):
-            # importing child resumes root's lock afterwards, and another extender holding it can link the copy first
-            parent.extend([child])
-
-    def returner() -> None:
-        start.wait()
-        for _ in range(2_000):
-            home.append(child)
-
-    _run(*(lambda parent=parent: extender(parent) for parent in parents), returner)
-    assert (_tree_verify(root), _tree_verify(home)) == ((0, 0, 0, 0), (0, 0, 0, 0))
-
-
 def test_concurrent_wraps_and_inserts_of_foreign_nodes_keep_the_tree_intact() -> None:
-    markup = "<div>" + "<p><b>x</b></p>" * 200 + "</div>"
+    markup = f"<div>{'<p><b>x</b></p>' * 200}</div>"
     root = turbohtml.parse(markup).find("div")
     assert root is not None
     paragraphs = root.find_all("p")

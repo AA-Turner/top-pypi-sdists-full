@@ -80,6 +80,7 @@ from .domain_change import domain_change_main
 from .trusted_certs import trusted_certs_main
 from .hosts import hosts_main
 from .labels import labels_main
+from .assistant import assistant_main
 from .rules import rules_main
 from .products import products_main
 from .features import features_main
@@ -9676,6 +9677,7 @@ def main():
     domain_change_main.add_commands(cli)
     hosts_main.add_commands(cli)
     labels_main.add_commands(cli)
+    assistant_main.add_commands(cli)
     rules_main.add_commands(cli)
     policy_main.add_commands(cli)
     products_main.add_commands(cli)

@@ -1,53 +1,29 @@
-"""Unit tests for the serialize(layout=Minify(...)) transforms and the Minify options object.
-
-Each transform is round-trip safe: the minified output reparses to the same tree.
-The exhaustive corpus check of that property lives in test_minify_roundtrip.py; here
-every individual rule and option is pinned with an explicit expected string.
-"""
-
 from __future__ import annotations
 
+import random
+from functools import partial
 from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from turbohtml import Doctype, Element, Formatter, Html, Minify, Text, parse, parse_fragment
-from turbohtml.clean import CSSMinify, minify
+from turbohtml import Doctype, Element, Formatter, Html, Minify, Text, parse, parse_fragment, parse_xml
+from turbohtml.clean import CSSMinify, minify, strip_comments_node
 
 if TYPE_CHECKING:
+    from work_steps import WorkSteps
     from wpt_tree_corpus import WptHtmlTreeCorpus
 from turbohtml.clean import JSMinify
 from turbohtml.clean import Minify as CleanMinify
 
 
-def frag(
-    source: str,
-    *,
-    collapse_whitespace: bool = True,
-    omit_optional_tags: bool = True,
-    unquote_attributes: bool = True,
-    strip_comments: bool = True,
-) -> str:
-    """Minify source parsed in a <div> fragment context, returning the inner markup.
-
-    A <div> is never an optional tag and carries no attributes, so it survives every
-    transform unchanged and strips cleanly, leaving just the minified content.
-    """
-    layout = Minify(
-        collapse_whitespace=collapse_whitespace,
-        omit_optional_tags=omit_optional_tags,
-        unquote_attributes=unquote_attributes,
-        strip_comments=strip_comments,
-    )
-    out = parse_fragment(source, "div").serialize(Html(layout=layout))
-    assert out.startswith("<div>")
-    assert out.endswith("</div>")
-    return out[len("<div>") : -len("</div>")]
-
-
 def test_minify_defaults_all_on() -> None:
-    m = Minify()
-    assert (m.collapse_whitespace, m.omit_optional_tags, m.unquote_attributes, m.strip_comments) == (
+    minify = Minify()
+    assert (
+        minify.collapse_whitespace,
+        minify.omit_optional_tags,
+        minify.unquote_attributes,
+        minify.strip_comments,
+    ) == (
         True,
         True,
         True,
@@ -56,8 +32,13 @@ def test_minify_defaults_all_on() -> None:
 
 
 def test_minify_flags_independent() -> None:
-    m = Minify(collapse_whitespace=False, omit_optional_tags=False, unquote_attributes=False, strip_comments=False)
-    assert (m.collapse_whitespace, m.omit_optional_tags, m.unquote_attributes, m.strip_comments) == (
+    minify = Minify(collapse_whitespace=False, omit_optional_tags=False, unquote_attributes=False, strip_comments=False)
+    assert (
+        minify.collapse_whitespace,
+        minify.omit_optional_tags,
+        minify.unquote_attributes,
+        minify.strip_comments,
+    ) == (
         False,
         False,
         False,
@@ -139,6 +120,17 @@ def test_encode_minify() -> None:
         pytest.param("<a href='x'>t</a>", "<a href=x>t</a>", id="unquote-safe-value"),
         pytest.param("<a title='a b'>t</a>", '<a title="a b">t</a>', id="unquote-keeps-quotes-on-space"),
         pytest.param('<input disabled="">', "<input disabled>", id="unquote-empty-value-becomes-bare-name"),
+        # a name keeps a leading "=", which after a bare name would open that name's value instead
+        pytest.param(
+            '<a title="" =q>t</a>',
+            '<a title="" =q>t</a>',
+            id="unquote-empty-value-stays-before-equals-name",
+        ),
+        pytest.param(
+            '<a p="" =q="" =r s="">t</a>',
+            '<a p="" =q="" =r s>t</a>',
+            id="unquote-empty-value-stays-before-each-equals-name",
+        ),
         pytest.param("<p>a</p><!--c--><p>b</p>", "<p>a</p><p>b</p>", id="strip-comment"),
         pytest.param("<p>a</p><p>b</p>", "<p>a</p><p>b</p>", id="omit-off-keeps-all-tags"),
         # space, tab, line feed, form feed and carriage return all fold to one space
@@ -150,6 +142,30 @@ def test_encode_minify() -> None:
 )
 def test_minify_fragment(source: str, expected: str) -> None:
     assert frag(source, omit_optional_tags=False) == expected
+
+
+def frag(
+    source: str,
+    *,
+    collapse_whitespace: bool = True,
+    omit_optional_tags: bool = True,
+    unquote_attributes: bool = True,
+    strip_comments: bool = True,
+) -> str:
+    # Minify source parsed in a <div> fragment context, returning the inner markup.
+    #
+    # A <div> is never an optional tag and carries no attributes, so it survives every
+    # transform unchanged and strips cleanly, leaving just the minified content.
+    layout = Minify(
+        collapse_whitespace=collapse_whitespace,
+        omit_optional_tags=omit_optional_tags,
+        unquote_attributes=unquote_attributes,
+        strip_comments=strip_comments,
+    )
+    out = parse_fragment(source, "div").serialize(Html(layout=layout))
+    assert out.startswith("<div>")
+    assert out.endswith("</div>")
+    return out[len("<div>") : -len("</div>")]
 
 
 def test_collapse_off_keeps_whitespace() -> None:
@@ -190,6 +206,13 @@ def test_unquote_keeps_quotes_on_unsafe(value: str, expected: str) -> None:
 
 def test_unquote_off_keeps_quotes() -> None:
     assert frag("<a href='x'>t</a>", unquote_attributes=False, omit_optional_tags=False) == '<a href="x">t</a>'
+
+
+def test_minify_sorted_bare_name_before_equals_name() -> None:
+    out = parse_fragment("<p =b='' -a=''>x</p>", "div").serialize(
+        Html(layout=Minify(omit_optional_tags=False), sort_attributes=True)
+    )
+    assert out == '<div><p -a="" =b>x</p></div>'
 
 
 def test_keep_comment_when_off() -> None:
@@ -287,7 +310,7 @@ def test_omit_end_tags(source: str, expected: str) -> None:
         ),
         pytest.param(
             "<ruby><svg><foreignObject><rt></rt><rp>x</rp></foreignObject></svg></ruby>",
-            "<ruby><svg><foreignObject><rt></rt><rp>x</foreignObject></svg></ruby>",
+            "<ruby><svg><foreignObject><rt></rt><rp>x</rp></foreignObject></svg></ruby>",
             id="rt-across-integration-point",
         ),
         pytest.param(
@@ -308,7 +331,7 @@ def test_omit_keeps_end_tag_outside_required_ancestor(source: str, expected: str
     assert parse(once).serialize(Html(layout=Minify())) == once
 
 
-_PHRASING_PARENTS: Final = ["span", "label", "q", "sup", "ruby", "option", "slot", "picture", "my-el", "del"]
+_PHRASING_PARENTS: Final[list[str]] = ["span", "label", "q", "sup", "ruby", "option", "slot", "picture", "my-el", "del"]
 
 
 @pytest.mark.parametrize("child", ["p", "li", "dd"])
@@ -341,6 +364,148 @@ def test_omit_last_child_end_tag_by_parent(source: str, expected: str) -> None:
     assert frag(source, strip_comments=False) == expected
 
 
+_INTEGRATION_POINTS: Final[list[tuple[str, str]]] = [
+    ("svg", "foreignObject"),
+    ("svg", "desc"),
+    ("svg", "title"),
+    ("math", "mi"),
+    ("math", "mo"),
+    ("math", "mn"),
+    ("math", "ms"),
+    ("math", "mtext"),
+    ("math", "annotation-xml encoding=text/html"),
+]
+
+
+@pytest.mark.parametrize("child", ["rt", "rp", "optgroup", "option"])
+@pytest.mark.parametrize(("root", "point"), _INTEGRATION_POINTS)
+def test_omit_keeps_end_tag_last_in_integration_point(root: str, point: str, child: str) -> None:
+    # `</foreignObject>` under an open html <option> matches no html element, stops at the special foreignObject and
+    # is ignored, so an omitted end tag would turn the foreign siblings after it into html elements inside the child
+    name: Final = point.partition(" ")[0]
+    source: Final = f"<{root}><{point}><{child}>a</{child}></{name}><textarea>b</textarea></{root}>c"
+    assert frag(source) == source
+    assert parse_fragment(frag(source), "div").html == parse_fragment(source, "div").html
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("<rp><rp>a</rp></rp>b", "<rp><rp>a</rp></rp>b", id="rp-in-rp"),
+        pytest.param("<rt><rt>a</rt></rt>b", "<rt><rt>a</rt></rt>b", id="rt-in-rt"),
+        pytest.param(
+            "<optgroup><optgroup>a</optgroup></optgroup>b",
+            "<optgroup><optgroup>a</optgroup></optgroup>b",
+            id="optgroup-in-optgroup",
+        ),
+        pytest.param(
+            "<rt><optgroup><rt>a</rt></optgroup></rt>b",
+            "<rt><optgroup><rt>a</rt></optgroup></rt>b",
+            id="rt-in-optgroup-in-rt",
+        ),
+        pytest.param(
+            "<option><rt>a</rt></option><option>b</option>c",
+            "<option><rt>a</rt><option>b</option>c",
+            id="rt-in-option-before-option",
+        ),
+        pytest.param(
+            "<span><optgroup><option>a</option></optgroup></span>b",
+            "<span><optgroup><option>a</span>b",
+            id="option-in-optgroup-omitted",
+        ),
+        pytest.param("<span><rt>a</rt></span>b", "<span><rt>a</span>b", id="rt-in-span-omitted"),
+    ],
+)
+def test_omit_last_child_end_tag_in_rt_rp_optgroup_option(source: str, expected: str) -> None:
+    # an rt/rp/optgroup/option parent either loses its own end tag to a same-named child or, with its end tag omitted
+    # too, is not closed by the start tag that follows; an <option> ending its <optgroup> has neither problem, and
+    # any other html parent's end tag walks past the non-special child, so those end tags still drop
+    once: Final = frag(source)
+    assert once == expected
+    assert parse_fragment(once, "div").html == parse_fragment(source, "div").html
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "<span><li><dd>a</dd></li><li>b</li></span>c",
+            "<span><li><dd>a</dd><li>b</li></span>c",
+            id="dd-ends-li-before-li",
+        ),
+        pytest.param(
+            "<span><dd><li>a</li></dd><dd>b</dd></span>c",
+            "<span><dd><li>a</li><dd>b</dd></span>c",
+            id="li-ends-dd-before-dd",
+        ),
+        pytest.param(
+            "<span><dt><li>a</li></dt><dd>b</dd></span>c",
+            "<span><dt><li>a</li><dd>b</dd></span>c",
+            id="li-ends-dt-before-dd",
+        ),
+        pytest.param(
+            "<span><dd><li><dd>a</dd></li></dd></span>c",
+            "<span><dd><li><dd>a</dd></li></dd></span>c",
+            id="dd-in-li-in-dd",
+        ),
+        pytest.param(
+            "<svg><foreignObject><li><dd>a</dd></li><li>b</li></foreignObject><desc>c</desc></svg>",
+            "<svg><foreignObject><li><dd>a</dd><li>b</li></foreignObject><desc>c</desc></svg>",
+            id="dd-ends-li-in-integration-point",
+        ),
+        pytest.param("<ul><li><p>a</p></li><li>b</li></ul>", "<ul><li><p>a<li>b</ul>", id="p-ends-li-omitted"),
+    ],
+)
+def test_omit_keeps_item_end_tag_last_in_item(source: str, expected: str) -> None:
+    # an li/dd/dt parent's own end tag goes before the next item, whose start tag stops at the open li or dd
+    assert frag(source) == expected
+    assert parse_fragment(expected, "div").html == parse_fragment(source, "div").html
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "<span><li><dd>a</dd></li><li>b</li></span>c", "<span><li><dd>a</dd><li>b</li></span>c", id="dd-in-li"
+        ),
+        pytest.param(
+            "<span><dd><li>a</li></dd><dd>b</dd></span>c", "<span><dd><li>a</li><dd>b</dd></span>c", id="li-in-dd"
+        ),
+        pytest.param(
+            "<span><dt><li>a</li></dt><dd>b</dd></span>c", "<span><dt><li>a</li><dd>b</dd></span>c", id="li-in-dt"
+        ),
+        pytest.param("<template><li>a</li></template>b", "<template><li>a</template>b", id="li-in-template-dropped"),
+        pytest.param("<rt><rt>a</rt></rt>b", "<rt><rt>a</rt></rt>b", id="rt-in-rt"),
+        pytest.param(
+            "<optgroup><optgroup>a</optgroup></optgroup>b",
+            "<optgroup><optgroup>a</optgroup></optgroup>b",
+            id="optgroup-in-optgroup",
+        ),
+        pytest.param("<rt><rp>a</rp></rt>b", "<rt><rp>a</rp></rt>b", id="rp-in-rt"),
+        pytest.param(
+            "<rp><option><rp>a</rp></option></rp>b", "<rp><option><rp>a</rp></option></rp>b", id="option-in-rp"
+        ),
+        pytest.param(
+            "<option><rt>a</rt></option><option>b</option>c", "<option><rt>a</rt><option>b</option>c", id="rt-in-option"
+        ),
+        pytest.param(
+            "<math><mi><option>a</option></mi></math>b", "<math><mi><option>a</option></mi></math>b", id="option-in-mi"
+        ),
+        pytest.param(
+            "<select><optgroup><option>a</option></optgroup></select>b",
+            "<select><optgroup><option>a</select>b",
+            id="option-in-optgroup-dropped",
+        ),
+    ],
+)
+def test_omit_keeps_last_child_end_tag_the_parent_does_not_close(source: str, expected: str) -> None:
+    # an li or dd holds the next item's start tag inside it, an end tag of the child's own name closes only the
+    # child, an rt, rp or option may lose its own end tag too, and a foreign parent's end tag is ignored while an
+    # HTML child is open: in each case what follows would reparse inside the child
+    assert frag(source) == expected
+    assert parse(f"<div>{expected}</div>").html == parse(f"<div>{source}</div>").html
+
+
 def test_omit_keeps_p_end_inside_formatting() -> None:
     # the <p> ends inside a reconstructed <i>, so dropping </p> would change the reparse
     out = frag("<i>a<p>b</i>", strip_comments=False)
@@ -350,6 +515,71 @@ def test_omit_keeps_p_end_inside_formatting() -> None:
 def test_omit_keeps_p_end_before_formatting_sibling() -> None:
     out = frag("<div><p>a</p><b>x</b></div>", strip_comments=False)
     assert "</p>" in out
+
+
+# the HTML parser's open-element limit (TH_MAX_TREE_DEPTH); deeper trees come only from adoption or the DOM
+_PARSER_DEPTH: Final[int] = 512
+
+
+def test_omit_end_tag_guard_stays_linear_in_nesting(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: _adopted_serialize("<th>" * n + "</th>" * n), (500, 2000))
+
+
+def _adopted_serialize(xml: str) -> partial[str]:
+    host: Final = parse_fragment("", "div")
+    root: Final = parse_xml(xml).root
+    assert isinstance(root, Element)
+    host.append(root)
+    return partial(host.serialize, Html(layout=Minify()), inner=True)
+
+
+def test_omit_keeps_end_tags_over_trailing_formatting_past_parser_depth() -> None:
+    # the <i> stays on every cell's trailing path however deep it lies, and a following sibling takes it off
+    depth: Final = _PARSER_DEPTH + 37
+    opened, closed = "<th>" * depth, "</th>" * depth
+    assert _adopted(f"{opened}<i>x</i>{closed}") == f"{opened}<i>x</i>{closed}"
+    assert _adopted(f"{opened}<i>x</i>y{closed}") == f"{opened}<i>x</i>y"
+
+
+def _adopted(xml: str) -> str:
+    return _adopted_serialize(xml)()
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("<ul><li><xmp><b/></xmp></li></ul>", "<ul><li><xmp><b></b></xmp></li></ul>", id="raw-text"),
+        pytest.param("<ul><li><br><b/></br></li></ul>", "<ul><li><br></li></ul>", id="void"),
+        pytest.param("<ul><li><xmp><b/>x</xmp></li></ul>", "<ul><li><xmp><b></b>x</xmp></ul>", id="not-trailing"),
+        pytest.param(
+            "<ul><li><xmp><span><b/></span></xmp></li></ul>",
+            "<ul><li><xmp><span><b></b></span></xmp></li></ul>",
+            id="raw-text-under-element",
+        ),
+    ],
+)
+def test_omit_end_tag_over_child_the_walk_does_not_descend_into(source: str, expected: str) -> None:
+    # a raw-text or void element holds an element only in a tree no parser built; the trailing path runs through it
+    assert _adopted(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("depth", "expected"),
+    [
+        pytest.param(_PARSER_DEPTH - 9, "<rp><rp></span>", id="within-parser-depth"),
+        pytest.param(_PARSER_DEPTH + 37, "<rp></rp><rp></span>", id="past-parser-depth"),
+    ],
+)
+def test_omit_scope_climb_stops_at_parser_depth(depth: int, expected: str) -> None:
+    # past the depth a reparse can reach the ruby is out of reach, so the end tag stays
+    out: Final = _adopted(f"<ruby>{'<span>' * depth}<rp/><rp/>{'</span>' * depth}</ruby>")
+    assert out.startswith(f"<ruby>{'<span>' * depth}{expected}")
+
+
+def test_omit_scope_climb_stays_linear_over_sibling_run(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda n: _adopted_serialize(f"<ruby>{'<span>' * n}{'<rp/>' * n}{'</span>' * n}</ruby>"), (500, 2000)
+    )
 
 
 def test_omit_li_end_dropped_with_attributed_child() -> None:
@@ -457,9 +687,37 @@ def test_body_start_kept_before_comment() -> None:
     assert parse("<body><!--c-->x</body>").serialize(Html(layout=Minify(strip_comments=False))) == "<body><!--c-->x"
 
 
-@pytest.mark.parametrize("tag", [pytest.param(t, id=t) for t in ("meta", "link", "script", "style", "template")])
+@pytest.mark.parametrize(
+    "tag",
+    [
+        pytest.param(t, id=t)
+        for t in (
+            "base",
+            "basefont",
+            "bgsound",
+            "link",
+            "meta",
+            "noframes",
+            "noscript",
+            "script",
+            "style",
+            "template",
+            "title",
+        )
+    ],
+)
 def test_body_start_kept_before_head_element(tag: str) -> None:
-    assert parse(f"<body><{tag}></{tag}>x</body>").serialize(Html(layout=Minify())).startswith(f"<body><{tag}")
+    # without the body start tag the "after head" insertion mode files the element under <head>
+    source: Final = f"<body><{tag}></{tag}>x</body>"
+    once: Final = parse(source).serialize(Html(layout=Minify()))
+    assert once.startswith(f"<body><{tag}")
+    assert parse(once).serialize(Html()) == parse(source).serialize(Html())
+
+
+def test_body_start_omitted_before_foreign_element() -> None:
+    assert (
+        parse("<body><svg><title>t</title></svg>x").serialize(Html(layout=Minify())) == "<svg><title>t</title></svg>x"
+    )
 
 
 def test_empty_element_as_root_keeps_end_tag() -> None:
@@ -526,16 +784,7 @@ def test_foreign_end_tags_kept() -> None:
     assert "</svg>" in out
 
 
-_CSS = CSSMinify()
-
-
-def css_frag(source: str, *, minify_css: CSSMinify | None = _CSS, unquote_attributes: bool = True) -> str:
-    """Minify source in a <div> fragment with the CSS pass, returning the inner markup."""
-    layout = Minify(minify_css=minify_css, unquote_attributes=unquote_attributes)
-    out = parse_fragment(source, "div").serialize(Html(layout=layout))
-    assert out.startswith("<div>")
-    assert out.endswith("</div>")
-    return out[len("<div>") : -len("</div>")]
+_CSS: Final[CSSMinify] = CSSMinify()
 
 
 def test_minify_css_defaults_off() -> None:
@@ -580,6 +829,15 @@ def test_minify_css_baseline_bounds_output_syntax() -> None:
     assert css_frag(source, minify_css=CSSMinify(baseline=2021)) == "<style>a{inset:1px 2px 3px 4px}</style>"
 
 
+def css_frag(source: str, *, minify_css: CSSMinify | None = _CSS, unquote_attributes: bool = True) -> str:
+    # Minify source in a <div> fragment with the CSS pass, returning the inner markup.
+    layout = Minify(minify_css=minify_css, unquote_attributes=unquote_attributes)
+    out = parse_fragment(source, "div").serialize(Html(layout=layout))
+    assert out.startswith("<div>")
+    assert out.endswith("</div>")
+    return out[len("<div>") : -len("</div>")]
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -610,6 +868,8 @@ def test_minify_css_baseline_bounds_output_syntax() -> None:
         pytest.param(
             '<p style="color: red ; margin : 0 0 0 0">x</p>', "<p style=color:red;margin:0>x", id="style-attr"
         ),
+        # a style attribute holds no nested rule, so the text after a {} block stays in the declaration the block voids
+        pytest.param('<p style="margin:0{}top:0;left:0">x</p>', "<p style=margin:0{};left:0>x", id="style-attr-block"),
         # a minified value carrying a double quote (a string literal) keeps its quotes and escapes
         pytest.param(
             "<p style='content: \"hi there\"'>x</p>",
@@ -631,6 +891,17 @@ def test_minify_css_baseline_bounds_output_syntax() -> None:
             '<style>a::before{content:"</\\\nstyle><b>x</b>"}</style>',
             '<style>a::before{content:"</\\\nstyle><b>x</b>"}</style>',
             id="style-body-kept-when-minifying-would-spell-end-tag",
+        ),
+        # a longer name after the end tag closes no element, and does not excuse a minified form that spells one
+        pytest.param(
+            '<style>a{c:"</stylex";b:"<\\\n/style><b>x</b>"}</style>',
+            '<style>a{c:"</stylex";b:"<\\\n/style><b>x</b>"}</style>',
+            id="style-body-kept-when-source-spells-end-tag-prefix",
+        ),
+        pytest.param(
+            "<style>a{--x:</\\73tyle><b>x</b>}</style>",
+            "<style>a{--x:</\\73tyle><b>x</b>}</style>",
+            id="style-body-kept-when-an-escape-would-spell-end-tag",
         ),
     ],
 )
@@ -701,16 +972,6 @@ def test_minify_css_is_idempotent_and_reparse_safe(source: str) -> None:
     assert parse(once).serialize(Html(layout=layout)) == once
 
 
-def _plain_roundtrips(source: str) -> bool:
-    once = parse(source).serialize()
-    return once == parse(once).serialize()
-
-
-def _minify_idempotent(source: str, layout: Minify) -> bool:
-    once = parse(source).serialize(Html(layout=layout))
-    return once == parse(once).serialize(Html(layout=layout))
-
-
 @pytest.mark.parametrize(
     "layout",
     [pytest.param(Minify(), id="default"), pytest.param(Minify(minify_css=CSSMinify()), id="minify-css")],
@@ -729,6 +990,16 @@ def test_minify_idempotent_over_tree_construction(wpt_html_tree_corpus: WptHtmlT
     assert not failures, f"{len(failures)} non-idempotent\n\n" + "\n\n".join(failures[:5])
 
 
+def _plain_roundtrips(source: str) -> bool:
+    once = parse(source).serialize()
+    return once == parse(once).serialize()
+
+
+def _minify_idempotent(source: str, layout: Minify) -> bool:
+    once = parse(source).serialize(Html(layout=layout))
+    return once == parse(once).serialize(Html(layout=layout))
+
+
 def test_minify_idempotent_over_large_document() -> None:
     # a large well-formed document exercises every transform at scale (whitespace,
     # optional tags, attribute unquoting, comment stripping) past the serialization
@@ -744,8 +1015,7 @@ def test_minify_idempotent_over_large_document() -> None:
     )
     big = (
         "<!doctype html><html><head><title>Big</title></head><body>\n"
-        + "".join(section.format(i=index) for index in range(500))
-        + "</body></html>"
+        f"{''.join(section.format(i=index) for index in range(500))}</body></html>"
     )
     layout = Minify()
     once = parse(big).serialize(Html(layout=layout))
@@ -753,21 +1023,21 @@ def test_minify_idempotent_over_large_document() -> None:
     assert len(once) < len(parse(big).serialize())  # minification actually shrinks the document
 
 
-_SCRIPT = "function f(){ var longName = 1 + 2 ; return longName }"
-
-
-def script(source: str, minify_js: JSMinify | None = None) -> str:
-    """Serialize source as the single child of a <script> under Minify(minify_js=...),
-    returning just the script element so the assertion is the minified (or verbatim) body."""
-    out = parse_fragment(f"<script>{source}</script>", "div").serialize(Html(layout=Minify(minify_js=minify_js)))
-    assert out.startswith("<div><script>")
-    assert out.endswith("</script></div>")
-    return out[len("<div>") : -len("</div>")]
+_SCRIPT: Final[str] = "function f(){ var longName = 1 + 2 ; return longName }"
 
 
 def test_scripts_untouched_without_minify_js() -> None:
     # the default Minify leaves JavaScript exactly as written
     assert script(_SCRIPT) == f"<script>{_SCRIPT}</script>"
+
+
+def script(source: str, minify_js: JSMinify | None = None) -> str:
+    # Serialize source as the single child of a <script> under Minify(minify_js=...),
+    # returning just the script element so the assertion is the minified (or verbatim) body.
+    out = parse_fragment(f"<script>{source}</script>", "div").serialize(Html(layout=Minify(minify_js=minify_js)))
+    assert out.startswith("<div><script>")
+    assert out.endswith("</script></div>")
+    return out[len("<div>") : -len("</div>")]
 
 
 @pytest.mark.parametrize(
@@ -875,6 +1145,154 @@ def test_script_that_would_not_reparse_stays_verbatim(source: str) -> None:
     assert script(source, minify_js=JSMinify()) == f"<script>{source}</script>"
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('<script>x="</noscr"+"ipt><img src=x>"</script>', id="folded-string"),
+        pytest.param('<script>x="</NoScr"+"Ipt><img src=x>"</script>', id="folded-string-mixed-case"),
+        pytest.param('<style>a::before{content:"</noscr\\\nipt><img src=x>"}</style>', id="string-line-continuation"),
+    ],
+)
+def test_minified_content_under_noscript_spells_no_noscript_end_tag(source: str) -> None:
+    # a scripting browser reads the whole <noscript> as raw text, so a joined `</noscript` would end it mid-string
+    layout = Minify(minify_js=JSMinify(), minify_css=CSSMinify())
+    out = parse_fragment(f"<noscript>{source}</noscript>", "div").serialize(Html(layout=layout))
+    assert out == f"<div><noscript>{source}</noscript></div>"
+
+
+def test_content_under_noscript_is_still_minified() -> None:
+    # only the end tag closes the element: any other `<`, a `<noscript` start tag included, stays minified
+    layout = Minify(minify_js=JSMinify(), minify_css=CSSMinify())
+    source = '<script>var  a = "<noscript>" ;</script><style>a {  content : "<noscript>"  }</style>'
+    out = parse_fragment(f"<noscript>{source}</noscript>", "div").serialize(Html(layout=layout))
+    minified = '<script>var a="<noscript>"</script><style>a{content:"<noscript>"}</style>'
+    assert out == f"<div><noscript>{minified}</noscript></div>"
+
+
+_NOSCRIPT_DOCUMENTS: Final[list[pytest.ParameterSet]] = [
+    pytest.param(
+        "<!doctype html><head><meta charset=utf-8><noscript><img src=/pixel.png width=1></noscript>"
+        "<script src=/app.js></script></head><body id=main><h1>Title</h1>",
+        id="head-image",
+    ),
+    pytest.param(
+        "<!doctype html><body><noscript><iframe src=/frame></iframe></noscript><main>x</main>", id="body-first"
+    ),
+    pytest.param(
+        '<p>a<noscript><span title="</noscript><img src=/x.png>">b</span></noscript>c', id="attribute-end-tag"
+    ),
+    pytest.param("<p>a<noscript><!-- </noscript><em>e</em> --></noscript>z", id="comment-end-tag"),
+    pytest.param("<p>a<noscript><!--</noscript/>--></noscript>z", id="slash-after-end-tag"),
+    pytest.param("<p>a<noscript><i>b</noscript>c</p><p>d</p>", id="unclosed-formatting"),
+    pytest.param("<table><tr><td><noscript><div>a</noscript>b</td></tr></table><p>c</p>", id="table-cell"),
+    pytest.param("<p><b>x</p><noscript><a href=/>y</a></noscript>z", id="reconstructed-formatting"),
+    pytest.param("<div><noscript><img src=/a.png></noscript></div><frameset><frame src=/b></frameset>", id="frameset"),
+    pytest.param("<p>a  b</p><frameset><frame></frameset>", id="frameset-without-noscript"),
+    pytest.param("<div><noscript><noscript>a</noscript>b</noscript>c</div><p>d</p>", id="nested"),
+    pytest.param("<div><noscript><p>a", id="unclosed-at-end"),
+    pytest.param("<select><noscript><option>a</option></noscript></select><noscript><b>b</b></noscript>", id="select"),
+    pytest.param("<p>a\r\n<noscript>\r\n<img src=/x.png>\r\n</noscript>\r\nb", id="crlf"),
+    pytest.param(
+        "<head>\r\n<noscript><img src=/x.png></noscript>\r\n<link rel=a href=b></head><body>c", id="crlf-head"
+    ),
+    pytest.param("<p>€<noscript>€<img alt=€></noscript><p>€", id="two-byte"),
+    pytest.param("<p>\U0001f600<noscript><i>\U0001f600</noscript><p>\U0001f600", id="four-byte"),
+    pytest.param("<table><noscript>a</noscript><tr><td>b</td></tr></table>", id="fostered"),
+    pytest.param("<template><noscript><p>a</p></noscript></template>", id="template"),
+    pytest.param("<table><tr><td><noscript>1</noscript></td></tr><noscript>2</noscript></table>", id="fostered-later"),
+    pytest.param("".join(f"<div><noscript><i>{n}</noscript></div><p>{n}</p>" for n in range(10)), id="many-parted"),
+    pytest.param(f"{'<div>' * 600}<noscript><img src=/x.png></noscript>", id="past-depth-cap"),
+    pytest.param("<p><noscript>a</noscriptx>b</noscript>", id="end-tag-name-continues"),
+    pytest.param("<p><noscript>a</nos b</noscript>", id="end-tag-prefix"),
+    pytest.param("<head><noscript><style>a { color : red }</style><link rel=x href=y></noscript></head>x", id="style"),
+    pytest.param("<b><noscript></b>x</noscript>", id="adoption-agency"),
+    pytest.param("<b><b><b><noscript><b>x</noscript>y", id="noahs-ark"),
+    pytest.param("<body><noscript><body class=x></noscript>", id="body-attributes"),
+    pytest.param("<noscript><html lang=x></noscript>", id="html-attributes"),
+    pytest.param("<table><noscript><form></noscript>", id="form-in-table"),
+    pytest.param("<svg><noscript/></svg>", id="foreign-self-closing"),
+    pytest.param("<svg><noscript>a</noscript></svg><noscript><img src=/a.png></noscript>", id="foreign"),
+    pytest.param(
+        "<p>a<noscript>  <b>s</b>  </noscript><ul><li><noscript><p>a</noscript></ul>  <p>c</p>", id="stable-first"
+    ),
+    pytest.param("<ul><li><noscript><p>a</noscript></ul>  <p>b<noscript>  <b>s</b>  </noscript>", id="stable-after"),
+    *(
+        pytest.param(f"<p>a<noscript><!-- </NoScript{after}--></noscript>b", id=f"comment-end-tag-{name}")
+        for name, after in (("space", " "), ("tab", "\t"), ("newline", "\n"), ("form-feed", "\f"), ("cr", "\r"))
+    ),
+    pytest.param(
+        "<div><noscript><!-- </noscript> --></noscript><table><tr><td><noscript><!-- </noscript> --></noscript></td>"
+        "</tr><div>x</div></table><noscript><!-- </noscript> --></noscript></div>",
+        id="fostered-before-cell",
+    ),
+    pytest.param(
+        "<div><noscript><!-- </noscript> --></noscript><table><tr><td><noscript><!-- </noscript> --></noscript></td>"
+        "</tr><div>x</div></table></div>",
+        id="fostered-before-last-cell",
+    ),
+    pytest.param(
+        f"{'<div>' * 506}<noscript><!-- </noscript> --></noscript><table><tr><td><noscript>y</noscript></td></tr>"
+        "<div>x</div></table>",
+        id="fostered-before-cell-past-depth-cap",
+    ),
+    pytest.param("<div><form></div><p>a  b<noscript><i>c</noscript>d", id="form-pointer-closed"),
+    pytest.param("<form><p>a  b<noscript><i>c</noscript>d</form>", id="form-open"),
+    pytest.param("<svg><foreignObject><p>a  b<noscript><i>c</noscript>d</foreignObject></svg>", id="foreign-ancestor"),
+    pytest.param("<template><p>a  b<noscript><i>c</noscript>d</template>", id="template-ancestor"),
+    pytest.param("<table><tr><td>a  b<noscript><i>c</noscript>d</td></tr></table>", id="table-ancestor"),
+    pytest.param("<table><colgroup><noscript><i>c</noscript></table>", id="column-group"),
+    pytest.param("<head><noscript><noscript><i>c</noscript></head>", id="nested-in-head"),
+]
+_NOSCRIPT_LAYOUTS: Final[list[pytest.ParameterSet]] = [
+    pytest.param(Minify(), id="default"),
+    pytest.param(Minify(strip_comments=False), id="keep-comments"),
+    pytest.param(Minify(minify_js=JSMinify(), minify_css=CSSMinify()), id="js-css"),
+]
+
+
+@pytest.mark.parametrize("scripting", [pytest.param(False, id="scripting-off"), pytest.param(True, id="scripting-on")])
+@pytest.mark.parametrize("layout", _NOSCRIPT_LAYOUTS)
+@pytest.mark.parametrize("source", _NOSCRIPT_DOCUMENTS)
+def test_minify_noscript_reparses_to_the_source_tree(source: str, layout: Minify, *, scripting: bool) -> None:
+    expected = _reparsed(source, layout, scripting=scripting)
+    assert _reparsed(minify(source, layout), layout, scripting=scripting) == expected
+
+
+def _reparsed(markup: str, layout: Minify, *, scripting: bool) -> str:
+    # minifying folds whitespace and drops comments, so the trees compare in the form the layout writes them
+    document = parse(markup, scripting=scripting)
+    return (strip_comments_node(document) if layout.strip_comments else document).serialize(Html(layout=layout))
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "<p>a<noscript>  <img  src=/x.png>  </noscript>  b",
+            "<p>a<noscript>  <img  src=/x.png>  </noscript> b",
+            id="content-copied",
+        ),
+        pytest.param(
+            "<p>x  y</p><div><noscript><i>a</noscript></div>  <p>b  c</p>",
+            "<p>x y<div><noscript><i>a</noscript></div>  <p>b  c</p>",
+            id="copied-to-the-end",
+        ),
+        pytest.param(
+            "<!doctype html><head><title>t</title><noscript><img src=/p.gif></noscript><link rel=x href=y></head>",
+            "<!DOCTYPE html><title>t</title><noscript><img src=/p.gif></noscript><link rel=x href=y></head>",
+            id="copied-from-the-head",
+        ),
+        pytest.param(
+            "<p>x  y<b>z<noscript><i>a</noscript></b>",
+            "<p>x  y<b>z<noscript><i>a</noscript></b>",
+            id="unchanged-under-formatting",
+        ),
+    ],
+)
+def test_minify_copies_noscript_from_the_source(source: str, expected: str) -> None:
+    assert minify(source) == expected
+
+
 def test_empty_script_is_unchanged() -> None:
     assert script("", minify_js=JSMinify()) == "<script></script>"
 
@@ -948,7 +1366,9 @@ def test_minify_js_rejects_non_jsminify() -> None:
         Minify(minify_js=123)  # ty: ignore[invalid-argument-type]  # wrong type on purpose, to test the guard
 
 
-_DOC = "<html><head><title>Hi</title></head><body><p class='lead'>one</p>  <p>two</p><!--note--></body></html>"
+_DOC: Final[str] = (
+    "<html><head><title>Hi</title></head><body><p class='lead'>one</p>  <p>two</p><!--note--></body></html>"
+)
 
 
 def test_minify_collapses_whitespace_and_omits_tags() -> None:
@@ -995,6 +1415,8 @@ def test_minify_keep_quotes_retains_attribute_quotes() -> None:
     [
         pytest.param(_DOC, id="document"),
         pytest.param("<pre>  keep   spaces  </pre>", id="preformatted"),
+        pytest.param("<pre>&#xd;x</pre>", id="preformatted-carriage-return"),
+        pytest.param('<p title="a&#xd;b">x</p>', id="attribute-carriage-return"),
         pytest.param("<p>one</p><script>let x = 1 + 2;</script>", id="raw-text"),
         pytest.param("<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>", id="table"),
         pytest.param("<!doctype html><html><body><p>x</p></body></html>", id="doctyped"),
@@ -1004,6 +1426,86 @@ def test_minify_keep_quotes_retains_attribute_quotes() -> None:
 def test_minify_is_idempotent(source: str) -> None:
     once = minify(source)
     assert minify(once) == once
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("<p><b>a</b><!--c--></p>", "<p><b>a</b></p></body></html>", id="p-formatting-then-comment"),
+        pytest.param("<p><b>a</b></p><!--c-->", "<p><b>a</b></p></body></html>", id="p-comment-after-end"),
+        pytest.param("<em></em><!-- c -->", "<em></em></body></html>", id="body-formatting-then-comment"),
+        pytest.param("<div><font></div><!-- end -->", "<div><font></font></div></body></html>", id="div-font"),
+        pytest.param("<b></body><!-- end -->", "<b></b></body></html>", id="body-end-then-comment"),
+        pytest.param("<nobr></body><!--d-->", "<nobr></nobr></body></html>", id="body-end-nobr"),
+        pytest.param("<ul><font></ul><!-- end -->", "<ul><font></font></ul></body></html>", id="ul-font"),
+        pytest.param("<body><b>x</b></body><!--c-->", "<b>x</b></body></html>", id="body-b-comment-after"),
+        pytest.param("<div><p><b>a</b><!--c--></p></div>", "<div><p><b>a</b></p></div></body></html>", id="nested-p"),
+        pytest.param(
+            "<table><td><b></table><!-- c -->",
+            "<table><tbody><tr><td><b></b></td></tr></tbody></table></body></html>",
+            id="table-cell",
+        ),
+    ],
+)
+def test_minify_keeps_end_tag_guarded_by_trailing_formatting(source: str, expected: str) -> None:
+    # a stripped comment is invisible to the reparse, so the formatting element before it still ends the parent
+    once: Final = minify(source)
+    assert once == expected
+    assert minify(once) == once
+
+
+@pytest.mark.parametrize("tag", ["pre", "listing"])
+def test_minify_keeps_leading_newline_after_stripped_comment(tag: str) -> None:
+    # the parser drops the newline that opens the content, so the stripped comment must not hide the one before it
+    once: Final = minify(f"<{tag}><!--c-->\nx</{tag}>")
+    assert once == f"<{tag}>\n\nx</{tag}>"
+    assert minify(once) == once
+
+
+def test_minify_is_idempotent_over_seeded_documents() -> None:
+    tokens = (
+        "x",
+        " ",
+        "<!-- c -->",
+        "<p>",
+        "</p>",
+        "<li>",
+        "</li>",
+        "<b>",
+        "</b>",
+        "<i>",
+        "</i>",
+        "<em>",
+        "</em>",
+        "<font>",
+        "</font>",
+        "<nobr>",
+        "</nobr>",
+        "<div>",
+        "</div>",
+        "<ul>",
+        "</ul>",
+        "<table>",
+        "<td>",
+        "</table>",
+        "<span>",
+        "</span>",
+        "<body>",
+        "</body>",
+        "</html>",
+        "<title>t</title>",
+        "<base href=x>",
+        "<noscript>",
+        "</noscript>",
+    )
+    rng: Final = random.Random(4)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a corpus seed
+    documents: Final = ["".join(rng.choice(tokens) for _ in range(rng.randint(1, 12))) for _ in range(2000)]
+    failures: Final = [
+        f"{document!r}\n  once:  {minify(document)!r}\n  twice: {minify(minify(document))!r}"
+        for document in documents
+        if _plain_roundtrips(document) and not _minify_idempotent(document, Minify())
+    ]
+    assert not failures, f"{len(failures)} non-idempotent\n\n" + "\n\n".join(failures[:5])
 
 
 def test_minify_shrinks_documents() -> None:
@@ -1019,11 +1521,24 @@ def test_minify_shrinks_documents() -> None:
         pytest.param("optgroup", "optgroup", id="option-group"),
     ],
 )
-@pytest.mark.parametrize("inner", [False, True], ids=["outer", "inner"])
-def test_minify_detached_root_bounds_scope(tag: str, sibling: str, *, inner: bool) -> None:
+def test_minify_detached_root_bounds_scope_inner(tag: str, sibling: str) -> None:
     root: Final = Element("div", children=[Element(tag, children=[Text("a")]), Element(sibling, children=[Text("b")])])
     content: Final = f"<{tag}>a</{tag}><{sibling}>b"
-    assert root.serialize(Html(layout=Minify()), inner=inner) == (content if inner else f"<div>{content}</div>")
+    assert root.serialize(Html(layout=Minify()), inner=True) == content
+
+
+@pytest.mark.parametrize(
+    ("tag", "sibling"),
+    [
+        pytest.param("rt", "rt", id="ruby-text"),
+        pytest.param("rt", "rp", id="ruby-parenthesis"),
+        pytest.param("optgroup", "optgroup", id="option-group"),
+    ],
+)
+def test_minify_detached_root_bounds_scope_outer(tag: str, sibling: str) -> None:
+    root: Final = Element("div", children=[Element(tag, children=[Text("a")]), Element(sibling, children=[Text("b")])])
+    content: Final = f"<{tag}>a</{tag}><{sibling}>b"
+    assert root.serialize(Html(layout=Minify())) == f"<div>{content}</div>"
 
 
 @pytest.mark.parametrize(
@@ -1044,7 +1559,7 @@ def test_minify_plaintext_root_omits_end_tag() -> None:
     assert root.serialize(Html(layout=Minify())) == "<plaintext>x"
 
 
-_TRANSITIONAL: Final = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">'
+_TRANSITIONAL: Final[str] = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">'
 
 
 @pytest.mark.parametrize(
@@ -1109,12 +1624,6 @@ def test_minify_quirks_document_reparses_same(source: str) -> None:
     assert (parse(once).html, minify(once)) == (parse(source).html, once)
 
 
-def _doctype(source: str) -> Doctype:
-    node = parse(source).children[0]
-    assert isinstance(node, Doctype)
-    return node
-
-
 def test_minify_document_without_doctype_keeps_end_tag() -> None:
     document: Final = parse("<!DOCTYPE html><p>x</p><table></table>")
     _ = document.children[0].extract()
@@ -1125,6 +1634,75 @@ def test_minify_document_with_adopted_quirky_doctype_keeps_end_tag() -> None:
     document: Final = parse("<!DOCTYPE html><p>x</p><table></table>")
     document.children[0].replace_with(_doctype("<!DOCTYPE foo>"))
     assert "x</p><table>" in document.serialize(Html(layout=Minify()))
+
+
+def _doctype(source: str) -> Doctype:
+    node = parse(source).children[0]
+    assert isinstance(node, Doctype)
+    return node
+
+
+def test_minify_xml_doctype_system_identifier_stays_out_of_markup() -> None:
+    # an XML SystemLiteral takes a ">", which ends an HTML doctype and hands the rest of the literal to the parser
+    document: Final = parse_xml('<!DOCTYPE html SYSTEM "urn:k>lm<i>q</i>"><html xmlns="http://www.w3.org/1999/xhtml"/>')
+    assert document.select("i") == []
+    minified: Final = document.serialize(Html(layout=Minify()))
+    assert minified == "<!DOCTYPE html><html xmlns=http://www.w3.org/1999/xhtml></html>"
+    assert parse(minified).select("i") == []
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param('<!DOCTYPE html SYSTEM "k>lm"><html/>', "<!DOCTYPE html><html></html>", id="system"),
+        pytest.param(
+            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "k>lm"><html/>',
+            "<!DOCTYPE html><html></html>",
+            id="public-and-system",
+        ),
+        pytest.param(
+            '<!DOCTYPE html PUBLIC "-//IETF//DTD HTML//EN" "k>lm"><html><body><p>x</p><table/></body></html>',
+            "<!DOCTYPE html x><html><body><p>x</p><table></table></body></html>",
+            id="quirky-public-stays-quirky",
+        ),
+        pytest.param('<!DOCTYPE root SYSTEM "k>lm"><root/>', "<!DOCTYPE root x><root></root>", id="quirky-name"),
+        pytest.param(
+            "<!DOCTYPE html SYSTEM 'a\"b'><html/>", "<!DOCTYPE html SYSTEM 'a\"b'><html></html>", id="double-quote-fits"
+        ),
+    ],
+)
+def test_minify_xml_doctype(source: str, expected: str) -> None:
+    assert parse_xml(source).serialize(Html(layout=Minify())) == expected
+
+
+@pytest.mark.parametrize(
+    ("public_id", "system_id", "expected"),
+    [
+        pytest.param("k>lm", None, "<!DOCTYPE html>", id="public-gt"),
+        pytest.param("a", "m>no", "<!DOCTYPE html>", id="system-gt"),
+        pytest.param("a\"b'c", "d", "<!DOCTYPE html>", id="public-both-quotes"),
+        pytest.param(None, "a'b\"c", "<!DOCTYPE html>", id="system-both-quotes"),
+        pytest.param("-//IETF//DTD HTML//EN", "k>lm", "<!DOCTYPE html x>", id="quirky-public"),
+        pytest.param("a'b", 'c"d', "<!DOCTYPE html PUBLIC \"a'b\" 'c\"d'>", id="one-quote-each-fits"),
+    ],
+)
+def test_minify_built_doctype_identifier_html_cannot_spell(
+    public_id: str | None, system_id: str | None, expected: str
+) -> None:
+    reduced: Final = _doctype("<!DOCTYPE html>").__reduce__()
+    assert isinstance(reduced, tuple)
+    reconstruct, (kind, *_) = reduced
+    # the pickle hook rebuilds the identifiers as given, so it reaches the ones neither parser stores
+    node: Final = reconstruct(kind, ("html", public_id, system_id), [])
+    assert node.serialize(Html(layout=Minify())) == expected
+
+
+def test_minify_forced_quirks_document_with_adopted_xml_doctype_stays_quirky() -> None:
+    document: Final = parse("<!DOCTYPE html bogus><p>x</p><table></table>")
+    document.children[0].replace_with(parse_xml('<!DOCTYPE html SYSTEM "k>lm"><html/>').children[0])
+    minified: Final = document.serialize(Html(layout=Minify()))
+    assert minified == "<!DOCTYPE html x><p>x</p><table></table>"
+    assert parse(minified).serialize(Html(layout=Minify())) == minified
 
 
 def test_minify_element_in_no_quirks_tree_omits_end_tag() -> None:

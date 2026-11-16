@@ -13,20 +13,21 @@ use sqlbuild_core::cli_text::models::{
 };
 use sqlbuild_host::entries::models::UserCodeHost;
 
-use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, imported};
 use crate::bindings::_helpers::compile_command::surrogates::SurrogateText;
-use crate::bindings::_helpers::compile_outputs::json_report::{
-    emit_json_report, emit_orjson_report,
-};
 use crate::bindings::_helpers::discovery::constants::SQL_HOOK_OUTPUT_FIELDS;
 use crate::bindings::_helpers::discovery::hook_entries::hook_entries;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::{new_record_with, record_class};
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::mapping_get;
-use crate::bindings::_helpers::records::fields::mapping_get_or;
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::semantic_shapes::coverage::semantic_coverage;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::compile_outputs::main::emit_json_report::emit_json_report;
+use sqlbuild_python_base::compile_outputs::main::emit_orjson_report::emit_orjson_report;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::construct::record_class::record_class;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
+use sqlbuild_python_base::records::main::fields::mapping_get_or::mapping_get_or;
+use sqlbuild_python_base::records::types::RecordId;
 
 const METADATA_MODULE: &str = "importlib.metadata";
 const TARGET_DIRECTORY: &str = "target";
@@ -168,7 +169,7 @@ impl<'py> ReportInputs<'py> {
             return Ok(PyDict::new(py));
         }
         let reasons: Bound<'py, PyDict> = semantic_coverage(&self.project)?;
-        if crate::bindings::_helpers::compile_context::delta::injection().is_some() {
+        if sqlbuild_python_base::compile_context::main::delta::injection::injection().is_some() {
             return Ok(reasons);
         }
         let Some(names) = self.selected_names(MODEL_TYPE)? else {
@@ -682,7 +683,7 @@ fn hook_definitions<'py>(project: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyL
     }
     let functions: Bound<'py, PyAny> = native_field(project, "hook_functions")?;
     let identities: Bound<'py, PyAny> =
-        host::entry(py, UserCodeHost::BuildHookIdentities)?.call1((&functions,))?;
+        host_entry(py, UserCodeHost::BuildHookIdentities)?.call1((&functions,))?;
     for hook in functions.try_iter()? {
         let hook: Bound<'py, PyAny> = hook?;
         let identity: Bound<'py, PyAny> = identities.get_item(native_field(&hook, "name")?)?;

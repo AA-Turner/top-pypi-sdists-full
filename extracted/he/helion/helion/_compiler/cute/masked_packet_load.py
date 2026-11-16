@@ -8,13 +8,22 @@ a time (a WAW scoreboard wait on each reuse).  The PTX form Triton's masked
 ``tl.load`` lowers to, ``mov 0; @p ld.global.v4``, writes each packet exactly
 once with no consumer until the arithmetic that needs it, so all the loads of
 the strip stay in flight.  These helpers emit that form for 16-, 8- and
-4-byte packets, reinterpreted as the requested vector type, with the L1
-eviction priority of the load site, and for 32- and 64-byte lanes (two or
-four consecutive packets, one load each under the same predicate).
+4-byte packets, reinterpreted as the requested vector type, with the cache
+hint of the load site (an L1 eviction priority, the streaming ``.cs``
+operator, or an L2 cache-policy family carried as a ``createpolicy``
+descriptor, the way Triton's ``evict_first`` / ``evict_last`` loads carry
+theirs), and for 32- and 64-byte lanes (two or four consecutive packets, one
+load each under the same predicate).
+
+The helpers are ``_predicated_load`` rows, declared as plain ``name =
+_predicated_load(...)`` assignments so the standalone exporter copies each
+by name; ``cache_policy_loads.PACKET_LOAD_HELPERS`` lists the rows generated
+code binds.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
 
@@ -24,12 +33,13 @@ from cutlass._mlir.dialects import vector as _vector_dialect
 from cutlass.cutlass_dsl import dsl_user_op
 
 from ._mlir_compat import ir
-from .masked_packet_load_names import MASKED_PACKET_LOAD_HELPER_NAMES
-from .masked_packet_load_names import MASKED_PACKET_LOAD_HELPERS
+from .cache_hint_forms import L1_PRIORITY_QUALIFIERS
+from .cache_hint_forms import L2_POLICY_FORMS
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = [
-    "MASKED_PACKET_LOAD_HELPERS",
-    "MASKED_PACKET_LOAD_HELPER_NAMES",
     "load_v4b_if",
     "load_v8b_if",
     "load_v16b_if",
@@ -37,20 +47,30 @@ __all__ = [
     "load_v64b_if",
 ]
 
-# Load-site L1 eviction priority -> PTX qualifier.
-_PRIORITY_QUALIFIERS = {
-    "": "",
-    "evict_first": ".L1::evict_first",
-    "evict_last": ".L1::evict_last",
-    "cs": ".cs",
-}
+# Load-site hint (``CachePolicy.masked_priority``) other than an L2 family ->
+# PTX qualifier: none, an L1 eviction priority (each searched one and every
+# explicit ``hl.load(..., eviction_policy=...)`` spelling) or the streaming
+# operator.  An L2 cache-policy family takes the form its unpredicated helpers
+# carry (``L2_POLICY_FORMS``), so a masked packet keeps its site's L2 hint.
+_PRIORITY_QUALIFIERS = {"": "", **L1_PRIORITY_QUALIFIERS, "cs": ".cs"}
 
 
 def _assembly(words: int, priority: str) -> str:
     """``mov 0`` every word, then predicated loads of ``words`` 32-bit words:
     one load of up to four words, or one 16-byte load per four words at
-    consecutive addresses (a 32- or 64-byte lane: two or four packets)."""
-    qualifier = _PRIORITY_QUALIFIERS[priority]
+    consecutive addresses (a 32- or 64-byte lane: two or four packets).  An
+    L2 policy family as ``priority`` creates its policy descriptor first and
+    passes it to every load as the ``.L2::cache_hint`` operand."""
+    policy_forms = L2_POLICY_FORMS.get(priority)
+    if policy_forms is None:
+        qualifier = _PRIORITY_QUALIFIERS[priority]
+        setup = ""
+        policy_operand = ""
+    else:
+        level1, policy = policy_forms
+        qualifier = f"{level1}.L2::cache_hint"
+        setup = f".reg .b64 pol; createpolicy.fractional.L2::{policy}.b64 pol, 1.0; "
+        policy_operand = ", pol"
     zeros = " ".join(f"mov.b32 ${index}, 0;" for index in range(words))
     loads = []
     for first in range(0, words, 4):
@@ -59,9 +79,13 @@ def _assembly(words: int, priority: str) -> str:
         registers = ",".join(f"${index}" for index in range(first, first + count))
         operand = f"{{{registers}}}" if count > 1 else registers
         offset = f"+{first * 4}" if first else ""
-        loads.append(f"@p ld.global{qualifier}{suffix} {operand}, [${words}{offset}];")
+        loads.append(
+            f"@p ld.global{qualifier}{suffix} {operand}, "
+            f"[${words}{offset}]{policy_operand};"
+        )
     return (
-        f"{{ .reg .pred p; setp.ne.b32 p, ${words + 1}, 0; {zeros} {' '.join(loads)} }}"
+        f"{{ .reg .pred p; {setup}setp.ne.b32 p, ${words + 1}, 0; "
+        f"{zeros} {' '.join(loads)} }}"
     )
 
 
@@ -114,83 +138,38 @@ def _load_vector_if(
     return _vector_dialect.bitcast(vec_type, packet, loc=loc, ip=ip)
 
 
-@dsl_user_op
-def load_v64b_if(
-    ptr: object,
-    predicate: object,
-    vec_type: ir.VectorType,
-    priority: str = "",
-    *,
-    loc: ir.Location | None = None,
-    ip: ir.InsertionPoint | None = None,
-) -> ir.Value:
-    """Four consecutive 16-byte packets when ``predicate`` holds, zeros
-    otherwise."""
-    return _load_vector_if(
-        ptr, predicate, vec_type, words=16, priority=priority, loc=loc, ip=ip
+def _predicated_load(name: str, words: int) -> Callable[..., ir.Value]:
+    """The ``@dsl_user_op`` loading ``words`` 32-bit words (one packet of up
+    to 16 bytes, or two / four consecutive 16-byte packets) when its
+    predicate holds and zeros otherwise, bitcast to the requested vector
+    type, with the cache hint of the load site as ``priority`` (a key of
+    ``_PRIORITY_QUALIFIERS`` or ``L2_POLICY_FORMS``)."""
+
+    def load(
+        ptr: object,
+        predicate: object,
+        vec_type: ir.VectorType,
+        priority: str = "",
+        *,
+        loc: ir.Location | None = None,
+        ip: ir.InsertionPoint | None = None,
+    ) -> ir.Value:
+        return _load_vector_if(
+            ptr, predicate, vec_type, words=words, priority=priority, loc=loc, ip=ip
+        )
+
+    load.__name__ = load.__qualname__ = name
+    span = (
+        f"{4 * words}-byte packet"
+        if words <= 4
+        else f"{words // 4} consecutive 16-byte packets"
     )
+    load.__doc__ = f"{span} when ``predicate`` holds, zeros otherwise."
+    return dsl_user_op(load)
 
 
-@dsl_user_op
-def load_v32b_if(
-    ptr: object,
-    predicate: object,
-    vec_type: ir.VectorType,
-    priority: str = "",
-    *,
-    loc: ir.Location | None = None,
-    ip: ir.InsertionPoint | None = None,
-) -> ir.Value:
-    """Two consecutive 16-byte packets when ``predicate`` holds, zeros
-    otherwise."""
-    return _load_vector_if(
-        ptr, predicate, vec_type, words=8, priority=priority, loc=loc, ip=ip
-    )
-
-
-@dsl_user_op
-def load_v16b_if(
-    ptr: object,
-    predicate: object,
-    vec_type: ir.VectorType,
-    priority: str = "",
-    *,
-    loc: ir.Location | None = None,
-    ip: ir.InsertionPoint | None = None,
-) -> ir.Value:
-    """16-byte packet when ``predicate`` holds, zeros otherwise."""
-    return _load_vector_if(
-        ptr, predicate, vec_type, words=4, priority=priority, loc=loc, ip=ip
-    )
-
-
-@dsl_user_op
-def load_v8b_if(
-    ptr: object,
-    predicate: object,
-    vec_type: ir.VectorType,
-    priority: str = "",
-    *,
-    loc: ir.Location | None = None,
-    ip: ir.InsertionPoint | None = None,
-) -> ir.Value:
-    """8-byte packet when ``predicate`` holds, zeros otherwise."""
-    return _load_vector_if(
-        ptr, predicate, vec_type, words=2, priority=priority, loc=loc, ip=ip
-    )
-
-
-@dsl_user_op
-def load_v4b_if(
-    ptr: object,
-    predicate: object,
-    vec_type: ir.VectorType,
-    priority: str = "",
-    *,
-    loc: ir.Location | None = None,
-    ip: ir.InsertionPoint | None = None,
-) -> ir.Value:
-    """4-byte packet when ``predicate`` holds, zeros otherwise."""
-    return _load_vector_if(
-        ptr, predicate, vec_type, words=1, priority=priority, loc=loc, ip=ip
-    )
+load_v64b_if = _predicated_load("load_v64b_if", 16)
+load_v32b_if = _predicated_load("load_v32b_if", 8)
+load_v16b_if = _predicated_load("load_v16b_if", 4)
+load_v8b_if = _predicated_load("load_v8b_if", 2)
+load_v4b_if = _predicated_load("load_v4b_if", 1)

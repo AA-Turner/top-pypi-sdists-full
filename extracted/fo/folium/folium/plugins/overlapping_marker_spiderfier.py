@@ -1,5 +1,3 @@
-from typing import Optional
-
 from jinja2 import Template
 
 from folium.elements import Element, JSCSSMixin, MacroElement
@@ -37,8 +35,7 @@ class OverlappingMarkerSpiderfier(JSCSSMixin, MacroElement):
     >>> oms.add_to(map)
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         (function () {
             try {
@@ -59,8 +56,7 @@ class OverlappingMarkerSpiderfier(JSCSSMixin, MacroElement):
             }
         })();
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -75,7 +71,7 @@ class OverlappingMarkerSpiderfier(JSCSSMixin, MacroElement):
         nearby_distance: int = 20,
         leg_weight: float = 1.5,
         circle_spiral_switchover: int = 9,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "OverlappingMarkerSpiderfier"
@@ -84,11 +80,11 @@ class OverlappingMarkerSpiderfier(JSCSSMixin, MacroElement):
             nearby_distance=nearby_distance,
             leg_weight=leg_weight,
             circle_spiral_switchover=circle_spiral_switchover,
-            **kwargs
+            **kwargs,
         )
 
     def add_to(
-        self, parent: Element, name: Optional[str] = None, index: Optional[int] = None
+        self, parent: Element, name: str | None = None, index: int | None = None
     ) -> Element:
         self._parent = parent
         self.markers = self._get_all_markers(parent)

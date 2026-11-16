@@ -1,5 +1,6 @@
 //! Project column lineage in FAST or RICH mode, and direct semantic uses, from a project view.
 
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use std::collections::HashMap;
 
 use pyo3::prelude::{
@@ -20,7 +21,6 @@ use sqlbuild_analysis::lineage_graph::main::analysis_dialect::analysis_dialect;
 use sqlbuild_analysis::lineage_graph::models::AnalysisDialect;
 use sqlbuild_analysis::semantic_validation::models as validation;
 
-use crate::bindings::_helpers::boundary::panics::compiler_error;
 use crate::bindings::_helpers::compiled_views::compiled_model_view::NativeCompiledModel;
 use crate::bindings::_helpers::compiled_views::model_reads::star_flags;
 use crate::bindings::_helpers::lineage::column_lineage_graph::{
@@ -31,11 +31,11 @@ use crate::bindings::_helpers::lineage::project_schema::{
     fast_schema, inferred_names, rich_schema,
 };
 use crate::bindings::_helpers::project_assembly::syntax_checks::model_placeholders;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::ErrorId;
 use crate::bindings::models::ProjectCatalog;
-use crate::bindings::types::CompilerDetach;
+use sqlbuild_python_base::boundary::main::compiler_error::compiler_error;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::types::CompilerDetach;
 
 const FAST_MODE: &str = "fast";
 const RICH_MODE: &str = "rich";
@@ -335,12 +335,11 @@ fn output_columns(classes: &LineageClasses<'_>, facts: &Bound<'_, PyAny>) -> PyR
 }
 
 fn unknown_dialect_error(py: Python<'_>, dialect: &str) -> PyErr {
-    match error_class(py, ErrorId::UnknownLineageDialect)
-        .and_then(|class| class.call1((format!("Unknown dialect: {dialect}"),)))
-    {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(
+        py,
+        ErrorId::UnknownLineageDialect,
+        &format!("Unknown dialect: {dialect}"),
+    )
 }
 
 fn rich_lineage<'py>(

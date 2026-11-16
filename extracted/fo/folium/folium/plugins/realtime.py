@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from folium.elements import JSCSSMixin
 from folium.features import GeoJson
 from folium.map import FeatureGroup
@@ -66,8 +64,7 @@ class Realtime(JSCSSMixin, FeatureGroup):
     >>> rt.add_to(m)
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.realtime(
             {% if this.src is string or this.src is mapping -%}
@@ -81,8 +78,7 @@ class Realtime(JSCSSMixin, FeatureGroup):
                 {{ this.get_name() }}._container
             );
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         (
@@ -93,14 +89,14 @@ class Realtime(JSCSSMixin, FeatureGroup):
 
     def __init__(
         self,
-        source: Union[str, dict, JsCode],
+        source: str | dict | JsCode,
         start: bool = True,
         interval: int = 60000,
-        get_feature_id: Union[JsCode, str, None] = None,
-        update_feature: Union[JsCode, str, None] = None,
+        get_feature_id: JsCode | str | None = None,
+        update_feature: JsCode | str | None = None,
         remove_missing: bool = False,
-        container: Optional[Union[FeatureGroup, GeoJson]] = None,
-        **kwargs
+        container: FeatureGroup | GeoJson | None = None,
+        **kwargs,
     ):
         super().__init__()
         self._name = "Realtime"

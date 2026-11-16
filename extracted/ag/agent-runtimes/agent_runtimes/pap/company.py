@@ -334,6 +334,56 @@ class ApplicationOperationExecutor:
         return ActionResult(summary=said or "Done.")
 
 
+class OpenApiOperationExecutor:
+    """``pap.company.operationExecutor`` for an action of the Appspec's ``openapi``: once
+    the person approved its exact terms, the operation is answered by the application's
+    agent through the call contract (``agent_runtimes.addresses.call_operation``), the
+    terms its inputs — the same answer its MCP and API servers give.
+
+    Its answer is the result's ``data`` (under ``result`` when it is not an object);
+    inputs that are not the operation's fail with nothing changed; anything else leaves
+    the operation in progress rather than claim it either way.
+    """
+
+    def __init__(self, declared: Any, operation_id: str, operations: Any) -> None:
+        """Perform ``operation_id`` of ``operations`` (an ``AddressedAgent``) for ``declared``."""
+        self.action = str(declared.action)
+        self.operation_id = operation_id
+        self.operations = operations
+
+    async def perform(
+        self, operation: Operation, account_id: str | None
+    ) -> ActionResult:
+        """Answer the operation with its approved terms."""
+        from agent_runtimes.addresses.access import Caller
+        from agent_runtimes.addresses.operations import OperationError
+
+        caller = Caller(kind="token", uid=account_id or "")
+        try:
+            answer = await self.operations.call(
+                self.operation_id,
+                dict(operation.terms),
+                interface="agent",
+                caller=caller,
+            )
+        except OperationError as error:
+            if error.status == 400:
+                raise OperationFailed(
+                    ActionResult(summary=f"Nothing was done: {error.detail}")
+                ) from error
+            raise OperationOutcomeUnknown(error.detail) from error
+        data = answer if isinstance(answer, dict) else {"result": answer}
+        return ActionResult(summary=f"{self.action}: done.", data=data)
+
+
+def openapi_operation_of(operations: Any, action: str) -> str | None:
+    """The ``operationId`` whose ``x-pap`` says ``action``, or ``None``."""
+    for found in getattr(operations, "operations", ()) or ():
+        if str((found.pap or {}).get("action") or "") == action:
+            return str(found.operation_id)
+    return None
+
+
 class RegisteredAgents:
     """``pap.company.clientPolicy``: only the personal agents the Appspec registers."""
 
@@ -375,9 +425,16 @@ class _CompanyPlugin:
                 order=10,
             )
         for declared in company.operations:
+            operation_id = (
+                openapi_operation_of(capability.operations, str(declared.action))
+                if capability.operations is not None
+                else None
+            )
             contribute(
                 OPERATION_EXECUTORS,
-                ApplicationOperationExecutor(
+                OpenApiOperationExecutor(declared, operation_id, capability.operations)
+                if operation_id
+                else ApplicationOperationExecutor(
                     declared, capability.application, capability.tickets
                 ),
                 contribution_id=f"operation-{declared.action}",
@@ -396,6 +453,52 @@ class _TicketsPlugin:
         contributions.contribute(
             OPERATION_TICKETS, self.tickets, contribution_id="local-company", order=50
         )
+
+
+def company_config(
+    name: str,
+    domain: str,
+    company: Any,
+    *,
+    device_page: str | None = None,
+    web: bool = False,
+) -> CompanyConfig:
+    """What a company publishes at ``domain``, from its Appspec's ``pap.company``:
+    what :class:`PapCompanyCapability` serves and the ``poppy.json`` of an agent
+    that is a company (``agent_runtimes.addresses.poppy``)."""
+    if not company.enabled:
+        raise ValueError("The Appspec does not enable pap.company")
+    if not company.scopes:
+        raise ValueError(
+            "A company offers at least one scope of its own: the Appspec's pap.company.scopes is empty"
+        )
+    scopes = _scopes(company)
+    return CompanyConfig(
+        name=name,
+        domain=domain,
+        # The one PAP version a runtime speaks (the newest its SDK implements): poppy.json
+        # is its document and nothing else is served; a request in another is refused.
+        protocol_versions=(pap_protocol_version(),),
+        scopes=scopes,
+        # What each allows, published as auth.scopes, and the Maker's hints (§4.4).
+        scope_descriptions={
+            str(scope.name): str(scope.description) for scope in company.scopes
+        },
+        scope_hints=_scope_hints(company),
+        excluded_tasks=_excluded_tasks(company),
+        write_scopes=tuple(scope for scope in scopes if scope.endswith(":write")),
+        device=True,
+        direct=False,
+        # `auth.disabled` (PAP 0.3 as published §3.2, D4-08): it offers personal agents no sign-in.
+        sign_in_disabled=bool(company.sign_in_disabled),
+        # Its website (§6): a browser joins the person's Session there when it offers `web`.
+        web=web,
+        web_unscoped=bool(company.web_unscoped) and web,
+        # `web.disabled` (PAP draft 0.4 §6, D5-09): agents are asked to use its agent and APIs.
+        web_disabled=bool(company.web_disabled),
+        operations="operations" in company.extensions,
+        device_page=device_page,
+    )
 
 
 class PapCompanyCapability:
@@ -419,48 +522,36 @@ class PapCompanyCapability:
         device_page: str | None = None,
         plugins: Iterable[tuple[PluginManifest, object]] = (),
         address_resolver: Any = resolve_addresses,
+        hosted: bool = False,
+        operations: Any = None,
     ) -> None:
-        """Configure the company's name, domain and application."""
-        if not company.enabled:
-            raise ValueError("The Appspec does not enable pap.company")
+        """Configure the company's name, domain and application.
+
+        ``hosted``: the company at its agent's address (``{name}.agent.<domain>``),
+        whose MCP, API and web servers answer beside it: every interface the
+        Appspec lists is offered, its website among them.
+
+        ``operations``: the agent at its addresses (``AddressedAgent``), whose
+        ``openapi`` operations perform the PAP operations they carry (``x-pap``)
+        through the call contract (:class:`OpenApiOperationExecutor`).
+        """
         interfaces = {str(getattr(i, "value", i)) for i in company.interfaces}
-        if interfaces != {"agent"}:
+        if not hosted and interfaces != {"agent"}:
             raise ValueError(
                 "A local company offers the agent interface only (its A2A route); "
                 f"the Appspec asks for {', '.join(sorted(interfaces))}"
             )
-        if not company.scopes:
-            raise ValueError(
-                "A company offers at least one scope of its own: the Appspec's pap.company.scopes is empty"
-            )
         self.company = company
         self.application = application
         self.accounts = accounts
+        self.operations = operations
         self.tickets = MemoryOperationTickets()
-        scopes = _scopes(company)
-        self.config = CompanyConfig(
-            name=name,
-            domain=domain,
-            # The one PAP version a runtime speaks (the newest its SDK implements): poppy.json
-            # is its document and nothing else is served; a request in another is refused.
-            protocol_versions=(pap_protocol_version(),),
-            scopes=scopes,
-            # What each allows, published as auth.scopes, and the Maker's hints (§4.4).
-            scope_descriptions={
-                str(scope.name): str(scope.description) for scope in company.scopes
-            },
-            scope_hints=_scope_hints(company),
-            excluded_tasks=_excluded_tasks(company),
-            write_scopes=tuple(scope for scope in scopes if scope.endswith(":write")),
-            device=True,
-            direct=False,
-            # `auth.disabled` (PAP 0.3 as published §3.2, D4-08): it offers personal agents no sign-in.
-            sign_in_disabled=bool(company.sign_in_disabled),
-            # `web.disabled` (PAP draft 0.4 §6, D5-09): agents are asked to use its agent and APIs. It serves
-            # no website, so `web.unscoped` says nothing here.
-            web_disabled=bool(company.web_disabled),
-            operations="operations" in company.extensions,
+        self.config = company_config(
+            name,
+            domain,
+            company,
             device_page=device_page,
+            web=hosted and "web" in interfaces,
         )
         self.service: CompanyService = build_company(
             self.config,
@@ -500,9 +591,11 @@ __all__ = [
     "ApplicationCompanyAgent",
     "ApplicationOperationExecutor",
     "MemoryOperationTickets",
+    "OpenApiOperationExecutor",
     "PapCompanyCapability",
     "RegisteredAgents",
     "a2a_data",
     "a2a_parts",
     "a2a_texts",
+    "company_config",
 ]

@@ -1427,9 +1427,10 @@ class YoutubeNamespace:
         channel's View email address button. YouTube gates that address behind a
         signed-in Google session and a CAPTCHA, so it is absent from the channel
         page a logged-out scraper reads. A lookup the source has not revealed yet
-        takes minutes to hours: it is charged once when the lookup starts, never
-        refunded, and the call returns a request id at once with a link that
-        collects the answer later with no API key.
+        takes minutes to hours: it is charged when the lookup starts, refunded
+        automatically if no email is found within 48 hours, and the call returns a
+        request id at once with a link that collects the answer later with no API
+        key.
 
         Price: $0.132 per request plus $0 per result (maximum $0.132).
 
@@ -1714,7 +1715,7 @@ class YoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.0005 per request.
+        Price: $0.00048 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -1867,7 +1868,7 @@ class YoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -1888,7 +1889,7 @@ class YoutubeNamespace:
         List the comments on a YouTube video or Short by URL with cursor pagination
         (text, author, likes, reply count).
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.youtube.video_comments(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2070,9 +2071,10 @@ class AsyncYoutubeNamespace:
         channel's View email address button. YouTube gates that address behind a
         signed-in Google session and a CAPTCHA, so it is absent from the channel
         page a logged-out scraper reads. A lookup the source has not revealed yet
-        takes minutes to hours: it is charged once when the lookup starts, never
-        refunded, and the call returns a request id at once with a link that
-        collects the answer later with no API key.
+        takes minutes to hours: it is charged when the lookup starts, refunded
+        automatically if no email is found within 48 hours, and the call returns a
+        request id at once with a link that collects the answer later with no API
+        key.
 
         Price: $0.132 per request plus $0 per result (maximum $0.132).
 
@@ -2357,7 +2359,7 @@ class AsyncYoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.0005 per request.
+        Price: $0.00048 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -2510,7 +2512,7 @@ class AsyncYoutubeNamespace:
         Fetch a YouTube video or Short's metadata (title, channel, views, likes,
         duration, publish date) by URL or ID.
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.youtube.video(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -2531,7 +2533,7 @@ class AsyncYoutubeNamespace:
         List the comments on a YouTube video or Short by URL with cursor pagination
         (text, author, likes, reply count).
 
-        Price: $0.0008 per request.
+        Price: $0.00078 per request.
 
         Example:
             res = client.youtube.video_comments(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pip-tools
-Version: 7.6.2
+Version: 7.7.0
 Summary: pip-tools keeps your pinned dependencies fresh.
 Author-email: Vincent Driessen <me@nvie.com>
 License-Expression: BSD-3-Clause
-Project-URL: homepage, https://github.com/jazzband/pip-tools/
-Project-URL: documentation, https://pip-tools.readthedocs.io/en/latest/
-Project-URL: repository, https://github.com/jazzband/pip-tools
-Project-URL: changelog, https://github.com/jazzband/pip-tools/releases
+Project-URL: homepage, https://github.com/pypa/pip-tools/
+Project-URL: documentation, https://pip-tools.pypa.io
+Project-URL: repository, https://github.com/pypa/pip-tools
+Project-URL: changelog, https://github.com/pypa/pip-tools/releases
 Keywords: pip,requirements,packaging
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -16,12 +16,12 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python
@@ -30,17 +30,19 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: build>=1.0.0
 Requires-Dist: click>=8
-Requires-Dist: pip>=22.2
+Requires-Dist: pip>=26.2.2
 Requires-Dist: pyproject_hooks
 Requires-Dist: typing_extensions>=4.6.0; python_version < "3.11"
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: setuptools
 Requires-Dist: wheel
+Provides-Extra: stable
+Requires-Dist: pip<=26.3; extra == "stable"
 Provides-Extra: testing
 Requires-Dist: pytest>=7.2.0; extra == "testing"
 Requires-Dist: pytest-mock>=3.15.1; extra == "testing"
@@ -55,7 +57,7 @@ Requires-Dist: pytest-cov; extra == "coverage"
 Dynamic: license-file
 
 <!-- pyml disable-next-line first-line-heading -->
-[![jazzband-image]][jazzband]
+[![PyPA badge]][PyPA]
 [![pypi][pypi-image]][pypi]
 [![pyversions][pyversions-image]][pyversions]
 [![pre-commit][pre-commit-image]][pre-commit]
@@ -81,7 +83,7 @@ Similar to `pip`, `pip-tools` must be installed in each of your project's
 
 ```console
 $ source /path/to/venv/bin/activate
-(venv) $ python -m pip install pip-tools
+(venv) $ python -m pip install 'pip-tools [stable]'
 ```
 
 **Note**: all of the remaining example commands assume you've activated your
@@ -457,7 +459,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/jazzband/pip-tools
+  - repo: https://github.com/pypa/pip-tools
     rev: 7.4.1
     hooks:
       - id: pip-compile
@@ -468,7 +470,7 @@ You might want to customize `pip-compile` args by configuring `args` and/or
 
 ```yaml
 repos:
-  - repo: https://github.com/jazzband/pip-tools
+  - repo: https://github.com/pypa/pip-tools
     rev: 7.4.1
     hooks:
       - id: pip-compile
@@ -481,7 +483,7 @@ file.
 
 ```yaml
 repos:
-  - repo: https://github.com/jazzband/pip-tools
+  - repo: https://github.com/pypa/pip-tools
     rev: 7.4.1
     hooks:
       - id: pip-compile
@@ -681,13 +683,13 @@ https://marketplace.visualstudio.com/items?itemName=ms-python.python
 This section lists `pip-tools` features that are currently deprecated.
 
 - In the next major release, the `--allow-unsafe` behavior will be enabled by
-  default (https://github.com/jazzband/pip-tools/issues/989).
+  default (https://github.com/pypa/pip-tools/issues/989).
   Use `--no-allow-unsafe` to keep the old behavior. It is recommended
   to pass `--allow-unsafe` now to adapt to the upcoming change.
 - The legacy resolver is deprecated and will be removed in future versions.
   The new default is `--resolver=backtracking`.
 - In the next major release, the `--strip-extras` behavior will be enabled by
-  default (https://github.com/jazzband/pip-tools/issues/1613).
+  default (https://github.com/pypa/pip-tools/issues/1613).
   Use `--no-strip-extras` to keep the old behavior.
 
 ### A Note on Resolvers
@@ -701,23 +703,25 @@ backtracking resolver is more robust, but can take longer to run in general.
 You can continue using the legacy resolver with `--resolver=legacy` although
 note that it is deprecated and will be removed in a future release.
 
-[jazzband]: https://jazzband.co/
-[jazzband-image]: https://jazzband.co/static/img/badge.svg
+[PyPA badge]:
+https://img.shields.io/badge/project-yellow?label=PyPA&labelColor=ffd242&color=3775a9
+
+[PyPA]: https://pypa.io/
 [pypi]: https://pypi.org/project/pip-tools/
 [pypi-image]: https://img.shields.io/pypi/v/pip-tools.svg
 [pyversions]: https://pypi.org/project/pip-tools/
 [pyversions-image]: https://img.shields.io/pypi/pyversions/pip-tools.svg
-[pre-commit]: https://results.pre-commit.ci/latest/github/jazzband/pip-tools/main
-[pre-commit-image]: https://results.pre-commit.ci/badge/github/jazzband/pip-tools/main.svg
-[buildstatus-gha]: https://github.com/jazzband/pip-tools/actions?query=workflow%3ACI
-[buildstatus-gha-image]: https://github.com/jazzband/pip-tools/workflows/CI/badge.svg
-[codecov]: https://codecov.io/gh/jazzband/pip-tools
-[codecov-image]: https://codecov.io/gh/jazzband/pip-tools/branch/main/graph/badge.svg
+[pre-commit]: https://results.pre-commit.ci/latest/github/pypa/pip-tools/main
+[pre-commit-image]: https://results.pre-commit.ci/badge/github/pypa/pip-tools/main.svg
+[buildstatus-gha]: https://github.com/pypa/pip-tools/actions?query=workflow%3ACI
+[buildstatus-gha-image]: https://github.com/pypa/pip-tools/workflows/CI/badge.svg
+[codecov]: https://codecov.io/gh/pypa/pip-tools
+[codecov-image]: https://codecov.io/gh/pypa/pip-tools/branch/main/graph/badge.svg
 [Matrix Room Badge]: https://img.shields.io/matrix/pip-tools:matrix.org?label=Discuss%20on%20Matrix%20at%20%23pip-tools%3Amatrix.org&logo=matrix&server_fqdn=matrix.org&style=flat
 [Matrix Room]: https://matrix.to/#/%23pip-tools:matrix.org
 [Matrix Space Badge]: https://img.shields.io/matrix/jazzband:matrix.org?label=Discuss%20on%20Matrix%20at%20%23jazzband%3Amatrix.org&logo=matrix&server_fqdn=matrix.org&style=flat
 [Matrix Space]: https://matrix.to/#/%23jazzband:matrix.org
-[pip-tools-overview]: https://github.com/jazzband/pip-tools/raw/main/img/pip-tools-overview.svg
+[pip-tools-overview]: https://github.com/pypa/pip-tools/raw/main/img/pip-tools-overview.svg
 [environment-markers]: https://peps.python.org/pep-0508/#environment-markers
 [PEP 517]: https://peps.python.org/pep-0517/
 [PEP 660]: https://peps.python.org/pep-0660/

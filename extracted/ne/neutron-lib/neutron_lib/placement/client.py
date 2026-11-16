@@ -157,6 +157,8 @@ class PlacementAPIClient:
         self._api_version_header = {API_VERSION_REQUEST_HEADER:
                                     self._openstack_api_version}
         self._client = None
+        self._resource_providers = {}
+        self._provider_aggregate_map = {}
 
     def _create_client(self):
         """Create the HTTP session accessing the placement service."""
@@ -258,7 +260,7 @@ class PlacementAPIClient:
         rsp = self._post(url, resource_provider)
         if (self._target_version <
                 _get_version(PLACEMENT_API_RETURN_PROVIDER_BODY)):
-            return
+            return None
         return rsp.json()
 
     @_check_placement_api_available
@@ -312,9 +314,16 @@ class PlacementAPIClient:
         """Delete a resource provider.
 
         :param resource_provider_uuid: UUID of the resource provider.
+        :raises PlacementResourceProviderNotFound: If the resource provider
+                                                   is not found.
         """
+        # pylint: disable=raise-missing-from
         url = f'/resource_providers/{resource_provider_uuid}'
-        self._delete(url)
+        try:
+            self._delete(url)
+        except ks_exc.NotFound:
+            raise n_exc.PlacementResourceProviderNotFound(
+                resource_provider=resource_provider_uuid)
 
     @_check_placement_api_available
     def get_resource_provider(self, resource_provider_uuid):

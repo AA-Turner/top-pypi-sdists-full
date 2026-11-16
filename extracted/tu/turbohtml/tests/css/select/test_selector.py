@@ -1,17 +1,23 @@
-"""CSS selectors: select() / select_one() over the common selector subset."""
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+import copy
+import subprocess  # ruff:ignore[suspicious-subprocess-import]  # runs a fixed argv in a child interpreter
+import sys
+from functools import partial
+from typing import TYPE_CHECKING, Final, Protocol
 
 import pytest
 
-from turbohtml import Document, Element, SelectorSyntaxError, parse, parse_xml
+from turbohtml import Document, Element, Range, SelectorSyntaxError, Text, parse, parse_xml
+from turbohtml.clean import linkify_node
+from turbohtml.query import Query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-_DOC = (
+    from work_steps import WorkSteps
+
+_DOC: Final[str] = (
     '<section id="s" class="box wide">'
     '<h2 class="title">T</h2>'
     '<p class="lead first">one <a href="/x" rel="next">link</a></p>'
@@ -20,11 +26,7 @@ _DOC = (
     '<my-widget data-k="v" lang="en-US">w</my-widget>'
     "</section>"
 )
-_NON_OVERLAPPING_NEEDLE: Final = "".join(chr(0x100 + index) for index in range(70))
-
-
-def _sel(html: str, selector: str) -> list[str]:
-    return [element.tag for element in parse(html).select(selector)]
+_NON_OVERLAPPING_NEEDLE: Final[str] = "".join(chr(0x100 + index) for index in range(70))
 
 
 @pytest.mark.parametrize(
@@ -99,24 +101,28 @@ def _sel(html: str, selector: str) -> list[str]:
         # the encode buffers cap tag names at 60 bytes and attribute names at 124;
         # a longer name overruns the cap and cannot match any real element
         pytest.param("z" * 130, [], id="overlong-tag-name"),
-        pytest.param("[" + "z" * 130 + "]", [], id="overlong-attr-name"),
+        pytest.param(f"[{'z' * 130}]", [], id="overlong-attr-name"),
     ],
 )
 def test_select_over_doc(selector: str, tags: list[str]) -> None:
     assert _sel(_DOC, selector) == tags
 
 
+def _sel(html: str, selector: str) -> list[str]:
+    return [element.tag for element in parse(html).select(selector)]
+
+
 @pytest.mark.parametrize(
     ("value", "needle", "flag", "tags"),
     [
-        pytest.param("a" * 400, "a" * 65 + "b", "", [], id="prefilter-miss"),
-        pytest.param("a" * 200 + "a" * 65 + "ba", "a" * 65 + "ba", "", ["div"], id="kmp-late-match"),
-        pytest.param("a" * 200 + "c" + "a" * 199, "a" * 65 + "ba", "", [], id="kmp-miss"),
-        pytest.param("a" * 200 + "a" * 65 + "ba", "A" * 65 + "BA", " i", ["div"], id="kmp-folded-match"),
-        pytest.param("a" * 65 + "ba", "a" * 65 + "ba", "", ["div"], id="short-value-match"),
-        pytest.param("a" * 66 + "c", "a" * 65 + "ba", "", [], id="short-value-miss"),
-        pytest.param("a" * 65, "a" * 65 + "ba", "", [], id="needle-longer-than-value"),
-        pytest.param("a" * 65 + "ba" + "z" * 300, "a" * 65 + "ba", "", ["div"], id="large-exact-match"),
+        pytest.param("a" * 400, f"{'a' * 65}b", "", [], id="prefilter-miss"),
+        pytest.param(f"{'a' * 200}{'a' * 65}ba", f"{'a' * 65}ba", "", ["div"], id="kmp-late-match"),
+        pytest.param(f"{'a' * 200}c{'a' * 199}", f"{'a' * 65}ba", "", [], id="kmp-miss"),
+        pytest.param(f"{'a' * 200}{'a' * 65}ba", f"{'A' * 65}BA", " i", ["div"], id="kmp-folded-match"),
+        pytest.param(f"{'a' * 65}ba", f"{'a' * 65}ba", "", ["div"], id="short-value-match"),
+        pytest.param(f"{'a' * 66}c", f"{'a' * 65}ba", "", [], id="short-value-miss"),
+        pytest.param("a" * 65, f"{'a' * 65}ba", "", [], id="needle-longer-than-value"),
+        pytest.param(f"{'a' * 65}ba{'z' * 300}", f"{'a' * 65}ba", "", ["div"], id="large-exact-match"),
         pytest.param(
             "x" * 100 + _NON_OVERLAPPING_NEEDLE,
             _NON_OVERLAPPING_NEEDLE,
@@ -131,15 +137,15 @@ def test_long_substring(value: str, needle: str, flag: str, tags: list[str]) -> 
 
 
 def test_long_substring_missing_attribute() -> None:
-    needle: Final = "a" * 65 + "ba"
+    needle: Final = f"{'a' * 65}ba"
     assert _sel(f'<div data-value="{needle}"></div><p></p>', f'[data-value*="{needle}"]') == ["div"]
     assert _sel("<div data-value></div>", f'[data-value*="{needle}"]') == []
     assert _sel("<div></div>", f'[missing*="{needle}"]') == []
 
 
 def test_long_substring_default_case_folding() -> None:
-    value: Final = "a" * 65 + "ba"
-    needle: Final = "A" * 65 + "BA"
+    value: Final = f"{'a' * 65}ba"
+    needle: Final = f"{'A' * 65}BA"
     assert _sel(f'<input type="{value}">', f'[type*="{needle}"]') == ["input"]
     assert _sel(f'<svg><g type="{value}"></g></svg>', f'[type*="{needle}"]') == []
 
@@ -308,7 +314,7 @@ def test_class_id_case_folds_only_in_quirks(selector: str, quirks_tags: list[str
 
 # a five-item list, a mixed-type container, and custom-element siblings so the
 # of-type pseudo-classes exercise both the builtin-atom and custom-name paths
-_PSEUDO = (
+_PSEUDO: Final[str] = (
     "<main>"
     "<ul><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li></ul>"
     "<section><h2>t</h2><p>a</p><span>b</span><p></p><!--c--></section>"
@@ -337,6 +343,7 @@ _PSEUDO = (
         pytest.param("li:nth-child(n)", ["1", "2", "3", "4", "5"], id="nth-child-bare-n"),
         pytest.param("li:nth-child( 2n + 1 )", ["1", "3", "5"], id="nth-child-whitespace"),
         pytest.param("li:nth-child(0)", [], id="nth-child-zero-matches-none"),
+        pytest.param("li:nth-child(0n-1)", [], id="nth-child-zero-step-negative-offset"),
         pytest.param("li:nth-child(2n-1)", ["1", "3", "5"], id="nth-child-minus-b"),
         pytest.param("li:nth-last-child(1)", ["5"], id="nth-last-child"),
         pytest.param("li:nth-last-child(2)", ["4"], id="nth-last-child-second-from-end"),
@@ -359,7 +366,7 @@ def test_structural_pseudo_by_text(selector: str, texts: list[str]) -> None:
 
 
 # a list whose items alternate a class, so An+B applies to the .x-matching subset
-_NTH_OF = "<ul><li class=x>1</li><li>2</li><li class=x>3</li><li>4</li><li class=x>5</li></ul>"
+_NTH_OF: Final[str] = "<ul><li class=x>1</li><li>2</li><li class=x>3</li><li>4</li><li class=x>5</li></ul>"
 
 
 @pytest.mark.parametrize(
@@ -540,13 +547,13 @@ def test_leading_hyphen_identifier_is_valid(selector: str) -> None:
     [
         # the compound/complex/list buffers grow, so a selector is bounded only by its
         # own length, not a fixed cap at the 33rd simple/compound or 65th arm (issue #432)
-        pytest.param("p" + ".x" * 40, id="forty-simples-in-a-compound"),
+        pytest.param(f"p{'.x' * 40}", id="forty-simples-in-a-compound"),
         pytest.param(" > ".join(["div"] * 39 + ["p"]), id="forty-child-compounds"),
         pytest.param(",".join(["p"] * 70), id="seventy-list-arms"),
     ],
 )
 def test_large_selectors_grow_past_the_old_caps(selector: str) -> None:
-    html = "<div class=x>" * 39 + "<p class=x>hi</p>" + "</div>" * 39
+    html = f"{'<div class=x>' * 39}<p class=x>hi</p>{'</div>' * 39}"
     assert len(parse(html).select(selector)) == 1
 
 
@@ -562,7 +569,7 @@ def test_large_selectors_grow_past_the_old_caps(selector: str) -> None:
 def test_deeply_nested_functional_pseudo_raises_instead_of_crashing(prefix: str, suffix: str) -> None:
     depth = 20000
     with pytest.raises(ValueError, match="nested too deeply"):
-        parse("<a></a>").select(prefix * depth + "a" + suffix * depth)
+        parse("<a></a>").select(f"{prefix * depth}a{suffix * depth}")
 
 
 def test_invalid_selector_error_names_the_position_and_reason() -> None:
@@ -585,19 +592,6 @@ def test_native_selector_parse_raises_the_unified_error(call: Callable[[Element]
     assert node is not None
     with pytest.raises(SelectorSyntaxError):
         call(node)
-
-
-_PSEUDO_DOC = (
-    "<main>"
-    '<section id="s">'
-    "<h2>T</h2>"
-    '<p class="lead">one <a href="/x">link</a></p>'
-    "<p>two</p>"
-    '<ul><li>a</li><li class="sel">b</li></ul>'
-    "</section>"
-    '<aside id="a"><span>side</span></aside>'
-    "</main>"
-)
 
 
 @pytest.mark.parametrize(
@@ -677,20 +671,27 @@ _PSEUDO_DOC = (
     ],
 )
 def test_functional_pseudo_classes(selector: str, tags: list[str]) -> None:
-    assert _sel(_PSEUDO_DOC, selector) == tags
+    assert (
+        _sel(
+            "<main>"
+            '<section id="s">'
+            "<h2>T</h2>"
+            '<p class="lead">one <a href="/x">link</a></p>'
+            "<p>two</p>"
+            '<ul><li>a</li><li class="sel">b</li></ul>'
+            "</section>"
+            '<aside id="a"><span>side</span></aside>'
+            "</main>",
+            selector,
+        )
+        == tags
+    )
 
 
 def test_has_skips_non_element_following_sibling() -> None:
     # a comment between the anchor and a following sibling must not break :has()
     doc = parse("<main><section></section><!--c--><aside><b>x</b></aside></main>")
     assert [element.tag for element in doc.select("section:has(~ aside b)")] == ["section"]
-
-
-def _nested_divs(depth: int, leaf: str = "<a>x</a>") -> str:
-    # a straight chain of `depth` <div>s wrapping leaf: the shape whose per-anchor :has()
-    # subtree re-walk is O(depth^2) without the memo. At depth >= 24 (the memo's engage
-    # threshold) select() builds the subtree memo, so this drives every memo branch.
-    return f"<body>{'<div>' * depth}{leaf}{'</div>' * depth}</body>"
 
 
 # depth 30 crosses the engage threshold; depth 200 fills enough deep slots to grow and
@@ -725,6 +726,13 @@ def test_has_memo_deep_chain(depth: int, selector: str, expected: str) -> None:
     assert len(parse(_nested_divs(depth)).select(selector)) == counts[expected]
 
 
+def _nested_divs(depth: int, leaf: str = "<a>x</a>") -> str:
+    # a straight chain of `depth` <div>s wrapping leaf: the shape whose per-anchor :has()
+    # subtree re-walk is O(depth^2) without the memo. At depth >= 24 (the memo's engage
+    # threshold) select() builds the subtree memo, so this drives every memo branch.
+    return f"<body>{'<div>' * depth}{leaf}{'</div>' * depth}</body>"
+
+
 def test_has_memo_walks_next_sibling_after_leaf() -> None:
     assert len(parse(_nested_divs(30, "<i></i><!-- gap --><a>x</a>")).select("div:has(a)")) == 30
 
@@ -738,10 +746,23 @@ def test_has_memo_deep_sibling_chains() -> None:
     assert len(doc.select("div:has(a)")) == 80
 
 
+# a hash that ignores the key chains one node's memo entries into a single probe run, so a selector list with many
+# :has() arguments grows quadratically; one argument per select() keeps each memo at one key and the walk linear
+def test_has_memo_many_arguments_scale_linearly(work_steps: WorkSteps) -> None:
+    selectors = [*(f"div:has(x{index})" for index in range(500)), "div:has(a)"]
+    combined = ",".join(selectors)
+    depth = 36
+    doc = parse(_nested_divs(depth))
+    work_steps.assert_within(
+        lambda: doc.select(combined), lambda: [doc.select(selector) for selector in selectors], factor=30
+    )
+    assert len(doc.select(combined)) == depth
+
+
 # a deep tree so the memo is live, carrying elements every relative-selector shape needs:
 # a <p><a> at the chain's foot and a <p> sibling of the outermost div. On this tree the
 # memo-path gate still routes each :has() form to the right evaluator.
-_DEEP_RICH = f"<body>{'<div>' * 40}<p><a>x</a></p>{'</div>' * 40}<p>s</p></body>"
+_DEEP_RICH: Final[str] = f"<body>{'<div>' * 40}<p><a>x</a></p>{'</div>' * 40}<p>s</p></body>"
 
 
 @pytest.mark.parametrize(
@@ -766,9 +787,9 @@ def test_has_memo_deep_relative_shapes(selector: str, count: int) -> None:
 
 def test_has_memo_deep_select_one_returns_outermost() -> None:
     # select_one walks in document order, so the outermost div (the first anchor) wins
-    doc = parse(_nested_divs(40))
-    found = doc.select_one("div:has(a)")
-    parent = found.parent if found is not None else None
+    found = parse(_nested_divs(40)).select_one("div:has(a)")
+    assert found is not None
+    parent = found.parent
     assert isinstance(parent, Element)
     assert parent.tag == "body"
 
@@ -781,6 +802,153 @@ def test_has_memo_deep_remove_and_prune() -> None:
     kept = parse(_nested_divs(40))
     kept.prune("div:has(a)")
     assert len(kept.select("div")) == 40
+
+
+def _deep_xml(depth: int) -> Document:
+    return parse_xml(f"{'<group>' * depth}<item/>{'</group>' * depth}")
+
+
+# each element's attribute value sits next to it in the tree's arena, so the value's length sets how far apart the
+# elements lie in memory; a memo hashed by address put every element of a chain this far apart in one probe run
+def _deep_xml_spaced(depth: int) -> Document:
+    start: Final = f'<group pad="{"x" * 262}">'
+    return parse_xml(f"{start * depth}<item/>{'</group>' * depth}")
+
+
+# every node takes the next creation sequence, so comments steer which sequences the nested elements get; these are
+# the ones whose product with the node maps' Fibonacci multiplier lands in its lowest eighth, which gives the
+# elements' memo entries home slots in one run of the table at every size
+def _deep_xml_sequence_clustered(depth: int) -> Document:
+    parts: Final[list[str]] = []
+    sequence = 0
+    while len(parts) - parts.count("<!---->") < depth:
+        sequence += 1
+        parts.append("<group>" if sequence * 0x61C88647 % 2**32 < 2**29 else "<!---->")
+    return parse_xml(f"{''.join(parts)}<item/>{'</group>' * depth}")
+
+
+def _deep_appended(depth: int) -> Element:
+    root: Final = Element("root")
+    innermost = root
+    for _ in range(depth):
+        child = Element("group")
+        innermost.append(child)
+        innermost = child
+    innermost.append(Element("item"))
+    return root
+
+
+def _deep_xml_in_parsed_html(depth: int) -> Document:
+    document: Final = parse("<p>shallow</p>")
+    body: Final = document.find("body")
+    root: Final = _deep_xml(depth).root
+    assert body is not None
+    assert root is not None
+    body.append(root)
+    return document
+
+
+def _deep_xml_imported_into_parsed_html(depth: int) -> Element:
+    body: Final = parse("<p>shallow</p>").find("body")
+    root: Final = parse_xml(f"<root>{'<group>' * depth}<item/>{'</group>' * depth}</root>").root
+    assert body is not None
+    assert root is not None
+    with pytest.raises(TypeError):
+        body.extend([root, 0])  # ty: ignore[invalid-argument-type]  # the bad item fails the call after the import
+    assert root.parent is None
+    return root
+
+
+# A descendant :has() miss visits each anchor's subtree, which without the memo sums to quadratic steps on a
+# chain. The memo answers every element in amortized constant time, so the counted steps grow linearly with depth.
+_NESTED_DEPTH: Final[int] = 4_000
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(_deep_xml, id="parse-xml"),
+        pytest.param(_deep_xml_spaced, id="parse-xml-spaced-in-memory"),
+        pytest.param(_deep_xml_sequence_clustered, id="parse-xml-clustered-in-sequence"),
+        pytest.param(_deep_appended, id="mutation-api"),
+        pytest.param(_deep_xml_in_parsed_html, id="appended-to-parsed-html"),
+        pytest.param(_deep_xml_imported_into_parsed_html, id="imported-into-parsed-html"),
+    ],
+)
+def test_has_memo_deep_tree_not_from_html_parser(
+    build: Callable[[int], Document | Element], work_steps: WorkSteps
+) -> None:
+    tree: Final = build(_NESTED_DEPTH)
+    assert len(tree.select("group:has(item)")) == _NESTED_DEPTH
+    assert len(tree.select("group:has(> item)")) == 1
+    assert tree.select("group:has(entry)") == []
+    work_steps.assert_linear(lambda size: partial(build(size).select, "group:has(entry)"), (1000, _NESTED_DEPTH))
+
+
+def test_has_memo_deepening_mutation_after_query(work_steps: WorkSteps) -> None:
+    assert len(_chain_grown_after_query(_NESTED_DEPTH).select("group:has(item)")) == _NESTED_DEPTH
+    work_steps.assert_linear(
+        lambda size: partial(_chain_grown_after_query(size).select, "group:has(entry)"), (1000, _NESTED_DEPTH)
+    )
+
+
+def _chain_grown_after_query(depth: int) -> Element:
+    root: Final = Element("root")
+    assert root.select("group:has(item)") == []
+    innermost = root
+    for _ in range(depth):
+        child: Final = Element("group")
+        innermost.append(child)
+        innermost = child
+    innermost.append(Element("item"))
+    return root
+
+
+def test_has_memo_deep_chain_linkified(work_steps: WorkSteps) -> None:
+    document: Final = _deep_chain_linkified(_NESTED_DEPTH)
+    assert len(document.select("span:has(a)")) == _NESTED_DEPTH
+    assert document.select("span:has(entry)") == []
+    work_steps.assert_linear(
+        lambda size: partial(_deep_chain_linkified(size).select, "span:has(entry)"), (1000, _NESTED_DEPTH)
+    )
+
+
+def _deep_chain_linkified(depth: int) -> Document:
+    document: Final = parse("<p>shallow</p>")
+    innermost = document.find("body")
+    assert innermost is not None
+    for _ in range(depth):
+        child = Element("span")
+        innermost.append(child)
+        innermost = child
+    innermost.append(Text("see https://example.com"))
+    linkify_node(innermost)
+    return document
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        pytest.param(lambda card: card.select("section:has(img)"), id="select"),
+        pytest.param(lambda card: card.select_one("section:has(img)"), id="select-one"),
+        pytest.param(lambda card: card.remove("section:has(img)"), id="remove"),
+    ],
+)
+def test_scoped_has_after_each_mutation_scales_linearly(
+    query: Callable[[Element], object], work_steps: WorkSteps
+) -> None:
+    def loop(size: int) -> Callable[[], None]:
+        markup: Final = "<div class=card><section><p>x</p><img></section></div>" * size
+        cards: Final = parse(f"<body>{markup}</body>").select(".card")
+
+        def run() -> None:
+            for card in cards:
+                card.append(Element("span"))
+                query(card)
+
+        return run
+
+    work_steps.assert_linear(loop, (1000, 4000))
 
 
 @pytest.mark.parametrize(
@@ -892,10 +1060,6 @@ def test_rejects_non_str(method: str) -> None:
 # Element.css_path(): the unique CSS selector locating a node from the root. It
 # anchors at the nearest document-unique, safely serializable id and otherwise
 # descends with child combinators, adding :nth-of-type() only among same-type siblings.
-def _css_path(html: str, selector: str, index: int = 0) -> str:
-    return parse(html).select(selector)[index].css_path()
-
-
 @pytest.mark.parametrize(
     ("html", "selector", "index", "expected"),
     [
@@ -977,9 +1141,9 @@ def _css_path(html: str, selector: str, index: int = 0) -> str:
         ),
         # more ids than the id map's initial capacity, so it grows before anchoring
         pytest.param(
-            "<body>"
-            + "".join(f'<div id="d{number}"></div>' for number in range(6))
-            + '<section id="t"><p>x</p></section></body>',
+            f"""<body>{
+                "".join(f'<div id="d{number}"></div>' for number in range(6))
+            }<section id="t"><p>x</p></section></body>""",
             "p",
             0,
             "#t > p",
@@ -993,23 +1157,23 @@ def _css_path(html: str, selector: str, index: int = 0) -> str:
             id="unknown-tag-uses-its-name",
         ),
         pytest.param(
-            "<ul>" + "".join(f"<li>{number}</li>" for number in range(12)) + "</ul>",
+            f"<ul>{''.join(f'<li>{number}</li>' for number in range(12))}</ul>",
             "li",
             11,
             "html > body > ul > li:nth-of-type(12)",
             id="multi-digit-index",
         ),
         pytest.param(
-            "<body>" + "<div>" * 40 + "x" + "</div>" * 40 + "</body>",
+            f"<body>{'<div>' * 40}x{'</div>' * 40}</body>",
             "div",
             39,
-            "html > body > " + " > ".join(["div"] * 40),
+            f"html > body > {' > '.join(['div'] * 40)}",
             id="deeply-nested-path-grows-buffer",
         ),
     ],
 )
 def test_css_path(html: str, selector: str, index: int, expected: str) -> None:
-    assert _css_path(html, selector, index) == expected
+    assert parse(html).select(selector)[index].css_path() == expected
 
 
 @pytest.mark.parametrize(
@@ -1097,8 +1261,7 @@ def test_css_path_reflects_renamed_tag(before: str, after: str, expected: str) -
     [pytest.param("a\x00b", id="null"), pytest.param("a\ud800b", id="surrogate")],
 )
 def test_css_path_does_not_anchor_unrepresentable_id(value: str) -> None:
-    document = parse("<p>x</p>")
-    element = document.select("p")[0]
+    element = parse("<p>x</p>").select("p")[0]
     element.attrs["id"] = value
     assert element.css_path() == "html > body > p"
 
@@ -1122,7 +1285,7 @@ def test_css_path_detached_subtree_id_is_not_an_anchor() -> None:
 
 
 # css_path() round-trips: re-selecting the path returns exactly the node it came from.
-_CSS_PATH_DOC = (
+_CSS_PATH_DOC: Final[str] = (
     "<!doctype html><html><head><title>t</title></head><body>"
     "<header><h1>Title</h1></header>"
     '<main id="content">'
@@ -1133,7 +1296,8 @@ _CSS_PATH_DOC = (
     "</body></html>"
 )
 
-_CSS_PATH_DOCUMENT = parse(_CSS_PATH_DOC)
+
+_CSS_PATH_DOCUMENT: Final[Document] = parse(_CSS_PATH_DOC)
 
 
 def _every_element(document: Document) -> list[Element]:
@@ -1147,7 +1311,7 @@ def test_css_path_reselects_only_this_element(element: Element) -> None:
     assert _CSS_PATH_DOCUMENT.select(element.css_path()) == [element]
 
 
-_MATCHES_DOC = (
+_MATCHES_DOC: Final[str] = (
     '<section id="s" class="box">'
     '<article class="post"><h2>T</h2><p class="lead">one <a href="/x">link</a></p></article>'
     "</section>"
@@ -1241,18 +1405,15 @@ def test_rejects_unterminated_attribute_string(link: Element, selector: str) -> 
         link.matches(selector)
 
 
-_QUERY_DOC = (
-    "<body>"
-    "<p class=lead id=1>first</p>"
-    "<div><p class=lead id=2>nested</p><span data-x=y>s</span></div>"
-    "<p id=3>third</p>"
-    "</body>"
-)
-
-
 @pytest.fixture
 def doc() -> Document:
-    return parse(_QUERY_DOC)
+    return parse(
+        "<body>"
+        "<p class=lead id=1>first</p>"
+        "<div><p class=lead id=2>nested</p><span data-x=y>s</span></div>"
+        "<p id=3>third</p>"
+        "</body>"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1261,16 +1422,16 @@ def doc() -> Document:
         pytest.param("p", {}, "1", id="first-in-document-order"),
         pytest.param("span", {}, None, id="descends-into-subtrees"),
         pytest.param("p", {"id": "3"}, "3", id="by-attribute"),
-        pytest.param("table", {}, "__missing__", id="no-match-is-none"),
     ],
 )
 def test_find(doc: Document, tag: str, attrs: dict[str, str], first_id: str | None) -> None:
     match = doc.find(tag, attrs=attrs)
-    if first_id == "__missing__":
-        assert match is None
-    else:
-        assert match is not None
-        assert match.attrs.get("id") == first_id
+    assert match is not None
+    assert match.attrs.get("id") == first_id
+
+
+def test_find_no_match_is_none(doc: Document) -> None:
+    assert doc.find("table", attrs={}) is None
 
 
 @pytest.mark.parametrize(
@@ -1305,6 +1466,10 @@ def test_no_argument_matches_the_first_element(doc: Document) -> None:
     assert match.tag == "html"
 
 
+class _Finder(Protocol):
+    def __call__(self, *args: int | str) -> Element | list[Element] | None: ...
+
+
 @pytest.mark.parametrize("query", ["find", "find_all"])
 @pytest.mark.parametrize(
     "call",
@@ -1313,14 +1478,16 @@ def test_no_argument_matches_the_first_element(doc: Document) -> None:
         pytest.param(lambda fn: fn("a", "b"), id="extra-positional"),
     ],
 )
-def test_query_argument_errors(doc: Document, query: str, call: Callable[[Callable[..., object]], object]) -> None:
+def test_query_argument_errors(
+    doc: Document, query: str, call: Callable[[_Finder], Element | list[Element] | None]
+) -> None:
     with pytest.raises(TypeError):
         call(getattr(doc, query))
 
 
 # every element carries an id so a match set is unambiguous regardless of the
 # html/head/body wrappers the parser inserts
-_FORM = (
+_FORM: Final[str] = (
     "<form>"
     "<input id=i-checkbox type=checkbox checked>"
     "<input id=i-radio type=radio checked>"
@@ -1345,16 +1512,6 @@ _FORM = (
     "<p id=p-plain>p</p>"
     "<div id=d-noedit contenteditable=false>x</div>"
 )
-
-
-def _ids(html: str, selector: str) -> list[str]:
-    matched = [e.attrs.get("id") for e in parse(html).select(selector)]
-    return sorted(value for value in matched if isinstance(value, str))
-
-
-def _scope_ids(elements: list[Element]) -> list[str]:
-    """The id of each element in document order (the values are always present strings here)."""
-    return [value for e in elements if isinstance(value := e.attrs.get("id"), str)]
 
 
 @pytest.mark.parametrize(
@@ -1419,6 +1576,11 @@ def _scope_ids(elements: list[Element]) -> list[str]:
 )
 def test_form_pseudo_ids(selector: str, ids: list[str]) -> None:
     assert _ids(_FORM, selector) == ids
+
+
+def _ids(html: str, selector: str) -> list[str]:
+    matched = [e.attrs.get("id") for e in parse(html).select(selector)]
+    return sorted(value for value in matched if isinstance(value, str))
 
 
 def test_read_only_is_the_complement_of_read_write() -> None:
@@ -1575,6 +1737,88 @@ def test_dir_auto_skips_neutral_then_resolves() -> None:
 
 
 @pytest.mark.parametrize(
+    ("selector", "ids"),
+    [
+        pytest.param(":dir(rtl)", ["a", "c", "d", "e", "outer"], id="rtl"),
+        pytest.param("[id]:dir(ltr)", ["b"], id="ltr"),
+        pytest.param("[id]:has(> :dir(ltr))", ["outer"], id="inside-has"),
+        pytest.param(":dir(rtl) > :dir(ltr)", ["b"], id="across-a-combinator"),
+    ],
+)
+def test_dir_auto_answers_once_per_element(selector: str, ids: list[str]) -> None:
+    # every candidate below a dir=auto element resolves through it, and a query reads that element's text once;
+    # the bdi elements between them keep their own answers
+    html = "<div id=outer dir=auto>א<p id=a></p><bdi id=b>x</bdi><p id=c></p><bdi id=d>א</bdi><p id=e></p></div>"
+    assert _ids(html, selector) == ids
+
+
+def test_dir_auto_is_read_again_by_the_next_query() -> None:
+    document = parse("<div dir=auto><i>א</i><p id=a></p></div>")
+    before = [element.attrs.get("id") for element in document.select("p:dir(rtl)")]
+    document.remove("i")
+    assert (before, document.select("p:dir(rtl)")) == (["a"], [])
+
+
+def test_matches_dir_auto_answers_once_per_element() -> None:
+    # one matches() call tests every child inside :has(): the paragraphs share the div's answer, the bdi keeps its
+    # own, and the next call reads the text again
+    outer = parse("<div dir=auto>א<p></p><bdi>x</bdi><p></p></div>").select("div")[0]
+    before = (outer.matches(":has(> p:dir(rtl) + bdi:dir(ltr) + p:dir(rtl))"), outer.matches(":has(> bdi:dir(rtl))"))
+    text = outer.children[0]
+    assert isinstance(text, Text)
+    text.data = "x"
+    assert (before, outer.matches(":has(> p:dir(ltr) ~ p:dir(ltr))")) == ((True, False), True)
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        pytest.param("<div id=o dir=auto>א<bdi>x<p><span></span></p></bdi></div>", id="through-bdi"),
+        # the span resolves through the inner element first, so the outer walk meets its answer already known
+        pytest.param("<div id=o dir=auto>1<p dir=auto>2<span></span></p>א</div>", id="known-without-strong"),
+    ],
+)
+def test_closest_dir_resolves_each_auto_ancestor(html: str) -> None:
+    closest = parse(html).select("span")[0].closest(":dir(rtl)")
+    assert closest is not None
+    assert closest.attrs.get("id") == "o"
+
+
+def test_closest_dir_reads_disabled_in_the_same_walk() -> None:
+    span = parse("<fieldset disabled><div id=o dir=auto>א<input><span></span></div></fieldset>").select("span")[0]
+    closest = span.closest(":dir(rtl):has(> input:disabled)")
+    assert closest is not None
+    assert closest.attrs.get("id") == "o"
+
+
+def test_closest_dir_takes_a_known_strong_answer_for_the_outer_element() -> None:
+    span = parse("<div dir=auto>1<p dir=auto>א<span></span></p>x</div>").select("span")[0]
+    assert span.closest("div:dir(ltr)") is None
+
+
+def test_dir_auto_reads_past_empty_nodes() -> None:
+    document = parse("<div id=o dir=auto>x<p>א</p></div><p id=e dir=auto></p>")
+    text = document.select("div")[0].children[0]
+    assert isinstance(text, Text)
+    text.data = ""
+    assert [element.attrs.get("id") for element in document.select("[id]:dir(rtl)")] == ["o"]
+
+
+def test_dir_auto_text_is_scanned_once_per_query(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda n: partial(parse(f"<section dir=auto>{'<i>1</i>' * n}").select, ":dir(rtl)"), (500, 2000)
+    )
+
+
+@pytest.mark.parametrize("innermost", [pytest.param("", id="no-strong"), pytest.param("ש", id="strong-innermost")])
+def test_nested_dir_auto_text_is_scanned_once_per_query(work_steps: WorkSteps, innermost: str) -> None:
+    opening: Final = '<b dir="auto">2'
+    work_steps.assert_linear(
+        lambda n: partial(parse_xml(f"<r>{opening * n}{innermost}{'</b>' * n}</r>").select, ":dir(ltr)"), (500, 2000)
+    )
+
+
+@pytest.mark.parametrize(
     ("html", "direction"),
     [
         # the input-value special case is HTML-only, so a foreign (non-HTML) element with
@@ -1681,6 +1925,22 @@ def test_ui_pseudo_coverage_cases(html: str, selector: str, ids: list[str]) -> N
             ["b"],
             id="fieldset-messy-children-legend-exempt",
         ),
+        # only the first legend is exempt, and every control below a legend shares its answer
+        pytest.param(
+            "<fieldset disabled><legend><input id=a><input id=b></legend>t<legend><input id=c><input id=d></legend>"
+            "</fieldset>",
+            "input:disabled",
+            ["c", "d"],
+            id="fieldset-later-legend-not-exempt",
+        ),
+        # each disabled fieldset up the chain is asked about the child the control sits under
+        pytest.param(
+            "<fieldset disabled><legend><fieldset disabled><legend><input id=a></legend><input id=b></fieldset>"
+            "</legend><div><legend><input id=c></legend></div></fieldset>",
+            "input:disabled",
+            ["b", "c"],
+            id="fieldset-nested-legend-chain",
+        ),
         # :lang() argument quoting and edge ranges
         pytest.param("<span lang id=x>v</span>", ":lang(en)", [], id="lang-valueless-attr"),
         pytest.param('<span lang="en" id=x>v</span>', ':lang("en")', ["x"], id="lang-double-quoted"),
@@ -1698,6 +1958,111 @@ def test_ui_pseudo_coverage_cases(html: str, selector: str, ids: list[str]) -> N
 )
 def test_pseudo_branch_coverage(html: str, selector: str, ids: list[str]) -> None:
     assert _ids(html, selector) == ids
+
+
+def test_disabled_fieldset_legend_single_match() -> None:
+    document = parse("<fieldset disabled><legend><input id=a></legend><legend><input id=b></legend></fieldset>")
+    first, later = document.select("input")
+    assert (first.matches(":enabled"), later.matches(":enabled")) == (True, False)
+
+
+# Controls beside a late legend are disabled and controls inside it are not. Finding the legend among the fieldset's
+# children once per control is quadratic in the fieldset's width; one memoized pass per legend is linear.
+def test_disabled_fieldset_late_legend_scales_linearly(work_steps: WorkSteps) -> None:
+    def build(width: int) -> Callable[[], list[Element]]:
+        document = parse(f"<fieldset disabled>{'<input>' * width}<legend>{'<input>' * width}</legend></fieldset>")
+        return lambda: document.select("input:enabled")
+
+    assert len(build(3)()) == 3
+    work_steps.assert_linear(build, (500, 2000))
+
+
+# A single matches() or closest() call has no query memo, so the first-legend answers must last for that one call:
+# every test of a late legend's controls would otherwise walk the fieldset's children again.
+@pytest.mark.parametrize(
+    "query",
+    [
+        pytest.param(
+            lambda page: partial(page.select("#o")[0].matches, ":has(input:disabled)"),
+            id="matches-has",
+        ),
+        pytest.param(
+            lambda page: partial(page.select("#o input")[-1].matches, ":disabled ~ input"),
+            id="matches-sibling",
+        ),
+        pytest.param(
+            lambda page: partial(page.select("#o input")[0].closest, ":has(input:disabled)"),
+            id="closest-has",
+        ),
+    ],
+)
+def test_disabled_fieldset_late_legend_single_call_scales_linearly(
+    query: Callable[[Document], Callable[[], object]], work_steps: WorkSteps
+) -> None:
+    work_steps.assert_linear(lambda width: query(_late_legend(width)), (500, 2000))
+
+
+def _late_legend(width: int) -> Document:
+    markup = f"{'<div></div>' * width}<legend>{'<input>' * width}</legend>"
+    return parse(f"<div id=o><fieldset disabled>{markup}</fieldset></div>")
+
+
+def test_disabled_fieldset_single_call_answers_match_the_legend_rule() -> None:
+    page = parse("<fieldset disabled><input id=c><legend><input disabled id=a><input id=b></legend></fieldset>")
+    before_legend, disabled_in_legend, exempt_in_legend = page.select("input")
+    assert (
+        before_legend.matches(":disabled"),
+        disabled_in_legend.matches(":disabled"),
+        exempt_in_legend.matches(":enabled"),
+    ) == (True, True, True)
+    assert exempt_in_legend.matches(":disabled ~ input")
+    legend = exempt_in_legend.closest(":has(input:disabled)")
+    assert legend is not None
+    assert legend.tag == "legend"
+
+
+# Level i is a legend (L) or a div (D) that holds input in{i} and the next level. A control is enabled only when every
+# level above it is a legend, since the first legend is the one exempt child of its fieldset.
+@pytest.mark.parametrize(
+    ("kinds", "enabled"),
+    [
+        pytest.param("L" * 40, list(range(40)), id="legends-only"),
+        pytest.param(f"{'L' * 35}D{'L' * 4}", list(range(35)), id="div-below-memo-climb"),
+        pytest.param(f"D{'L' * 39}", [], id="div-outermost"),
+    ],
+)
+def test_disabled_fieldset_levels_enable_only_below_legends(kinds: str, enabled: list[int]) -> None:
+    document = parse(_fieldset_levels(kinds))
+    expected = [f"in{index}" for index in enabled]
+    assert [e.attrs.get("id") for e in document.select("input:enabled")] == expected
+    assert [e.attrs.get("id") for e in document.select("input") if e.matches(":enabled")] == expected
+
+
+def _fieldset_levels(kinds: str) -> str:
+    markup = ""
+    for index in reversed(range(len(kinds))):
+        wrap = "legend" if kinds[index] == "L" else "div"
+        markup = f"<fieldset disabled><{wrap}><input id=in{index}>{markup}</{wrap}></fieldset>"
+    return markup
+
+
+# Every control at the bottom of a chain of legend-held fieldsets climbs past all of them. Without a memo of the climb
+# each control costs the chain's depth, so depth times controls is quadratic in the nesting.
+@pytest.mark.parametrize(
+    "query",
+    [
+        pytest.param(lambda page: page.select("input:enabled"), id="select"),
+        pytest.param(lambda page: page.select("fieldset")[0].matches(":has(input:disabled)"), id="matches-has"),
+    ],
+)
+def test_disabled_fieldset_legend_chain_scales_linearly(
+    query: Callable[[Document], object], work_steps: WorkSteps
+) -> None:
+    work_steps.assert_linear(lambda depth: partial(query, _legend_chain(depth)), (50, 150))
+
+
+def _legend_chain(depth: int) -> Document:
+    return parse("<fieldset disabled><legend>" * depth + "<input>" * depth + "</legend></fieldset>" * depth)
 
 
 def test_detached_element_resolves_lang_and_dir_to_no_ancestor() -> None:
@@ -1791,6 +2156,11 @@ def test_scope_is_the_query_root() -> None:
     assert _scope_ids(p1.select(":scope > a")) == ["link"]
 
 
+def _scope_ids(elements: list[Element]) -> list[str]:
+    # The id of each element in document order (the values are always present strings here).
+    return [value for e in elements if isinstance(value := e.attrs.get("id"), str)]
+
+
 @pytest.mark.parametrize(
     ("has_selector", "leading_combinator_form"),
     [
@@ -1846,19 +2216,6 @@ def test_invalid_ui_selectors_raise(selector: str) -> None:
         parse("<p>").select(selector)
 
 
-_XML_DOC = '<Root><Child Attr="v" class="c"/><child/><div/><DIV/><Wide data-K="1"/></Root>'
-
-
-def _root(markup: str) -> Element:
-    root = parse_xml(markup).root
-    assert isinstance(root, Element)
-    return root
-
-
-def _select_xml(selector: str) -> list[str]:
-    return [element.tag for element in _root(_XML_DOC).select(selector)]
-
-
 @pytest.mark.parametrize(
     ("selector", "tags"),
     [
@@ -1876,7 +2233,14 @@ def _select_xml(selector: str) -> list[str]:
     ],
 )
 def test_xml_selectors_are_case_sensitive(selector: str, tags: list[str]) -> None:
-    assert _select_xml(selector) == tags
+    xml_doc = '<Root><Child Attr="v" class="c"/><child/><div/><DIV/><Wide data-K="1"/></Root>'
+    assert [element.tag for element in _root(xml_doc).select(selector)] == tags
+
+
+def _root(markup: str) -> Element:
+    root = parse_xml(markup).root
+    assert isinstance(root, Element)
+    return root
 
 
 # the HTML case-insensitive attribute-value set (type, lang, rel, ...) is an HTML-document
@@ -1892,7 +2256,7 @@ def test_xml_selectors_are_case_sensitive(selector: str, tags: list[str]) -> Non
     ],
 )
 def test_xml_attribute_values_ignore_the_html_case_insensitive_set(selector: str, tags: list[str]) -> None:
-    root = _root('<r><input type="CheckBox" rel="' + "A" * 80 + '"/></r>')
+    root = _root(f'<r><input type="CheckBox" rel="{"A" * 80}"/></r>')
     assert [element.tag for element in root.select(selector)] == tags
 
 
@@ -2071,7 +2435,10 @@ def test_default_individual_matches_submit_controls() -> None:
     assert [node.matches(":default") for node in document.select("button")] == [True, False]
 
 
-@pytest.mark.parametrize("xml", [pytest.param(False, id="html"), pytest.param(True, id="xml")])
+@pytest.mark.parametrize(
+    "make_document",
+    [pytest.param(parse, id="html"), pytest.param(parse_xml, id="xml")],
+)
 @pytest.mark.parametrize(
     ("selector", "expected"),
     [
@@ -2089,12 +2456,14 @@ def test_default_individual_matches_submit_controls() -> None:
         pytest.param("section:has(> svg)", ["parent"], id="foreign"),
     ],
 )
-def test_relative_type_selectors(selector: str, expected: list[str], *, xml: bool) -> None:
+def test_relative_type_selectors(
+    selector: str, expected: list[str], *, make_document: Callable[[str], Document]
+) -> None:
     markup: Final = (
         '<main><section id="parent"><a class="hit"></a><x-widget></x-widget><svg></svg></section>'
         'text<p id="next"></p><!--gap--><a></a></main>'
     )
-    document: Final = parse_xml(markup) if xml else parse(markup)
+    document: Final = make_document(markup)
     assert [element.attrs["id"] for element in document.select(selector)] == expected
 
 
@@ -2125,3 +2494,364 @@ def test_relative_type_after_rename() -> None:
     parent.append(child)
     child.tag = "A"
     assert parent.matches("section:has(> a)")
+
+
+@pytest.mark.parametrize(
+    ("selector", "matched"),
+    [
+        pytest.param(".c > div", False, id="class-parent"),
+        pytest.param("* > div", False, id="universal-parent"),
+        pytest.param("x-y > div", False, id="custom-element-parent"),
+        pytest.param(":not(a) > div", False, id="pseudo-parent"),
+        pytest.param(":is(.c > div)", False, id="nested"),
+        pytest.param(":root", False, id="root"),
+        pytest.param(":not(:root)", True, id="not-root"),
+    ],
+)
+def test_detached_element_has_no_parent_to_match(selector: str, *, matched: bool) -> None:
+    # the top of a detached subtree has no parent at all, not even a document
+    detached: Final = Element("div")
+    assert detached.matches(selector) is matched
+    assert (detached.closest(selector) == detached) is matched
+
+
+@pytest.mark.parametrize(
+    ("selector", "matched"),
+    [pytest.param(":disabled", False, id="disabled"), pytest.param(":enabled", True, id="enabled")],
+)
+def test_detached_option_has_no_optgroup(selector: str, *, matched: bool) -> None:
+    assert Element("option").matches(selector) is matched
+
+
+def test_child_combinator_stops_at_top_of_extracted_subtree() -> None:
+    article: Final = parse("<article class=body><p>x</p></article>").select("article")[0].extract()
+    assert article.select(".post > .body > p") == []
+    assert [element.tag for element in article.select(".body > p")] == ["p"]
+
+
+def test_child_combinator_stops_at_top_of_extracted_xml_subtree() -> None:
+    # an XML element carries no tag atom, so a bare type selector to the left of > also takes the general path
+    entry: Final = parse_xml("<feed><entry><title/></entry></feed>").select("entry")[0].extract()
+    assert entry.matches("feed > entry") is False
+    assert entry.select("feed > entry > title") == []
+    assert [element.tag for element in entry.select("entry > title")] == ["title"]
+
+
+def test_closest_scope_from_text_of_detached_element() -> None:
+    # a Text node is no scope element, so :scope falls back to the document element, which a detached subtree lacks
+    detached: Final = parse("<div>text</div>").select("div")[0].extract()
+    assert detached.children[0].closest(":scope") is None
+    assert detached.children[0].closest(":not(:scope)") == detached
+
+
+@pytest.mark.parametrize("pseudo", ["nth-child", "nth-last-child", "nth-of-type", "nth-last-of-type"])
+@pytest.mark.parametrize(
+    "offset", [pytest.param(2**31 - 4, id="fourth-child"), pytest.param(2**31 - 3, id="third-child")]
+)
+def test_nth_with_an_offset_near_int_min_matches_nothing(pseudo: str, offset: int) -> None:
+    document: Final = parse("<ul><li>1<li>2<li>3<li>4</ul>")
+    assert document.select(f"li:{pseudo}(-n-{offset})") == []
+
+
+@pytest.mark.parametrize(
+    ("selector", "texts"),
+    [
+        pytest.param("li:nth-child(4294967299)", [], id="fixed-index"),
+        pytest.param("li:nth-child(4294967298n+1)", ["1"], id="step"),
+        pytest.param("li:nth-child(-n+4294967299)", ["1", "2", "3"], id="positive-offset"),
+        pytest.param("li:nth-child(n-4294967299)", ["1", "2", "3"], id="negative-offset"),
+    ],
+)
+def test_nth_integer_beyond_int_range_saturates(selector: str, texts: list[str]) -> None:
+    document: Final = parse("<ul><li>1<li>2<li>3</ul>")
+    assert [element.text for element in document.select(selector)] == texts
+
+
+# 320 characters: past the length from which a class, ~= or *= answer is kept per value for the rest of the query
+_PAD: Final[str] = "w " * 160
+_LONG_VALUES: Final[str] = (
+    "<!doctype html>"
+    f'<ul id=u1 class="{_PAD}hit" data-v="{_PAD}needle"><li id=i1></li><li id=i2></li></ul>'
+    f'<ul id=u2 class="{_PAD}"><li id=i3></li><svg id=s class="{_PAD}Hit"><path id=g></path></svg></ul>'
+)
+
+
+@pytest.mark.parametrize(
+    ("selector", "ids"),
+    [
+        pytest.param(".hit li", ["i1", "i2"], id="class"),
+        pytest.param(".w > li", ["i1", "i2", "i3"], id="class-first-token"),
+        pytest.param(".Hit *", ["g"], id="class-case-sensitive"),
+        pytest.param("ul.nope li", [], id="class-absent"),
+        pytest.param("[class~=hit] li", ["i1", "i2"], id="include"),
+        pytest.param("[class~=HIT i] *", ["i1", "i2", "g"], id="include-case-insensitive"),
+        pytest.param("[class*='w hit'] li", ["i1", "i2"], id="substring"),
+        pytest.param("[class*='W HIT' i] *", ["i1", "i2", "g"], id="substring-case-insensitive"),
+        pytest.param(f"[data-v*='{'w ' * 30}needle'] li", ["i1", "i2"], id="self-overlapping-substring"),
+        pytest.param(f"[data-v*='{'w ' * 30}nope'] li", [], id="self-overlapping-substring-absent"),
+        pytest.param("[class^='w w'] > li", ["i1", "i2", "i3"], id="prefix-read-directly"),
+        pytest.param(".hit, [class~=hit]", ["u1"], id="subject"),
+        pytest.param(":has(> .Hit)", ["u2"], id="inside-has"),
+    ],
+)
+def test_long_attribute_value_answers(selector: str, ids: list[str]) -> None:
+    document: Final = parse(_LONG_VALUES)
+    assert [element.attrs.get("id") for element in document.select(selector)] == ids
+    assert [element.attrs.get("id") for element in document.select("[id]") if element.matches(selector)] == ids
+
+
+def test_long_class_value_folds_case_in_quirks_mode() -> None:
+    quirks: Final = parse(f'<ol class="{_PAD}hit"><li><li></ol>')
+    standard: Final = parse(f'<!doctype html><ol class="{_PAD}hit"><li><li></ol>')
+    counts: Final = [len(document.select(".HIT li")) for document in (quirks, standard)]
+    assert (*counts, len(standard.select(".hit li"))) == (2, 0, 2)
+
+
+def test_long_class_value_shared_by_recreated_formatting_elements() -> None:
+    # every <li> re-creates the open <u>, and each copy points at the class value of the original
+    document: Final = parse(f'<ul><li><u class="{_PAD}hit">{"<li>v" * 4}')
+    counts: Final = [len(document.select(selector)) for selector in ("u", ".hit", ".nope", "li > .hit", "[class~=hit]")]
+    assert counts == [5, 5, 0, 5, 5]
+    assert len(copy.deepcopy(document).select(".hit")) == 5
+
+
+def test_long_class_value_shared_by_copies_in_the_same_tree() -> None:
+    document: Final = parse(f'<ul><li><u class="{_PAD}hit">{"<li>v" * 4}')
+    items: Final = document.select("ul")[0]
+    boundary: Final = Range(items, 0)
+    boundary.set_end(items, 5)
+    document.select("body")[0].append(boundary.clone_contents())
+    assert [len(document.select(selector)) for selector in (".hit", "li > .hit", ".nope")] == [10, 10, 0]
+
+
+def test_long_class_value_is_read_again_after_a_change() -> None:
+    document: Final = parse(f'<ol class="{_PAD}hit"><li></ol>')
+    before: Final = len(document.select(".hit li"))
+    document.select("ol")[0].attrs["class"] = _PAD
+    assert (before, len(document.select(".hit li"))) == (1, 0)
+
+
+def _long_class_recreated(size: int) -> Document:
+    return parse(f'<ul><li><u class="{"w " * size}">{"<li>v" * size}')
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        pytest.param(".hit li", id="descendant"),
+        pytest.param(".hit > li", id="child"),
+        pytest.param("ol.hit li", id="compound"),
+        pytest.param("[class~=hit] li", id="include"),
+        pytest.param("[class*=hitx] li", id="substring"),
+        pytest.param("[class*='w w x'] li", id="self-overlapping-substring"),
+    ],
+)
+def test_long_value_above_many_candidates_matches_in_linear_time(selector: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda size: partial(_long_class_above(size).select, selector), (250, 1000))
+
+
+def _long_class_above(size: int) -> Document:
+    return parse(f'<ol class="{"w " * size}">{"<li>" * size}')
+
+
+@pytest.mark.parametrize("operation", ["select_one", "remove", "prune", "strip_tags"])
+def test_long_value_above_many_candidates_edits_in_linear_time(operation: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda size: partial(getattr(_long_class_above(size), operation), ".hit li:not(.hit)"), (250, 1000)
+    )
+
+
+def test_long_value_filter_over_many_candidates_in_linear_time(work_steps: WorkSteps) -> None:
+    def filtered(size: int) -> Callable[[], object]:
+        return partial(Query(_long_class_above(size))("li").filter, ".hit li")
+
+    work_steps.assert_linear(filtered, (250, 1000))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(_long_class_recreated, id="parsed"),
+        pytest.param(lambda size: copy.deepcopy(_long_class_recreated(size)), id="copied"),
+    ],
+)
+def test_long_value_shared_by_recreated_elements_matches_in_linear_time(
+    build: Callable[[int], Document], work_steps: WorkSteps
+) -> None:
+    work_steps.assert_linear(lambda size: partial(build(size).select, ".hit"), (250, 1000))
+
+
+def test_long_value_shared_by_recreated_elements_in_one_test_in_linear_time(work_steps: WorkSteps) -> None:
+    def has_hit(size: int) -> Callable[[], object]:
+        return partial(_long_class_recreated(size).select("ul")[0].matches, ":has(.hit)")
+
+    work_steps.assert_linear(has_hit, (250, 1000))
+
+
+def test_closest_under_long_value_in_linear_time(work_steps: WorkSteps) -> None:
+    def deepest(size: int) -> Callable[[], object]:
+        return partial(parse(f'<section class="{"w " * size}">{"<div>" * size}').select("div")[-1].closest, ".hit *")
+
+    work_steps.assert_linear(deepest, (250, 1000))
+
+
+# threading.stack_size cannot go below the 2 MiB python.exe reserves on Windows, so there the thread
+# reserves its size with CreateThread, as tests/js/test_parser.py does
+_SMALL_STACK_THREAD: Final[str] = """\
+import sys
+import threading
+
+
+def start(target, size):
+    if sys.platform != "win32":
+        threading.stack_size(size)
+        worker = threading.Thread(target=target)
+        worker.start()
+        worker.join()
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32")
+    thread_main = ctypes.WINFUNCTYPE(wintypes.DWORD, wintypes.LPVOID)
+    kernel32.CreateThread.restype = wintypes.HANDLE
+    kernel32.CreateThread.argtypes = [
+        wintypes.LPVOID, ctypes.c_size_t, thread_main, wintypes.LPVOID, wintypes.DWORD, wintypes.LPVOID
+    ]
+
+    def entry(_):
+        target()
+        return 0
+
+    stack_size_param_is_a_reservation = 0x10000
+    callback = thread_main(entry)
+    handle = kernel32.CreateThread(None, size, callback, None, stack_size_param_is_a_reservation, None)
+    kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
+
+
+"""
+
+
+@pytest.mark.parametrize(
+    "setup",
+    [
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<s>" * n + "<t/>" + "</s>" * n)\n'
+            'call = lambda: document.select(" > ".join(["s"] * n + ["t"]))\n',
+            id="child",
+        ),
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<r>" + "<s/>" * n + "<t/></r>")\n'
+            'call = lambda: document.select(" ~ ".join(["s"] * n + ["t"]))\n',
+            id="general-sibling",
+        ),
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<s>" * n + "<t/>" + "</s>" * n)\n'
+            'call = lambda: document.select(" ".join(["s"] * n + ["t"]))\n',
+            id="descendant-deep-tree",
+        ),
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<r>" + "<u>" * 600 + "</u>" * 600 + "<s/>" * n + "<t/></r>")\n'
+            'call = lambda: document.select("r " + " ~ ".join(["s"] * n + ["t"]))\n',
+            id="general-sibling-deep-tree",
+        ),
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<r><u/>" + "<s/>" * n + "<t/></r>")\n'
+            'call = lambda: document.select("u:has(~ " + " ~ ".join(["s"] * n + ["t"]) + ")")\n',
+            id="has-general-sibling",
+        ),
+        pytest.param(
+            "n = 6_144\n"
+            'document = parse_xml("<s>" * n + "<t/>" + "</s>" * n)\n'
+            'call = lambda: [document.select_one("s:has(" + " ".join(["s"] * (n - 1) + ["t"]) + ")")]\n',
+            id="has-descendant-deep-tree",
+        ),
+        pytest.param(
+            'selector = "t"\n'
+            "for _ in range(30):\n"
+            "    selector = ':is(' + selector + ') > ' + ' > '.join(['s'] * 29)\n"
+            'document = parse_xml("<r><s/></r>")\n'
+            "call = lambda: document.select(selector)\n",
+            id="summed-over-nesting",
+        ),
+    ],
+)
+def test_long_selector_chain_raises_recursion_error_on_a_small_stack(setup: str) -> None:
+    code = (
+        f"{_SMALL_STACK_THREAD}"
+        "from turbohtml import parse, parse_xml\n"
+        f"{setup}"
+        "outcome = []\n"
+        "def run():\n"
+        "    try:\n"
+        "        outcome.append(len(call()))\n"
+        "    except RecursionError as error:\n"
+        "        outcome.append(str(error))\n"
+        "start(run, 256 * 1024)\n"
+        "print(outcome[0])\n"
+    )
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # argv is a fixed list, so no shell is involved
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
+    )
+    assert (result.returncode, "C stack" in result.stdout) == (0, True), result.stderr
+
+
+def test_long_selector_chain_cached_on_a_large_stack_raises_on_a_small_one() -> None:
+    code = (
+        f"{_SMALL_STACK_THREAD}"
+        "from turbohtml import parse_xml\n"
+        "document = parse_xml('<s>' * 1000 + '<t/>' + '</s>' * 1000)\n"
+        "selector = ' > '.join(['s'] * 1000 + ['t'])\n"
+        "print(len(document.select(selector)))\n"
+        "outcome = []\n"
+        "def run():\n"
+        "    try:\n"
+        "        outcome.append(len(document.select(selector)))\n"
+        "    except RecursionError as error:\n"
+        "        outcome.append(str(error))\n"
+        "start(run, 256 * 1024)\n"
+        "print(outcome[0])\n"
+    )
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # argv is a fixed list, so no shell is involved
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
+    )
+    assert (result.returncode, result.stdout.startswith("1\n"), "C stack" in result.stdout) == (0, True, True), (
+        result.stderr
+    )
+
+
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        pytest.param(" > ".join(["s"] * 199 + ["t"]), ["t"], id="chain"),
+        pytest.param(f"{' > '.join(['s'] * 199 + ['t'])}, t:first-child", ["t"], id="shorter-alternative-after"),
+        pytest.param(f":is({' > '.join(['s'] * 199)}) > t:is(t)", ["t"], id="shorter-nested-list-after"),
+    ],
+)
+def test_long_selector_chain_matches_when_the_stack_holds_it(selector: str, expected: list[str]) -> None:
+    document = parse_xml(f"{'<s>' * 199}<t/>{'</s>' * 199}")
+    assert [element.tag for element in document.select(selector)] == expected
+
+
+def test_select_long_values_nested_past_probe_run_limit() -> None:
+    document: Final = _long_values_nested(300)
+    assert len(document.select(f'group[pad~="{"x" * 262}"] group')) == 299
+    assert document.select('group[pad~="zz"] group') == []
+
+
+def _long_values_nested(groups: int) -> Document:
+    # nested groups with long attribute values, each memoized under its sequence, and the sequences hash into the lowest
+    # eighth of the memo's home slots, so the entries form one probe run past the fast run limit; a group's ancestors
+    # are tested again under each descendant, so later lookups hit entries deep in that run
+    pad: Final = "x" * 262
+    parts: list[str] = []
+    sequence = 1
+    while sum(part.startswith("<group") for part in parts) < groups:
+        sequence += 1
+        parts.append(f'<group pad="{pad}">' if sequence * 0x61C88647 % 2**32 < 2**29 else "<!---->")
+    return parse_xml(f"<r>{''.join(parts)}{'</group>' * groups}</r>")

@@ -88,6 +88,68 @@ def index_truncation_warning(block: Optional[dict]) -> Optional[str]:
     )
 
 
+def index_withheld_meta(index) -> Optional[dict]:
+    """Query-time ``_meta.index_withheld`` block: files left out for size.
+
+    A file over ``max_file_size`` is counted in the index's coverage
+    (``withheld.too_large``). Before this block the count reached an answer only
+    inside ``_meta.verdict`` on an absent or degraded answer, so a search that
+    found something over a corpus missing a large source file read as complete.
+    Returns None when nothing was withheld for size, or the index predates
+    coverage recording. The count is the index's withheld set
+    (``withheld_files_total``), the same reading :func:`withheld_file_info`
+    makes: ``withheld.too_large`` is only the latest walk's count, so after a
+    subdir walk it can be lower than what the index still withholds. The limit
+    is the one the walk used, read off the per-file record when the index
+    carries it.
+    """
+    cov = getattr(index, "coverage", None)
+    if not isinstance(cov, dict):
+        return None
+    total = cov.get("withheld_files_total")
+    if total is None:
+        total = (cov.get("withheld") or {}).get("too_large")
+    try:
+        n = int(total or 0)
+    except (TypeError, ValueError):
+        return None
+    if n <= 0:
+        return None
+    block: dict = {"files_over_size_limit": n}
+    limits = set()
+    for entry in (cov.get(WITHHELD_FILES_KEY) or {}).values():
+        if isinstance(entry, dict) and isinstance(entry.get("limit"), int) and entry["limit"] > 0:
+            limits.add(entry["limit"])
+    if len(limits) == 1:
+        block["max_file_size"] = next(iter(limits))
+    return block
+
+
+def index_withheld_warning(block: Optional[dict]) -> Optional[str]:
+    """The answer-body line for a result drawn from an index that withheld
+    files for size, or None.
+
+    Separate from :func:`index_truncation_warning`: the file-count cap and the
+    per-file size limit are different settings with different remedies.
+    """
+    if not isinstance(block, dict):
+        return None
+    n = block.get("files_over_size_limit")
+    if not isinstance(n, int) or n <= 0:
+        return None
+    limit = block.get("max_file_size")
+    over = (
+        f"the per-file size limit (max_file_size, {limit:,} bytes)"
+        if isinstance(limit, int)
+        else "the per-file size limit (max_file_size)"
+    )
+    files = "1 file" if n == 1 else f"{n} files"
+    return (
+        f"This index left out {files} over {over}, so these results do not "
+        f"include them. {_TOO_LARGE_REMEDY}"
+    )
+
+
 # Version pin for the confidence/score heuristics the verdict reports.
 # Bump whenever the scoring formula (BM25 blending, thresholds, seeding
 # floors) changes, so calibration claims tie to the scorer that produced
@@ -326,6 +388,41 @@ _NOTES = {
         "Results are partial and absence is NOT proven."
     ),
 }
+
+
+def filters_refuse_absence(filters) -> bool:
+    """Whether a search's filters make its absence uncitable.
+
+    An attribute filter (language, kind, decorator) narrows the scan to a
+    slice nothing records as a scope, so nothing found says nothing about the
+    index. A ``file_pattern`` alone is a path scope the evidence carries, so the
+    absence stays citable within it. The one rule for every reader.
+    """
+    return bool(filters) and set(filters) != {"file_pattern"}
+
+
+#: How to restore a file's missing cached copy, in every message that reports
+#: one (get_symbol_source's reason and verdict note, get_file_content,
+#: get_context_bundle). ``refresh`` needs ``--reset`` once a campaign has
+#: finished, or it re-parses nothing; ``index_file`` needs a local tree, so an
+#: ``index_repo`` snapshot is named apart, with ``incremental=False``: a default
+#: incremental ``index_repo`` answers "No changes detected" from the tree SHA
+#: and never looks at the cached copies.
+CONTENT_COPY_REPAIR = (
+    "For an index of a local folder, run index_file on the file, or index_folder "
+    "with paths=[file], to restore it, or `jcodemunch-mcp refresh <folder> --reset` "
+    "to restore every missing copy. An index_repo snapshot is restored by "
+    "index_repo with incremental=False."
+)
+
+
+def content_copy_missing_reason(file_path: str, content_dir=None) -> str:
+    """The reason given for a file whose cached text could not be read."""
+    where = f" under {content_dir}" if content_dir else ""
+    return (
+        f"The cached copy of {file_path} is missing{where}. The index row "
+        f"resolves; only the file's cached text is gone. {CONTENT_COPY_REPAIR}"
+    )
 
 
 def refuse_absence(verdict: dict, note: str) -> bool:
@@ -1181,8 +1278,7 @@ def build_symbol_verdict(
             f"{unavailable_source_count} symbol{plural} resolved but the body could not "
             "be read: the cached file content is missing for that path. Signatures, "
             "docstrings and line ranges are accurate; `source` is empty because it is "
-            "unavailable, NOT because the symbol is empty. Re-index the repo to "
-            "rebuild the content cache."
+            "unavailable, NOT because the symbol is empty. " + CONTENT_COPY_REPAIR
         )
         suggestions = []
     else:

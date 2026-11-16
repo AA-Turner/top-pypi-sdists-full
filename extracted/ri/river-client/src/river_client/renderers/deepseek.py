@@ -1299,7 +1299,8 @@ class DeepSeekV4Renderer(Renderer):
 
     def _text_of(self, message: Message) -> str:
         """Rendered text/placeholder content of one message."""
-        content = message["content"]
+        # The encoder renders absent content as nothing.
+        content = message["content"] or ""
         if isinstance(content, str):
             self._reject_literal_image_placeholder(content)
             return content

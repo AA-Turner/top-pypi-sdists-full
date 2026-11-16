@@ -375,6 +375,15 @@ class ScaleCoordinates(ComposedFunction):
     >>> f = cma.ScaleCoordinates(f, [-2, 7], [2, 3, 4]) # last is recycled
     >>> bool(f([5, 6]) == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)]))
     True
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=5)
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 2.5, 5.0]
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=[5, 6], lower=[0, 1, 2])
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 3.5, 6.0]
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=[5, 6, 7], lower=[0, 1])
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 3.5, 7.0]
 
     See also these [Practical Hints](https://cma-es.github.io/cmaes_sourcecode_page.html#practical)
     for encoding variables.
@@ -450,7 +459,8 @@ class ScaleCoordinates(ComposedFunction):
                 self.lower = 0
             if upper is None:
                 self.upper = np.asarray(self.lower) + 1
-            idx = np.where(np.asarray(self.upper, dtype=float) - self.lower <= 0)[0]
+            self.lower, self.upper = align(self.lower, self.upper)
+            idx = np.flatnonzero(np.asarray(self.upper, dtype=float) - self.lower <= 0)
             if len(idx):
                 raise ValueError('`upper` value(s) must be stricly larger than'
                                     ' `lower` value(s); values were:'
@@ -458,13 +468,12 @@ class ScaleCoordinates(ComposedFunction):
                                  '\n lower={1}'
                                  '\n offending indices = {2}'
                                  .format(self.upper, self.lower, list(idx)))
-            self.lower, self.upper = align(self.lower, self.upper)
-
             dx = self.from_lower_upper[1] - self.from_lower_upper[0]
             self.multiplier = (np.asarray(self.upper, dtype=float) - self.lower) / dx
             self.zero = self.from_lower_upper[0] - self.multiplier**-1 * self.lower
             zero_from_upper = self.from_lower_upper[1] - self.multiplier**-1 * self.upper
-            if not _Mh.vequals_approximately(self.zero, zero_from_upper):
+            if not _Mh.vequals_approximately(np.atleast_1d(self.zero),
+                                             np.atleast_1d(zero_from_upper)):
                 warnings.warn('zero computed from upper and lower differ'
                               '\n from upper={0}'
                               '\n from lower={1}'
@@ -542,8 +551,8 @@ class LowEffectiveDimension(ComposedFunction):
                 # this only works when the dimension is known, hence not in __init__
                 x = x[:max((1, int(effective_dimensions * len(x))))]
             elif effective_dimensions is not None and effective_dimensions != 1:
-                raise ValueError("effective_dimensions = {0} of type {1} is not a valid value."
-                                 " Use an int or a float <= 1."
+                raise ValueError("effective_dimensions = {0} of type {1} is"  # noqa: UP030, UP032
+                                 " not a valid value. Use an int or a float <= 1."
                                  .format(effective_dimensions, type(effective_dimensions)))
             return x
         self._select_effective = _select_effective  # for the record
@@ -560,12 +569,42 @@ class NeutralVariables(ComposedFunction):
 
     An instance call returns ``f(self.transform(x))``.
 
+    The input and fixed values are promoted to a common NumPy dtype before
+    assignment, preserving fractional values even when the input is integral.
+    The input is not modified.
+
     Caveat: this has never been thoroughly tested.
 
+    >>> import cma, numpy as np
     >>> from cma import fitness_transformations as ft
     >>> fun = ft.NeutralVariables(cma.ff.sphere, [2, 3], 0)
     >>> 1**2 + 2**2 == fun([1,2,3,4])
     True
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], 0.5)
+    >>> for x in ([1, 2, 3], (1, 2, 3), np.array([1, 2, 3])):
+    ...     assert np.array_equal(fun.transform(x), [1, 0.5, 3])
+    ...     assert fun(x) == 10.25
+    ...     assert np.array_equal(x, [1, 2, 3])
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [0, 2], [-0.5, 1.25])
+    >>> x = np.array([1, 2, 3], dtype=np.int32)
+    >>> fun.transform(x).tolist()
+    [-0.5, 2.0, 1.25]
+    >>> assert np.array_equal(x, [1, 2, 3])
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], np.float32(0.5))
+    >>> x = np.array([1, 2, 3], dtype=np.float32)
+    >>> transformed = fun.transform(x)
+    >>> transformed.tolist()
+    [1.0, 0.5, 3.0]
+    >>> assert transformed.dtype == x.dtype
+    >>> assert not np.shares_memory(x, transformed)
+    >>> assert np.array_equal(x, [1, 2, 3])
+    >>> value = np.float64(1 + 2**-30)
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], value)
+    >>> transformed = fun.transform(x)
+    >>> assert transformed.dtype == np.dtype(np.float64)
+    >>> assert np.array_equal(transformed, [1, value, 3])
+    >>> assert not np.shares_memory(x, transformed)
+    >>> assert np.array_equal(x, [1, 2, 3])
 
     """
     def __init__(self, f, indices, values):
@@ -578,7 +617,10 @@ class NeutralVariables(ComposedFunction):
 
         This is the first transformation in this function composition.
         """
-        x = np.array(x, copy=True)
+        x = np.asarray(x)
+        # Explicit dtypes avoid NumPy 1.x value-based promotion of scalars.
+        dtype = np.result_type(x.dtype, np.asarray(self._values).dtype)
+        x = np.array(x, dtype=dtype, copy=True)
         x[self._indices] = self._values
         return x
 
@@ -730,6 +772,21 @@ class IntegerMixedFunction2(ComposedFunction):
     >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, [0])
     >>> assert f([-0.2, 2]) == f(np.array([0.4, 2])) != f(np.array([0.8, 2]))
 
+    Custom operators act on individual coordinates for both lists and arrays:
+
+    >>> import math
+    >>> from cma.fitness_transformations import IntegerMixedFunction2
+    >>> for operator in (np.floor, np.ceil, math.trunc):
+    ...     f = IntegerMixedFunction2(lambda x: x, [0, 1], operator=operator)
+    ...     x = np.array([1.7, -1.2, 2.4])
+    ...     expected = [operator(x[0]), operator(x[1]), x[2]]
+    ...     assert np.array_equal(f(x), expected)
+    ...     assert np.array_equal(f(x.tolist()), expected)
+    ...     assert np.array_equal(x, [1.7, -1.2, 2.4])
+    >>> f = IntegerMixedFunction2(lambda x: x, [0], operator=math.floor, copy=False)
+    >>> x = np.array([1.7, 2.4])
+    >>> assert f(x) is x and np.array_equal(x, [1, 2.4])
+
     Related: Option ``'integer_variables'`` of `cma.CMAOptions` sets
     ``'minstd'`` of integer variables, see
     `cma.options_parameters.integer_std_lower_bound` and rounds the better
@@ -753,7 +810,7 @@ class IntegerMixedFunction2(ComposedFunction):
             x[self.integer_variable_indices] = new_values
         return x
     def _flatten(self, x):
-        if isinstance(x, np.ndarray):
+        if isinstance(x, np.ndarray) and self.operator is np.round:
             return self._flatten2(x)  # hopefully faster
         copied = False
         for i in sorted(self.integer_variable_indices):

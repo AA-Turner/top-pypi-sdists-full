@@ -37,14 +37,17 @@ from ..device_ir import ForLoopGraphInfo
 from ..device_ir import IfGraphInfo
 from ..indexing_strategy import subscript_tile_info
 from ..type_info import CallableType
+from .analysis.match_common import node_tensor
 from .atomic_output_promotions import fresh_half_atomic_outputs
 from .pipeline_smem import Tcgen05PipelineSmemFacts
 from .pipeline_smem import max_pipeline_ab_stages
+from .split_k_workspace_config import ATOMIC_EPILOGUE_KEY
 from .split_k_workspace_config import PARTITION_CHOICES
 from .split_k_workspace_config import PARTITIONS_KEY
 from .split_k_workspace_config import STAGES_KEY
 from .split_k_workspace_config import WORKSPACE_CONFIG_KEYS as WORKSPACE_CONFIG_KEYS
 from .split_k_workspace_config import WORKSPACE_KEY as WORKSPACE_KEY
+from .state import cute_env_state
 
 if TYPE_CHECKING:
     from torch.fx import Node
@@ -131,14 +134,10 @@ class SplitKWorkspaceSchedule:
     bn: int
     bk: int
     stages: int
-
-
-def _tensor(node: object) -> torch.Tensor | None:
-    if isinstance(node, torch.fx.Node):
-        value = node.meta.get("val")
-        if isinstance(value, torch.Tensor):
-            return value
-    return None
+    # The producer reduces into the zero-filled output with packed atomic
+    # adds (no fp32 partials, no reducer launch); see
+    # ``atomic_epilogue_admissible``.
+    atomic_epilogue: bool = False
 
 
 def _is_call(node: object, target: object) -> bool:
@@ -202,7 +201,7 @@ def _direct_load(
         return None
     source = node.args[0]
     assert isinstance(source, torch.fx.Node)
-    tensor = _tensor(source)
+    tensor = node_tensor(source)
     indices = node.args[1]
     if (
         tensor is None
@@ -242,7 +241,8 @@ def _getitem(node: object, source: Node, index: int, matched: set[Node]) -> bool
 
 
 def _fresh_zero_output(host: HostFunction, name: str, env: CompileEnvironment) -> bool:
-    if name not in env.cute_half_atomic_output_promotions and name not in (
+    promotions = cute_env_state(env).half_atomic_output_promotions
+    if name not in promotions and name not in (
         fresh_half_atomic_outputs(host.body, {name: torch.float32})
     ):
         return False
@@ -277,7 +277,7 @@ def _fresh_zero_output(host: HostFunction, name: str, env: CompileEnvironment) -
             and parent.attr == "to"
             and isinstance(call := parents[id(parent)], ast.Call)
             and isinstance(parents[id(call)], ast.Return)
-            and name in env.cute_half_atomic_output_promotions
+            and name in promotions
         ):
             continue
         if (
@@ -377,8 +377,8 @@ def _first_partition_bias(
         not _is_call(result, torch.ops.aten.add.Tensor)
         or not isinstance(result, torch.fx.Node)
         or len(result.args) != 2
-        or _tensor(result) is None
-        or cast("torch.Tensor", _tensor(result)).dtype is not torch.float32
+        or node_tensor(result) is None
+        or cast("torch.Tensor", node_tensor(result)).dtype is not torch.float32
     ):
         return False, None
     left, right = result.args
@@ -416,11 +416,12 @@ def analyze_split_k_reduction(
 ) -> SplitKWorkspaceProof | None:
     """Use typed graph identities, never source names or sample shape hints."""
     host = ir.host_function
+    env_state = cute_env_state(env)
     if (
         env.backend_name != "cute"
         or host is None
         or env._is_distributed
-        or env.cute_fission_plan is not None
+        or env_state.fission_plan is not None
         or len(ir.root_ids) != 1
         or len(ir.grid_block_ids[0]) != 3
         or env.config_spec.target_device_capability is None
@@ -466,8 +467,8 @@ def analyze_split_k_reduction(
         or not _is_call(atomic.args[0], _tracing_ops._host_tensor)
         or not isinstance(atomic.args[1], (tuple, list))
         or len(atomic.args[1]) != 2
-        or _tensor(atomic.args[2]) is None
-        or cast("torch.Tensor", _tensor(atomic.args[2])).dtype is not torch.float32
+        or node_tensor(atomic.args[2]) is None
+        or cast("torch.Tensor", node_tensor(atomic.args[2])).dtype is not torch.float32
         or loop.kwargs
         or len(loop.args) != 4
         or type(loop.args[0]) is not int
@@ -476,16 +477,17 @@ def analyze_split_k_reduction(
     ):
         return None
     output_node = cast("Node", atomic.args[0])
-    output = _tensor(output_node)
+    output = node_tensor(output_node)
     output_name = output_node.args[0]
     # The destination is either FP32 (a user FP32 output, or a float16 output
-    # the atomic lowering promoted to FP32 storage) or a bfloat16 output, which
-    # the atomic lowering leaves in its requested dtype: the reducer casts the
+    # the atomic lowering promoted to FP32 storage) or a half output the
+    # atomic lowering leaves in its requested dtype (bfloat16 always, float16
+    # with ``cute_promote_half_atomic_outputs`` off): the reducer casts the
     # FP32 partial sum to it once, where the atomics rounded every partition.
     if (
         output is None
         or output.ndim != 2
-        or output.dtype not in (torch.float32, torch.bfloat16)
+        or output.dtype not in (torch.float32, torch.bfloat16, torch.float16)
         or not isinstance(output_name, str)
         or not output_name.isidentifier()
         or not _fresh_zero_output(host, output_name, env)
@@ -656,7 +658,9 @@ def analyze_split_k_reduction(
     if chunk is None:
         return None
     returns = [stmt for stmt in host.body if isinstance(stmt, ast.Return)]
-    output_dtype = env.cute_half_atomic_output_promotions.get(output_name, output.dtype)
+    output_dtype = env_state.half_atomic_output_promotions.get(
+        output_name, output.dtype
+    )
     expected_return = (
         output_name
         if output_dtype is output.dtype
@@ -788,7 +792,7 @@ def analyze_split_k_store_reduction(
         env.backend_name != "cute"
         or host is None
         or env._is_distributed
-        or env.cute_fission_plan is not None
+        or cute_env_state(env).fission_plan is not None
         or len(ir.root_ids) != 1
         or len(ir.grid_block_ids[0]) != 2
         or env.config_spec.target_device_capability is None
@@ -842,7 +846,7 @@ def analyze_split_k_store_reduction(
     ):
         return None
     output_node = cast("Node", store.args[0])
-    output = _tensor(output_node)
+    output = node_tensor(output_node)
     output_name = output_node.args[0]
     if (
         output is None
@@ -990,8 +994,8 @@ def analyze_split_k_store_reduction(
         _is_call(value, torch.ops.aten.add.Tensor)
         and isinstance(value, torch.fx.Node)
         and len(value.args) == 2
-        and _tensor(value) is not None
-        and cast("torch.Tensor", _tensor(value)).dtype is torch.float32
+        and node_tensor(value) is not None
+        and cast("torch.Tensor", node_tensor(value)).dtype is torch.float32
         and _strip_new_vars(value.args[0], matched) is loop_value
     ):
         load = _direct_load(value.args[1], env)
@@ -1119,6 +1123,141 @@ def analyze_split_k_workspace(
     return proof
 
 
+# Output dtypes with a packed relaxed atomic add the producer's epilogue can
+# issue from its staged tile (``red.global.add.noftz.{f16x2,bf16x2}`` and
+# ``red.global.add.v2.f32``).
+ATOMIC_EPILOGUE_DTYPES = frozenset((torch.float16, torch.bfloat16, torch.float32))
+
+
+def atomic_epilogue_admissible(proof: SplitKWorkspaceProof) -> bool:
+    """Whether the proved reduction can take ``cute_split_k_atomic_epilogue``:
+    an atomic split-K add (the plain store has no zero-filled destination to
+    add into) whose output is kept in a dtype with a packed atomic add (a
+    promoted half output keeps its fp32 storage and host cast, which the
+    reducer form serves)."""
+    return (
+        not proof.store
+        and proof.output.dtype is proof.output_dtype
+        and proof.output_dtype in ATOMIC_EPILOGUE_DTYPES
+    )
+
+
+@dataclass(frozen=True)
+class AtomicEpilogueGeometry:
+    """How the producer's epilogue warps walk one staged epilogue subtile
+    (``tile_m`` x ``tile_n`` fp32 values in shared memory) as packed atomic
+    adds of ``width`` output elements (8 bytes) per lane: ``chunks_per_row``
+    lanes cover a row, a warp instruction covers ``32 // chunks_per_row``
+    rows, and the four epilogue warps take ``iterations`` instructions each.
+
+    The subtiles of a CTA's ``rows`` x ``cta_n`` tile are enumerated M
+    fastest (``m_subtiles`` along M); a subtile's columns are ``run``-long
+    contiguous runs of the CTA tile placed ``run_stride`` apart (CUTLASS's
+    ``(tile_n // warp_n, warp_n):(1, cta_n // warp_n)`` epilogue tiler), the
+    N subtile index selecting the run offset.
+    """
+
+    rows: int
+    tile_m: int
+    tile_n: int
+    m_subtiles: int
+    width: int
+    chunks_per_row: int
+    iterations: int
+    run: int
+    run_stride: int
+
+    def subtile_expressions(self, subtile: str) -> tuple[str, str]:
+        """The (M, N) subtile indices of flat subtile index ``subtile``."""
+        if self.m_subtiles == 1:
+            return "0", subtile
+        return f"{subtile} % {self.m_subtiles}", f"{subtile} // {self.m_subtiles}"
+
+    def row_expression(self, subtile_m: str, row: str) -> str:
+        """The CTA tile row of subtile row ``row``."""
+        if self.m_subtiles == 1:
+            return row
+        return f"{subtile_m} * {self.tile_m} + {row}"
+
+    def column_expression(self, subtile_n: str, column: str) -> str:
+        """The CTA tile column of subtile ``subtile_n``'s column ``column``."""
+        if self.run == self.tile_n:
+            return f"{subtile_n} * {self.tile_n} + {column}"
+        return (
+            f"{column} // {self.run} * {self.run_stride} + {subtile_n} * {self.run}"
+            f" + {column} % {self.run}"
+        )
+
+    @property
+    def lane_column_fixed(self) -> bool:
+        """A lane's column within the subtile is the same in every iteration
+        (its row advances): the column-indexed bias is loaded once."""
+        return 32 % self.chunks_per_row == 0
+
+
+# Bytes of output one lane reduces per packed atomic instruction (the
+# ``red.global.add.v2.f32`` / ``.v2.f16x2`` forms; one 128-byte row of a
+# 64-column half tile per 16 lanes).
+ATOMIC_EPILOGUE_LANE_BYTES = 8
+
+
+def atomic_epilogue_geometry(
+    *,
+    rows: int,
+    cta_m: int,
+    cta_n: int,
+    use_2cta_instrs: bool,
+    elem_width_c: int | None,
+    d_is_m_major: bool,
+    c_is_m_major: bool,
+    itemsize: int,
+) -> AtomicEpilogueGeometry | None:
+    """The epilogue walk of a producer CTA owning ``rows`` rows of the pair
+    tile whose staged epilogue subtile is CUTLASS's
+    ``compute_epilogue_tile_shape`` of the lowering's own arguments (the
+    ``(cta_m, cta_n)`` shape, two-CTA flag and source-C description it
+    emitted); ``None`` when the packed width does not tile a run or the
+    chunks do not spread evenly over 128 epilogue threads."""
+    # Lazy import: ``cutlass`` is only loaded on the cute backend.
+    from cutlass.utils.blackwell_helpers import compute_epilogue_tile_size
+
+    tile_m, tile_n = compute_epilogue_tile_size(
+        cta_m,
+        cta_n,
+        use_2cta_instrs,
+        32,
+        elem_width_c,
+        d_is_m_major=d_is_m_major,
+        c_is_m_major=c_is_m_major,
+    )
+    # CUTLASS ``compute_epilogue_tile_shape``: the warps form a (2, 2) grid
+    # for a 64-row two-CTA tile and a (4, 1) grid otherwise; the N tiler is
+    # ``(tile_n // warp_n, warp_n)`` striding by ``cta_n // warp_n``. The
+    # generated kernel re-checks this mapping against the tiler it builds
+    # while it is traced (``_split_k_atomic_runtime.check_epilogue_tiler``),
+    # so a CUTLASS change fails the compile instead of misaddressing.
+    warp_n = 2 if cta_m == 64 and use_2cta_instrs else 1
+    run = tile_n // warp_n
+    width = ATOMIC_EPILOGUE_LANE_BYTES // itemsize
+    if width < 1 or run % width or rows % tile_m or cta_n % tile_n:
+        return None
+    chunks_per_row = tile_n // width
+    chunks = tile_m * chunks_per_row
+    if chunks % 128:
+        return None
+    return AtomicEpilogueGeometry(
+        rows,
+        tile_m,
+        tile_n,
+        rows // tile_m,
+        width,
+        chunks_per_row,
+        chunks // 128,
+        run,
+        cta_n // warp_n,
+    )
+
+
 def workspace_schedule(
     proof: SplitKWorkspaceProof,
     env: CompileEnvironment,
@@ -1127,6 +1266,11 @@ def workspace_schedule(
     capacity_bytes: int,
 ) -> SplitKWorkspaceSchedule | None:
     """A full batch view cannot include padding or cross a partition boundary."""
+    atomic_epilogue = config.get(ATOMIC_EPILOGUE_KEY, False)
+    if type(atomic_epilogue) is not bool or (
+        atomic_epilogue and not atomic_epilogue_admissible(proof)
+    ):
+        return None
     chunk = proof.chunk_size(config)
     blocks = tuple(
         env.config_spec.block_sizes.config_get(config.block_sizes, axis)
@@ -1158,4 +1302,6 @@ def workspace_schedule(
     )
     if stages > maximum:
         return None
-    return SplitKWorkspaceSchedule(partitions, chunk, bm, bn, bk, stages)
+    return SplitKWorkspaceSchedule(
+        partitions, chunk, bm, bn, bk, stages, atomic_epilogue=atomic_epilogue
+    )

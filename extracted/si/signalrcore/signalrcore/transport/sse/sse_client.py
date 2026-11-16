@@ -58,8 +58,8 @@ class SSEClient(BaseSocketClient):
             self,
             url: str = None,
             connection_id: str = None,
-            headers: dict = dict(),
-            proxies: dict = dict(),
+            headers: Union[dict, None] = None,
+            proxies: Union[dict, None] = None,
             ssl_context: ssl.SSLContext = None,
             enable_trace: bool = False,
             on_message: Callable = None,
@@ -96,7 +96,7 @@ class SSEClient(BaseSocketClient):
 
         return [
             f"GET {relative_reference} HTTP/1.1",
-            f"Host: {parsed_url.hostname}",
+            f"Host: {parsed_url.netloc.rsplit('@', 1)[-1]}",
             "Accept: text/event-stream",
             "Cache-Control: no-cache",
             "Connection: keep-alive"
@@ -187,7 +187,9 @@ class SSEClient(BaseSocketClient):
 
         if self.is_trace_enabled():
             self.logger.debug(f"[TRACE] - [prepare data: input] {buffer}")
+
         sep = RECORD_SEPARATOR.encode(DEFAULT_ENCODING)
+
         if sep in buffer:
             decoded_strs = [parse_sse_to_json(x) for x in buffer.split(sep)]
             decoded_str = RECORD_SEPARATOR.join(decoded_strs)
@@ -304,6 +306,9 @@ class SSEClient(BaseSocketClient):
                     socket.SO_LINGER,
                     struct.pack('ii', 1, 0)
                     )
-                return super().dispose()
             except Exception as ex:
-                self.logger.error(ex)
+                # SO_LINGER is an optimization to force a RST; failing to
+                # set it must not skip the socket close or the thread join.
+                self.logger.debug(f"Unable to set SO_LINGER: {ex}")
+
+        super().dispose()

@@ -6,14 +6,14 @@ import inspect
 import logging
 import os
 import re
+from collections.abc import Callable, Iterable
 from enum import Enum, unique
 from importlib.util import find_spec
 from subprocess import PIPE, Popen
-from typing import Callable, Dict, Iterable
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db import DEFAULT_DB_ALIAS, ProgrammingError, connections
+from django.db import DEFAULT_DB_ALIAS, NotSupportedError, ProgrammingError, connections
 from django.db.migrations import Migration, RunPython, RunSQL
 from django.db.migrations.operations.base import Operation
 
@@ -23,6 +23,7 @@ from .constants import (
     DJANGO_APPS_WITH_MIGRATIONS,
     EXPECTED_DATA_MIGRATION_ARGS,
 )
+from .exceptions import MigrationLinterException
 from .operations import IgnoreMigration
 from .sql_analyser import analyse_sql_statements, get_sql_analyser_class
 from .sql_analyser.base import Issue
@@ -40,7 +41,7 @@ class MessageType(Enum):
 
     @staticmethod
     def values() -> list[str]:
-        return list(map(lambda c: c.value, MessageType))
+        return [c.value for c in MessageType]
 
 
 class MigrationLinter:
@@ -177,20 +178,41 @@ class MigrationLinter:
             self.lint_cached_migration(app_label, migration_name, md5hash)
             return
 
-        sql_statements = self.get_sql(app_label, migration_name)
-        errors, ignored, warnings = analyse_sql_statements(
-            self.sql_analyser_class,
-            sql_statements,
-            self.exclude_migration_tests,
-        )
+        errors: list[Issue] = []
+        ignored: list[Issue] = []
+        warnings: list[Issue] = []
 
-        err, ignored_data, warnings_data = self.analyse_data_migration(migration)
-        if err:
-            errors += err
-        if ignored_data:
-            ignored += ignored_data
-        if warnings_data:
-            warnings += warnings_data
+        try:
+            sql_statements = self.get_sql(app_label, migration_name)
+        except (ValueError, ProgrammingError, NotSupportedError) as e:
+            log_msg = "Error while executing sqlmigrate on (%s, %s) with exception: %s."
+            if self.ignore_sqlmigrate_errors:
+                log_msg += " Continuing execution with empty SQL."
+            logger.warning(log_msg, app_label, migration_name, str(e))
+
+            issue = Issue(
+                code="SQLMIGRATE_ERROR",
+                message=f"Migration SQL generation raised {type(e).__name__}: {e}",
+            )
+            if self.ignore_sqlmigrate_errors:
+                ignored = [issue]
+                self.nb_ignored += 1
+            else:
+                errors = [issue]
+        else:
+            errors, ignored, warnings = analyse_sql_statements(
+                self.sql_analyser_class,
+                sql_statements,
+                self.exclude_migration_tests,
+            )
+
+            err, ignored_data, warnings_data = self.analyse_data_migration(migration)
+            if err:
+                errors += err
+            if ignored_data:
+                ignored += ignored_data
+            if warnings_data:
+                warnings += warnings_data
 
         if self.all_warnings_as_errors:
             errors += warnings
@@ -269,7 +291,7 @@ class MigrationLinter:
             self.nb_erroneous += 1
             if "errors" in cached_value:
                 self.print_errors(cached_value["errors"])
-            if "warnings" in cached_value and cached_value["warnings"]:
+            if cached_value.get("warnings"):
                 self.print_warnings(cached_value["warnings"])
 
         self.new_cache[md5hash] = cached_value
@@ -286,11 +308,11 @@ class MigrationLinter:
         if MessageType.ERROR.value in self.quiet:
             return
         for err in errors:
-            error_str = "\t{}".format(err.message)
+            error_str = f"\t{err.message}"
             if err.table:
-                error_str += " (table: {}".format(err.table)
+                error_str += f" (table: {err.table}"
                 if err.column:
-                    error_str += ", column: {}".format(err.column)
+                    error_str += f", column: {err.column}"
                 error_str += ")"
             if not self.no_output:
                 print(error_str)
@@ -300,7 +322,7 @@ class MigrationLinter:
             return
 
         for warning_details in warnings:
-            warn_str = "\t{}".format(warning_details.message)
+            warn_str = f"\t{warning_details.message}"
             if not self.no_output:
                 print(warn_str)
 
@@ -319,33 +341,14 @@ class MigrationLinter:
 
     def get_sql(self, app_label: str, migration_name: str) -> list[str]:
         logger.info(f"Calling sqlmigrate command {app_label} {migration_name}")
-        try:
-            with open(os.devnull, "w") as dev_null:
-                sql_statement = call_command(
-                    "sqlmigrate",
-                    app_label,
-                    migration_name,
-                    database=self.database,
-                    stdout=dev_null,
-                )
-        except (ValueError, ProgrammingError) as err:
-            if self.ignore_sqlmigrate_errors:
-                logger.warning(
-                    "Error while executing sqlmigrate on (%s, %s) with exception: %s. "
-                    "Continuing execution with empty SQL.",
-                    app_label,
-                    migration_name,
-                    str(err),
-                )
-                sql_statement = ""
-            else:
-                logger.warning(
-                    "Error while executing sqlmigrate on (%s, %s) with exception: %s.",
-                    app_label,
-                    migration_name,
-                    str(err),
-                )
-                raise
+        with open(os.devnull, "w") as dev_null:
+            sql_statement = call_command(
+                "sqlmigrate",
+                app_label,
+                migration_name,
+                database=self.database,
+                stdout=dev_null,
+            )
         return sql_statement.splitlines()
 
     @staticmethod
@@ -378,7 +381,7 @@ class MigrationLinter:
                         migrations.append((app_label, name))
         except OSError:
             logger.exception("Migrations list path not found %s", migrations_file_path)
-            raise Exception("Error while reading migrations list file")
+            raise MigrationLinterException("Error while reading migrations list file")
 
         if not migrations:
             logger.info(
@@ -407,7 +410,7 @@ class MigrationLinter:
             cwd=self.django_path,
         )
 
-        diskpath_and_migration: Dict[str, Migration] = {}
+        diskpath_and_migration: dict[str, Migration] = {}
         for migration in self._gather_all_migrations():
             spec = find_spec(migration.__module__)
             if spec:
@@ -454,14 +457,12 @@ class MigrationLinter:
         diff_process.wait()
 
         if diff_process.returncode != 0:
-            output = []
-            for line in map(
-                clean_bytes_to_str,
-                diff_process.stderr.readlines(),  # type: ignore
-            ):
-                output.append(line)
+            output = [
+                clean_bytes_to_str(line)
+                for line in diff_process.stderr.readlines()  # type: ignore
+            ]
             logger.error("Error while git diff command:\n{}".format("".join(output)))
-            raise Exception("Error while executing git diff command")
+            raise MigrationLinterException("Error while executing git diff command")
         return migrations
 
     def _gather_all_migrations(
@@ -471,9 +472,10 @@ class MigrationLinter:
             (app_label, name),
             migration,
         ) in self.migration_loader.disk_migrations.items():
-            if app_label not in DJANGO_APPS_WITH_MIGRATIONS:  # Prune Django apps
-                if migrations_list is None or (app_label, name) in migrations_list:
-                    yield migration
+            if app_label not in DJANGO_APPS_WITH_MIGRATIONS and (  # Prune Django apps
+                migrations_list is None or (app_label, name) in migrations_list
+            ):
+                yield migration
 
     def should_ignore_migration(
         self,
@@ -551,9 +553,7 @@ class MigrationLinter:
         if not runpython.reversible:
             issue = Issue(
                 code="RUNPYTHON_REVERSIBLE",
-                message="'{}': RunPython data migration is not reversible".format(
-                    function_name
-                ),
+                message=f"'{function_name}': RunPython data migration is not reversible",
             )
             if issue.code in self.exclude_migration_tests:
                 ignored.append(issue)
@@ -566,9 +566,9 @@ class MigrationLinter:
             issue = Issue(
                 code="RUNPYTHON_ARGS_NAMING_CONVENTION",
                 message=(
-                    "'{}': By convention, "
+                    f"'{function_name}': By convention, "
                     "RunPython names the two arguments: apps, schema_editor"
-                ).format(function_name),
+                ),
             )
             if issue.code in self.exclude_migration_tests:
                 ignored.append(issue)
@@ -637,10 +637,10 @@ class MigrationLinter:
                     Issue(
                         code="RUNPYTHON_MODEL_IMPORT",
                         message=(
-                            "'{}': Could not find an 'apps.get_model(\"...\", \"{}\")' "
+                            f"'{function_name}': Could not find an 'apps.get_model(\"...\", \"{model}\")' "
                             "call. Importing the model directly is incorrect for "
                             "data migrations."
-                        ).format(function_name, model),
+                        ),
                     )
                 )
         return issues
@@ -658,17 +658,13 @@ class MigrationLinter:
         for model in called_models:
             has_same_model_name = (
                 re.search(
-                    r"{model}.*= +\w+?\.get_model\([^)]+?\.{model}.*?\)".format(
-                        model=model
-                    ),
+                    rf"{model}.*= +\w+?\.get_model\([^)]+?\.{model}.*?\)",
                     source_code,
                     re.MULTILINE | re.DOTALL,
                 )
                 is not None
                 or re.search(
-                    r"{model}.*= +\w+?\.get_model\([^)]+?,[^)]*?{model}.*?\)".format(
-                        model=model
-                    ),
+                    rf"{model}.*= +\w+?\.get_model\([^)]+?,[^)]*?{model}.*?\)",
                     source_code,
                     re.MULTILINE | re.DOTALL,
                 )
@@ -679,10 +675,10 @@ class MigrationLinter:
                     Issue(
                         code="RUNPYTHON_MODEL_VARIABLE_NAME",
                         message=(
-                            "'{}': Model variable name {} is different from the "
+                            f"'{function_name}': Model variable name {model} is different from the "
                             "model class name that was found in the "
                             "apps.get_model(...) call."
-                        ).format(function_name, model),
+                        ),
                     )
                 )
         return issues
@@ -716,7 +712,7 @@ class MigrationLinter:
                         if elements == 2:
                             sql, params = sql
                         else:
-                            raise ValueError("Expected a 2-tuple but got %d" % elements)
+                            raise ValueError(f"Expected a 2-tuple but got {elements}")
                         sql_statements.append(sql % params)
                     else:
                         sql_statements.append(sql)
@@ -746,7 +742,7 @@ class MigrationLinter:
                         if elements == 2:
                             sql, params = sql
                         else:
-                            raise ValueError("Expected a 2-tuple but got %d" % elements)
+                            raise ValueError(f"Expected a 2-tuple but got {elements}")
                         sql_statements.append(sql % params)
                     else:
                         sql_statements.append(sql)

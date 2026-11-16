@@ -480,10 +480,16 @@ static void text_enter_link(text_ctx *ctx, th_node *node, Py_ssize_t opened) {
     const text_opts *opt = ctx->opt;
     Py_ssize_t href_len;
     const Py_UCS4 *href = text_attr(ctx->tree, node, "href", &href_len);
-    if (href == NULL || opt->links == TH_TEXT_LINKS_NONE) {
+    /* The tree builder reopens an unclosed <a> in every block that follows it, and each clone carries the href the
+       source spelled once. A clone's href spends the padding budget too, so a long one cannot multiply the output by
+       the block count; a clone the budget no longer covers keeps its text alone. A written start tag funds one repeat
+       of its href, the clone the adoption agency moves its content to. */
+    int clone = (node->tag_flags & TH_ELEM_IMPLIED) != 0;
+    if (href == NULL || opt->links == TH_TEXT_LINKS_NONE || (clone && href_len > ctx->padding_left)) {
         text_push(ctx, node, TEXT_WALK_INLINE, TEXT_LEAVE_NONE, opened);
         return;
     }
+    ctx->padding_left += clone ? -href_len : href_len;
     text_frame *frame =
         text_push(ctx, node, TEXT_WALK_INLINE,
                   opt->links == TH_TEXT_LINKS_INLINE ? TEXT_LEAVE_LINK_INLINE : TEXT_LEAVE_LINK_FOOTNOTE, opened);
@@ -708,9 +714,10 @@ static void text_list_child(text_ctx *ctx, text_frame *frame, th_node *child) {
     if (is_list) {
         /* a list nested directly in a list (a sibling of the <li>s) belongs to
            the preceding item; the parser makes this shape and skipping it would
-           drop every nested item's text */
+           drop every nested item's text. Before the first item there is no marker
+           to indent under. */
         int saved_levels = ctx->indent_levels;
-        Py_ssize_t base = text_indent(ctx, frame->list.sub_indent, 2);
+        Py_ssize_t base = frame->list.item_seen ? text_indent(ctx, frame->list.sub_indent, 2) : ctx->prefix.len;
         int saved_tight = ctx->tight;
         ctx->tight = 1;
         text_frame *nested = text_enter_list(ctx, child, text_open_annotations(ctx, child));
@@ -858,8 +865,8 @@ static int text_enter_cell(text_ctx *ctx, text_table *table) {
     table->saved_column = ctx->column;
     table->saved_space = ctx->space_pending;
     table->saved_started = ctx->started;
-    ctx->out = (sbuf){NULL, 0, 0, 0};
-    ctx->prefix = (sbuf){NULL, 0, 0, 0};
+    ctx->out = (sbuf){NULL, 0, 0, 0, 0};
+    ctx->prefix = (sbuf){NULL, 0, 0, 0, 0};
     ctx->line_has_content = 1;
     ctx->column = 0;
     ctx->space_pending = 0;
@@ -957,7 +964,7 @@ static void text_collect_pre(text_ctx *ctx, th_node *root, sbuf *out) {
 }
 
 static void text_render_pre(text_ctx *ctx, th_node *node) {
-    sbuf collected = {NULL, 0, 0, 0};
+    sbuf collected = {NULL, 0, 0, 0, 0};
     text_collect_pre(ctx, node, &collected);
     if (collected.failed) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         ctx->out.failed = 1;        /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1033,6 +1040,7 @@ static void text_leave(text_ctx *ctx) {
     switch (frame->leave) {
     case TEXT_LEAVE_LINK_INLINE:
         text_emit_ascii(ctx, " (");
+        TH_WORK_STEPS_ADD(frame->link.href_len);
         sbuf_put_run(&ctx->out, frame->link.href, frame->link.href_len);
         ctx->column += (int)frame->link.href_len;
         text_emit_ascii(ctx, ")");
@@ -1134,6 +1142,7 @@ static void text_flush_references(text_ctx *ctx) {
         sbuf_putc(&ctx->out, '[');
         md_put_decimal(&ctx->out, ref_index + 1);
         sbuf_puts(&ctx->out, "] ");
+        TH_WORK_STEPS_ADD(ctx->refs[ref_index].url_len);
         sbuf_put_run(&ctx->out, ctx->refs[ref_index].url, ctx->refs[ref_index].url_len);
     }
 }

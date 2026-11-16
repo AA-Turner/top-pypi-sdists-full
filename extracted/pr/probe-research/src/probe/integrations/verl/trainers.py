@@ -15,6 +15,8 @@ import threading
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
+from probe.sdk.run.samples.rollout import make_decode
+
 from .. import _rl_owner
 from .readers import (
     PromptFacts,
@@ -789,7 +791,8 @@ class _Inside:
 
 
 def build_mapper(trainer: Any) -> RowMapper:
-    """The row mapper for this trainer: its tokenizer decodes (`skip_special_tokens=True`, as verl's own dump),
+    """The row mapper for this trainer: its tokenizer decodes the text (`skip_special_tokens=True`, as verl's own
+    dump) and, special tokens kept, the decoded turns (their chat-template reader needs the role markers);
     `data.max_response_length` tells a cut-off response."""
     import socket
 
@@ -804,6 +807,7 @@ def build_mapper(trainer: Any) -> RowMapper:
     limit = getattr(data, "max_response_length", None) if data is not None else None
     return RowMapper(
         decode=decode,
+        decode_turns=make_decode(tokenizer) if tokenizer is not None else None,
         tokens_to_text=getattr(tokenizer, "convert_ids_to_tokens", None),
         max_response_length=int(limit) if isinstance(limit, int) else None,
         host=socket.gethostname(),

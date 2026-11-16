@@ -6,26 +6,181 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1'
+# Every job here only reads the repository. The simulator's action uses no
+# token or secrets, and installs packages only from Ubuntu and NVIDIA.
+permissions:
+  contents: read
+
 jobs:
   linux:
-    runs-on: ubuntu-latest
+    # Test the oldest CUDA scs supports and the newest Jimver can install.
+    # NVIDIA's apt repo for Ubuntu 26.04 starts at CUDA 13.3, so older CUDA
+    # needs ubuntu-24.04. Jimver installs its own default if no cuda is given.
+    strategy:
+      fail-fast: false
+      matrix:
+        # apt's cudss (1.0) defaults to its CUDA 13 build, which cannot link
+        # against CUDA 12, so cuDSS is built and tested on the CUDA 13 entry only.
+        include:
+          - cuda: '12.6.0'
+            os: ubuntu-24.04
+            cudss: false
+          - cuda: '13.3.1'
+            os: ubuntu-latest
+            cudss: true
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: Jimver/cuda-toolkit@v0.2.35
+      - uses: Jimver/cuda-toolkit@v0.2.36
         id: cuda-toolkit
         with:
+          cuda: ${{ matrix.cuda }}
           method: network
-          non-cuda-sub-packages: '["libcublas", "libcusparse", "libcudart"]'
+          # Name the packages: without sub-packages Jimver installs the full
+          # cuda-X-Y metapackage, whose NVIDIA driver (DKMS) fails to build on
+          # the runner's kernel for CUDA 12.x. nvcc pulls cudart-dev and cccl;
+          # libcudss links against nvrtc.
+          sub-packages: '["nvcc", "nvrtc"]'
+          non-cuda-sub-packages: '["libcublas-dev", "libcusparse-dev", "libnvjitlink-dev"]'
       - run: sudo apt-get install libopenblas-dev liblapack-dev
-      - run: make gpu
+      - run: CFLAGS=-Werror=implicit-function-declaration make gpu
       - run: make test_gpu
       # - run: out/run_tests_gpu_indirect    # gpus not available yet
+      - name: Build SCS GPU with CMake
+        run: |
+          mkdir -p out
+          export INSTALL_DIR=$PWD/out
+          mkdir -p build-gpu
+          cd build-gpu
+          cmake -DBUILD_TESTING=ON -DUSE_GPU=ON \
+                -DCMAKE_INSTALL_PREFIX:PATH=$INSTALL_DIR ..
+          make
+          make install
+          # ctest needs a device; only the build is checked here
       - name: Install cudss
+        if: matrix.cudss
         run: sudo apt-get -y install cudss
+      - name: Make cudss target
+        if: matrix.cudss
+        run: |
+          export CUDSS_PATH=/usr/lib/cudss
+          unset CUCC
+          "${CUDA_PATH}/bin/nvcc" --version
+          make cudss CUDA_PATH="${CUDA_PATH}"
+      # - run: out/run_tests_cudss           # gpus not available yet
+
+  # The GPU solver's test suite, run. The linux job above builds it but cannot
+  # run it on a GPU-less runner. PantheonSim simulates an NVIDIA T4 on the
+  # runner's CPU, with its own cuBLAS and cuSPARSE, so run_tests_gpu_indirect
+  # runs here. It checks results, not speed; a real GPU is still the final word.
+  # SCS links against the toolkit's own libraries, so the simulator's stay off
+  # the library path while building (library-path: false) and `vgpu run` swaps
+  # them in for the test run only.
+  simulated-gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Simulated GPU (NVIDIA T4) and Ubuntu's CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@ca87fe3143b29166822b923d6050945c5179408c # v0.1.5
+        with:
+          gpu: nvidia/t4
+          library-path: false
+      - run: sudo apt-get install libopenblas-dev liblapack-dev
+      - run: CFLAGS=-Werror=implicit-function-declaration make gpu CUDA_PATH=/usr
+      - run: make test_gpu CUDA_PATH=/usr
+      - name: Run the GPU tests on the simulated GPU
+        run: vgpu run out/run_tests_gpu_indirect
+
+  # cuDSS, SCS's GPU direct backend, run. The linux job above builds
+  # run_tests_cudss but cannot run it on a GPU-less runner. NVIDIA's libcudss
+  # cannot run on a simulated GPU (it carries its own statically linked CUDA
+  # runtime), so PantheonSim provides a cuDSS of its own, written from NVIDIA's
+  # documented API; `vgpu run` swaps it and the simulated GPU in for the test
+  # run, while the build links NVIDIA's packages as the linux job does. It
+  # checks results, not speed; a real GPU is still the final word.
+  simulated-gpu-cudss:
+    strategy:
+      fail-fast: false
+      matrix:
+        long: [0, 1]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Simulated GPU (NVIDIA T4) and CUDA 13.0 from NVIDIA
+        # v0.1.5 builds the simulator's cuDSS as both libcudss.so.1 (cuDSS 1.0,
+        # which apt's cudss now installs) and libcudss.so.0.
+        uses: pantheongpu/setup-pantheonsim@ca87fe3143b29166822b923d6050945c5179408c # v0.1.5
+        with:
+          gpu: nvidia/t4
+          cuda-toolkit: '13.0'
+          library-path: false
+      # apt's cudss installs the CUDA 12 and 13 builds; the default libcudss.so
+      # is the CUDA 13 one, so the job uses CUDA 13 too.
+      - run: sudo apt-get install -y libopenblas-dev liblapack-dev cudss
       - name: Make cudss target
         run: |
           export CUDSS_PATH=/usr/lib/cudss
-          export CUCC=${CUDA_PATH}/bin/nvcc
-          ${CUCC} --version
-          make cudss
-      # - run: out/run_tests_cudss           # gpus not available yet
+          make cudss DLONG=${{ matrix.long }} CUDA_PATH=/usr/local/cuda-13.0
+      - name: Run the cuDSS tests on the simulated GPU
+        run: vgpu run out/run_tests_cudss
+
+  # Regression test for cvxgrp/scs#322. linsys/gpu/*.c are compiled by $(CC),
+  # not by nvcc, so they include the CUDA headers directly and driver_types.h
+  # pulls in crt/host_defines.h. Up to CUDA 12 those crt headers shipped inside
+  # cuda_nvcc; CUDA 13 split them into a separate cuda_crt redistributable, so
+  # a package build that installs only the runtime components dies with
+  #   driver_types.h:59: fatal error: crt/host_defines.h: No such file
+  # The `linux` job above installs the full apt toolkit and so never sees this.
+  # Here we assemble the minimal component set from the redistributable
+  # tarballs -- the way downstream packagers build SCS -- on both sides of the
+  # split. Bump the 13.x pin when a newer CUDA reshuffles the layout again.
+  cuda-redist:
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda: ['12.6.0', '13.0.0']
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y libopenblas-dev liblapack-dev
+
+      - name: Assemble CUDA ${{ matrix.cuda }} from redistributables
+        run: |
+          set -euo pipefail
+          base=https://developer.download.nvidia.com/compute/cuda/redist
+          prefix="$PWD/cuda"
+          mkdir -p "$prefix"
+          # The NVIDIA CDN occasionally drops an HTTP/2 stream mid-transfer, so
+          # retry, and download to a file rather than piping into tar: a
+          # truncated stream would otherwise surface as an xz format error.
+          fetch() { curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors -o "$1" "$2"; }
+          fetch redist.json "$base/redistrib_${{ matrix.cuda }}.json"
+          # cuda_crt only exists from CUDA 13 on; before that the crt headers
+          # were part of cuda_nvcc.
+          crt=cuda_crt
+          python3 -c "import json; exit(0 if 'cuda_crt' in json.load(open('redist.json')) else 1)" || crt=cuda_nvcc
+          echo "crt headers come from $crt"
+          # cuda_cccl supplies <nv/target>, which cuda_fp16.h reaches for.
+          # libnvjitlink is not used directly, but libcusparse.so records it as
+          # a dependency and the linker has to resolve it.
+          for pkg in cuda_cudart cuda_cccl libcublas libcusparse libnvjitlink "$crt"; do
+            path=$(python3 -c "import json; print(json.load(open('redist.json'))['$pkg']['linux-x86_64']['relative_path'])")
+            echo "==> $pkg"
+            fetch pkg.tar.xz "$base/$path"
+            tar -xJ --strip-components=1 -C "$prefix" -f pkg.tar.xz
+            rm pkg.tar.xz
+          done
+          echo "CUDA_PATH=$prefix" >> "$GITHUB_ENV"
+
+      - name: Check the headers host-compiled sources need are present
+        run: |
+          # The exact file whose absence produced the error in #322.
+          test -f "$CUDA_PATH/include/crt/host_defines.h"
+
+      - run: CFLAGS=-Werror=implicit-function-declaration make gpu CUDA_PATH="$CUDA_PATH"
+      - run: make test_gpu CUDA_PATH="$CUDA_PATH"
+      # Running out/run_tests_gpu_indirect needs a device; only the build is
+      # checked here, which is all #322 was about.

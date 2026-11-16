@@ -3,12 +3,13 @@ GPU machines you run yourself: `sequence_ai.gpu.add` opens them near a place in 
 `.list` shows those live and `.history` those over, `.logs` reads one's log, `.allow` changes who reaches their ports, `.remove`
 shuts one down, `.save` keeps one's disk as a snapshot to start others from, and `.places` lists the
 US cities a place can be chosen from, each with its latitude and longitude. Each is said by the place
-you asked for, never a region of ours. A machine is a container you are root in, on one card, reached over SSH
+you asked for, never a region of ours. A machine is a container you are root in, with its cards — 1, 2, 4 or 8 of
+one kind —, reached over SSH
 (`seq gpu ssh`) — install and run what you like; the ports you publish are reached straight at its
 address, nothing of ours in between; `remove` ends the machine and its disk, and stops its billing.
 
 These are owner-scoped: a full key or a signed-in session, never a robot key. They count against
-your account's GPU limit — the ceiling serving and evals share — and draw on its credit like any
+your account's GPU limit — the ceiling serving and evals share — a card each, and draw on its credit like any
 machine. A refusal is one of three of its own where it is one of these: GpuBadRequest, for what was
 asked; GpuOverLimit, at a limit of your account's or its credit; GpuNoCard, for a card not to be had -
 `seq gpu` exiting by each one's code, as every `seq` command does. `sequence_ai.gpus()` (no namespace) is
@@ -105,17 +106,23 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
         allow: list[str] | None = None, run: str | None = None, name: str | None = None, wait: bool = True,
         api_key: str | None = None, base_url: str | None = None) -> list[dict[str, Any]]:
     """
-    Open `count` GPU machines near `place`, each with a `gpu` card — a machine you are root on,
-    reached over SSH (`seq gpu ssh`), yours until you `remove` it. Waits until each runs and returns
-    them, one dict each, as `list` says them — `"address"`, `"ports"`, `"image"` among them — with
-    `"expected_rtt"`: `{"ms", "probes", "within_km", "days"}`, the median round trip measured from
-    within `within_km` of `place` over the last `days` days (`"ms"` None where nothing that near was
-    measured), or None where it could not be read. `wait=False` returns once each is asked for -
-    seconds, where running takes a minute or two -, each "starting".
+    Open a GPU machine of `count` cards of `gpu` near `place` — 1, 2, 4 or 8 —, one you are root on,
+    reached over SSH (`seq gpu ssh`), yours until you `remove` it; for any other number of cards, or
+    cards in different places, add several, each a GPU of its own with its own id, address and bill.
+    Waits until it runs and returns it, a list of one, as `list` says it — `"address"`, `"ports"`,
+    `"image"` among them — with `"cards"`, how many it has; `"request"` and `"request_cards"`, its own
+    id and cards again; and `"expected_rtt"`: `{"ms", "probes", "within_km", "days"}`, the median round
+    trip measured from within `within_km` of `place` over the last `days` days (`"ms"` None where
+    nothing that near was measured), or None where it could not be read. `wait=False` returns once it
+    is asked for - seconds, where running takes a minute or two -, "starting". Each card costs the same
+    alone or among eight: its `"usd_per_hour"` is its cards times one card's.
 
-    `place` is the exact spot you want them near, in the United States — a US city ("San Francisco,
+
+
+
+    `place` is the exact spot you want it near, in the United States — a US city ("San Francisco,
     CA") or a lat,lon in the US ("37.77,-122.42"); `places` lists the US cities. The platform opens
-    each at the place quickest to reach from there that has the card.
+    it at the place quickest to reach from there that has its cards.
 
     `ports`: the TCP ports your server listens on (1024-65535, not 22 or 8080, eight at most), reached
     straight at the machine's address from the IPv4 ranges in `allow` alone — the address this call
@@ -129,21 +136,23 @@ def add(place: str, gpu: str, count: int = 1, *, snapshot: str | None = None, po
     `name`: a fixed name (1-40 lowercase letters, digits and hyphens) — the GPU is also reached at its
     `"host"`, `<name>.<your id>.gpu.generalsequences.com`, which moves to each GPU you add later under
     that name once it runs, so a robot is set up with the name once. DNS alone: robots still connect
-    straight to the GPU. One GPU's: `count` must be 1.
+    straight to the GPU.
 
-    `count` over 1 is all-or-nothing at the add; each then runs or fails on its own. Raises
-    GpuBadRequest for what cannot be had (a place outside the US, ports, a snapshot of no such name or
-    one still saving or failed, a name that cannot be one or is asked of several),
+    Raises GpuBadRequest for what cannot be had (a `count` not 1, 2, 4 or 8, or more cards than a
+    machine of that card holds here - `details["counts"]` the counts it can be had in -, a place outside
+    the US, ports, a snapshot of no such name or one still saving or failed, a name that cannot be one),
     GpuOverLimit at a limit of your account's or its credit, GpuNoCard where no card is to be had, now
-    or within the 20 minutes the platform gives each - never billed -, and InternalError where one had
-    its card and did not start, its words saying how it ended (`details["gpus"]` holds each as it ended
-    or runs; `seq gpu logs <id>` says the rest). A KeyboardInterrupt while it waits removes those not
-    running yet and is raised on: its `cancelled` the ids removed, its `billed` what each of those was
-    billed, by id, as the platform says it once removed - 0 for none, the seconds one of the places
-    asked for it held a card where one did, None where it could not be read -, and its `running` those
-    left running. One while the add is asked - the seconds before the platform answers it - stops this
-    call alone: what the platform adds then is yours all the same, and `list()` shows it. Owner-scoped:
-    a full key or a signed-in session, never a robot key.
+    or within the 20 minutes the platform gives it - never billed -, and InternalError where it had
+    its cards and did not start, its words saying how it ended (`details["gpus"]` holds it as it ended;
+    `seq gpu logs <id>` says the rest). A KeyboardInterrupt while it waits removes it if it does not run
+    yet and is raised on: its `cancelled` the ids removed, its `billed` what each of those was billed, by
+    id, as the platform says it once removed - 0 for none, the seconds one of the places asked for it
+    held a card where one did, None where it could not be read -, and its `running` those left running,
+    it where it ran by then. One while the add is asked - the seconds before the platform answers it -
+    stops this call alone: what the platform adds then is yours all the same, and `list()` shows it.
+    Owner-scoped: a full key or a signed-in session, never a robot key.
+
+
     """
     body: dict[str, Any] = {"place": place, "gpu": gpu, "count": int(count)}
     if snapshot is not None:
@@ -227,15 +236,14 @@ def _running(added: list[dict[str, Any]], *, timeout_s: float = WAIT_S, said: Op
         return out
     words = ([f"{g['id']} {_why(g, ends.get(str(g['id'])) or {}, waited)}" for g in failed]
              + [f"{g['id']} still starting after {timeout_s / 60:.0f} minutes" for g in late])
-    others = "; seq gpu list shows those that run" if any(g.get("status") == "running" for g in out) else ""
     if late or any(g.get("reason") == "gpu_no_card" for g in failed):
         raise GpuNoCard("; ".join(words), retryable=True, details={"reason": "gpu_no_card", "gpus": out},
-                        hint="add again later, or near another place" + others)
+                        hint="add again later, or near another place")
     if ends:
-        said = f"seq gpu logs {next(iter(ends))} says why" if len(ends) == 1 else "seq gpu logs <id> says why, for each"
-        raise InternalError("; ".join(words), details={"reason": "gpu_not_started", "gpus": out}, hint=said + others)
+        raise InternalError("; ".join(words), details={"reason": "gpu_not_started", "gpus": out},
+                            hint=f"seq gpu logs {next(iter(ends))} says why")
     raise Unavailable("; ".join(words), retryable=True, details={"reason": "gpu_not_started", "gpus": out},
-                      hint="add again later, or near another place" + others)
+                      hint="add again later, or near another place")
 
 
 def _read(t: Transport, ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -401,11 +409,14 @@ def places(q: str = "", limit: int = 8, *, api_key: str | None = None,
 
 def list(*, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
     """
-    Your GPU machines that are live, and how many of your GPU limit they hold:
-    `{"gpus": [{"id", "place", "gpu", "status", "started_at", "address", "ssh_port", "ports", "allow",
-    "image", "robots", "run", "usd_so_far", "usd_per_hour"}], "quota": {"used", "limit"}}`, oldest
-    first. `place` is the place you gave `add`, as you gave it (None for one added before it was kept);
-    `status` is "starting" or "running" (SSH connects now). Once it runs: `address`, where it is reached,
+    Your GPU machines that are live, and how many cards of your GPU limit they hold:
+    `{"gpus": [{"id", "place", "gpu", "cards", "request", "request_cards", "status", "started_at",
+    "address", "ssh_port", "ports", "allow", "image", "robots", "run", "usd_so_far", "usd_per_hour"}],
+    "quota": {"used", "limit"}}`, oldest first, `quota` in cards (a machine of four holds four). `gpu` is
+    its card and `cards` how many it has; `request` and `request_cards` its own id and cards again, as
+    one `add` opens one machine. `place` is the place you gave `add`, as you gave it (None for one added
+    before it was kept); `status` is "starting" or "running" (SSH connects now). Once it runs: `address`,
+    where it is reached,
     and `ssh_port`; `ports` you published and `allow`, the ranges they are open to; `image`, what it
     started from ("base 2026.11", "snapshot <name>"); `robots`, as the machine measures them —
     `{"count", "rtt_p50_ms"}`, the robots connected to its ports and their median round trip — absent
@@ -423,8 +434,9 @@ def history(limit: int | None = None, cursor: str | None = None, *, api_key: str
             base_url: str | None = None) -> dict[str, Any]:
     """
     Your GPU machines that are over, kept 30 days, the one ended last first, one page:
-    `{"gpus": [{"id", "place", "gpu", "status", "reason"?, "started_at", "ended_at", "usd_so_far",
-    "usd_per_hour"}], "total", "offset", "next_cursor"}`. `status` is "shut_down" (removed, or ended
+    `{"gpus": [{"id", "place", "gpu", "cards", "request", "request_cards", "status", "reason"?, "started_at",
+    "ended_at", "usd_so_far", "usd_per_hour"}], "total", "offset", "next_cursor"}`, `cards`, `request` and
+    `request_cards` as `list` says them. `status` is "shut_down" (removed, or ended
     when the account ran out of credit: `reason` "out_of_credit") or "failed" (with `reason`);
     `usd_so_far` is what it cost in all. `limit` rows a page (1-200, 50 unless given); pass a page's
     `next_cursor` as `cursor` for the next. What `seq gpu history` prints. Owner-scoped.

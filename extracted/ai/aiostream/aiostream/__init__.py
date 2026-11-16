@@ -15,7 +15,7 @@ Some utility modules are also provided:
 - test_utils: utilities for testing stream operators (require pytest)
 """
 
-from . import stream, pipe
+from . import pipe, stream
 from .aiter_utils import async_, await_
 from .core import (
     Stream,
@@ -26,7 +26,7 @@ from .core import (
     streamcontext,
 )
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 __all__ = [
     "stream",

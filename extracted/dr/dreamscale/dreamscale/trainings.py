@@ -1043,6 +1043,12 @@ class Training:
         self.data = call(self._client_factory, "cancel_training", self.id)
         return self
 
+    def save_checkpoint(self) -> Training:
+        """Save a deployable checkpoint now: it is saved at the run's next update while training
+        continues, and ``checkpoints`` lists it once written (``wait()`` or ``refresh()``)."""
+        self.data = call(self._client_factory, "save_checkpoint_now", self.id)
+        return self
+
     def cancel(self) -> Training:
         """The older name of ``stop()``."""
         return self.stop()

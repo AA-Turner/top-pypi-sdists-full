@@ -18,6 +18,7 @@ REWRITES = {
         "from ..records import Record\n": "from .record import Record\n",
         "from ...compat import StrEnum\n": "from probe.foundation.compat.compat import StrEnum\n",
         "from ..command import CommandKind\n": "from probe.generated.records import CommandKind\n",
+        "from ..artifact import Artifact\n": "from probe.generated.records import Artifact\n",
     },
     1: {
         "from ...records import Record\n": "from ..record import Record\n",

@@ -186,10 +186,11 @@ class CrawlerConfig(BaseApiConfig):
             refresh: Keep this crawl fresh by re-scraping its own URLs in place
             refresh_interval: Seconds between refresh runs (3600 to 7776000)
 
+            proxy_pool: Proxy pool for every crawled page: 'public_datacenter_pool'
+                (the default), 'public_residential_pool' or 'public_tor_pool'
+                (ScrapeConfig.PUBLIC_DATACENTER_POOL, ...).
             unblocker: Enable the anti-bot bypass (Unblocker)
-            asp: Deprecated alias of `unblocker`, permanently supported. When
-                both are supplied, `asp` wins.
-            proxy_pool: Proxy pool to use (e.g., 'public_residential_pool')
+            asp: Deprecated alias of `unblocker`. When both are supplied, `asp` wins.
             country: Target country for geo-located content
 
             webhook_name: Webhook name for event notifications
@@ -345,7 +346,7 @@ class CrawlerConfig(BaseApiConfig):
 
     @property
     def asp(self) -> bool:
-        """Deprecated alias of `unblocker`, permanently supported."""
+        """Deprecated alias of `unblocker`."""
 
         return self.unblocker
 

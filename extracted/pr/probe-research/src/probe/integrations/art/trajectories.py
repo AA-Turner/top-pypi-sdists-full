@@ -16,10 +16,13 @@ from probe.generated.samples import TurnsSource
 from probe.sdk.run.samples.refs import parse_generated_by
 from probe.sdk.run.samples.rollout import REASONING_KEYS, to_tool_call
 
+from ..task_label import TASK_DESCRIPTION_FIELD, TASK_ID_FIELD, TASK_NAME_FIELD, get_task_label
 from .live import ATTEMPT_KEY, read_attempt_key
 
 #: A trajectory's own task id, then the scenario id PipelineTrainer copies onto the group (`pipeline_trainer/trainer.py:814`).
-TASK_KEYS = ("task_id", "scenario_id")
+TASK_KEYS = (TASK_ID_FIELD, "scenario_id")
+#: The task's label (`task_label/`), read where the scenario is: the trajectory's metadata, then its group's.
+TASK_LABEL_KEYS = (TASK_NAME_FIELD, TASK_DESCRIPTION_FIELD)
 #: PipelineTrainer copies a scenario's metadata onto the group as `scenario_<key>` (`pipeline_trainer/trainer.py:816`).
 GROUP_SCENARIO_PREFIX = "scenario_"
 #: Where `probe.samples.generated_by(...)` rides on an SFT trajectory's metadata.
@@ -170,6 +173,7 @@ class TrajectoryMapper:
             "scenario": self._get_scenario(trajectory, group),
             "split": _get_split(split),
             "prompt": render_prompt([_to_message(item) for item in prompt_items]),
+            **get_task_label({name: _lookup_metadata(trajectory, group, name) for name in TASK_LABEL_KEYS}),
             "response": _get_response(messages),
             **self.where,
         }
@@ -438,7 +442,7 @@ def _get_metadata_extras(trajectory: Any) -> dict:
     metadata = {
         str(name): value
         for name, value in (getattr(trajectory, "metadata", None) or {}).items()
-        if name not in (GENERATED_BY_KEY, ATTEMPT_KEY) and isinstance(value, (str, int, float, bool))
+        if name not in (GENERATED_BY_KEY, ATTEMPT_KEY, *TASK_LABEL_KEYS) and isinstance(value, (str, int, float, bool))
     }
     if not metadata or len(json.dumps(metadata, default=str)) > MAX_METADATA_EXTRAS_BYTES:
         return {}

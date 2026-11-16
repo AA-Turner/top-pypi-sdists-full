@@ -1895,6 +1895,8 @@ def drive_queue_list(repo: str | None, output_json: bool, config_path: Path) -> 
     # filtered down to — otherwise a `--repo` view would misdiagnose an
     # out-of-repo pre-req as "unknown to the queue" purely from the filter,
     # not from anything actually true.
+    from coord.state import list_drive_queue  # noqa: PLC0415
+
     all_entries = entries if repo is None else entries_from_rows(list_drive_queue())
     # A row with no `after=` at all has nothing for #2183's re-diagnosis to
     # do — criterion "entries with no after= are unaffected" — so both the
@@ -8017,12 +8019,14 @@ def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
             release_merge_reservation(entry.repo_name, row_key)
             continue
 
-        # #3859: ships off by default (`_stale_race_tier_enabled`'s own
-        # fleet + per-repo opt-in). When on, this repo's merge gate is
-        # reserved for the FIRST `checks_stale` row to reach here each
-        # round, so a sibling PR's CI finishing first can no longer
-        # leapfrog a row that is already mid-rebase — an ordered handoff
-        # instead of every loser restarting its own re-run from scratch.
+        # #3859: on by default for every repo (`_stale_race_tier_enabled`'s
+        # fleet switch + per-repo switch, both defaulting True — a repo
+        # opts out explicitly rather than opting in). When on, this repo's
+        # merge gate is reserved for the FIRST `checks_stale` row to reach
+        # here each round, so a sibling PR's CI finishing first can no
+        # longer leapfrog a row that is already mid-rebase — an ordered
+        # handoff instead of every loser restarting its own re-run from
+        # scratch.
         if _stale_race_tier_enabled(entry.repo_name, cfg):
             reservation = get_merge_reservation(entry.repo_name)
             if reservation is not None and reservation.get("holder") != row_key:

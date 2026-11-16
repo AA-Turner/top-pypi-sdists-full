@@ -1,16 +1,16 @@
+import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib import pyplot as plt
 
+from pydeseq2.datasets import load_example_data
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.ds import DeseqStats
-from pydeseq2.utils import load_example_data
 
 
 def test_zero_genes():
-    """Test that genes with only 0 counts are handled by DeseqDataSet et DeseqStats,
-    and that NaNs are returned.
-    """
+    """Test that genes with only 0 counts are handled by DeseqDataSet et DeseqStats, and that NaNs are returned."""
 
     counts_df = load_example_data(
         modality="raw_counts",
@@ -53,24 +53,97 @@ def test_zero_genes():
 
 
 # Tests on the count matrix
-def test_nan_counts():
-    """Test that a ValueError is thrown when the count matrix contains NaNs."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, np.nan], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
-    metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample1", "sample2"])
+@pytest.mark.parametrize("from_adata", [False, True])
+@pytest.mark.parametrize("size_factors_fit_type", ["ratio", "poscounts", "iterative"])
+def test_nan_counts(size_factors_fit_type, from_adata):
+    """Test that genes with NaN counts are ignored, and that NaNs are returned."""
+    counts_df = load_example_data(
+        modality="raw_counts",
+        dataset="synthetic",
+        debug=False,
+    ).astype(float)
 
-    with pytest.raises(ValueError):
+    metadata = load_example_data(
+        modality="metadata",
+        dataset="synthetic",
+        debug=False,
+    )
+
+    # Subset samples for speed
+    metadata = metadata.loc[[f"sample{i}" for i in [*range(1, 11), *range(91, 101)]]]
+    counts_df = counts_df.loc[metadata.index]
+
+    # Introduce NaNs in a few genes
+    nan_genes = counts_df.columns[[1, 5]]
+    counts_df.loc["sample1", nan_genes[0]] = np.nan
+    counts_df[nan_genes[1]] = np.nan
+
+    def run_analysis(counts):
+        kwargs = (
+            {"adata": ad.AnnData(X=counts, obs=metadata)} if from_adata else {"counts": counts, "metadata": metadata}
+        )
+        dds = DeseqDataSet(**kwargs, design="~condition", size_factors_fit_type=size_factors_fit_type)
+        dds.deseq2()
+        ds = DeseqStats(dds, contrast=["condition", "B", "A"])
+        ds.summary()
+        return dds, ds.results_df
+
+    with pytest.warns(UserWarning, match="The count matrix contains NaNs"):
+        dds, results_df = run_analysis(counts_df)
+
+    # check that the corresponding parameters and stats are NaN
+    assert np.isnan(dds.var.loc[nan_genes, "dispersions"]).all()
+    assert np.isnan(dds[:, nan_genes].varm["LFC"]).all().all()
+    assert results_df.loc[nan_genes].isna().all().all()
+
+    # check that the other genes are fitted as if the NaN genes were not there
+    _, expected_results_df = run_analysis(counts_df.drop(columns=nan_genes))
+    pd.testing.assert_frame_equal(results_df.drop(index=nan_genes), expected_results_df)
+
+
+def test_nan_counts_zero_inflated():
+    """Test that size factors are fitted iteratively when each gene has a zero or a NaN."""
+    counts_df = load_example_data(
+        modality="raw_counts",
+        dataset="synthetic",
+        debug=False,
+    ).astype(float)
+
+    metadata = load_example_data(
+        modality="metadata",
+        dataset="synthetic",
+        debug=False,
+    )
+
+    # Subset samples for speed
+    metadata = metadata.loc[[f"sample{i}" for i in [*range(1, 11), *range(91, 101)]]]
+    counts_df = counts_df.loc[metadata.index]
+
+    # Each gene has a zero, except the first one which only has NaNs
+    counts_df.loc["sample1"] = 0
+    counts_df[counts_df.columns[0]] = np.nan
+
+    with pytest.warns(UserWarning, match="The count matrix contains NaNs"):
+        dds = DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
+    with pytest.warns(UserWarning, match="Every gene contains at least one zero"):
+        dds.fit_size_factors()
+
+    assert np.isfinite(dds.obs["size_factors"]).all()
+
+
+@pytest.mark.parametrize(("n_samples", "n_genes"), [(0, 2), (2, 0)])
+def test_empty_counts(n_samples, n_genes):
+    """Test that a ValueError is thrown when the count matrix has no samples or genes."""
+    counts_df = pd.DataFrame(np.ones((n_samples, n_genes), dtype=int))
+    metadata = pd.DataFrame({"condition": np.arange(n_samples)})
+
+    with pytest.raises(ValueError, match="The count matrix is empty"):
         DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition")
 
 
 def test_numeric_counts():
-    """Test that a ValueError is thrown when the count matrix contains
-    non-numeric values.
-    """
-    counts_df = pd.DataFrame(
-        {"gene1": [0, "a"], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    """Test that a ValueError is thrown when the count matrix contains non-numeric values."""
+    counts_df = pd.DataFrame({"gene1": [0, "a"], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample1", "sample2"])
 
     with pytest.raises(ValueError):
@@ -78,11 +151,8 @@ def test_numeric_counts():
 
 
 def test_integer_counts():
-    """Test that a ValueError is thrown when the count matrix contains
-    non-integer values."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, 1.5], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    """Test that a ValueError is thrown when the count matrix contains non-integer values."""
+    counts_df = pd.DataFrame({"gene1": [0, 1.5], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample1", "sample2"])
 
     with pytest.raises(ValueError):
@@ -90,11 +160,8 @@ def test_integer_counts():
 
 
 def test_non_negative_counts():
-    """Test that a ValueError is thrown when the count matrix contains
-    negative values."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, -1], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    """Test that a ValueError is thrown when the count matrix contains negative values."""
+    counts_df = pd.DataFrame({"gene1": [0, -1], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample1", "sample2"])
 
     with pytest.raises(ValueError):
@@ -104,9 +171,7 @@ def test_non_negative_counts():
 # Tests on the metadata data (design factors)
 def test_nan_factors():
     """Test that a warning is thrown when the design factor contains NaNs."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    counts_df = pd.DataFrame({"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, np.nan]}, index=["sample1", "sample2"])
 
     with pytest.raises(ValueError):
@@ -115,9 +180,7 @@ def test_nan_factors():
 
 def test_one_factor():
     """Test that a ValueError is thrown when the design factor takes only one value."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    counts_df = pd.DataFrame({"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, 0]}, index=["sample1", "sample2"])
 
     with pytest.warns(UserWarning):
@@ -125,22 +188,16 @@ def test_one_factor():
 
 
 def test_rank_deficient_design():
-    """Test that a UserWarning is thrown when the design matrix does not have full
-    column rank."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
-    metadata = pd.DataFrame(
-        {"condition": [0, 1], "batch": ["A", "B"]}, index=["sample1", "sample2"]
-    )
+    """Test that a UserWarning is thrown when the design matrix does not have full column rank."""
+    counts_df = pd.DataFrame({"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"])
+    metadata = pd.DataFrame({"condition": [0, 1], "batch": ["A", "B"]}, index=["sample1", "sample2"])
 
     with pytest.warns(UserWarning):
         DeseqDataSet(counts=counts_df, metadata=metadata, design="~condition + batch")
 
 
 def test_equal_num_vars_num_samples_design():
-    """Test that a ValueError is thrown when fitting dispersions if the design matrix
-    has equal numbers of rows and columns."""
+    """Test that a ValueError is thrown when fitting dispersions if the design matrix has equal numbers of rows and columns."""
     counts_df = pd.DataFrame(
         {"gene1": [0, 1, 55], "gene2": [4, 12, 60]},
         index=["sample1", "sample2", "sample3"],
@@ -162,8 +219,7 @@ def test_equal_num_vars_num_samples_design():
 
 
 def test_matching_samples():
-    """Test that a ValueError is thrown when the Index of the design matrix does not
-    match obs."""
+    """Test that a ValueError is thrown when the Index of the design matrix does not match obs."""
     counts_df = pd.DataFrame(
         {"gene1": [0, 1, 55], "gene2": [4, 12, 60]},
         index=["sample1", "sample2", "sample3"],
@@ -196,9 +252,7 @@ def test_matching_samples():
 
 
 def test_lfc_shrinkage_coeff():
-    """Test that a KeyError is thrown when attempting to shrink an unexisting LFC
-    coefficient.
-    """
+    """Test that a KeyError is thrown when attempting to shrink an unexisting LFC coefficient."""
 
     counts_df = load_example_data(
         modality="raw_counts",
@@ -225,11 +279,8 @@ def test_lfc_shrinkage_coeff():
 
 
 def test_indexes():
-    """Test that a ValueError is thrown when the count matrix and the metadata data
-    don't have the same index."""
-    counts_df = pd.DataFrame(
-        {"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"]
-    )
+    """Test that a ValueError is thrown when the count matrix and the metadata data don't have the same index."""
+    counts_df = pd.DataFrame({"gene1": [0, 1], "gene2": [4, 12]}, index=["sample1", "sample2"])
     metadata = pd.DataFrame({"condition": [0, 1]}, index=["sample01", "sample02"])
 
     with pytest.raises(ValueError):  # Should be raised by AnnData
@@ -241,8 +292,7 @@ def test_indexes():
 
 
 def test_contrast():
-    """Test that KeyErrors/ValueErrors are thrown when invalid contrasts are passed to a
-    DeseqStats."""
+    """Test that KeyErrors/ValueErrors are thrown when invalid contrasts are passed to a DeseqStats."""
 
     counts_df = load_example_data(
         modality="raw_counts",
@@ -287,9 +337,7 @@ def test_contrast():
 
 
 def test_cooks_not_refitted():
-    """Test that an AttributeError is thrown when a `DeseqStats` object is initialized
-    from a `DeseqDataSet` whose `refit_cooks` attribute is set to True, but whose
-    Cooks outliers were not actually refitted."""
+    """Test that an AttributeError is thrown when a `DeseqStats` object is initialized from a `DeseqDataSet` whose `refit_cooks` attribute is set to True, but whose Cooks outliers were not actually refitted."""
 
     counts_df = load_example_data(
         modality="raw_counts",
@@ -365,8 +413,7 @@ def test_few_samples():
 
 
 def test_few_samples_and_outlier():
-    """Test that PyDESeq2 runs bug-free with outliers and a cohort with less than 3
-    samples.
+    """Test that PyDESeq2 runs bug-free with outliers and a cohort with less than 3 samples.
     TODO: refine this test to check the correctness of the output?
     """
 
@@ -496,8 +543,7 @@ def test_zero_inflated():
 
 def test_plot_MA():
     """
-    Test that a KeyError is thrown when attempting to run plot_MA without running the
-    statistical analysis first.
+    Test that a KeyError is thrown when attempting to run plot_MA without running the statistical analysis first.
     """
 
     counts_df = load_example_data(
@@ -525,3 +571,31 @@ def test_plot_MA():
     ds.summary()
     # Now this shouldn't throw an error
     ds.plot_MA()
+
+
+def test_plot_ax():
+    """Test that plots are drawn on the provided axes, without creating a new figure."""
+    counts_df = load_example_data(
+        modality="raw_counts",
+        dataset="synthetic",
+        debug=False,
+    )
+
+    metadata = load_example_data(
+        modality="metadata",
+        dataset="synthetic",
+        debug=False,
+    )
+
+    dds = DeseqDataSet(counts=counts_df, metadata=metadata)
+    dds.deseq2()
+    ds = DeseqStats(dds, contrast=["condition", "B", "A"])
+    ds.summary()
+
+    _, axes = plt.subplots(ncols=2)
+    fignums = plt.get_fignums()
+    dds.plot_dispersions(ax=axes[0])
+    ds.plot_MA(ax=axes[1])
+
+    assert plt.get_fignums() == fignums
+    assert all(ax.collections for ax in axes)

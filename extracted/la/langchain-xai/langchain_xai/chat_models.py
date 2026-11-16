@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeAlias, cast
 
 import openai
 from langchain_core.messages import AIMessageChunk
 from langchain_core.utils import from_env, secret_from_env
+from langchain_core.utils._gateway import _apply_gateway_config
 from langchain_openai.chat_models.base import BaseChatOpenAI
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
-from typing_extensions import Self
 
 from langchain_xai._version import __version__
 from langchain_xai.data._profiles import _PROFILES
@@ -510,6 +510,28 @@ class ChatXAI(BaseChatOpenAI):  # type: ignore[override]
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_xai_gateway_config(cls, values: Any) -> Any:
+        """Resolve the base URL and API key, applying LangSmith gateway settings.
+
+        Routes through the gateway when `LANGSMITH_GATEWAY` is set or the model is
+        built inside `langsmith_gateway`. See `langchain_core.utils._gateway` for
+        precedence.
+        """
+        if isinstance(values, dict):
+            _apply_gateway_config(
+                values,
+                cls,
+                base_url_field="xai_api_base",
+                api_key_field="xai_api_key",
+                provider_path="xai/v1",
+                base_url_env="XAI_API_BASE",
+                api_key_env="XAI_API_KEY",
+                default_base_url="https://api.x.ai/v1/",
+            )
+        return values
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that api key and python package exists in environment."""
@@ -652,6 +674,11 @@ class ChatXAI(BaseChatOpenAI):  # type: ignore[override]
             rtn.generations[0].message.usage_metadata["output_tokens"] += (  # type: ignore[attr-defined]
                 reasoning_tokens
             )
+            # Keep the documented UsageMetadata invariant
+            # total_tokens == input_tokens + output_tokens (gh #39634).
+            usage_metadata["total_tokens"] = (
+                usage_metadata["input_tokens"] + usage_metadata["output_tokens"]
+            )
 
         return rtn
 
@@ -700,6 +727,11 @@ class ChatXAI(BaseChatOpenAI):  # type: ignore[override]
             )
         ):
             generation_chunk.message.usage_metadata["output_tokens"] += reasoning_tokens  # type: ignore[attr-defined]
+            # Keep the documented UsageMetadata invariant
+            # total_tokens == input_tokens + output_tokens (gh #39634).
+            usage_metadata["total_tokens"] = (
+                usage_metadata["input_tokens"] + usage_metadata["output_tokens"]
+            )
         return generation_chunk
 
     def with_structured_output(
@@ -757,7 +789,7 @@ class ChatXAI(BaseChatOpenAI):  # type: ignore[override]
             strict:
                 - `True`:
                     Model output is guaranteed to exactly match the schema.
-                    The input schema will also be validated according to the [supported schemas](https://platform.openai.com/docs/guides/structured-outputs/supported-schemas?api-mode=responses#supported-schemas).
+                    The input schema will also be validated according to the [supported schemas](https://docs.x.ai/docs/guides/structured-outputs).
                 - `False`:
                     Input schema will not be validated and model output will not be
                     validated.

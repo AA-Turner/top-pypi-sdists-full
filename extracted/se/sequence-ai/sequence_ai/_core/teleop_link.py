@@ -38,9 +38,6 @@ WAIT_S = 20
 
 
 READY_WAIT_S = 0
-
-
-URLS_WAIT_S = 3
 _SLACK_S = 10.0
 _CALL_S = 10.0
 
@@ -118,11 +115,12 @@ class RobotLink:
         if self._link is None:
             self._link = self._open()
 
-        wait_s = READY_WAIT_S if not self._answered.is_set() else URLS_WAIT_S if self.recording.needs_urls() else WAIT_S
-        body = self._link.post(LINK, {"session": self.session, "sdk": _version(), "direct": True, "wait_s": wait_s,
-                                      "want_urls": self.recording.wanted()})
+
+        wait_s = READY_WAIT_S if not self._answered.is_set() else WAIT_S
+        body = self._link.post(LINK, {"session": self.session, "sdk": _version(), "direct": True, "wait_s": wait_s})
         self._answered.set()
-        self.recording.configure((body.get("settings") or {}).get("record"), body.get("urls"), body.get("storage_full"))
+        settings = body.get("settings") or {}
+        self.recording.configure(settings.get("record"), settings.get("robot"))
         self._take(body.get("offers") or ())
 
     def _refused(self, exc: SequencesError) -> None:
@@ -193,9 +191,8 @@ class RobotLink:
         return True
 
     def close(self) -> None:
-        """The robot's connection closed: what it recorded written whole first, its rounds going on meanwhile for the URLs
-        that takes (Recording.close, which raises what it could not write); then what is left of its events said if the
-        platform answers soon, and its threads ended."""
+        """The robot's connection closed: what it recorded written to its file and the file closed first
+        (Recording.close); then what is left of its events said if the platform answers soon, and its threads ended."""
         with self._lock:
             if self._closed:
                 return

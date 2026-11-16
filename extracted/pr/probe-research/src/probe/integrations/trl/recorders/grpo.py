@@ -8,7 +8,8 @@ import functools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from probe.generated.samples import CaptureField
+from probe.generated.samples import MESSAGE_FIELDS, CaptureField
+from probe.sdk.run.samples import to_sampling_settings
 from probe.sdk.run.samples.rollout import RolloutCapture
 from probe.sdk.run.samples.tokens import summarize_tokens
 
@@ -18,6 +19,7 @@ from ..recorder import Recorder
 from ..tool_rollouts import ToolRollouts
 from ..rows import (
     MAX_SCENARIO_TEXT,
+    NO_SERVING_GPU,
     TOOL_FIELDS,
     build_completion,
     has_response_schema,
@@ -81,7 +83,8 @@ class GrpoRecorder(Recorder):
         several processes only the main one's samples carry files. RLOO decodes plain text."""
         trainer = self.trainer
         if any(cls.__name__ == "RLOOTrainer" for cls in type(trainer).__mro__):
-            return {**dict.fromkeys(TOOL_FIELDS, RLOO_TEXT), CaptureField.REASONING: RLOO_TEXT}
+            return {**dict.fromkeys(TOOL_FIELDS, RLOO_TEXT), CaptureField.REASONING: RLOO_TEXT,
+                    CaptureField.GPU_READINGS: NO_SERVING_GPU}
         tokenizer = getattr(trainer, "_tokenizer", None) or self.tracker.get_tokenizer()
         if not has_response_schema(tokenizer):
             unsupported = dict.fromkeys((CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS,
@@ -90,6 +93,7 @@ class GrpoRecorder(Recorder):
             unsupported = {CaptureField.TOOL_CALL_IDS: NUMBERED_IDS}
         if int(getattr(getattr(trainer, "accelerator", None), "num_processes", 1) or 1) > 1:
             unsupported[CaptureField.ENVIRONMENT_FILES] = OTHER_RANKS
+        unsupported[CaptureField.GPU_READINGS] = NO_SERVING_GPU
         return unsupported
 
     def _send_plain_text_plan(self, completions: Sequence[Any]) -> None:
@@ -99,7 +103,8 @@ class GrpoRecorder(Recorder):
         if self._is_plain_text_declared or not any(isinstance(completion, str) for completion in completions):
             return
         self._is_plain_text_declared = True
-        self.tracker.samples.plan(unsupported=dict.fromkeys(CaptureField, PLAIN_TEXT))
+        self.tracker.samples.plan(unsupported={**dict.fromkeys(MESSAGE_FIELDS, PLAIN_TEXT),
+                                               CaptureField.GPU_READINGS: NO_SERVING_GPU})
 
     def install(self) -> None:
         trainer = self.trainer
@@ -261,6 +266,7 @@ class GrpoRecorder(Recorder):
             step, int(getattr(trainer.args, "steps_per_generation", 1) or 1) * int(getattr(trainer, "num_iterations", 1) or 1)
         )
         process = int(getattr(accelerator, "process_index", 0) or 0)
+        sampling = get_sampling(trainer.args)
         parts: list[dict] = []
         groups: dict[str, dict] = {}
         for position in range(count):
@@ -276,6 +282,8 @@ class GrpoRecorder(Recorder):
             )
             part.update(key=key, group_key=f"{prefix}:g{index // group_size}", split=split, scheduled_step=seal_step,
                         generated_by=[{"model": {"kind": "policy", "version": step}}])
+            if sampling:
+                part["sampling"] = dict(sampling)
             if int(getattr(accelerator, "num_processes", 1) or 1) > 1:
                 part["worker"] = f"rank{index // local}"
             arrays = self._get_token_arrays(index % local, output) if index // local == process else None
@@ -313,7 +321,8 @@ class GrpoRecorder(Recorder):
                                failed_async_calls=fact.get(FAILED_ASYNC_CALLS)),
             "host": self.tracker.host,
         }
-        for name in ("label", "finish_reason", "prompt_tokens", "response_tokens", "environment_type"):
+        for name in ("label", "name", "description", "finish_reason", "prompt_tokens", "response_tokens",
+                     "environment_type"):
             if fact.get(name) is not None:
                 part[name] = fact[name]
         parts = {str(name): value for name, value in ((name, to_finite(value)) for name, value in rewards.items())
@@ -409,3 +418,13 @@ def _pick_rollout_fields(fields: Mapping[str, Any], row: int) -> dict[str, Any]:
         elif (number := to_finite(value)) is not None:
             picked[str(name)] = number
     return picked
+
+
+def get_sampling(args: Any) -> dict | None:
+    """How GRPO / RLOO sampled (`GRPOConfig` temperature, top_p, top_k, max_completion_length), with
+    `generation_kwargs` over them as TRL applies it."""
+    found = {name: getattr(args, name, None) for name in ("temperature", "top_p", "top_k")}
+    found["max_response_tokens"] = getattr(args, "max_completion_length", None)
+    merged = {**(to_sampling_settings(found) or {}),
+              **(to_sampling_settings(getattr(args, "generation_kwargs", None)) or {})}
+    return merged or None

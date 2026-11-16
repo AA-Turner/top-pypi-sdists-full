@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sumologic-sdk
-Version: 0.2.1
+Version: 0.2.2
 Summary: Sumo Logic Python SDK
 Home-page: https://github.com/SumoLogic/sumologic-python-sdk
 Author: SumoLogic, Yoway Buorn, Melchi Salins
@@ -221,11 +221,11 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.33.1
-Requires-Dist: certifi>=2026.4.22
-Requires-Dist: urllib3>=2.6.3
+Requires-Dist: certifi>=2026.10.18
+Requires-Dist: urllib3>=2.8.0
 Requires-Dist: pytest>=9.0.3
-Requires-Dist: filelock>=3.29.0
-Requires-Dist: virtualenv>=21.3.0
+Requires-Dist: filelock>=4.2.1; python_version >= "3.11"
+Requires-Dist: virtualenv>=21.14.9
 Requires-Dist: pygments>=2.20.0
 Dynamic: author
 Dynamic: home-page

@@ -2,8 +2,7 @@
 A simple PyDESeq2 workflow
 ===========================
 
-In this example, we show how to perform a simple differential expression analysis on bulk
-RNAseq data, using PyDESeq2.
+In this example, we show how to perform a simple differential expression analysis on bulk RNAseq data, using PyDESeq2.
 
 .. contents:: Contents
     :local:
@@ -18,10 +17,12 @@ We start by importing required packages and setting up an optional path to save 
 import os
 import pickle as pkl
 
+import matplotlib.pyplot as plt
+
+from pydeseq2.datasets import load_example_data
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.ds import DeseqStats
-from pydeseq2.utils import load_example_data
 
 SAVE = False  # whether to save the outputs of this notebook
 
@@ -49,7 +50,7 @@ if SAVE:
 # .. currentmodule:: pydeseq2
 #
 # To illustrate the required data format, we load a synthetic example dataset that may be
-# obtained through PyDESeq2's API using :func:`utils.load_example_data`.
+# obtained through PyDESeq2's API using :func:`datasets.load_example_data`.
 # You may replace it with your own dataset.
 
 counts_df = load_example_data(
@@ -97,6 +98,7 @@ metadata = metadata.loc[samples_to_keep]
 # .. note::
 #   In the case where the design factor contains ``NaN`` entries, PyDESeq2 will throw an
 #   error when intializing a :class:`DeseqDataSet <dds.DeseqDataSet>`.
+#   Genes whose counts contain ``NaN`` entries are ignored with a warning, and their dispersions, LFCs and p-values are set to ``NaN``.
 
 # %%
 # Next, we filter out genes that have less than 10 read counts in total. Note again that
@@ -157,7 +159,7 @@ dds = DeseqDataSet(
 #   You might need to change it according to your own dataset.
 #
 # Several other arguments may be optionally specified (see the :doc:`API documentation
-# </api/docstrings/pydeseq2.dds.DeseqDataSet>`).
+# </generated/pydeseq2.dds.DeseqDataSet>`).
 # Among those, the ``refit_cooks`` argument (set to ``True`` by default), controls
 # whether Cooks outlier should be refitted (which is advised, in general) and ``n_cpus``
 # sets the number of CPUs to use for computation. Here, we use 8 threads. Feel free to
@@ -170,6 +172,9 @@ dds = DeseqDataSet(
 # we may run the :meth:`deseq2() <DeseqDataSet.deseq2>` method
 # to fit dispersions and LFCs.
 #
+# .. note::
+#   PyDESeq2 logs its progress through the shared scverse logger, which only shows warnings by default.
+#   To follow each step, set ``scverse_misc.logging.config.verbosity = "info"``.
 #
 
 
@@ -229,7 +234,7 @@ ds = DeseqStats(dds, contrast=["condition", "B", "A"], inference=inference)
 
 # %%
 # It also has a set of optional keyword arguments (see the :doc:`API documentation
-# </api/docstrings/pydeseq2.ds.DeseqStats>`), among which:
+# </generated/pydeseq2.ds.DeseqStats>`), among which:
 #
 # - ``alpha``: the p-value and adjusted p-value significance threshold (``0.05``
 #   by default),
@@ -261,6 +266,7 @@ if SAVE:
 # %%
 # The results are then stored in the ``results_df`` attribute (``ds.results_df``).
 
+
 # %%
 # Optional: threshold-based tests
 # """"""""""""""""""""""""""""""""
@@ -273,6 +279,15 @@ if SAVE:
 
 ds.summary(lfc_null=0.1, alt_hypothesis="greaterAbs")
 ds.plot_MA(s=20)
+
+# %%
+# To customize the figure, e.g. to set the axis limits, pass matplotlib axes to :meth:`plot_MA() <DeseqStats.plot_MA>`.
+# The same goes for :meth:`plot_dispersions() <pydeseq2.dds.DeseqDataSet.plot_dispersions>`.
+
+fig, ax = plt.subplots()
+ds.plot_MA(s=20, ax=ax)
+ax.set_ylim(-1, 1)
+plt.show()
 
 # %%
 # LFC shrinkage
@@ -289,6 +304,7 @@ ds.lfc_shrink(coeff="condition[T.B]")
 if SAVE:
     with open(os.path.join(OUTPUT_PATH, "shrunk_results.pkl"), "wb") as f:
         pkl.dump(ds, f)
+
 
 # %%
 # .. note::

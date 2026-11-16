@@ -2,8 +2,8 @@
 `seq gpu`: GPU machines you run yourself — `add` opens them near a place in the US, `places` lists the
 US cities a place can be, `list` shows those live and `history` those over, `allow` changes who reaches
 their ports, `ssh` opens a root shell on one, `save` keeps one's disk as a snapshot (`saved` lists them),
-`remove` shuts one down. A machine is a container you are root in, on one card; you install and run
-what you like, and `remove` ends the machine and its disk. (`seq gpus`, plural, is a different command:
+`remove` shuts one down. A machine is a container you are root in, with its cards - 1, 2, 4 or 8 of one kind; you
+install and run what you like, and `remove` ends the machine and its disk. (`seq gpus`, plural, is a different command:
 the catalogue of cards and their prices.)
 
 In one sentence: each command reads or writes gateway routes with the caller's key through `sequence_ai.gpu.*` and prints
@@ -23,7 +23,7 @@ from typing import Any, Callable, Iterator
 
 from sequence_ai._core.money import money, per_hour
 from sequence_ai._core.names import segment
-from sequence_ai.errors import InternalError, Unavailable
+from sequence_ai.errors import Unavailable
 
 from seq.clock import stamp
 from seq.deployments_cli import _call
@@ -97,22 +97,42 @@ def _expected_ms(m: dict) -> Any:
     return e.get("ms") if isinstance(e, dict) else None
 
 
+def _cards(m: dict) -> int:
+    """How many cards a GPU machine has: its `cards`, which the platform gives each since hf3u; 1 for one it does not say
+    it of."""
+    n = m.get("cards")
+    return n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 1
+
+
+def _card(m: dict) -> str:
+    """A GPU machine's cards as said in a table or a line: its card's name, and how many where it has more than one -
+    "L4", "L4 × 4"."""
+    name = str(m.get("gpu") or "—")
+    return f"{name} × {_cards(m)}" if _cards(m) > 1 else name
+
+
 def _price(m: dict, cards: dict) -> str:
     """What a GPU costs an hour, as its owner reads it: its card's own price, as the price list says it (`cards`,
-    sequence_ai.gpu._card_prices), and its CPU and memory on top - never the one total the platform bills it at, which
-    read as the card's (an L4's "$1.22/h", where the card is $0.80). '—' where the price list could not be read.
+    sequence_ai.gpu._card_prices), times its cards where it has more than one, and its CPU and memory on top - never the
+    one total the platform bills it at, which read as the card's (an L4's "$1.22/h", where the card is $0.80). A card
+    costs the same alone or among eight. '—' where the price list could not be read.
+
 
 """
     card = cards.get(str(m.get("gpu")))
-    return f"{per_hour(card)} + CPU and memory" if card is not None else "—"
+    if card is None:
+        return "—"
+    each = f"{per_hour(card)} + CPU and memory"
+    return f"{_cards(m)} × {each}" if _cards(m) > 1 else each
 
 
 def _line(m: dict, cards: dict | None = None) -> str:
-    """One GPU on a line, as `seq gpu add` says it: id, card, the place asked for, status, its address, its ports, the round
-    trip expected from near its place (`expected_rtt`, measured there) and what it costs an hour (_price, by `cards`).
-    
+    """One GPU on a line, as `seq gpu add` says it: id, its cards (_card: "L4 × 4" for a machine of four), the place asked
+    for, status, its address, its ports, the round trip expected from near its place (`expected_rtt`, measured there) and
+    what it costs an hour (_price, by `cards`).
+
 """
-    bits = [str(m.get("id")), str(m.get("gpu") or "—"), str(m.get("place") or "—"), _status(m)]
+    bits = [str(m.get("id")), _card(m), str(m.get("place") or "—"), _status(m)]
     if m.get("host"):
         bits.append(str(m["host"]))
     if m.get("address"):
@@ -141,13 +161,14 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
             base_url: str | None = None, echo: Echo = _silent) -> list:
     """`seq gpu add --place … --gpu … [--count N] [--from NAME] [--port P]... [--allow CIDR]... [--run CMD] [--name NAME]
     [--no-wait]`:
-    open the machines near `place` and, unless `--no-wait`, wait until each runs - saying so on stderr each minute - then
-    say each on a line (_line), and that nothing was measured near its place where nothing was. One that failed to start
-    ends the command in its error, those that run said first; Ctrl-C cancels those not running, says which and what each
-    was billed (GpuCancelled), and exits 130, those that run said first - one while the add is asked is held until the
-    platform answers, then what it added is cancelled so (_held); a second then stops it, said not cancelled
-    (GpuNotCancelled). Returns what it said, as sequence_ai.gpu.add
-    answers it.
+    open a machine of `count` cards near `place` - 1, 2, 4 or 8, any other count the platform's refusal, said as it
+    words it, exit 2 - and, unless `--no-wait`, wait until it runs - saying so on stderr each minute - then say it on a
+    line with its cards (_line), and that nothing was measured near its place where nothing was. One that failed to start
+    ends the command in its error; Ctrl-C cancels it if it does not run yet, says so and what it was billed
+    (GpuCancelled), and exits 130, one that ran by then said - one while the add is asked is held until the platform
+    answers, then what it added is cancelled so (_held); a second then stops it, said not cancelled (GpuNotCancelled).
+    Returns what it said, as sequence_ai.gpu.add answers it, a list of one.
+
 
 """
     import sequence_ai
@@ -165,10 +186,8 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
             _note(OPEN_TO_ALL)
         if wait and machines:
             ids = [str(m.get("id")) for m in machines]
-            one = len(ids) == 1
-            _note(f"{', '.join(ids)} starting: waiting until {'it runs' if one else 'they run'} (--no-wait returns once "
-                  f"{'it is' if one else 'each is'} asked for: seconds, not the minute or two "
-                  f"{'it takes' if one else 'each takes'} to run)")
+            _note(f"{', '.join(ids)} starting: waiting until it runs (--no-wait returns once it is asked for: seconds, "
+                  "not the minute or two it takes to run)")
             said = [0.0]
 
             def waiting(seconds: float, starting: list) -> None:
@@ -186,11 +205,6 @@ def gpu_add(place: str, gpu: str, count: int = 1, snapshot: str | None = None, p
             echo(_line(m, cards))
         raise GpuCancelled(getattr(stop, "cancelled", None) or [], getattr(stop, "not_cancelled", None) or [],
                            getattr(stop, "billed", None) or {}) from None
-    except (Unavailable, InternalError) as exc:
-        for m in (exc.details or {}).get("gpus") or []:
-            if m.get("status") == "running":
-                echo(_line(m, cards))
-        raise
     for m in machines:
         echo(_line(m, cards))
     unmeasured = _unmeasured(machines[0]) if machines else None
@@ -253,11 +267,11 @@ def _robots(m: dict) -> str:
 
 
 def _table(rows: list, echo: Echo, *, ended: bool) -> None:
-    """GPUs a row each — id, the place asked for, card, status, when it started (and ended), and for one live where it is
-    reached, its ports, its robots and what it started from; then what it cost — and why one ended as it did under its row,
-    the platform's word for it."""
+    """GPUs a row each — id, the place asked for, its cards ("L4 × 4", _card), status, when it started (and ended), and for
+    one live where it is reached, its ports, its robots and what it started from; then what it cost — and why one ended as
+    it did under its row, the platform's word for it."""
     heads = ["id", "place", "gpu", "status", "started"] + (["ended"] if ended else ["address", "ports", "robots", "image"])
-    cells = [[str(m.get("id")), str(m.get("place") or "—"), str(m.get("gpu") or "—"), _status(m),
+    cells = [[str(m.get("id")), str(m.get("place") or "—"), _card(m), _status(m),
               stamp(m.get("started_at")) if m.get("started_at") else "—"]
              + ([stamp(m.get("ended_at")) if m.get("ended_at") else "—"] if ended else
                 [str(m.get("host") or m.get("address") or "—"), ",".join(str(p) for p in m.get("ports") or []) or "—",
@@ -274,9 +288,10 @@ def _table(rows: list, echo: Echo, *, ended: bool) -> None:
 
 
 def gpu_list(*, base_url: str | None = None, echo: Echo = _silent) -> dict:
-    """`seq gpu list`: your GPU machines that are live, in a table — id, the place you asked for, card, status, when it
-    started, its address and ports, the robots on them and their round trip as the GPU measures it, what it started from,
-    what it has cost — and how many of your GPU limit they hold. Those over are `seq gpu history`'s. Returns what
+    """`seq gpu list`: your GPU machines that are live, in a table — id, the place you asked for, its cards, status, when
+    it started, its address and ports, the robots on them and their round trip as the GPU measures it, what it started
+    from, what it has cost — and how many cards of your GPU limit they hold, a machine of four holding four. Those over are
+    `seq gpu history`'s. Returns what
     sequence_ai.gpu.list read.
 """
     import sequence_ai
@@ -290,14 +305,14 @@ def gpu_list(*, base_url: str | None = None, echo: Echo = _silent) -> dict:
         echo("robots: those connected to its ports, and their median round trip as the GPU measures it")
     quota = out.get("quota") or {}
     if quota.get("limit") is not None:
-        echo(f"GPUs  {quota.get('used', len(rows))} / {quota['limit']}")
+        echo(f"GPU limit  {quota.get('used', sum(_cards(m) for m in rows))} / {quota['limit']} cards")
     return out
 
 
 def gpu_history(limit: int | None = None, cursor: str | None = None, *, base_url: str | None = None,
                 echo: Echo = _silent) -> dict:
     """`seq gpu history [--limit N] [--cursor C]`: your GPU machines that are over, kept 30 days, the one ended last
-    first — id, the place you asked for, card, status, when it started and ended, what it cost in all, and why one
+    first — id, the place you asked for, its cards, status, when it started and ended, what it cost in all, and why one
     failed — a page at a time. Returns what sequence_ai.gpu.history read. {the user 11-12: "if it is closed we should
     have a history secciton instead of these thse should only be live"}"""
     import sequence_ai

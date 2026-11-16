@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from io import BytesIO
 from typing import Any
 from typing import Literal
 
@@ -13,6 +12,8 @@ from optuna import Study
 from optuna.study import create_study
 from optuna.testing.visualization import prepare_study_with_trials
 from optuna.trial import create_trial
+from optuna.trial import FrozenTrial
+from optuna.trial import TrialState
 from optuna.visualization import plot_edf as plotly_plot_edf
 from optuna.visualization._edf import _EDFInfo
 from optuna.visualization._edf import _get_edf_info
@@ -26,19 +27,13 @@ if plotly_imports.is_successful():
     from optuna.visualization._plotly_imports import go
 
 if plt_imports.is_successful():
+    from matplotlib.figure import Figure
+
     from optuna.visualization.matplotlib._matplotlib_imports import Axes
     from optuna.visualization.matplotlib._matplotlib_imports import plt
 
 
 parametrized_plot_edf = pytest.mark.parametrize("plot_edf", [plotly_plot_edf, plt_plot_edf])
-
-
-def save_static_image(figure: go.Figure | Axes | np.ndarray) -> None:
-    if isinstance(figure, go.Figure):
-        figure.write_image(BytesIO())
-    else:
-        plt.savefig(BytesIO())
-        plt.close()
 
 
 @parametrized_plot_edf
@@ -63,8 +58,7 @@ def test_target_is_none_and_study_is_multi_obj(plot_edf: Callable[..., Any]) -> 
 def test_edf_plot_no_trials(
     plot_edf: Callable[..., Any], direction: Literal["minimize", "maximize"]
 ) -> None:
-    figure = plot_edf(create_study(direction=direction))
-    save_static_image(figure)
+    plot_edf(create_study(direction=direction))
 
 
 @parametrized_plot_edf
@@ -76,8 +70,7 @@ def test_edf_plot_no_trials_studies(
     num_studies: int,
 ) -> None:
     studies = [create_study(direction=direction) for _ in range(num_studies)]
-    figure = plot_edf(studies)
-    save_static_image(figure)
+    plot_edf(studies)
 
 
 @parametrized_plot_edf
@@ -93,8 +86,7 @@ def test_plot_edf_with_multiple_studies(
         study = create_study(direction=direction)
         study.optimize(lambda t: t.suggest_float("x", 0, 5), n_trials=10)
         studies.append(study)
-    figure = plot_edf(studies)
-    save_static_image(figure)
+    plot_edf(studies)
 
 
 @parametrized_plot_edf
@@ -102,8 +94,7 @@ def test_plot_edf_with_target(plot_edf: Callable[..., Any]) -> None:
     study = create_study()
     study.optimize(lambda t: t.suggest_float("x", 0, 5), n_trials=10)
     with pytest.warns(UserWarning):
-        figure = plot_edf(study, target=lambda t: t.params["x"])
-    save_static_image(figure)
+        plot_edf(study, target=lambda t: t.params["x"])
 
 
 @parametrized_plot_edf
@@ -122,8 +113,6 @@ def test_plot_edf_with_target_name(plot_edf: Callable[..., Any], target_name: st
     elif isinstance(figure, Axes):
         assert figure.xaxis.label.get_text() == expected
 
-    save_static_image(figure)
-
 
 def test_empty_edf_info() -> None:
     def _assert_empty(info: _EDFInfo) -> None:
@@ -141,6 +130,32 @@ def test_empty_edf_info() -> None:
     study.tell(trial, state=optuna.trial.TrialState.PRUNED)
     edf_info = _get_edf_info(study)
     _assert_empty(edf_info)
+
+
+@parametrized_plot_edf
+@pytest.mark.parametrize(
+    "empty_trials",
+    [[], [create_trial(state=TrialState.PRUNED)], [create_trial(value=float("inf"))]],
+)
+@pytest.mark.filterwarnings("error::RuntimeWarning")
+def test_plot_edf_with_empty_study(
+    plot_edf: Callable[..., Any], empty_trials: list[FrozenTrial]
+) -> None:
+    study = create_study(study_name="completed")
+    study.add_trials([create_trial(value=1.0), create_trial(value=3.0)])
+    empty_study = create_study(study_name="empty")
+    empty_study.add_trials(empty_trials)
+    studies = [empty_study, study, empty_study]
+
+    info = _get_edf_info(studies)
+    assert [line.study_name for line in info.lines] == [study.study_name]
+    np.testing.assert_array_equal(info.x_values, np.linspace(1.0, 3.0, NUM_SAMPLES_X_AXIS))
+    np.testing.assert_array_equal(info.lines[0].y_values, np.where(info.x_values < 3.0, 0.5, 1.0))
+    if plot_edf is plt_plot_edf:
+        plt.close("all")
+    figure = plot_edf(studies)
+    if isinstance(figure, Axes) and isinstance(figure.figure, Figure):
+        plt.close(figure.figure)
 
 
 @pytest.mark.parametrize("n_studies", [1, 2, 3])

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Final
+import contextlib
+from functools import partial
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Final, TypeAlias
 
 import pytest
 
 import turbohtml
-from turbohtml import Document, Element, parse, query
+from turbohtml import Document, Element, parse, parse_xml, query
 from turbohtml.convert import (
     ExpressionError,
     GenericTranslator,
@@ -16,25 +19,46 @@ from turbohtml.convert import (
     css_to_xpath,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from work_steps import WorkSteps
+
+    from turbohtml import Node
+
+XPathValue: TypeAlias = "Sequence[Node | str | float] | float | bool | str"
+
 
 @pytest.mark.parametrize(
     ("selector", "expected"),
     [
-        pytest.param("div", "descendant-or-self::div", id="type"),
-        pytest.param("DIV", "descendant-or-self::div", id="type-lowercased"),
+        pytest.param("div", "descendant-or-self::*[name() = 'div']", id="type"),
+        pytest.param("DIV", "descendant-or-self::*[name() = 'div']", id="type-lowercased"),
         pytest.param("*", "descendant-or-self::*", id="universal"),
-        pytest.param("div p", "descendant-or-self::div/descendant::p", id="descendant"),
-        pytest.param("div > p", "descendant-or-self::div/p", id="child"),
-        pytest.param("a + b", "descendant-or-self::a/following-sibling::*[1]/self::b", id="adjacent"),
-        pytest.param("a ~ b", "descendant-or-self::a/following-sibling::b", id="sibling"),
+        pytest.param(
+            "div p",
+            "descendant-or-self::*[name() = 'div']/descendant::*[name() = 'p']",
+            id="descendant",
+        ),
+        pytest.param("div > p", "descendant-or-self::*[name() = 'div']/*[name() = 'p']", id="child"),
+        pytest.param(
+            "a + b",
+            "descendant-or-self::*[name() = 'a']/following-sibling::*[1]/self::*[name() = 'b']",
+            id="adjacent",
+        ),
+        pytest.param(
+            "a ~ b",
+            "descendant-or-self::*[name() = 'a']/following-sibling::*[name() = 'b']",
+            id="sibling",
+        ),
         pytest.param("#id", "descendant-or-self::*[@id = 'id']", id="id"),
         pytest.param(
             ".cls",
             "descendant-or-self::*[@class and contains(concat(' ', normalize-space(@class), ' '), ' cls ')]",
             id="class",
         ),
-        pytest.param("a[href]", "descendant-or-self::a[@href]", id="attr-exists"),
-        pytest.param("a[HREF]", "descendant-or-self::a[@href]", id="attr-name-lowercased"),
+        pytest.param("a[href]", "descendant-or-self::*[name() = 'a' and @href]", id="attr-exists"),
+        pytest.param("a[HREF]", "descendant-or-self::*[name() = 'a' and @href]", id="attr-name-lowercased"),
         pytest.param("[data-x='a']", "descendant-or-self::*[@data-x = 'a']", id="attr-eq"),
         pytest.param('[data-x="it\'s"]', 'descendant-or-self::*[@data-x = "it\'s"]', id="literal-squote"),
         pytest.param("[data-x='say \"hi\"']", "descendant-or-self::*[@data-x = 'say \"hi\"']", id="literal-dquote"),
@@ -57,28 +81,54 @@ from turbohtml.convert import (
             "'abcdefghijklmnopqrstuvwxyz'), '-'))]",
             id="dash-empty-ci",
         ),
-        pytest.param("div, p", "descendant-or-self::div | descendant-or-self::p", id="group-union"),
-        pytest.param(":scope > div", "descendant-or-self::*[1]/div", id="scope-leading"),
-        pytest.param("li:nth-child(n)", "descendant-or-self::li", id="nth-trivial"),
-        pytest.param("li:nth-child(-n)", "descendant-or-self::li[false()]", id="nth-impossible"),
-        pytest.param("li:nth-child(3)", "descendant-or-self::li[count(preceding-sibling::*) = 2]", id="nth-fixed"),
+        pytest.param(
+            "div, p",
+            "descendant-or-self::*[name() = 'div'] | descendant-or-self::*[name() = 'p']",
+            id="group-union",
+        ),
+        pytest.param(":scope > div", "descendant-or-self::*[1]/*[name() = 'div']", id="scope-leading"),
+        pytest.param("li:nth-child(n)", "descendant-or-self::*[name() = 'li']", id="nth-trivial"),
+        pytest.param("li:nth-child(-n)", "descendant-or-self::*[name() = 'li' and false()]", id="nth-impossible"),
+        pytest.param(
+            "li:nth-child(3)",
+            "descendant-or-self::*[name() = 'li' and count(preceding-sibling::*) = 2]",
+            id="nth-fixed",
+        ),
         pytest.param(
             "li:nth-child(2n+4)",
-            "descendant-or-self::li[count(preceding-sibling::*) >= 3 and (count(preceding-sibling::*) + 1) mod 2 = 0]",
+            "descendant-or-self::*[name() = 'li' and count(preceding-sibling::*) >= 3"
+            " and (count(preceding-sibling::*) + 1) mod 2 = 0]",
             id="nth-shifted",
         ),
         pytest.param(
             "li:nth-child(3n+1)",
-            "descendant-or-self::li[count(preceding-sibling::*) mod 3 = 0]",
+            "descendant-or-self::*[name() = 'li' and count(preceding-sibling::*) mod 3 = 0]",
             id="nth-unshifted",
         ),
         pytest.param(
             "li:nth-last-child(-2n+4)",
-            "descendant-or-self::li[count(following-sibling::*) <= 3 and (count(following-sibling::*) + 1) mod 2 = 0]",
+            "descendant-or-self::*[name() = 'li' and count(following-sibling::*) <= 3"
+            " and (count(following-sibling::*) + 1) mod 2 = 0]",
             id="nth-last-negative-step",
         ),
         pytest.param(r"di\a0 v", "descendant-or-self::*[name() = 'di\xa0v']", id="unsafe-type-name"),
         pytest.param(r"[h\]ref]", "descendant-or-self::*[attribute::*[name() = 'h]ref']]", id="unsafe-attr-name"),
+        pytest.param("[-x]", "descendant-or-self::*[attribute::*[name() = '-x']]", id="unsafe-attr-first-char"),
+        pytest.param("[_x]", "descendant-or-self::*[@_x]", id="attr-underscore-first-char"),
+        pytest.param(r"[x\.a]", "descendant-or-self::*[@x.a]", id="attr-dot"),
+        pytest.param("[x1]", "descendant-or-self::*[@x1]", id="attr-digit"),
+        pytest.param(
+            "p[a]:only-of-type",
+            "descendant-or-self::*[name() = 'p' and @a and not(preceding-sibling::*[name() = 'p'])"
+            " and not(following-sibling::*[name() = 'p'])]",
+            id="of-type-after-other-simples",
+        ),
+        pytest.param(
+            "-x[a]:only-of-type",
+            "descendant-or-self::*[name() = '-x' and @a and not(preceding-sibling::*[name() = '-x'])"
+            " and not(following-sibling::*[name() = '-x'])]",
+            id="of-type-unsafe-type-name",
+        ),
         pytest.param(":hover", "descendant-or-self::*[false()]", id="never-pseudo"),
         pytest.param(":dir(sideways)", "descendant-or-self::*[false()]", id="dir-unknown-direction"),
         pytest.param(":is(:unknown-pseudo)", "descendant-or-self::*[false()]", id="is-forgiving-empty"),
@@ -96,11 +146,11 @@ def test_class_name_with_both_quote_kinds_uses_concat() -> None:
 
 
 def test_prefix_replaces_the_default_scope() -> None:
-    assert css_to_xpath("div p", prefix="descendant::") == "descendant::div/descendant::p"
+    assert css_to_xpath("div p", prefix="descendant::") == "descendant::*[name() = 'div']/descendant::*[name() = 'p']"
 
 
 def test_prefix_applies_to_every_union_arm() -> None:
-    assert css_to_xpath("a, b", prefix="//") == "//a | //b"
+    assert css_to_xpath("a, b", prefix="//") == "//*[name() = 'a'] | //*[name() = 'b']"
 
 
 @pytest.mark.parametrize(
@@ -133,11 +183,108 @@ def test_syntax_error(selector: str) -> None:
         pytest.param(":is(:scope)", ":scope", id="scope-nested"),
         pytest.param("a, :dir(rtl)", ":dir", id="error-in-later-arm"),
         pytest.param(":dir(rtl), a", ":dir", id="error-in-earlier-arm"),
+        pytest.param(f"{':nth-child(2 of ' * 19}a{')' * 19}", "more than 16777216", id="nth-of-past-cap"),
+        pytest.param(
+            f"{':nth-child(2 of ' * 19}a{')' * 19}:nth-child(2)", "more than 16777216", id="nth-after-the-cap"
+        ),
+        pytest.param(
+            f"{':nth-child(2 of ' * 19}a{')' * 19}[data-x]", "more than 16777216", id="attribute-after-the-cap"
+        ),
     ],
 )
 def test_expression_error(selector: str, match: str) -> None:
     with pytest.raises(ExpressionError, match=match):
         css_to_xpath(selector)
+
+
+def test_nesting_just_under_the_cap_is_translated() -> None:
+    assert len(css_to_xpath(f"{':nth-child(2 of ' * 18}a{')' * 18}")) < 16_777_216
+
+
+def test_output_limit_passed_inside_an_of_type_axis_raises() -> None:
+    # the compound writes its name once and the of-type axis writes it again; the second copy passes the limit there
+    with pytest.raises(ExpressionError, match="more than 16777216"):
+        css_to_xpath(f"{'x' * (16_777_216 // 2)}:nth-of-type(2)")
+
+
+def test_nested_of_clause_repeats_the_inner_condition() -> None:
+    inner = "((name() = 'a')) and count(preceding-sibling::*[(name() = 'a')]) = 1"
+    assert css_to_xpath("li:nth-child(2n+3 of :nth-child(2 of a))") == (
+        f"descendant-or-self::*[name() = 'li' and (({inner})) and count(preceding-sibling::*[({inner})]) >= 2"
+        f" and count(preceding-sibling::*[({inner})]) mod 2 = 0]"
+    )
+
+
+@pytest.mark.parametrize(
+    "type_name",
+    [
+        pytest.param("", id="untyped"),
+        pytest.param("-x", id="unsafe-type-name"),
+    ],
+)
+def test_of_type_pseudo_classes_scale_linearly(type_name: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda count: partial(_translate_for_steps, type_name + ".a" * (4 * count) + ":only-of-type" * count),
+        (1000, 4000),
+    )
+
+
+def _translate_for_steps(selector: str) -> None:
+    with contextlib.suppress(ExpressionError):  # an untyped compound raises, but only after its simples are visited
+        css_to_xpath(selector)
+
+
+@pytest.mark.parametrize(
+    "type_name",
+    [
+        pytest.param("x", id="safe-type-name"),
+        pytest.param("-x", id="unsafe-type-name"),
+    ],
+)
+def test_long_type_past_the_output_limit_scales_linearly(type_name: str, work_steps: WorkSteps) -> None:
+    # at these sizes the output passes its 2**24 character limit; past it, the type must not be re-read per pseudo-class
+    work_steps.assert_linear(
+        lambda length: partial(_translate_for_steps, type_name + "x" * length + ":only-of-type" * length),
+        (2048, 8192),
+    )
+
+
+@pytest.mark.parametrize(
+    "pseudo", [":first-of-type", ":last-of-type", ":only-of-type", ":nth-of-type(2)", ":nth-last-of-type(2)"]
+)
+@pytest.mark.parametrize("compound", ["", "*", ".c", "#id", "[data-x]"])
+def test_of_type_pseudo_class_without_a_type_selector_raises(compound: str, pseudo: str) -> None:
+    with pytest.raises(ExpressionError, match="need a type selector"):
+        css_to_xpath(compound + pseudo)
+
+
+def test_lone_type_past_the_output_limit_raises() -> None:
+    with pytest.raises(ExpressionError, match="more than 16777216"):
+        css_to_xpath("x" * 16_777_216)
+
+
+@pytest.mark.parametrize("selector", ["ol > li.item > a", "ol > li > a.x", "div.a > span.b > em"])
+def test_middle_compound_with_conditions_selects_like_select(selector: str) -> None:
+    page = parse(
+        '<ol><li class="item"><a class="x">1</a></li></ol><div class="a"><span class="b"><em>2</em></span></div>'
+    )
+    expected = [node.tag for node in page.select(selector)]
+    assert expected
+    result = page.xpath(css_to_xpath(selector))
+    assert isinstance(result, list)
+    assert [node.tag for node in result if isinstance(node, Element)] == expected
+
+
+@pytest.mark.parametrize("selector", [":is(ol > * > a)", ":is(ol > li.item > a)", ":is(ol > li > a.x)"])
+def test_left_chain_inside_a_pseudo_class_selects_like_select(selector: str) -> None:
+    # the left chain of a nested selector writes its middle compound's conditions only when it has any, so the
+    # universal middle compound covers the case where it writes none
+    page = parse('<ol><li class="item"><a class="x">1</a></li><li><a>2</a></li></ol>')
+    expected = [node.tag for node in page.select(selector)]
+    assert expected
+    result = page.xpath(css_to_xpath(selector))
+    assert isinstance(result, list)
+    assert [node.tag for node in result if isinstance(node, Element)] == expected
 
 
 def test_syntax_error_is_the_one_unified_selector_error() -> None:
@@ -160,7 +307,7 @@ def test_generic_translator_is_a_method_like_cssselect() -> None:
 
 
 def test_generic_translator_passes_the_prefix_positionally() -> None:
-    assert GenericTranslator().css_to_xpath("div", "//") == "//div"
+    assert GenericTranslator().css_to_xpath("div", "//") == "//*[name() = 'div']"
 
 
 def test_html_translator_records_the_xhtml_flag() -> None:
@@ -172,7 +319,7 @@ def test_html_translator_translates_like_the_function() -> None:
     assert HTMLTranslator().css_to_xpath("A[HREF]") == css_to_xpath("a[href]")
 
 
-IDS_DOC = """<!doctype html>
+_IDS_DOC: Final[str] = """<!doctype html>
 <html id="html" lang="en"><head>
   <link id="link-href" href="foo">
   <link id="link-nohref">
@@ -208,7 +355,7 @@ cde"><span id="foobar-span"></span></div>
 </body></html>
 """
 
-FORMS_DOC = """<!doctype html>
+_FORMS_DOC: Final[str] = """<!doctype html>
 <html><body>
 <form id="form">
  <input type="checkbox" id="checkbox-unchecked">
@@ -248,16 +395,16 @@ FORMS_DOC = """<!doctype html>
 </body></html>
 """
 
-LANG_DOC = """<!doctype html>
+_LANG_DOC: Final[str] = """<!doctype html>
 <div id="lang-root"><svg id="svg-it" xml:lang="it" lang="fr"><g id="g-it"/></svg>
 <p id="p-xml-lang" xml:lang="de"><b id="b-in-p">x</b></p>
 <svg id="svg-es" lang="es"><g id="g-es" xml:lang=""/></svg>
 <math id="math-fr" lang="fr"><mi id="mi-fr">x</mi></math></div>
 """
 
-DOCS = {"ids": IDS_DOC, "forms": FORMS_DOC, "lang": LANG_DOC}
+_DOCS: Final[MappingProxyType[str, str]] = MappingProxyType({"ids": _IDS_DOC, "forms": _FORMS_DOC, "lang": _LANG_DOC})
 
-SELECTORS = (
+_SELECTORS: Final[tuple[str, ...]] = (
     # type, universal, and (ignored) namespace prefixes
     "div",
     "DIV",
@@ -378,6 +525,8 @@ SELECTORS = (
     "li:nth-child(2n of .c)",
     "li:nth-child(n of .c)",
     "li:nth-last-child(1 of li[class])",
+    "li:nth-child(2 of :nth-child(odd of li))",
+    "li:nth-last-child(-n+2 of :nth-child(2n+3 of li, p):not(.c))",
     # logical pseudo-classes and :has()
     ":is(#first-li, #second-li)",
     "a:is(#name-anchor, #tag-anchor)",
@@ -451,7 +600,19 @@ SELECTORS = (
 )
 
 
-def _ids(nodes: object) -> list[str]:
+@pytest.fixture(scope="module")
+def documents() -> dict[str, Document]:
+    return {name: parse(source) for name, source in _DOCS.items()}
+
+
+@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in _SELECTORS])
+def test_xpath_selects_the_same_nodes_from_the_document(selector: str, documents: dict[str, Document]) -> None:
+    expression = css_to_xpath(selector)
+    for name, document in documents.items():
+        assert _ids(document.xpath(expression)) == _ids(document.select(selector)), (name, expression)
+
+
+def _ids(nodes: XPathValue) -> list[str]:
     assert isinstance(nodes, list)
     out: list[str] = []
     for node in nodes:
@@ -461,19 +622,7 @@ def _ids(nodes: object) -> list[str]:
     return out
 
 
-@pytest.fixture(scope="module")
-def documents() -> dict[str, Document]:
-    return {name: parse(source) for name, source in DOCS.items()}
-
-
-@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in SELECTORS])
-def test_xpath_selects_the_same_nodes_from_the_document(selector: str, documents: dict[str, Document]) -> None:
-    expression = css_to_xpath(selector)
-    for name, document in documents.items():
-        assert _ids(document.xpath(expression)) == _ids(document.select(selector)), (name, expression)
-
-
-@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in SELECTORS])
+@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in _SELECTORS])
 def test_xpath_selects_the_same_nodes_from_an_element(selector: str, documents: dict[str, Document]) -> None:
     # select() walks descendants only, which is exactly the descendant:: prefix
     expression = css_to_xpath(selector, prefix="descendant::")
@@ -501,8 +650,8 @@ def test_scope_matches_the_query_root(selector: str, documents: dict[str, Docume
 
 def test_most_selectors_match_something(documents: dict[str, Document]) -> None:
     # guard the corpus against rotting into vacuous empty-vs-empty comparisons
-    matching = sum(1 for selector in SELECTORS if any(document.select(selector) for document in documents.values()))
-    assert matching >= 2 * len(SELECTORS) // 3
+    matching = sum(1 for selector in _SELECTORS if any(document.select(selector) for document in documents.values()))
+    assert matching >= 2 * len(_SELECTORS) // 3
 
 
 @pytest.mark.parametrize(
@@ -553,7 +702,7 @@ def test_specificity_rejects_a_non_string() -> None:
         css_specificity(123)  # ty: ignore[invalid-argument-type]  # intentional non-str exercises the C argument guard
 
 
-_ORACLE_DOC: Final = """<!doctype html>
+_ORACLE_DOC: Final[str] = """<!doctype html>
 <html id="html"><head>
   <link id="link-href" href="foo">
   <link id="link-nohref">
@@ -588,7 +737,7 @@ cde"><span id="foobar-span"></span></div>
 </body></html>
 """
 
-_ORACLE_SELECTORS: Final = (
+_ORACLE_SELECTORS: Final[tuple[str, ...]] = (
     "*",
     "div",
     "div div",
@@ -708,3 +857,45 @@ def test_documented_divergences_from_cssselect(
     assert our_ids - oracle_ids >= set(ours_only)
     assert oracle_ids - our_ids == set(theirs_only)
     assert our_ids == set(_ids(ours.select(selector)))
+
+
+_HTML_SELECTORS: Final[tuple[str, ...]] = (
+    "li",
+    "p",
+    "ul > li",
+    "li:first-of-type",
+    "li:last-of-type",
+    "p:nth-of-type(2)",
+    "li[id='b']",
+    "li#c",
+    "li:has(p)",
+    "ul > li:not(#a)",
+)
+_FEED_SELECTORS: Final[tuple[str, ...]] = (
+    "entry",
+    "title",
+    "feed > entry",
+    "entry:first-of-type",
+    "entry:last-of-type",
+    "title:nth-of-type(2)",
+    "entry[id='b']",
+    "entry#c",
+    "entry:has(title)",
+    "x > entry",
+    "entry:not(#a)",
+)
+
+
+@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in _HTML_SELECTORS])
+def test_xpath_selects_the_same_nodes_on_an_html_page(selector: str) -> None:
+    page = parse('<ul><li id="a"><p id="t1">x</p></li><li id="b"><p id="t2">y</p></li><li id="c"></li></ul>')
+    assert _ids(page.xpath(css_to_xpath(selector))) == _ids(page.select(selector))
+
+
+@pytest.mark.parametrize("selector", [pytest.param(selector, id=selector) for selector in _FEED_SELECTORS])
+def test_xpath_selects_the_same_nodes_on_a_default_namespace_feed(selector: str) -> None:
+    feed = parse_xml(
+        '<feed xmlns="http://www.w3.org/2005/Atom"><entry id="a"><title id="t1">x</title></entry>'
+        '<entry id="b"><title id="t2">y</title></entry><x xmlns=""><entry id="c"/></x></feed>'
+    )
+    assert _ids(feed.xpath(css_to_xpath(selector))) == _ids(feed.select(selector))

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field
 
 from ...compat import StrEnum
 from ..command import CommandKind
@@ -55,6 +55,26 @@ class CaptureField(StrEnum):
     TOOL_RESULT_LINKS = "tool_result_links"  # each tool message's `tool_call_id`
     REASONING = "reasoning"  # the model's reasoning apart from its content
     ENVIRONMENT_FILES = "environment_files"  # files and a span the rollout's own code attached
+    GPU_READINGS = "gpu_readings"  # the serving GPUs' readings during the sample's own model calls
+
+
+#: What a sample's conversation capture holds: a producer that keeps no messages declares these together (never
+#: `CaptureField` whole, which would give `gpu_readings` a message field's reason).
+MESSAGE_FIELDS = (CaptureField.MESSAGES, CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS,
+                  CaptureField.TOOL_RESULT_LINKS, CaptureField.REASONING, CaptureField.ENVIRONMENT_FILES)
+
+
+def drop_unknown_fields(value: Any) -> Any:
+    """A capture field this side does not know yet (a newer peer's) is left out: an older server keeps the rest of a
+    newer CLI's plan instead of refusing its whole batch, and an older SDK still reads a newer server's capture."""
+    if not isinstance(value, dict):
+        return value
+    known = {field.value for field in CaptureField}
+    return {name: why for name, why in value.items() if str(name) in known}
+
+
+#: `{field: why}` for one producer, tolerant of fields this side does not know (`drop_unknown_fields`).
+FieldReasons = Annotated[dict[CaptureField, Refusal], BeforeValidator(drop_unknown_fields)]
 
 
 class RewindPoint(BaseModel):
@@ -91,7 +111,7 @@ class Plan(Record):
     training: dict[Producer, TrainingPlan] = Field(default_factory=dict)
     #: What each producer's framework cannot give a sample, and why (`{producer: {field: why}}`). Its own answer,
     #: never a capture reason: a support gap is not missing data.
-    unsupported: dict[Producer, dict[CaptureField, Refusal]] = Field(default_factory=dict)
+    unsupported: dict[Producer, FieldReasons] = Field(default_factory=dict)
     #: read: written by `POST /v1/runs/{id}/reopen` with `rewind_to_step`, never by a producer.
     rewinds: list[RewindPoint] = Field(default_factory=list)
     #: read: the cap counter (distinct generator samples admitted).
@@ -176,4 +196,4 @@ class Capture(BaseModel):
     is_truncated: bool = False
     #: What each producer declared its framework cannot give a sample, with why (`Plan.unsupported`): beside the
     #: answer, never one of its reasons.
-    unsupported: dict[Producer, dict[CaptureField, Refusal]] = Field(default_factory=dict)
+    unsupported: dict[Producer, FieldReasons] = Field(default_factory=dict)

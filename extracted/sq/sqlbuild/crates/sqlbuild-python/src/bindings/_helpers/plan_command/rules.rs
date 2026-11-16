@@ -9,18 +9,11 @@ use sqlbuild_rules::lint_text::main::counts_toward_exit::counts_toward_exit;
 use sqlbuild_rules::rule_catalogue::main::render_rule_list::render_rule_list;
 use sqlbuild_rules::rule_catalogue::models::RuleListing;
 
-use crate::bindings::_helpers::boundary::python_calls::imported;
-use crate::bindings::_helpers::boundary::python_calls::keywords;
-use crate::bindings::_helpers::command_runtime::adapters::resolve_cli_adapter;
 use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
 use crate::bindings::_helpers::compile_driver::project::build_project_graph;
 use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
 use crate::bindings::_helpers::planner_selection::selectors::select_project_graph;
 use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::records::construct::new_record;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::replaced_keywords;
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::rules::catalogue::build_rule_catalogue;
 use crate::bindings::_helpers::rules::guidance::{format_rule, install_rules_skills};
 use crate::bindings::_helpers::rules::results::{
@@ -28,6 +21,14 @@ use crate::bindings::_helpers::rules::results::{
 };
 use crate::bindings::_helpers::rules::rule_run::run_rules;
 use crate::bindings::_helpers::rules::rules_config::load_rules_config;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
+use sqlbuild_python_base::records::main::construct::new_record::new_record;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::replaced_keywords::replaced_keywords;
+use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_rules::rule_results::main::format_skipped_models::format_skipped_models;
 
 const LIST_ACTION: &str = "list";
 const SHOW_ACTION: &str = "show";
@@ -235,6 +236,12 @@ fn run_rule_selection(
     )?;
     if let Some(note) = format_skipped_type_proof_rules(
         native_field(&result, "skipped_type_proof_rules")?.extract()?,
+    ) {
+        print_line(py, &format!("note: {note}"), true)?;
+    }
+    if let Some(note) = format_skipped_models(
+        &native_field(&result, "skipped_models")?.extract::<Vec<_>>()?,
+        false,
     ) {
         print_line(py, &format!("note: {note}"), true)?;
     }

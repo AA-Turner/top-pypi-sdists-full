@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <string.h>
 
 #include <sys/stat.h>
@@ -101,6 +102,12 @@ PyObject *th_resource_path(th_resource_policy *policy, PyObject *value, const ch
     if (local == NULL) {
         return NULL;
     }
+    /* url2pathname decodes percent escapes and drops tabs and newlines, so a UNC path can only appear in its output */
+    if (resource_is_unc(local)) {
+        PyErr_Format(PyExc_ValueError, "%s %s must not resolve to a UNC path: %S", policy->what, name, value);
+        Py_DECREF(local);
+        return NULL;
+    }
     PyObject *path = PyObject_CallOneArg(policy->path_type, local);
     Py_DECREF(local);
     return path;
@@ -120,11 +127,31 @@ static int resource_is_unc(PyObject *text) {
     return second == '\\' || second == '/';
 }
 
+/* Path.resolve, Path.is_relative_to and Path.relative_to each rebuild a string per component, so their cost is
+   quadratic in the length of a path an href sets; no system call accepts one longer than this. */
+#ifdef _WIN32
+#define RESOURCE_PATH_MAX 32767
+#elif defined(PATH_MAX)
+#define RESOURCE_PATH_MAX PATH_MAX
+#else
+#define RESOURCE_PATH_MAX 4096
+#endif
+
 PyObject *th_resource_resolve(PyObject *path) {
+    PyObject *text = PyObject_Str(path);
+    if (text == NULL) { /* GCOVR_EXCL_BR_LINE: pathlib.Path.__str__ only allocates */
+        return NULL;    /* GCOVR_EXCL_LINE */
+    }
+    Py_ssize_t length = PyUnicode_GET_LENGTH(text);
+    Py_DECREF(text);
+    if (length > RESOURCE_PATH_MAX) {
+        errno = ENAMETOOLONG;
+        return PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, path);
+    }
     return PyObject_CallMethod(path, "resolve", NULL);
 }
 
-int th_resource_check_root(th_resource_policy *policy, PyObject *path) {
+int th_resource_check_root(th_resource_policy *policy, PyObject *path, PyObject *unresolved) {
     if (policy->root == NULL) {
         return 0;
     }
@@ -138,7 +165,9 @@ int th_resource_check_root(th_resource_policy *policy, PyObject *path) {
         return -1;     /* GCOVR_EXCL_LINE */
     }
     if (!allowed) {
-        PyErr_Format(PyExc_ValueError, "%s path escapes %s: %S", policy->what, policy->root_name, path);
+        /* path has followed every symlink the reference crosses, so naming it would reveal where a link outside the
+           root points */
+        PyErr_Format(PyExc_ValueError, "%s path escapes %s: %S", policy->what, policy->root_name, unresolved);
         return -1;
     }
     return 0;
@@ -383,7 +412,7 @@ static int resource_descriptor_is_regular(int descriptor) {
 #endif
 }
 
-static PyObject *resource_read_descriptor(const th_resource_policy *policy, int descriptor, PyObject *path) {
+static PyObject *resource_read_descriptor(th_resource_policy *policy, int descriptor, PyObject *path) {
     /* a FIFO or a device such as /dev/zero has no end of file, so reading one hangs or exhausts memory */
     if (!resource_descriptor_is_regular(descriptor)) {
         resource_descriptor_close(descriptor);
@@ -432,7 +461,15 @@ static PyObject *resource_read_descriptor(const th_resource_policy *policy, int 
             break;
         }
         length += (size_t)count;
+        if (length > TH_RESOURCE_MAX_BYTES - policy->bytes) {
+            PyMem_Free(data);
+            resource_descriptor_close(descriptor);
+            PyErr_Format(PyExc_ValueError, "%s references exceed the limit of %zu MiB: %S", policy->what,
+                         TH_RESOURCE_MAX_BYTES >> 20, path);
+            return NULL;
+        }
     }
+    policy->bytes += length;
     resource_descriptor_close(descriptor);
     PyObject *text = PyUnicode_DecodeUTF8(data, (Py_ssize_t)length, "strict");
     PyMem_Free(data);
@@ -440,6 +477,12 @@ static PyObject *resource_read_descriptor(const th_resource_policy *policy, int 
 }
 
 PyObject *th_resource_read_text(th_resource_policy *policy, PyObject *path) {
+    if (policy->files == TH_RESOURCE_MAX_FILES) {
+        PyErr_Format(PyExc_ValueError, "%s references exceed the limit of %d files: %S", policy->what,
+                     TH_RESOURCE_MAX_FILES, path);
+        return NULL;
+    }
+    policy->files++;
     int descriptor = policy->root == NULL ? resource_open_path(path) : resource_open_file(policy, path);
     if (descriptor < 0) {
         return NULL;
@@ -491,9 +534,9 @@ int th_resource_policy_init(th_resource_policy *policy, const char *what, const 
         }
         policy->root = th_resource_resolve(root_path);
         Py_DECREF(root_path);
-        if (policy->root == NULL) {           /* GCOVR_EXCL_BR_LINE: Path.resolve fails here only on allocation */
-            th_resource_policy_clear(policy); /* GCOVR_EXCL_LINE */
-            return -1;                        /* GCOVR_EXCL_LINE */
+        if (policy->root == NULL) {
+            th_resource_policy_clear(policy);
+            return -1;
         }
         if (resource_open_root(policy) < 0) {
             th_resource_policy_clear(policy);

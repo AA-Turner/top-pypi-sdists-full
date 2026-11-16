@@ -1,5 +1,4 @@
 from functools import wraps
-from typing import List, Tuple
 
 from branca.element import (
     CssLink,
@@ -24,8 +23,8 @@ def leaflet_method(fn):
 class JSCSSMixin(MacroElement):
     """Render links to external Javascript and CSS resources."""
 
-    default_js: List[Tuple[str, str]] = []
-    default_css: List[Tuple[str, str]] = []
+    default_js: list[tuple[str, str]] = []
+    default_css: list[tuple[str, str]] = []
 
     # Since this is typically used as a mixin, we cannot
     # override the _template member variable here. It would
@@ -53,7 +52,7 @@ class JSCSSMixin(MacroElement):
         """Add or update JS resource link."""
         self._add_link(name, url, self.default_js)
 
-    def _add_link(self, name: str, url: str, default_list: List[Tuple[str, str]]):
+    def _add_link(self, name: str, url: str, default_list: list[tuple[str, str]]):
         """Modify a css or js link.
 
         If `name` does not exist, the link will be appended
@@ -102,37 +101,31 @@ class EventHandler(MacroElement):
     >>>
     >>> g = folium.GeoJson(geo_json_data).add_to(m)
     >>>
-    >>> highlight = JsCode(
-    ...     """
+    >>> highlight = JsCode("""
     ...    function highlight(e) {
     ...        e.target.original_color = e.layer.options.color;
     ...        e.target.setStyle({ color: "green" });
     ...    }
-    ... """
-    ... )
+    ... """)
     >>>
-    >>> reset = JsCode(
-    ...     """
+    >>> reset = JsCode("""
     ...    function reset(e) {
     ...       e.target.setStyle({ color: e.target.original_color });
     ...    }
-    ... """
-    ... )
+    ... """)
     >>>
     >>> g.add_child(EventHandler("mouseover", highlight))
     >>> g.add_child(EventHandler("mouseout", reset))
     '''
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this._parent.get_name()}}.{{ this.method }}(
                 {{ this.event|tojson}},
                 {{ this.handler.js_code }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(self, event: str, handler: JsCode, once: bool = False):
         super().__init__()
@@ -145,30 +138,38 @@ class EventHandler(MacroElement):
 class ElementAddToElement(MacroElement):
     """Abstract class to add an element to another element."""
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this.element_name }}.addTo({{ this.element_parent_name }});
         {% endmacro %}
-    """
-    )
+    """)
 
     def __init__(self, element_name: str, element_parent_name: str):
         super().__init__()
         self.element_name = element_name
         self.element_parent_name = element_parent_name
 
+    def render(self, **kwargs):
+        figure = self.get_root()
+        assert isinstance(
+            figure, Figure
+        ), "You cannot render this Element if it is not in a Figure."
+        script = self._template.module.__dict__.get("script", None)
+        if script is not None:
+            figure.script.add_child(
+                Element(script(self, kwargs)),
+                name=f"{self.element_name}_add_to_{self.element_parent_name}",
+            )
+
 
 class IncludeStatement(MacroElement):
     """Generate an include statement on a class."""
 
-    _template = Template(
-        """
+    _template = Template("""
         {{ this.leaflet_class_name }}.include(
             {{ this.options | tojavascript }}
         )
-    """
-    )
+    """)
 
     def __init__(self, leaflet_class_name: str, **kwargs):
         super().__init__()
@@ -182,8 +183,7 @@ class IncludeStatement(MacroElement):
 class MethodCall(MacroElement):
     """Abstract class to add an element to another element."""
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this.target }}.{{ this.method }}(
                 {% for arg in this.args %}
@@ -192,8 +192,7 @@ class MethodCall(MacroElement):
                 {{ this.kwargs | tojavascript }}
             );
         {% endmacro %}
-    """
-    )
+    """)
 
     def __init__(self, target: MacroElement, method: str, *args, **kwargs):
         super().__init__()

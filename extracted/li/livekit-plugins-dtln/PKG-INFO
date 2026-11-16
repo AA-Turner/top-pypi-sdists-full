@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-dtln
-Version: 0.1.6
+Version: 0.1.7
 Summary: DTLN noise suppression plugin for LiveKit Agents — self-hosted, in-process, no cloud API
 Author-email: "Aloware, Inc." <dev@aloware.com>
 License: MIT License

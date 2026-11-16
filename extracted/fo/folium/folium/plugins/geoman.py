@@ -19,8 +19,7 @@ class GeoMan(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             /* ensure the name is usable */
             var {{this.get_name()}} = {{this._parent.get_name()}}.pm;
@@ -34,6 +33,7 @@ class GeoMan(JSCSSMixin, MacroElement):
                         {{ this._parent.get_name() }}
                     );
             {%- endif %}
+
             /* The global variable below is needed to prevent streamlit-folium
                from barfing :-(
             */
@@ -42,6 +42,7 @@ class GeoMan(JSCSSMixin, MacroElement):
             {{this.get_name()}}.addControls(
                 {{this.options|tojavascript}}
             )
+
             drawnItems_{{ this.get_name() }}.eachLayer(function(layer){
                 L.PM.reInitLayer(layer);
                 {%- for event, handler in this.on.items()   %}
@@ -52,7 +53,7 @@ class GeoMan(JSCSSMixin, MacroElement):
                 {%- endfor %}
             });
 
-            {{ this._parent.get_name() }}.on("pm:create", function(e) {
+            var new_element_handler_{{ this.get_name() }} = function(e) {
                 var layer = e.layer,
                     type = e.layerType;
 
@@ -62,11 +63,14 @@ class GeoMan(JSCSSMixin, MacroElement):
                     {{handler}}
                 );
                 {%- endfor %}
-            });
+                drawnItems_{{ this.get_name() }}.addLayer(layer);
+            };
+
+            {{ this._parent.get_name() }}.on("pm:create", new_element_handler_{{ this.get_name() }});
+            {{ this._parent.get_name() }}.on("pm:cut", new_element_handler_{{ this.get_name() }});
 
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (

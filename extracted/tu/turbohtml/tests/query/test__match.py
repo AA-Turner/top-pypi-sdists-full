@@ -1,7 +1,6 @@
-"""The compiled Matcher's soupsieve-shaped bound methods over the native engine."""
-
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Final, cast
 
 import pytest
@@ -22,11 +21,9 @@ from turbohtml.query import (  # the soupsieve names
     select_one,
 )
 
-_DOC = "<div><a href=x>one</a><span><a href=y>two</a></span><a>bare</a></div>"
-
 
 def _root() -> Element:
-    root = parse(_DOC).root
+    root = parse("<div><a href=x>one</a><span><a href=y>two</a></span><a>bare</a></div>").root
     assert root is not None
     return root
 
@@ -103,13 +100,21 @@ def test_filter_preserves_order_and_duplicates_across_trees() -> None:
 
 
 @pytest.mark.parametrize(
+    "selector", [pytest.param(":dir(rtl)", id="plain"), pytest.param(":scope:dir(rtl)", id="scope")]
+)
+def test_filter_resolves_dir_auto_through_a_shared_ancestor(selector: str) -> None:
+    candidates = parse("<div dir=auto>א<p id=a></p><bdi id=b>x</bdi><p id=c></p></div>").select("[id]")
+    assert [node.attr("id") for node in compile(selector).filter(candidates)] == ["a", "c"]
+
+
+@pytest.mark.parametrize(
     "candidates",
     [
         pytest.param([1], id="first"),
         pytest.param([_root(), 1], id="later"),
     ],
 )
-def test_filter_rejects_non_elements(candidates: list[object]) -> None:
+def test_filter_rejects_non_elements(candidates: list[int | Element]) -> None:
     with pytest.raises(TypeError, match="filter candidates must be Element instances"):
         compile("*").filter(cast("list[Element]", candidates))
 
@@ -151,8 +156,7 @@ def test_namespaces_and_flags_default_to_soupsieves() -> None:
 
 def test_options_are_carried_on_the_matcher() -> None:
     matcher = compile("a", Matching(namespaces={"svg": "http://www.w3.org/2000/svg"}, flags=1))
-    assert matcher.namespaces == {"svg": "http://www.w3.org/2000/svg"}
-    assert matcher.flags == 1
+    assert (matcher.namespaces, matcher.flags) == ({"svg": "http://www.w3.org/2000/svg"}, 1)
 
 
 def test_default_is_soupsieves_html_mode() -> None:
@@ -211,17 +215,14 @@ def test_non_str_identifier_raises_type_error() -> None:
         escape_identifier(cast("str", b"raw-bytes"))
 
 
-_MODULE_DOC = "<div><a href=x>one</a><span><a href=y>two</a></span></div>"
+def test_select_collects_matches() -> None:
+    assert [node.attr("href") for node in select("a[href]", _module_root())] == ["x", "y"]
 
 
 def _module_root() -> Element:
-    root = parse(_MODULE_DOC).root
+    root = parse("<div><a href=x>one</a><span><a href=y>two</a></span></div>").root
     assert root is not None
     return root
-
-
-def test_select_collects_matches() -> None:
-    assert [node.attr("href") for node in select("a[href]", _module_root())] == ["x", "y"]
 
 
 def test_select_honors_limit() -> None:
@@ -257,7 +258,7 @@ def test_closest_walks_up() -> None:
     assert found.tag == "div"
 
 
-_ORACLE_DOCS: Final = {
+_ORACLE_DOCS: Final[MappingProxyType[str, str]] = MappingProxyType({
     "article": (
         '<!doctype html><html lang="en"><head><title>T</title></head><body>'
         '<div id="div" class="foo bar">'
@@ -293,9 +294,9 @@ _ORACLE_DOCS: Final = {
         "<div><span>only</span> tail</div>"
         "</body></html>"
     ),
-}
+})
 
-_ORACLE_SELECTORS: Final = (
+_ORACLE_SELECTORS: Final[tuple[str, ...]] = (
     "a:active",
     ".foo",
     "a.bar",
@@ -487,14 +488,6 @@ def test_matches_soupsieve(doc_name: str, selector: str) -> None:
 
 
 @pytest.mark.oracle
-def test_corpus_exercises_the_fixtures() -> None:
-    matching = sum(
-        1 for selector in _ORACLE_SELECTORS if any(_oracle_hits(html, selector)[0] for html in _ORACLE_DOCS.values())
-    )
-    assert matching >= 90
-
-
-@pytest.mark.oracle
 def _oracle_hits(document_html: str, selector: str) -> tuple[list[int], list[int]]:
     bs4: Final = pytest.importorskip("bs4")
     soupsieve: Final = pytest.importorskip("soupsieve")
@@ -506,5 +499,12 @@ def _oracle_hits(document_html: str, selector: str) -> tuple[list[int], list[int
     }
     soup_index = {id(element): position for position, element in enumerate(soup.find_all(name=True))}
     ours = sorted(turbo_index[element] for element in select(selector, turbo_doc))
-    theirs = sorted(soup_index[id(element)] for element in soupsieve.select(selector, soup))
-    return ours, theirs
+    return ours, sorted(soup_index[id(element)] for element in soupsieve.select(selector, soup))
+
+
+@pytest.mark.oracle
+def test_corpus_exercises_the_fixtures() -> None:
+    matching = sum(
+        1 for selector in _ORACLE_SELECTORS if any(_oracle_hits(html, selector)[0] for html in _ORACLE_DOCS.values())
+    )
+    assert matching >= 90

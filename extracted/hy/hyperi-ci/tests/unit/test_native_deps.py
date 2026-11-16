@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from hyperi_ci import common, llvm_version, native_deps
 from hyperi_ci.llvm_version import LLVMVersionError
@@ -31,6 +32,7 @@ from hyperi_ci.versions import runtime_version, tool_version
 
 # second-primary-key.asc is a throwaway public key with no private half anywhere.
 DATA_DIR = Path(__file__).parent / "data"
+_LLVM_FPR = "6084F3CF814B57C1CF12EFD515CF4D18AF4F7421"
 
 
 def _seed_apt_tree(tmp_path: Path, files: dict[str, str]) -> tuple[Path, Path]:
@@ -97,115 +99,79 @@ class TestTemplateExpansion:
 class TestRepoAlreadyConfigured:
     """Cross-file duplicate-detection for pre-configured APT repos."""
 
-    def test_returns_none_when_no_sources_match(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize(
+        ("files", "expected"),
+        [
+            pytest.param({}, None, id="no-sources-match"),
+            pytest.param(
+                {
+                    "llvm-toolchain.list": (
+                        "deb [signed-by=/usr/share/keyrings/llvm.gpg arch=amd64] "
+                        "https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main\n"
+                    )
+                },
+                "llvm-toolchain.list",
+                id="one-line-deb-entry-https",
+            ),
+            pytest.param(
+                # Runner pre-provisioned with http://, our config uses https://.
+                {
+                    "llvm.list": (
+                        "deb [arch=amd64] http://apt.llvm.org/noble/ "
+                        "llvm-toolchain-noble-22 main\n"
+                    )
+                },
+                "llvm.list",
+                id="http-when-searching-https",
+            ),
+            pytest.param(
+                {
+                    "llvm.sources": (
+                        "Types: deb\n"
+                        "URIs: https://apt.llvm.org/noble/\n"
+                        "Suites: llvm-toolchain-noble-22\n"
+                        "Components: main\n"
+                    )
+                },
+                "llvm.sources",
+                id="deb822-sources-format",
+            ),
+            pytest.param(
+                {
+                    "confluent.list": (
+                        "deb https://packages.confluent.io/clients/deb noble main\n"
+                    ),
+                    "sources.list": "deb http://archive.ubuntu.com/ubuntu noble main\n",
+                },
+                None,
+                id="unrelated-repos",
+            ),
+            pytest.param(
+                # A pre-existing LLVM repo for version 19 must not match a request for 22.
+                {
+                    "llvm.list": (
+                        "deb [arch=amd64] http://apt.llvm.org/noble/ "
+                        "llvm-toolchain-noble-19 main\n"
+                    )
+                },
+                None,
+                id="wrong-codename",
+            ),
+        ],
+    )
+    def test_the_matching_source_file(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        files: dict[str, str],
+        expected: str | None,
     ) -> None:
-        sources_list, sources_dir = _seed_apt_tree(tmp_path, {})
-        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
-        assert (
-            _repo_already_configured(
-                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
-            )
-            is None
-        )
-
-    def test_matches_one_line_deb_entry_https(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        sources_list, sources_dir = _seed_apt_tree(
-            tmp_path,
-            {
-                "llvm-toolchain.list": (
-                    "deb [signed-by=/usr/share/keyrings/llvm.gpg arch=amd64] "
-                    "https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main\n"
-                )
-            },
-        )
+        sources_list, sources_dir = _seed_apt_tree(tmp_path, files)
         _patch_apt_paths(monkeypatch, sources_list, sources_dir)
         found = _repo_already_configured(
             "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
         )
-        assert found == sources_dir / "llvm-toolchain.list"
-
-    def test_matches_http_when_searching_https(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Runner pre-provisioned with http://; our config uses https:// -- must match."""
-        sources_list, sources_dir = _seed_apt_tree(
-            tmp_path,
-            {
-                "llvm.list": (
-                    "deb [arch=amd64] http://apt.llvm.org/noble/ "
-                    "llvm-toolchain-noble-22 main\n"
-                )
-            },
-        )
-        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
-        found = _repo_already_configured(
-            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
-        )
-        assert found == sources_dir / "llvm.list"
-
-    def test_matches_deb822_sources_format(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        sources_list, sources_dir = _seed_apt_tree(
-            tmp_path,
-            {
-                "llvm.sources": (
-                    "Types: deb\n"
-                    "URIs: https://apt.llvm.org/noble/\n"
-                    "Suites: llvm-toolchain-noble-22\n"
-                    "Components: main\n"
-                )
-            },
-        )
-        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
-        found = _repo_already_configured(
-            "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
-        )
-        assert found == sources_dir / "llvm.sources"
-
-    def test_ignores_unrelated_repos(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        sources_list, sources_dir = _seed_apt_tree(
-            tmp_path,
-            {
-                "confluent.list": (
-                    "deb https://packages.confluent.io/clients/deb noble main\n"
-                ),
-                "sources.list": "deb http://archive.ubuntu.com/ubuntu noble main\n",
-            },
-        )
-        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
-        assert (
-            _repo_already_configured(
-                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
-            )
-            is None
-        )
-
-    def test_ignores_wrong_codename(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Pre-existing LLVM repo for version 19 must NOT match our request for 22."""
-        sources_list, sources_dir = _seed_apt_tree(
-            tmp_path,
-            {
-                "llvm.list": (
-                    "deb [arch=amd64] http://apt.llvm.org/noble/ "
-                    "llvm-toolchain-noble-19 main\n"
-                )
-            },
-        )
-        _patch_apt_paths(monkeypatch, sources_list, sources_dir)
-        assert (
-            _repo_already_configured(
-                "https://apt.llvm.org/noble/", "llvm-toolchain-noble-22"
-            )
-            is None
-        )
+        assert found == (sources_dir / expected if expected else None)
 
     def test_handles_unreadable_files_gracefully(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -254,6 +220,7 @@ class TestAddAptRepoIdempotency:
             url="https://apt.llvm.org/noble/",
             codename="llvm-toolchain-noble-22",
             components="main",
+            key_fingerprint=_LLVM_FPR,
         )
 
         with patch("hyperi_ci.native_deps.subprocess.run") as mock_run:
@@ -322,6 +289,7 @@ class TestAddAptRepoIdempotency:
                 url="https://apt.llvm.org/noble/",
                 codename=f"llvm-toolchain-noble-{version}",
                 components="main",
+                key_fingerprint=_LLVM_FPR,
             )
             rc = _add_apt_repo(repo)
             assert rc == 0, f"failed adding v{version}"
@@ -364,6 +332,7 @@ class TestAddAptRepoIdempotency:
             url="https://apt.llvm.org/noble/",
             codename="llvm-toolchain-noble-22",
             components="main",
+            key_fingerprint=_LLVM_FPR,
         )
         assert _add_apt_repo(repo) == 0
         assert _add_apt_repo(repo) == 0  # no-op
@@ -459,6 +428,7 @@ class TestAptKeyFingerprint:
             keyring=str(tmp_path / "llvm.gpg"),
             url="https://apt.llvm.org/noble/",
             codename="llvm-toolchain-noble-23",
+            key_fingerprint=_LLVM_FPR,
         )
         assert _add_apt_repo(repo) == 22
         assert not (tmp_path / "llvm.gpg").exists()
@@ -486,12 +456,30 @@ class TestAptKeyFingerprint:
         assert rc != 0
         assert not any(cmd[0] == "tee" for cmd in invoked)
 
-    def test_no_fingerprint_declared_skips_the_check(
+    def test_no_fingerprint_declared_is_refused_before_any_download(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         rc, invoked = self._install(tmp_path, monkeypatch, "")
-        assert rc == 0
-        assert not any(cmd[:2] == ["gpg", "--show-keys"] for cmd in invoked)
+        assert rc == 1
+        assert invoked == []
+        assert not (tmp_path / "llvm.gpg").exists()
+
+    @pytest.mark.parametrize(
+        "yaml_path",
+        sorted(
+            [
+                *native_deps._NATIVE_DEPS_DIR.glob("*.yaml"),
+                *native_deps._TOOLCHAINS_DIR.glob("*.yaml"),
+            ]
+        ),
+        ids=lambda p: f"{p.parent.name}/{p.name}",
+    )
+    def test_every_shipped_apt_repo_pins_its_key(self, yaml_path: Path) -> None:
+        """A repo without a pin would now fail every install that matches it."""
+        entries = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or []
+        repos = [r for e in entries for r in e.get("apt_repos", [])]
+        unpinned = [r["key_url"] for r in repos if not r.get("key_fingerprint")]
+        assert unpinned == []
 
     def test_a_second_primary_beside_the_pinned_one_is_refused(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

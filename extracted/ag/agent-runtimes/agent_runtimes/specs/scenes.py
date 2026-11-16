@@ -18,6 +18,240 @@ from agent_runtimes.types import SceneSpec
 # Scene Definitions
 # ============================================================================
 
+BUY_FROM_A_SHOP_SCENE_0_0_1 = SceneSpec.model_validate(
+    {
+        "schema": "loop.scene/v1",
+        "id": "buy-from-a-shop",
+        "version": "0.0.1",
+        "name": "Buy from a shop",
+        "description": "A person's Shopper asks a shop for tennis gear, gets the basket quoted and places a test order; the shop answers from its own catalogue, with photos, and charges nothing.",
+        "tags": ["example", "scene", "shopping", "commerce", "a2a"],
+        "icon": "gift",
+        "emoji": "🛒",
+        "kind": "team",
+        "team": "buy-from-a-shop:0.0.1",
+        "entry": "shopper",
+        "cast": [
+            {
+                "member": "shopper",
+                "app": "shopper:0.0.2",
+                "ref": "",
+                "server": "",
+                "role": "initiator",
+                "runs_in": "browser",
+                "talks_to": [{"member": "demo-shop", "over": "a2a"}],
+                "persona": {
+                    "name": "Shopper",
+                    "face": "🧺",
+                    "line": "I shop for you, and bring back what the shop says.",
+                },
+                "brief": "Ask the Demo Shop for every product, quote and order, one request each time, and report what it answers without adding to it. Do not question the audience first: a cue is the whole of what it says, and nobody is standing there to answer you back. A cue that says what to place an order for is the go-ahead: ask the shop to place that test order.",
+                "overrides": {},
+            },
+            {
+                "member": "demo-shop",
+                "app": "demo-shop:0.0.1",
+                "ref": "",
+                "server": "",
+                "role": "contributor",
+                "runs_in": "runtime",
+                "persona": {
+                    "name": "Demo Shop",
+                    "face": "🛍️",
+                    "line": "I answer from my own catalogue; my orders are test orders.",
+                },
+                "brief": "Answer only from your tools: find the products with find_products, quote a basket with quote_basket and place an order with place_test_order when asked to, saying each time that nothing is charged and nothing ships.",
+                "overrides": {},
+            },
+        ],
+        "setting": {
+            "systems": [],
+            "period": "today",
+            "language": "en",
+            "assumes": "Two agents over A2A — your Shopper in your browser, the Demo Shop on Datalayer — on the shop's own catalogue of 24 products. Its orders are test orders: nothing is charged and nothing ships.",
+        },
+        "script": [
+            {
+                "id": "find",
+                "cue": {
+                    "say": "Find me what the shop has for tennis, and say which you would pick.",
+                    "schedule": "",
+                    "event": "",
+                },
+                "narration": "The Shopper asks the shop, which looks in its catalogue.",
+                "moves": [
+                    {
+                        "who": "shopper",
+                        "asks": "demo-shop",
+                        "over": "a2a",
+                        "what": "the shop's products for tennis",
+                        "tool": "",
+                    },
+                    {
+                        "who": "demo-shop",
+                        "asks": "",
+                        "what": "its tennis racket and tennis ball, each with its price, rating and stock",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                    {
+                        "who": "shopper",
+                        "asks": "",
+                        "what": "what the shop has, and which it would pick",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                ],
+                "expect": "The shop's tennis racket (49.99 USD) and tennis ball (6.99 USD) from its catalogue, with their stock; the Shopper picks one from those figures.",
+                "shows": ["words"],
+                "pace": "steady",
+            },
+            {
+                "id": "quote",
+                "cue": {
+                    "say": "Quote two tennis balls and the tennis racket.",
+                    "schedule": "",
+                    "event": "",
+                },
+                "narration": "The shop prices the basket; the Shopper adds nothing up itself.",
+                "moves": [
+                    {
+                        "who": "shopper",
+                        "asks": "demo-shop",
+                        "over": "a2a",
+                        "what": "a quote for two tennis balls and one tennis racket",
+                        "tool": "",
+                    },
+                    {
+                        "who": "demo-shop",
+                        "asks": "",
+                        "what": "each line and the total, summed by the shop",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                    {
+                        "who": "shopper",
+                        "asks": "",
+                        "what": "the basket and its total, as the shop quoted it",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                ],
+                "expect": "Each line and a total of 63.97 USD, the shop's own; nothing is ordered yet.",
+                "shows": ["words"],
+            },
+            {
+                "id": "order",
+                "cue": {
+                    "say": "Place the test order for that basket.",
+                    "schedule": "",
+                    "event": "",
+                },
+                "narration": "An order, said to be a test — nothing is charged, nothing ships.",
+                "moves": [
+                    {
+                        "who": "shopper",
+                        "asks": "demo-shop",
+                        "over": "a2a",
+                        "what": "the test order for the basket quoted",
+                        "tool": "",
+                    },
+                    {
+                        "who": "demo-shop",
+                        "asks": "",
+                        "what": "the test order's number, and that nothing is charged and nothing ships",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                    {
+                        "who": "shopper",
+                        "asks": "",
+                        "what": "the order placed, a test",
+                        "tool": "",
+                        "answers": "words",
+                    },
+                ],
+                "expect": "A test order number (TEST-…) and the total, with the shop saying nothing is charged and nothing ships; the Shopper says the same.",
+                "shows": ["words"],
+                "pace": "slow",
+            },
+        ],
+        "stage": {
+            "positions": {
+                "shopper": {"x": 0.25, "y": 0.5},
+                "demo-shop": {"x": 0.75, "y": 0.5},
+            },
+            "opens_first": "shopper",
+            "transcript": {"tools": True, "narration": True, "withhold": ["ids"]},
+            "inspectors": ["agent", "a2a", "tools"],
+            "rests_after": "10m",
+            "pace": "steady",
+            "backdrop": "hero",
+        },
+        "audience": {"who": "visitors", "ceiling_per_ask": 0.05, "asks_a_day": 5},
+        "rehearsal": {
+            "beats": [
+                {
+                    "beat": "find",
+                    "lines": [
+                        "You → Shopper",
+                        "Shopper → Demo Shop",
+                        "Demo Shop: words",
+                        "Shopper: words",
+                    ],
+                    "must_say": ["racket"],
+                    "must_not_say": ["I cannot", "error"],
+                    "within": "120s",
+                },
+                {
+                    "beat": "quote",
+                    "lines": [
+                        "You → Shopper",
+                        "Shopper → Demo Shop",
+                        "Demo Shop: words",
+                        "Shopper: words",
+                    ],
+                    "must_say": ["63.97"],
+                    "within": "120s",
+                },
+                {
+                    "beat": "order",
+                    "lines": [
+                        "You → Shopper",
+                        "Shopper → Demo Shop",
+                        "Demo Shop: words",
+                        "Shopper: words",
+                    ],
+                    "must_say": ["TEST-"],
+                    "must_not_say": ["charged to your"],
+                    "within": "120s",
+                },
+            ],
+            "within": "10m",
+            "verified": {
+                "live": [],
+                "recorded": [
+                    "The shop's tools are tested in process against its bundled catalogue: the tennis products, a quote of 63.97 USD summed by the tool, a test order charging nothing."
+                ],
+                "unverified": [
+                    "Not played yet: the Demo Shop must be kept always on under the demo account (demo-shop) for the Shopper to reach it."
+                ],
+            },
+        },
+        "deployment": {
+            "account": "demo",
+            "page": "/",
+            "addresses": {
+                "demo-shop": "DATALAYER_DEMO_SCENE_BUY_FROM_A_SHOP_DEMO_SHOP_A2A_URL"
+            },
+        },
+        "actors": [],
+        "lines": [],
+        "live": "",
+        "setup": [],
+    }
+)
+
 CODING_AGENT_BEHIND_THE_SHIELD_SCENE_0_0_1 = SceneSpec.model_validate(
     {
         "schema": "loop.scene/v1",
@@ -2445,6 +2679,7 @@ UCP_A_PURCHASE_APPROVED_SCENE_0_0_1 = SceneSpec.model_validate(
 # ============================================================================
 
 SCENE_CATALOGUE: Dict[str, SceneSpec] = {
+    "buy-from-a-shop": BUY_FROM_A_SHOP_SCENE_0_0_1,
     "coding-agent-behind-the-shield": CODING_AGENT_BEHIND_THE_SHIELD_SCENE_0_0_1,
     "crop-monitoring": CROP_MONITORING_SCENE_0_0_1,
     "disaster-assessment": DISASTER_ASSESSMENT_SCENE_0_0_1,

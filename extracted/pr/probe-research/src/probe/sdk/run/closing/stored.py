@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import sys
 import time
 from typing import Any, Callable
 
@@ -119,7 +118,6 @@ def _render_line(run_ref: str, ingest: dict, waited: float, *, has_stopped: bool
 
 
 def _print_progress(line: str) -> None:
-    try:
-        print(line, file=sys.stderr, flush=True)
-    except Exception:  # noqa: BLE001 -- a closed stderr never stops the wait
-        pass
+    from probe.sdk.capture.logs.early import print_status
+
+    print_status(line)  # outside the run's saved log: the wait's line is not the script's output

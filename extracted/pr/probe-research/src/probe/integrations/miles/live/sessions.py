@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from .engines import CURRENT
+from .gpu import take_session_trace
 
 if TYPE_CHECKING:
     from .rollout import Rollout
@@ -189,7 +190,17 @@ def _wrap_collect(cls: Any, watcher: SessionWatcher) -> None:
                 await asyncio.to_thread(watcher.read_last, rollout)
             except Exception as exc:  # noqa: BLE001 -- a watch is never worth a rollout
                 log.debug("probe: the last read of a Miles session failed: %s", exc)
-        return await original(self, *args, **kwargs)
+        try:
+            result = await original(self, *args, **kwargs)
+        except BaseException:
+            if rollout is not None:
+                rollout.gpu.is_incomplete = True  # the session's readings never came back
+            raise
+        try:
+            take_session_trace(rollout, result)
+        except Exception as exc:  # noqa: BLE001 -- GPU readings are never worth a rollout
+            log.debug("probe: a Miles session's GPU readings could not be read: %s", exc)
+        return result
 
     setattr(collect_samples, _MARK, True)
     cls.collect_samples = collect_samples

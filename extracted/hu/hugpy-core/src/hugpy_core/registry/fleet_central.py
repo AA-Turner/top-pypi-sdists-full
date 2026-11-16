@@ -58,12 +58,14 @@ def refresh(worker, get, *, force=False) -> bool:
         with conn.cursor() as cur:
             cur.executemany(
                 "INSERT INTO fleet_central_units(holder, key, variation, bytes, engine, files, content_id, basis, "
-                "source_role, locations, task, arch, layers, ctx_train, expert_count, expert_used_count) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (holder, key, variation) DO NOTHING",
+                "source_role, locations, task, arch, layers, ctx_train, expert_count, expert_used_count, "
+                "class_names, capabilities) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (holder, key, variation) DO NOTHING",
                 [(name, u["key"], u["variation"], int(u.get("bytes") or 0), u.get("engine"), u.get("files"),
                   u.get("content_id"), u.get("basis"), u.get("source_role") or "central",
                   json.dumps(u.get("locations") or []), u.get("task"), u.get("arch"), _int(u.get("layers")),
-                  _int(u.get("ctx_train")), _int(u.get("expert_count")), _int(u.get("expert_used_count")))
+                  _int(u.get("ctx_train")), _int(u.get("expert_count")), _int(u.get("expert_used_count")),
+                  json.dumps(_strings(u.get("class_names"))), json.dumps(_strings(u.get("capabilities"))))
                  for u in units if u.get("key") and u.get("variation")])
         # into the model key index the console pages through: every model this host's Discovery has, one row a key
         try:
@@ -113,10 +115,16 @@ def _connected() -> set:
     return {c["name"] for c in registrations.all() if registrations.is_connected(c)}
 
 
+def _strings(value) -> list:
+    """A Wrapper's list of names (class names, capabilities): its strings, nothing else."""
+    return [v for v in value if isinstance(v, str) and v] if isinstance(value, list) else []
+
+
 def _all_rows():
     with _connect() as conn:
         return conn.execute("SELECT holder, key, variation, bytes, engine, files, content_id, basis, seen_at, "
-                            "source_role, locations, task, arch, layers, ctx_train, expert_count, expert_used_count "
+                            "source_role, locations, task, arch, layers, ctx_train, expert_count, expert_used_count, "
+                            "class_names, capabilities "
                             "FROM fleet_central_units ORDER BY key, variation, holder").fetchall()
 
 
@@ -161,6 +169,9 @@ def catalog(include_unservable=False) -> list:
         for fact in ("task", "arch", "layers", "ctx_train", "expert_count", "expert_used_count"):
             if m.get(fact) is None and r.get(fact) is not None:
                 m[fact] = r[fact]
+        # what it can render, as any of its holders' Wrappers reads it (2026-11-15)
+        for fact in ("class_names", "capabilities"):
+            m[fact] = sorted(set(m.get(fact) or []) | set(_strings(r.get(fact))))
     return sorted(merged.values(), key=lambda m: (m["key"], m["variation"]))
 
 

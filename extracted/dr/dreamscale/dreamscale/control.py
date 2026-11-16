@@ -873,6 +873,13 @@ class ControlPlaneClient:
             "POST", f"{TRAININGS_PATH}/{run_id}/cancel", run_id=run_id
         )
 
+    async def save_checkpoint_now(self, run_id: str) -> dict[str, Any]:
+        """A training run saves a deployable checkpoint at its next update and trains on
+        (409 when it can't: not training, one already pending, its model can't yet)."""
+        return await self._training_call(
+            "POST", f"{TRAININGS_PATH}/{run_id}/checkpoint", run_id=run_id
+        )
+
     async def stop_training(self, run_id: str) -> dict[str, Any]:
         """Stop a run: one still training saves and stops (resumable, when Stop and Resume is
         on); one not training yet is canceled."""

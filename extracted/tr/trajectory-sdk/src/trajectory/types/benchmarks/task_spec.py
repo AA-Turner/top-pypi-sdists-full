@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 from trajectory._models import BaseModel
 from trajectory.types._internal import BenchmarkMessage
 from trajectory.types.benchmarks.runtime_spec import RuntimeSpec
 from trajectory.types.benchmarks.secret_ref import SecretRef
+from trajectory.types.network_mode import NetworkMode
 from trajectory.types.task_split import TaskSplit
 
 
@@ -21,9 +22,6 @@ class McpServerSpec(BaseModel):
   command: str | None = None
 
   args: list[str] | None = None
-
-
-NetworkMode: TypeAlias = Literal["no-network", "public", "allowlist"]
 
 
 class EnvResources(BaseModel):

@@ -7,9 +7,11 @@ currently-open elements, and calls a handler for each element a CSS selector mat
 run of text, each comment, and the doctype). A handler edits the node in place -- set an attribute, insert markup
 before or after it, replace its inner content, or drop it -- and the edited output is emitted incrementally.
 
-Memory is proportional to the open-element depth plus whatever a handler chooses to buffer, never to the document
-size, so a multi-megabyte page rewrites in a fixed working set. This is the model Cloudflare's lol-html popularized;
-turbohtml reuses its own native tokenizer and CSS selector engine behind it.
+Memory is proportional to the open-element depth plus whatever a handler chooses to buffer, not to the document size,
+so a multi-megabyte page rewrites in a fixed working set. Markup whose reading needs the tree builder's state, such
+as a ``<p>`` inside ``<svg>`` or a ``<template>``, runs the tree builder beside the rewriter, which keeps only the open
+and active formatting elements (see :doc:`/explanation/streaming`). This is the model Cloudflare's lol-html
+popularized; turbohtml reuses its own native tokenizer and CSS selector engine behind it.
 
 Because the pass never looks ahead, only the selectors decidable from an element and its ancestors stream: type,
 universal, id, class, and attribute selectors, the descendant (space) and child (``>``) combinators, ``:root``,
@@ -22,19 +24,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from ._html import _rewrite, _RewriteHandle
+from ._html import RewriteHandle as _RewriteHandle
+from ._html import rewrite as _rewrite
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-__all__ = [
-    "CommentHandler",
-    "DoctypeHandler",
-    "Element",
-    "ElementHandler",
-    "TextHandler",
-    "rewrite",
-]
 
 Element = _RewriteHandle
 """The node handle a rewrite handler receives.
@@ -47,7 +41,19 @@ exposes :attr:`~Element.text` and :meth:`~Element.set_text`; a doctype handle ex
 
 Text content is HTML-escaped, except inside ``script``, ``style`` and the other raw-text elements, where a browser
 decodes no character references: text written there is kept as is, so ``a < b`` stays a valid script. The rewrite
-then raises :class:`ValueError` if that text would end the element early (``</script``, or ``<!--`` in a script).
+then raises :class:`ValueError` if that text would end the element early (``</script``, or ``<!--`` in a script),
+whether the element's end tag follows or the input ends first. Two cases are escaped like any other text: an element
+whose tags :meth:`~Element.remove_and_keep_content` drops, since nothing marks its content as text any more; and text
+passed to :meth:`~Element.append` on a raw-text element when :meth:`~Element.remove` or :meth:`~Element.replace` then
+drops its tags.
+
+Past the open-element depth limit the rewriter tracks only raw-text and RCDATA elements, so their content is read as
+text, as the tree builder reads it. An edit that needs the content of an element nested that deep raises
+:class:`ValueError`, and so does a handler once an SVG or MathML element starts there.
+
+The rewriter reads ``noscript`` as a browser with scripting on does, so the fallback markup inside an unwrapped
+``noscript`` comes out as escaped text. :func:`turbohtml.parse` defaults scripting off and keeps that markup as
+elements, so ``unwrap()`` on its tree gives markup instead; see :doc:`/explanation/parsing`.
 
 The rewrite writes an edited element's start tag again from its attributes and escapes ``&``, ``"``, ``<`` and ``>`` in
 each value.
@@ -64,28 +70,44 @@ class ElementHandler(Protocol):
     """A callback invoked with the matched :class:`Element` for each element a selector matches."""
 
     def __call__(self, element: Element, /) -> None:
-        """Edit the matched ``element`` in place."""
+        """
+        Edit the matched ``element`` in place.
+
+        :param element: the matched element.
+        """
 
 
 class TextHandler(Protocol):
     """A callback invoked with each run of character data as an :class:`Element` handle of text kind."""
 
     def __call__(self, text: Element, /) -> None:
-        """Edit the ``text`` run in place."""
+        """
+        Edit the ``text`` run in place.
+
+        :param text: the text run.
+        """
 
 
 class CommentHandler(Protocol):
     """A callback invoked with each comment as an :class:`Element` handle of comment kind."""
 
     def __call__(self, comment: Element, /) -> None:
-        """Edit the ``comment`` in place."""
+        """
+        Edit the ``comment`` in place.
+
+        :param comment: the comment node, whose text may be edited in place.
+        """
 
 
 class DoctypeHandler(Protocol):
     """A callback invoked with the document type declaration as an :class:`Element` handle of doctype kind."""
 
     def __call__(self, doctype: Element, /) -> None:
-        """Edit the ``doctype`` in place."""
+        """
+        Edit the ``doctype`` in place.
+
+        :param doctype: the document type declaration.
+        """
 
 
 def rewrite(
@@ -106,12 +128,26 @@ def rewrite(
     :param text: called with each run of character data (a text-kind :class:`Element`); None skips text.
     :param comments: called with each comment (a comment-kind :class:`Element`); None skips comments.
     :param doctype: called with the document type declaration (a doctype-kind :class:`Element`); None skips it.
+
     :returns: the rewritten markup. An untouched construct is reproduced verbatim, so a rewrite that edits nothing
         returns the input unchanged (character references and original quoting are preserved).
     :raises TypeError: if ``html`` is not a str.
     :raises ValueError: if text a handler wrote into a raw-text element such as ``script`` or ``style`` would end
-        that element before its end tag.
+        that element before its end tag, if a handler edits an element nested past the depth limit in a way that needs
+        its content, or if a handler runs while an SVG or MathML element is nested past the depth limit.
     :raises SelectorSyntaxError: if a selector is malformed or uses a construct the stream cannot match (a sibling
         combinator, a positional or structural pseudo-class, or ``:has()``).
+    :raises RecursionError: if a selector chains more compound selectors than the C stack this thread has left can
+        match.
     """
     return _rewrite(html, tuple(elements), text, comments, doctype)
+
+
+__all__ = [
+    "CommentHandler",
+    "DoctypeHandler",
+    "Element",
+    "ElementHandler",
+    "TextHandler",
+    "rewrite",
+]

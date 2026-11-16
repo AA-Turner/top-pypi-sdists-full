@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loro
-Version: 1.17.1
+Version: 1.18.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -84,6 +84,10 @@ cd loro-py
 pip install maturin
 maturin develop
 ```
+
+## 1.18.0
+
+Uses Loro core 1.18.0, including its import validation, undo and text correctness fixes and performance improvements. Existing Python APIs and supported platform matrix are retained.
 
 ## 1.17.1
 

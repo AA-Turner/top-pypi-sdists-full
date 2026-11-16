@@ -520,7 +520,8 @@ class RolloutEngine:
         )
         self._collector = SamplingResultCollector(
             executor=self._pool,
-            max_poll_rpcs=max(1, min(4, self.schedule.max_rpc_workers // 2)),
+            max_poll_rpcs=self.schedule.poll_rpc_limit,
+            stream_window_bytes=self.schedule.stream_window_bytes,
         )
         self._sampling = {
             "requests": 0,

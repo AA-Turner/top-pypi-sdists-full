@@ -197,8 +197,9 @@ typedef enum {
 
 /* A token points into the source buffer (zero-copy). For CSS_NUM, text is the numeric part and unit the dimension;
    for CSS_DELIM, delim is the single character. CSS_BAD is a string a newline cut short (a <bad-string-token>, CSS
-   Syntax 3 §4.3.5) or a url() holding one; its text keeps that newline, so printing it verbatim leaves it bad instead
-   of letting the string run on to the next quote. */
+   Syntax 3 §4.3.5) or a `\` a newline follows (no escape, §4.3.8), whose text keeps that newline, so printing it
+   verbatim leaves it bad instead of letting the string run on to the next quote or the `\` escape what comes next; or
+   an unquoted url() holding a quote (a <bad-url-token>, §4.3.6). */
 typedef struct {
     const css_char *text;
     Py_ssize_t text_len;
@@ -206,6 +207,15 @@ typedef struct {
     css_kind kind;
     css_char delim;
 } css_token;
+
+/* A bang comment the tokenizer replaced with a placeholder token. The parser writes each one exactly once, after the
+   rule-list step holding its token, so no construct the minifier drops takes its banner with it. */
+typedef struct {
+    Py_ssize_t index;
+    const css_char *text;
+    Py_ssize_t text_len;
+    int done;
+} css_bang;
 
 typedef struct {
     css_token *items;
@@ -215,7 +225,62 @@ typedef struct {
     int depth;   /* parser recursion depth, kept on the vector every parser holds to avoid a thread-local lookup */
     int bad;     /* whether any token is CSS_BAD, so valid input skips the per-declaration scan for one */
     int escaped; /* whether a name holds an escape, so input without one skips css_spell_names */
+    int escapes; /* whether output can end in an escape, so input that cannot skips every check for one */
+    css_bang *bangs;
+    Py_ssize_t bang_len;
+    Py_ssize_t bang_cap;
 } token_vec;
+
+/* The text every bang comment token points at. An empty comment spells nothing, so the placeholder keeps the token
+   boundaries the bang comment made. */
+static const css_char css_bang_placeholder[4] = {'/', '*', '*', '/'};
+
+static int css_is_bang(const css_token *token) {
+    return token->kind == CSS_COMMENT && token->text == css_bang_placeholder;
+}
+
+/* The position in vec->bangs of the first bang comment whose token index is at least index. */
+static Py_ssize_t css_bang_first(const token_vec *vec, Py_ssize_t index) {
+    Py_ssize_t low = 0;
+    Py_ssize_t high = vec->bang_len;
+    while (low < high) {
+        Py_ssize_t mid = low + (high - low) / 2;
+        if (vec->bangs[mid].index < index) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+    return low;
+}
+
+/* The source end of the raw span tokens [start, end) copy. A bang comment token points at the placeholder, not the
+   source, so the span ends at its last token that is not one, and the bangs it holds are marked written: the copy
+   writes them where they stand. A bang at the end is left to the step's hoist, which writes it once after the step. */
+static const css_char *css_raw_end(token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
+    Py_ssize_t last = end - 1;
+    while (css_is_bang(&vec->items[last])) {
+        last--;
+    }
+    for (Py_ssize_t index = css_bang_first(vec, start); index < vec->bang_len && vec->bangs[index].index < last;
+         index++) {
+        vec->bangs[index].done = 1;
+    }
+    const css_token *token = &vec->items[last];
+    return token->text + token->text_len + token->unit_len;
+}
+
+/* Write the bang comment at token index where it stands, as raw text of a step, which marks it written. */
+static void css_put_bang(css_buf *out, token_vec *vec, Py_ssize_t index) {
+    css_bang *bang = &vec->bangs[css_bang_first(vec, index)];
+    cbuf_put_run(out, bang->text, bang->text_len);
+    bang->done = 1;
+}
+
+static void css_token_vec_free(token_vec *vec) {
+    css_free(vec->items);
+    css_free(vec->bangs);
+}
 
 /* Untrusted nesting drives the parsers into C recursion. 100 sits between rust-cssparser's 75 and WebKit's 128; the
    deepest shape, nested @media, then needs about 42 KiB of stack with clang -O3, a third of a 128 KiB thread. */
@@ -277,6 +342,21 @@ static CSS_FORCEINLINE void token_vec_push(token_vec *vec, css_token token) {
         return;                                         /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     vec->items[vec->len++] = token;
+}
+
+/* Record the bang comment about to be pushed as the next token. Out of line: only a bang comment reaches it. */
+CSS_NOINLINE static void css_bang_push(token_vec *vec, const css_char *text, Py_ssize_t text_len) {
+    if (vec->bang_len == vec->bang_cap) {
+        Py_ssize_t cap = vec->bang_cap < 8 ? 8 : vec->bang_cap * 2;
+        css_bang *grown = css_realloc(vec->bangs, (size_t)cap * sizeof(css_bang));
+        if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            *vec->oom = 1;   /* GCOVR_EXCL_LINE: allocation-failure path */
+            return;          /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        vec->bangs = grown;
+        vec->bang_cap = cap;
+    }
+    vec->bangs[vec->bang_len++] = (css_bang){vec->len, text, text_len, 0};
 }
 
 /* Character-class bitmask over the 7-bit ASCII range, the rcssmin trick: the hot tokenizer classifiers become a single
@@ -354,7 +434,7 @@ static int css_would_merge(css_char last, int last_is_ident, const css_char *nex
     case '/':
         return first == '*';
     default:
-        return css_is_digit(last) && (first == '%' || fraction);
+        return !last_is_ident && css_is_digit(last) && (first == '%' || fraction);
     }
 }
 
@@ -449,12 +529,31 @@ CSS_NOINLINE static Py_ssize_t css_scan_escape(const css_char *source, Py_ssize_
     return scan;
 }
 
+/* The end of what the `\` at pos opens inside a quoted string (CSS Syntax 3 §4.3.5): a line continuation, a CRLF
+   counting as one newline (§3.3), or else an escape. A hex escape takes the whitespace after it, so a newline there
+   belongs to the escape and does not cut the string short. */
+static inline Py_ssize_t css_scan_quoted_escape(const css_char *source, Py_ssize_t pos, Py_ssize_t length) {
+    if (pos + 2 < length && source[pos + 1] == '\r' && source[pos + 2] == '\n') {
+        return pos + 3;
+    }
+    if (pos + 1 < length && !css_is_hex(source[pos + 1])) {
+        return pos + 2;
+    }
+    return css_scan_escape(source, pos, length);
+}
+
+/* Whether source[pos], a byte the caller has read, is a `\` before a newline. That pair is no escape (CSS Syntax 3
+   §4.3.8), so the `\` ends a name and is a delimiter, and a new token starts after the newline. */
+static inline int css_is_bad_escape(const css_char *source, Py_ssize_t pos, Py_ssize_t length) {
+    return source[pos] == '\\' && pos + 1 < length && css_quoted_stop[source[pos + 1]] == CSS_QUOTED_NEWLINE;
+}
+
 /* The end of the ident sequence at scan (CSS Syntax 3 §4.3.12): the plain run, then an escape or a non-ASCII byte,
-   repeated. An escape sets *escaped. */
+   repeated. An escape sets *escaped, and a `\` before a newline, which is none, ends the sequence. */
 static inline Py_ssize_t css_scan_ident(const css_char *source, Py_ssize_t scan, Py_ssize_t length, int *escaped) {
     for (;;) {
         scan += css_ident_plain_run(source + scan, length - scan);
-        if (scan >= length || !css_is_ident(source[scan])) {
+        if (scan >= length || !css_is_ident(source[scan]) || css_is_bad_escape(source, scan, length)) {
             return scan;
         }
         if (source[scan] == '\\') {
@@ -488,12 +587,136 @@ CSS_NOINLINE static int css_holds_bad(const token_vec *vec, Py_ssize_t start, Py
     return 0;
 }
 
+/* Whether a token in [start, end) is a string cut short or a bad url, the CSS_BAD tokens that are not the `\` before a
+   newline. That `\` is a delimiter, which a custom property's value admits (CSS Variables 1 §2); a bad string or bad
+   url is admitted nowhere. Out of line as css_holds_bad is. */
+CSS_NOINLINE static int css_holds_cut(const token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
+    for (Py_ssize_t index = start; index < end; index++) {
+        if (vec->items[index].kind == CSS_BAD && vec->items[index].text[0] != '\\') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The end of the unicode-range that opens at the `u` at pos, or 0 when there is none. CSS Syntax 3 has no such token,
+   so a range is one token only where the text after it does not merge with it: otherwise the renderer spaces the two
+   apart and splits a name. Only a name code point, `%` or `.` can merge with a range end, so the common `,` after a
+   range skips the check. The next text is passed two code points long when a number starts there, so a `.` before a
+   digit merges as the start of `.5`. */
+static inline Py_ssize_t css_scan_urange(const css_char *source, Py_ssize_t pos, Py_ssize_t length) {
+    if (pos + 2 >= length || source[pos + 1] != '+' || !(css_is_hex(source[pos + 2]) || source[pos + 2] == '?')) {
+        return 0;
+    }
+    Py_ssize_t scan = pos + 2;
+    Py_ssize_t digits = 0;
+    while (scan < length && digits < 6 && css_is_hex(source[scan])) {
+        scan++;
+        digits++;
+    }
+    int wildcard = 0;
+    while (scan < length && digits < 6 && source[scan] == '?') {
+        scan++;
+        digits++;
+        wildcard = 1;
+    }
+    if (!wildcard && scan < length && source[scan] == '-') {
+        scan++;
+        digits = 0;
+        while (scan < length && digits < 6 && css_is_hex(source[scan])) {
+            scan++;
+            digits++;
+        }
+    }
+    if (scan < length && (css_is_ident(source[scan]) || source[scan] == '%' || source[scan] == '.') &&
+        css_would_merge(source[scan - 1], 0, &source[scan], 1 + css_starts_number(source, scan, length))) {
+        return 0;
+    }
+    return scan;
+}
+
+/* Whether the url( with this body reads a string: a quote opens the body, past its whitespace. That url( is a function
+   token and the string its first argument (CSS Syntax 3 §4.3.4); any other body is a url-token (§4.3.6), in which a
+   quote opens nothing. */
+static inline int css_url_quoted(const css_char *body, Py_ssize_t len) {
+    Py_ssize_t pos = 0;
+    while (pos < len && css_is_ws(body[pos])) {
+        pos++;
+    }
+    return pos < len && (body[pos] == '"' || body[pos] == '\'');
+}
+
+/* The end of the url( whose body starts at body, or -1 when its arguments tokenize one by one.
+   A quoted url( is a function, so its arguments are ordinary tokens. It stays one token while the `)` that ends it is
+   in plain sight: past the string, which may hold a `)` of its own (a data URI's SVG transform="rotate(45)"), and past
+   the whitespace, comments and <url-modifier> identifiers after it. A newline cutting the string short, a comment left
+   open, or anything after the string that can hold a `)` (another string, a block, a function, an escape) leaves the
+   caller to emit the name alone, and the arguments take the token paths every function's do.
+   An unquoted url( ends at the next `)` no escape covers, whatever it holds. A quote there opens no string: it makes
+   the token a <bad-url-token> (§4.3.14). */
+CSS_NOINLINE static Py_ssize_t css_scan_url(const css_char *source, Py_ssize_t body, Py_ssize_t length,
+                                            css_token *token, token_vec *vec) {
+    Py_ssize_t end = body;
+    token->kind = CSS_URL;
+    if (!css_url_quoted(source + body, length - body)) {
+        while (end < length && source[end] != ')') {
+            if (source[end] == '"' || source[end] == '\'') {
+                token->kind = CSS_BAD;
+                vec->bad = 1;
+            }
+            if (source[end] == '\\' && end + 1 < length) {
+                vec->escapes = 1;
+                end++;
+            }
+            end++;
+        }
+        return end + (end < length);
+    }
+    while (css_is_ws(source[end])) {
+        end++;
+    }
+    css_char quote = source[end++];
+    while (end < length && source[end] != quote) {
+        unsigned char stop = css_quoted_stop[source[end]];
+        if (stop == CSS_QUOTED_NEWLINE) {
+            return -1;
+        }
+        if (stop == CSS_QUOTED_ESCAPE && end + 1 < length) {
+            vec->escapes = 1;
+        }
+        /* a hex escape takes the newline after it, as in a string token, so that newline does not cut the string */
+        end = stop == CSS_QUOTED_ESCAPE ? css_scan_quoted_escape(source, end, length) : end + 1;
+    }
+    end += end < length;
+    while (end < length && source[end] != ')') {
+        css_char character = source[end];
+        if (character == '/' && end + 1 < length && source[end + 1] == '*') {
+            end += 2;
+            while (end + 1 < length && (source[end] != '*' || source[end + 1] != '/')) {
+                end++;
+            }
+            if (end + 1 >= length) {
+                return -1;
+            }
+            end += 2;
+            continue;
+        }
+        if (character == '"' || character == '\'' || character == '\\' || character == '(' || character == '[' ||
+            character == '{') {
+            return -1;
+        }
+        end++;
+    }
+    return end + (end < length);
+}
+
 /* Tokenize the whole source into vec; tokens point into source (zero-copy). */
 static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *vec) {
     Py_ssize_t pos = 0;
     while (pos < length) {
         css_char character = source[pos];
         css_token token = {0};
+        Py_ssize_t urange_end = 0;
         if (css_is_ws(character)) {
             Py_ssize_t scan = pos + 1;
             while (scan < length && css_is_ws(source[scan])) {
@@ -507,6 +730,7 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
         } else if (character == '/' && pos + 1 < length && source[pos + 1] == '*') {
             Py_ssize_t scan = pos + 2;
             Py_ssize_t end = length; /* an unterminated comment runs to EOF */
+            int closed = 0;
             while (scan + 1 < length) {
                 const css_char *star = memchr(source + scan, '*', (size_t)(length - scan - 1));
                 if (star == NULL) {
@@ -515,9 +739,19 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
                 scan = (Py_ssize_t)(star - source);
                 if (source[scan + 1] == '/') {
                     end = scan + 2;
+                    closed = 1;
                     break;
                 }
                 scan++;
+            }
+            if (closed && source[pos + 2] == '!') {
+                css_bang_push(vec, &source[pos], end - pos);
+                token.kind = CSS_COMMENT;
+                token.text = css_bang_placeholder;
+                token.text_len = (Py_ssize_t)sizeof css_bang_placeholder;
+                token_vec_push(vec, token);
+                pos = end;
+                continue;
             }
             /* dropping this comment would join `<` and `/`, which starts the `</style` end tag once the stylesheet
                sits inside an HTML <style> */
@@ -538,8 +772,8 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
                     scan++;
                     continue;
                 }
-                if (stop == CSS_QUOTED_ESCAPE && scan + 1 < length) {
-                    scan += (source[scan + 1] == '\r' && scan + 2 < length && source[scan + 2] == '\n') ? 3 : 2;
+                if (stop == CSS_QUOTED_ESCAPE) {
+                    scan = css_scan_quoted_escape(source, scan, length);
                     continue;
                 }
                 if (stop == CSS_QUOTED_NEWLINE) {
@@ -557,14 +791,16 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             token.text_len = scan - pos;
             token_vec_push(vec, token);
             pos = scan;
-        } else if (character == '@' && pos + 1 < length && css_is_ident(source[pos + 1])) {
+        } else if (character == '@' && pos + 1 < length && css_is_ident(source[pos + 1]) &&
+                   !css_is_bad_escape(source, pos + 1, length)) {
             Py_ssize_t scan = css_scan_ident(source, pos + 1, length, &vec->escaped);
             token.kind = CSS_AT;
             token.text = &source[pos];
             token.text_len = scan - pos;
             token_vec_push(vec, token);
             pos = scan;
-        } else if (character == '#' && pos + 1 < length && css_is_ident(source[pos + 1])) {
+        } else if (character == '#' && pos + 1 < length && css_is_ident(source[pos + 1]) &&
+                   !css_is_bad_escape(source, pos + 1, length)) {
             Py_ssize_t scan = css_scan_ident(source, pos + 1, length, &vec->escaped);
             token.kind = CSS_HASH;
             token.text = &source[pos];
@@ -597,66 +833,32 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             token.unit_len = unit_end - after_number;
             token_vec_push(vec, token);
             pos = unit_end;
-        } else if ((character == 'u' || character == 'U') && pos + 2 < length && source[pos + 1] == '+' &&
-                   (css_is_hex(source[pos + 2]) || source[pos + 2] == '?')) {
-            Py_ssize_t scan = pos + 2;
-            Py_ssize_t digits = 0;
-            while (scan < length && digits < 6 && (css_is_hex(source[scan]) || source[scan] == '?')) {
-                scan++;
-                digits++;
-            }
-            if (scan < length && source[scan] == '-') {
-                scan++;
-                digits = 0;
-                while (scan < length && digits < 6 && css_is_hex(source[scan])) {
-                    scan++;
-                    digits++;
-                }
-            }
+        } else if ((character == 'u' || character == 'U') && (urange_end = css_scan_urange(source, pos, length)) != 0) {
             token.kind = CSS_URANGE;
             token.text = &source[pos];
-            token.text_len = scan - pos;
+            token.text_len = urange_end - pos;
             token_vec_push(vec, token);
-            pos = scan;
+            pos = urange_end;
         } else if (css_is_ident(character)) {
+            if (css_is_bad_escape(source, pos, length)) {
+                /* the `\` is a delimiter no selector or typed value admits, so it is bad like a string cut short. The
+                   token takes the newline: printed without it, the `\` would escape the byte that follows */
+                token.kind = CSS_BAD;
+                vec->bad = 1;
+                token.text = &source[pos];
+                token.text_len = 2;
+                token_vec_push(vec, token);
+                pos += 2;
+                continue;
+            }
             Py_ssize_t scan = css_scan_ident(source, pos, length, &vec->escaped);
+            /* U+0000 reads as U+FFFD (CSS Syntax 3 §3.3), a name code point: a `url(` right after one is the end of a
+               longer function name, so it starts no url and its arguments are ordinary tokens */
             int is_url = scan - pos == 3 && css_lower(source[pos]) == 'u' && css_lower(source[pos + 1]) == 'r' &&
-                         css_lower(source[pos + 2]) == 'l' && scan < length && source[scan] == '(';
-            if (is_url) {
-                /* scan to the closing ')', but skip over a quoted argument so a ')' inside a quoted data URI
-                   (e.g. an SVG transform="rotate(45)") does not terminate the token early */
-                Py_ssize_t end = scan + 1;
-                token.kind = CSS_URL;
-                while (end < length && source[end] != ')') {
-                    if (source[end] == '"' || source[end] == '\'') {
-                        css_char quote = source[end];
-                        end++;
-                        while (end < length) {
-                            unsigned char stop = css_quoted_stop[source[end]];
-                            if (stop == CSS_QUOTED_PLAIN) {
-                                end++;
-                                continue;
-                            }
-                            if (stop == CSS_QUOTED_NEWLINE) {
-                                token.kind = CSS_BAD;
-                                vec->bad = 1;
-                                break;
-                            }
-                            if (source[end] == quote) {
-                                break;
-                            }
-                            end += (stop == CSS_QUOTED_ESCAPE && end + 1 < length) ? 2 : 1;
-                        }
-                        if (end < length) {
-                            end++;
-                        }
-                        continue;
-                    }
-                    end += (source[end] == '\\' && end + 1 < length) ? 2 : 1;
-                }
-                if (end < length) {
-                    end++;
-                }
+                         css_lower(source[pos + 2]) == 'l' && scan < length && source[scan] == '(' &&
+                         (pos == 0 || source[pos - 1] != 0);
+            Py_ssize_t end = is_url ? css_scan_url(source, scan + 1, length, &token, vec) : -1;
+            if (end >= 0) {
                 token.text = &source[pos];
                 token.text_len = end - pos;
                 token_vec_push(vec, token);
@@ -677,6 +879,9 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             pos++;
         }
     }
+    /* a string ends in its unescaped closing quote, so only a name, a url (whose minified body can drop the whitespace
+       an escape held), or a bad string kept with its newline can end the output in an escape */
+    vec->escapes = vec->escapes || vec->escaped || (vec->bad && memchr(source, '\\', (size_t)length) != NULL);
 }
 
 #endif /* TURBOHTML_CSS_TOKENIZE_H */

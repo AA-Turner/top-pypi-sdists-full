@@ -15160,6 +15160,7 @@ class PnpmWorkspaceYaml(
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
         auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
+        auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
         boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
@@ -15236,6 +15237,7 @@ class PnpmWorkspaceYaml(
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
         lockfile: typing.Any = None,
+        lockfile_dir: typing.Optional[builtins.str] = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
         macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15281,6 +15283,7 @@ class PnpmWorkspaceYaml(
         pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
+        pnpr_server: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
@@ -15361,6 +15364,7 @@ class PnpmWorkspaceYaml(
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
         :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
+        :param auto_install_peers_from_highest_match: (experimental) When set to true, pnpm joins conflicting peer dependency ranges with || and installs the highest version that satisfies any of them. For example, if one dependency requires react@^16.0.0 and another requires react@^17.0.0, pnpm installs the highest react@17. Only semver ranges can be joined; conflicting paths, aliases, or tags leave the peer dependency missing, and identical non-semver specifiers are preserved.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
         :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
@@ -15437,6 +15441,7 @@ class PnpmWorkspaceYaml(
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
+        :param lockfile_dir: (experimental) The directory in which pnpm-lock.yaml is written, instead of the directory of pnpm-workspace.yaml. A lockfileDir that points at the default lockfile directory installs the same way as leaving it unset.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
         :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
@@ -15482,6 +15487,7 @@ class PnpmWorkspaceYaml(
         :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
+        :param pnpr_server: (experimental) URL of a pnpr server for install acceleration. When set, pnpm install offloads dependency resolution to the remote server: pnpm sends its workspace manifests and registry configuration, the server resolves the dependency graph and returns the lockfile, while tarballs are downloaded directly from their registries. If the server refuses a setting the install uses, or cannot return the lockfile format pnpm reads, pnpm prints a warning and resolves locally. May also be set with the --config.pnprServer= command-line option or the PNPM_CONFIG_PNPR_SERVER environment variable.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
@@ -15566,6 +15572,7 @@ class PnpmWorkspaceYaml(
             audit_level=audit_level,
             auto_dedupe=auto_dedupe,
             auto_install_peers=auto_install_peers,
+            auto_install_peers_from_highest_match=auto_install_peers_from_highest_match,
             block_exotic_subdeps=block_exotic_subdeps,
             boot_config=boot_config,
             ca=ca,
@@ -15642,6 +15649,7 @@ class PnpmWorkspaceYaml(
             link_workspace_packages=link_workspace_packages,
             local_address=local_address,
             lockfile=lockfile,
+            lockfile_dir=lockfile_dir,
             lockfile_include_tarball_url=lockfile_include_tarball_url,
             loglevel=loglevel,
             macos_backup=macos_backup,
@@ -15687,6 +15695,7 @@ class PnpmWorkspaceYaml(
             pipelines=pipelines,
             pm_on_fail=pm_on_fail,
             pnpmfile=pnpmfile,
+            pnpr_server=pnpr_server,
             prefer_frozen_lockfile=prefer_frozen_lockfile,
             prefer_offline=prefer_offline,
             prefer_symlinked_executables=prefer_symlinked_executables,
@@ -15799,6 +15808,7 @@ class PnpmWorkspaceYaml(
         "audit_level": "auditLevel",
         "auto_dedupe": "autoDedupe",
         "auto_install_peers": "autoInstallPeers",
+        "auto_install_peers_from_highest_match": "autoInstallPeersFromHighestMatch",
         "block_exotic_subdeps": "blockExoticSubdeps",
         "boot_config": "bootConfig",
         "ca": "ca",
@@ -15875,6 +15885,7 @@ class PnpmWorkspaceYaml(
         "link_workspace_packages": "linkWorkspacePackages",
         "local_address": "localAddress",
         "lockfile": "lockfile",
+        "lockfile_dir": "lockfileDir",
         "lockfile_include_tarball_url": "lockfileIncludeTarballUrl",
         "loglevel": "loglevel",
         "macos_backup": "macosBackup",
@@ -15920,6 +15931,7 @@ class PnpmWorkspaceYaml(
         "pipelines": "pipelines",
         "pm_on_fail": "pmOnFail",
         "pnpmfile": "pnpmfile",
+        "pnpr_server": "pnprServer",
         "prefer_frozen_lockfile": "preferFrozenLockfile",
         "prefer_offline": "preferOffline",
         "prefer_symlinked_executables": "preferSymlinkedExecutables",
@@ -16003,6 +16015,7 @@ class PnpmWorkspaceYamlSchema:
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
         auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
+        auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
         boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
@@ -16079,6 +16092,7 @@ class PnpmWorkspaceYamlSchema:
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
         lockfile: typing.Any = None,
+        lockfile_dir: typing.Optional[builtins.str] = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
         macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -16124,6 +16138,7 @@ class PnpmWorkspaceYamlSchema:
         pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
+        pnpr_server: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
@@ -16204,6 +16219,7 @@ class PnpmWorkspaceYamlSchema:
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
         :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
+        :param auto_install_peers_from_highest_match: (experimental) When set to true, pnpm joins conflicting peer dependency ranges with || and installs the highest version that satisfies any of them. For example, if one dependency requires react@^16.0.0 and another requires react@^17.0.0, pnpm installs the highest react@17. Only semver ranges can be joined; conflicting paths, aliases, or tags leave the peer dependency missing, and identical non-semver specifiers are preserved.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
         :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
@@ -16280,6 +16296,7 @@ class PnpmWorkspaceYamlSchema:
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
+        :param lockfile_dir: (experimental) The directory in which pnpm-lock.yaml is written, instead of the directory of pnpm-workspace.yaml. A lockfileDir that points at the default lockfile directory installs the same way as leaving it unset.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
         :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
@@ -16325,6 +16342,7 @@ class PnpmWorkspaceYamlSchema:
         :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
+        :param pnpr_server: (experimental) URL of a pnpr server for install acceleration. When set, pnpm install offloads dependency resolution to the remote server: pnpm sends its workspace manifests and registry configuration, the server resolves the dependency graph and returns the lockfile, while tarballs are downloaded directly from their registries. If the server refuses a setting the install uses, or cannot return the lockfile format pnpm reads, pnpm prints a warning and resolves locally. May also be set with the --config.pnprServer= command-line option or the PNPM_CONFIG_PNPR_SERVER environment variable.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
@@ -16434,6 +16452,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument audit_level", value=audit_level, expected_type=type_hints["audit_level"])
             check_type(argname="argument auto_dedupe", value=auto_dedupe, expected_type=type_hints["auto_dedupe"])
             check_type(argname="argument auto_install_peers", value=auto_install_peers, expected_type=type_hints["auto_install_peers"])
+            check_type(argname="argument auto_install_peers_from_highest_match", value=auto_install_peers_from_highest_match, expected_type=type_hints["auto_install_peers_from_highest_match"])
             check_type(argname="argument block_exotic_subdeps", value=block_exotic_subdeps, expected_type=type_hints["block_exotic_subdeps"])
             check_type(argname="argument boot_config", value=boot_config, expected_type=type_hints["boot_config"])
             check_type(argname="argument ca", value=ca, expected_type=type_hints["ca"])
@@ -16510,6 +16529,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument link_workspace_packages", value=link_workspace_packages, expected_type=type_hints["link_workspace_packages"])
             check_type(argname="argument local_address", value=local_address, expected_type=type_hints["local_address"])
             check_type(argname="argument lockfile", value=lockfile, expected_type=type_hints["lockfile"])
+            check_type(argname="argument lockfile_dir", value=lockfile_dir, expected_type=type_hints["lockfile_dir"])
             check_type(argname="argument lockfile_include_tarball_url", value=lockfile_include_tarball_url, expected_type=type_hints["lockfile_include_tarball_url"])
             check_type(argname="argument loglevel", value=loglevel, expected_type=type_hints["loglevel"])
             check_type(argname="argument macos_backup", value=macos_backup, expected_type=type_hints["macos_backup"])
@@ -16555,6 +16575,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument pipelines", value=pipelines, expected_type=type_hints["pipelines"])
             check_type(argname="argument pm_on_fail", value=pm_on_fail, expected_type=type_hints["pm_on_fail"])
             check_type(argname="argument pnpmfile", value=pnpmfile, expected_type=type_hints["pnpmfile"])
+            check_type(argname="argument pnpr_server", value=pnpr_server, expected_type=type_hints["pnpr_server"])
             check_type(argname="argument prefer_frozen_lockfile", value=prefer_frozen_lockfile, expected_type=type_hints["prefer_frozen_lockfile"])
             check_type(argname="argument prefer_offline", value=prefer_offline, expected_type=type_hints["prefer_offline"])
             check_type(argname="argument prefer_symlinked_executables", value=prefer_symlinked_executables, expected_type=type_hints["prefer_symlinked_executables"])
@@ -16643,6 +16664,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["auto_dedupe"] = auto_dedupe
         if auto_install_peers is not None:
             self._values["auto_install_peers"] = auto_install_peers
+        if auto_install_peers_from_highest_match is not None:
+            self._values["auto_install_peers_from_highest_match"] = auto_install_peers_from_highest_match
         if block_exotic_subdeps is not None:
             self._values["block_exotic_subdeps"] = block_exotic_subdeps
         if boot_config is not None:
@@ -16795,6 +16818,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["local_address"] = local_address
         if lockfile is not None:
             self._values["lockfile"] = lockfile
+        if lockfile_dir is not None:
+            self._values["lockfile_dir"] = lockfile_dir
         if lockfile_include_tarball_url is not None:
             self._values["lockfile_include_tarball_url"] = lockfile_include_tarball_url
         if loglevel is not None:
@@ -16885,6 +16910,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["pm_on_fail"] = pm_on_fail
         if pnpmfile is not None:
             self._values["pnpmfile"] = pnpmfile
+        if pnpr_server is not None:
+            self._values["pnpr_server"] = pnpr_server
         if prefer_frozen_lockfile is not None:
             self._values["prefer_frozen_lockfile"] = prefer_frozen_lockfile
         if prefer_offline is not None:
@@ -17127,6 +17154,18 @@ class PnpmWorkspaceYamlSchema:
         :schema: PnpmWorkspaceYamlSchema#autoInstallPeers
         '''
         result = self._values.get("auto_install_peers")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def auto_install_peers_from_highest_match(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm joins conflicting peer dependency ranges with || and installs the highest version that satisfies any of them.
+
+        For example, if one dependency requires react@^16.0.0 and another requires react@^17.0.0, pnpm installs the highest react@17. Only semver ranges can be joined; conflicting paths, aliases, or tags leave the peer dependency missing, and identical non-semver specifiers are preserved.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#autoInstallPeersFromHighestMatch
+        '''
+        result = self._values.get("auto_install_peers_from_highest_match")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -17951,6 +17990,16 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def lockfile_dir(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The directory in which pnpm-lock.yaml is written, instead of the directory of pnpm-workspace.yaml. A lockfileDir that points at the default lockfile directory installs the same way as leaving it unset.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#lockfileDir
+        '''
+        result = self._values.get("lockfile_dir")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def lockfile_include_tarball_url(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
 
@@ -18439,6 +18488,18 @@ class PnpmWorkspaceYamlSchema:
         :schema: PnpmWorkspaceYamlSchema#pnpmfile
         '''
         result = self._values.get("pnpmfile")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pnpr_server(self) -> typing.Optional[builtins.str]:
+        '''(experimental) URL of a pnpr server for install acceleration.
+
+        When set, pnpm install offloads dependency resolution to the remote server: pnpm sends its workspace manifests and registry configuration, the server resolves the dependency graph and returns the lockfile, while tarballs are downloaded directly from their registries. If the server refuses a setting the install uses, or cannot return the lockfile format pnpm reads, pnpm prints a warning and resolves locally. May also be set with the --config.pnprServer= command-line option or the PNPM_CONFIG_PNPR_SERVER environment variable.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pnprServer
+        '''
+        result = self._values.get("pnpr_server")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -28701,6 +28762,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "audit_level": "auditLevel",
         "auto_dedupe": "autoDedupe",
         "auto_install_peers": "autoInstallPeers",
+        "auto_install_peers_from_highest_match": "autoInstallPeersFromHighestMatch",
         "block_exotic_subdeps": "blockExoticSubdeps",
         "boot_config": "bootConfig",
         "ca": "ca",
@@ -28777,6 +28839,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "link_workspace_packages": "linkWorkspacePackages",
         "local_address": "localAddress",
         "lockfile": "lockfile",
+        "lockfile_dir": "lockfileDir",
         "lockfile_include_tarball_url": "lockfileIncludeTarballUrl",
         "loglevel": "loglevel",
         "macos_backup": "macosBackup",
@@ -28822,6 +28885,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "pipelines": "pipelines",
         "pm_on_fail": "pmOnFail",
         "pnpmfile": "pnpmfile",
+        "pnpr_server": "pnprServer",
         "prefer_frozen_lockfile": "preferFrozenLockfile",
         "prefer_offline": "preferOffline",
         "prefer_symlinked_executables": "preferSymlinkedExecutables",
@@ -28905,6 +28969,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         audit_level: typing.Optional["PnpmWorkspaceYamlSchemaAuditLevel"] = None,
         auto_dedupe: typing.Optional[builtins.bool] = None,
         auto_install_peers: typing.Optional[builtins.bool] = None,
+        auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
         block_exotic_subdeps: typing.Optional[builtins.bool] = None,
         boot_config: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaBootConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         ca: typing.Optional[builtins.str] = None,
@@ -28981,6 +29046,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         link_workspace_packages: typing.Optional["PnpmWorkspaceYamlSchemaLinkWorkspacePackages"] = None,
         local_address: typing.Optional[builtins.str] = None,
         lockfile: typing.Any = None,
+        lockfile_dir: typing.Optional[builtins.str] = None,
         lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
         loglevel: typing.Optional["PnpmWorkspaceYamlSchemaLoglevel"] = None,
         macos_backup: typing.Optional[typing.Union["PnpmWorkspaceYamlSchemaMacosBackup", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -29026,6 +29092,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
         pm_on_fail: typing.Optional["PnpmWorkspaceYamlSchemaPmOnFail"] = None,
         pnpmfile: typing.Optional[builtins.str] = None,
+        pnpr_server: typing.Optional[builtins.str] = None,
         prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
         prefer_offline: typing.Optional[builtins.bool] = None,
         prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
@@ -29106,6 +29173,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param audit_level: (experimental) Controls the level of issues reported by ``pnpm audit``. When set to 'low', all vulnerabilities are reported. When set to 'moderate', 'high', or 'critical', only vulnerabilities with that severity or higher are reported.
         :param auto_dedupe: (experimental) When set to true, pnpm install and pnpm add deduplicate compatible dependency versions during installation. If a dependency appears at multiple versions and one version satisfies every range in the workspace, pnpm picks that version for all of them. Frozen installs (--frozen-lockfile) leave the lockfile unchanged; deduplication only runs when the lockfile is being written. Added in pnpm v12.6.0.
         :param auto_install_peers: (experimental) When true, any missing non-optional peer dependencies are automatically installed.
+        :param auto_install_peers_from_highest_match: (experimental) When set to true, pnpm joins conflicting peer dependency ranges with || and installs the highest version that satisfies any of them. For example, if one dependency requires react@^16.0.0 and another requires react@^17.0.0, pnpm installs the highest react@17. Only semver ranges can be joined; conflicting paths, aliases, or tags leave the peer dependency missing, and identical non-semver specifiers are preserved.
         :param block_exotic_subdeps: (experimental) When set to true, it prevents the resolution of exotic protocols (like git+ssh: or direct https: tarballs) in transitive dependencies. Only direct dependencies are allowed to use exotic sources.
         :param boot_config: (experimental) Sets the release-age and trust policy pnpm applies when installing config dependencies and the pnpm version pinned by the packageManager field, before the regular configuration is loaded. Added in pnpm v12.15.0.
         :param ca: (experimental) The Certificate Authority signing certificate that is trusted for SSL connections to the registry.
@@ -29182,6 +29250,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param link_workspace_packages: (experimental) If this is enabled, locally available packages are linked to node_modules instead of being downloaded from the registry.
         :param local_address: (experimental) The IP address of the local interface to use when making connections to the npm registry.
         :param lockfile: (experimental) When set to false, pnpm won't read or generate a pnpm-lock.yaml file.
+        :param lockfile_dir: (experimental) The directory in which pnpm-lock.yaml is written, instead of the directory of pnpm-workspace.yaml. A lockfileDir that points at the default lockfile directory installs the same way as leaving it unset.
         :param lockfile_include_tarball_url: (experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
         :param loglevel: (experimental) Any logs at or higher than the given level will be shown.
         :param macos_backup: (experimental) On macOS, exclude newly created pnpm directories from Time Machine backups by marking them with the com.apple.metadata:com_apple_backup_excludeItem extended attribute. Read from the global configuration file or the PNPM_CONFIG_MACOS_BACKUP_* environment variables; ignored in project pnpm-workspace.yaml files. Added in pnpm v12.6.0.
@@ -29227,6 +29296,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param pipelines: (experimental) Named sets of task names, keyed by pipeline name, run by ``pnpm pipeline [name]``. A pipeline is a set, not a sequence: the order in which its tasks run comes from ``tasks.<name>.dependsOn``. The pipeline named ``default`` runs when no name is given. Added in pnpm v12.4.0 (experimental, pnpm v12 only).
         :param pm_on_fail: (experimental) Overrides the ``onFail`` behavior of both the ``packageManager`` field and ``devEngines.packageManager`` when the running pnpm version does not match the declared one.
         :param pnpmfile: (experimental) The location of the local pnpmfile.
+        :param pnpr_server: (experimental) URL of a pnpr server for install acceleration. When set, pnpm install offloads dependency resolution to the remote server: pnpm sends its workspace manifests and registry configuration, the server resolves the dependency graph and returns the lockfile, while tarballs are downloaded directly from their registries. If the server refuses a setting the install uses, or cannot return the lockfile format pnpm reads, pnpm prints a warning and resolves locally. May also be set with the --config.pnprServer= command-line option or the PNPM_CONFIG_PNPR_SERVER environment variable.
         :param prefer_frozen_lockfile: (experimental) When set to true and the available pnpm-lock.yaml satisfies the package.json dependencies directive, a headless installation is performed.
         :param prefer_offline: (experimental) Bypass staleness checks for cached data. Missing data will still be requested from the server.
         :param prefer_symlinked_executables: (experimental) Create symlinks to executables in node_modules/.bin instead of command shims. This setting is ignored on Windows, where only command shims work.
@@ -29336,6 +29406,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument audit_level", value=audit_level, expected_type=type_hints["audit_level"])
             check_type(argname="argument auto_dedupe", value=auto_dedupe, expected_type=type_hints["auto_dedupe"])
             check_type(argname="argument auto_install_peers", value=auto_install_peers, expected_type=type_hints["auto_install_peers"])
+            check_type(argname="argument auto_install_peers_from_highest_match", value=auto_install_peers_from_highest_match, expected_type=type_hints["auto_install_peers_from_highest_match"])
             check_type(argname="argument block_exotic_subdeps", value=block_exotic_subdeps, expected_type=type_hints["block_exotic_subdeps"])
             check_type(argname="argument boot_config", value=boot_config, expected_type=type_hints["boot_config"])
             check_type(argname="argument ca", value=ca, expected_type=type_hints["ca"])
@@ -29412,6 +29483,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument link_workspace_packages", value=link_workspace_packages, expected_type=type_hints["link_workspace_packages"])
             check_type(argname="argument local_address", value=local_address, expected_type=type_hints["local_address"])
             check_type(argname="argument lockfile", value=lockfile, expected_type=type_hints["lockfile"])
+            check_type(argname="argument lockfile_dir", value=lockfile_dir, expected_type=type_hints["lockfile_dir"])
             check_type(argname="argument lockfile_include_tarball_url", value=lockfile_include_tarball_url, expected_type=type_hints["lockfile_include_tarball_url"])
             check_type(argname="argument loglevel", value=loglevel, expected_type=type_hints["loglevel"])
             check_type(argname="argument macos_backup", value=macos_backup, expected_type=type_hints["macos_backup"])
@@ -29457,6 +29529,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument pipelines", value=pipelines, expected_type=type_hints["pipelines"])
             check_type(argname="argument pm_on_fail", value=pm_on_fail, expected_type=type_hints["pm_on_fail"])
             check_type(argname="argument pnpmfile", value=pnpmfile, expected_type=type_hints["pnpmfile"])
+            check_type(argname="argument pnpr_server", value=pnpr_server, expected_type=type_hints["pnpr_server"])
             check_type(argname="argument prefer_frozen_lockfile", value=prefer_frozen_lockfile, expected_type=type_hints["prefer_frozen_lockfile"])
             check_type(argname="argument prefer_offline", value=prefer_offline, expected_type=type_hints["prefer_offline"])
             check_type(argname="argument prefer_symlinked_executables", value=prefer_symlinked_executables, expected_type=type_hints["prefer_symlinked_executables"])
@@ -29545,6 +29618,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["auto_dedupe"] = auto_dedupe
         if auto_install_peers is not None:
             self._values["auto_install_peers"] = auto_install_peers
+        if auto_install_peers_from_highest_match is not None:
+            self._values["auto_install_peers_from_highest_match"] = auto_install_peers_from_highest_match
         if block_exotic_subdeps is not None:
             self._values["block_exotic_subdeps"] = block_exotic_subdeps
         if boot_config is not None:
@@ -29697,6 +29772,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["local_address"] = local_address
         if lockfile is not None:
             self._values["lockfile"] = lockfile
+        if lockfile_dir is not None:
+            self._values["lockfile_dir"] = lockfile_dir
         if lockfile_include_tarball_url is not None:
             self._values["lockfile_include_tarball_url"] = lockfile_include_tarball_url
         if loglevel is not None:
@@ -29787,6 +29864,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["pm_on_fail"] = pm_on_fail
         if pnpmfile is not None:
             self._values["pnpmfile"] = pnpmfile
+        if pnpr_server is not None:
+            self._values["pnpr_server"] = pnpr_server
         if prefer_frozen_lockfile is not None:
             self._values["prefer_frozen_lockfile"] = prefer_frozen_lockfile
         if prefer_offline is not None:
@@ -30029,6 +30108,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :schema: PnpmWorkspaceYamlSchema#autoInstallPeers
         '''
         result = self._values.get("auto_install_peers")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def auto_install_peers_from_highest_match(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) When set to true, pnpm joins conflicting peer dependency ranges with || and installs the highest version that satisfies any of them.
+
+        For example, if one dependency requires react@^16.0.0 and another requires react@^17.0.0, pnpm installs the highest react@17. Only semver ranges can be joined; conflicting paths, aliases, or tags leave the peer dependency missing, and identical non-semver specifiers are preserved.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#autoInstallPeersFromHighestMatch
+        '''
+        result = self._values.get("auto_install_peers_from_highest_match")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -30853,6 +30944,16 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def lockfile_dir(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The directory in which pnpm-lock.yaml is written, instead of the directory of pnpm-workspace.yaml. A lockfileDir that points at the default lockfile directory installs the same way as leaving it unset.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#lockfileDir
+        '''
+        result = self._values.get("lockfile_dir")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def lockfile_include_tarball_url(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Add the full URL to the package's tarball to every entry in pnpm-lock.yaml.
 
@@ -31341,6 +31442,18 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :schema: PnpmWorkspaceYamlSchema#pnpmfile
         '''
         result = self._values.get("pnpmfile")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pnpr_server(self) -> typing.Optional[builtins.str]:
+        '''(experimental) URL of a pnpr server for install acceleration.
+
+        When set, pnpm install offloads dependency resolution to the remote server: pnpm sends its workspace manifests and registry configuration, the server resolves the dependency graph and returns the lockfile, while tarballs are downloaded directly from their registries. If the server refuses a setting the install uses, or cannot return the lockfile format pnpm reads, pnpm prints a warning and resolves locally. May also be set with the --config.pnprServer= command-line option or the PNPM_CONFIG_PNPR_SERVER environment variable.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#pnprServer
+        '''
+        result = self._values.get("pnpr_server")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -33675,6 +33788,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
     auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
+    auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
     boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
@@ -33751,6 +33865,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
     lockfile: typing.Any = None,
+    lockfile_dir: typing.Optional[builtins.str] = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
     macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -33796,6 +33911,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
+    pnpr_server: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
@@ -33885,6 +34001,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
     auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
+    auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
     boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
@@ -33961,6 +34078,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
     lockfile: typing.Any = None,
+    lockfile_dir: typing.Optional[builtins.str] = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
     macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -34006,6 +34124,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
+    pnpr_server: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,
@@ -34960,6 +35079,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     audit_level: typing.Optional[PnpmWorkspaceYamlSchemaAuditLevel] = None,
     auto_dedupe: typing.Optional[builtins.bool] = None,
     auto_install_peers: typing.Optional[builtins.bool] = None,
+    auto_install_peers_from_highest_match: typing.Optional[builtins.bool] = None,
     block_exotic_subdeps: typing.Optional[builtins.bool] = None,
     boot_config: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaBootConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ca: typing.Optional[builtins.str] = None,
@@ -35036,6 +35156,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     link_workspace_packages: typing.Optional[PnpmWorkspaceYamlSchemaLinkWorkspacePackages] = None,
     local_address: typing.Optional[builtins.str] = None,
     lockfile: typing.Any = None,
+    lockfile_dir: typing.Optional[builtins.str] = None,
     lockfile_include_tarball_url: typing.Optional[builtins.bool] = None,
     loglevel: typing.Optional[PnpmWorkspaceYamlSchemaLoglevel] = None,
     macos_backup: typing.Optional[typing.Union[PnpmWorkspaceYamlSchemaMacosBackup, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -35081,6 +35202,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     pipelines: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
     pm_on_fail: typing.Optional[PnpmWorkspaceYamlSchemaPmOnFail] = None,
     pnpmfile: typing.Optional[builtins.str] = None,
+    pnpr_server: typing.Optional[builtins.str] = None,
     prefer_frozen_lockfile: typing.Optional[builtins.bool] = None,
     prefer_offline: typing.Optional[builtins.bool] = None,
     prefer_symlinked_executables: typing.Optional[builtins.bool] = None,

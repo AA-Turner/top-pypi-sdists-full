@@ -21,8 +21,7 @@ class _BaseFromEncoded(JSCSSMixin, MacroElement, ABC):
         Object options as accepted by leaflet.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
 
             var {{ this.get_name() }} = L.{{ this._encoding_type }}.fromEncoded(
@@ -31,8 +30,7 @@ class _BaseFromEncoded(JSCSSMixin, MacroElement, ABC):
             ).addTo({{ this._parent.get_name() }});
 
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -62,7 +60,7 @@ class PolyLineFromEncoded(_BaseFromEncoded):
         https://developers.google.com/maps/documentation/utilities/polylinealgorithm
     **kwargs:
         Polyline options as accepted by leaflet. See:
-        https://leafletjs.com/reference.html#polyline
+        https://leafletjs.com/reference-1.9.4.html#polyline
 
     Adapted from https://github.com/jieter/Leaflet.encoded
 
@@ -96,7 +94,7 @@ class PolygonFromEncoded(_BaseFromEncoded):
         https://developers.google.com/maps/documentation/utilities/polylinealgorithm
     **kwargs:
         Polygon options as accepted by leaflet. See:
-        https://leafletjs.com/reference.html#polygon
+        https://leafletjs.com/reference-1.9.4.html#polygon
 
     Adapted from https://github.com/jieter/Leaflet.encoded
 

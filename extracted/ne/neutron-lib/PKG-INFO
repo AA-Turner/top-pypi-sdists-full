@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neutron-lib
-Version: 5.0.1
+Version: 5.1.0
 Summary: Neutron shared routines and utilities
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0
@@ -17,12 +17,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=4.0.0
-Requires-Dist: SQLAlchemy>=1.2.0
+Requires-Dist: SQLAlchemy>=2.0.5
 Requires-Dist: pecan>=1.0.0
 Requires-Dist: keystoneauth1>=3.14.0
 Requires-Dist: netaddr>=0.7.18
@@ -45,8 +46,6 @@ Requires-Dist: setproctitle>=1.1.10
 Requires-Dist: WebOb>=1.7.1
 Requires-Dist: os-traits>=0.9.0
 Requires-Dist: debtcollector>=3.0.0
-Provides-Extra: osprofiler
-Requires-Dist: osprofiler>=1.4.0; extra == "osprofiler"
 Dynamic: license-file
 Dynamic: requires-dist
 

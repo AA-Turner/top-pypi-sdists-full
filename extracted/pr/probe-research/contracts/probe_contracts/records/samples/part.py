@@ -22,6 +22,9 @@ class PartRole(StrEnum):
     SCORER = "scorer"  # a grade added later (a Harbor regrade, a judge)
     HARBOR = "harbor"  # the Harbor trial: environment, trace, sandbox
     ATTEMPT = "attempt"  # a live attempt's start, progress or end (`attempt_kind`), keyed by its attempt; never final
+    #: Turns read again later from what Probe already stores (a repair, or a newer reader): the turn fields only,
+    #: the newest delivery wins, and only where the generator and Harbor hold no conversation. Never final.
+    REREAD = "reread"
 
 
 class PartSelection(StrEnum):
@@ -37,6 +40,7 @@ ROLE_SELECTION = {
     PartRole.TRAINER: PartSelection.FIRST,
     PartRole.HARBOR: PartSelection.FIRST,
     PartRole.ATTEMPT: PartSelection.LATEST,
+    PartRole.REREAD: PartSelection.LATEST,
     PartRole.SCORER: PartSelection.LATEST_PER_SCORER,
 }
 #: The live read's pick per attempt kind, each as a whole row (fixing one newest row for every kind, which lost a
@@ -51,13 +55,14 @@ LEGACY_ATTEMPT_KIND = AttemptKind.PROGRESS
 #: The block each kind carries; a part may send only its own kind's.
 ATTEMPT_KIND_FIELDS = {AttemptKind.START: "start", AttemptKind.PROGRESS: "progress", AttemptKind.END: "end"}
 
-_GENERATOR, _TRAINER, _SCORER, _HARBOR, _ATTEMPT = (PartRole.GENERATOR, PartRole.TRAINER, PartRole.SCORER,
-                                                    PartRole.HARBOR, PartRole.ATTEMPT)
+_GENERATOR, _TRAINER, _SCORER, _HARBOR, _ATTEMPT, _REREAD = (PartRole.GENERATOR, PartRole.TRAINER, PartRole.SCORER,
+                                                             PartRole.HARBOR, PartRole.ATTEMPT, PartRole.REREAD)
 _TASK = ("task_key", "scenario")
 _CONTENT = ("group_key", "segment", "segment_count", "split", "scheduled_step", "generated_by", "response",
-            "response_blob", "finish_reason", "prompt_tokens", "response_tokens", "timing", "engine_stats", "tokens",
-            "events")
-#: The turns: the generator's, else a Harbor trial's read from its folder after Harbor's secret scrub (T27).
+            "response_blob", "finish_reason", "prompt_tokens", "response_tokens", "timing", "engine_stats", "sampling",
+            "tokens", "events")
+#: The turns: the generator's, else a Harbor trial's read from its folder after Harbor's secret scrub (T27), else a
+#: later reread's. `turns`, `turns_blob` and `turns_source` merge as one conversation (`CONVERSATION_FIELDS`).
 _TURNS = ("turns", "turns_blob", "turns_source", "turn_count", "tool_call_count")
 _CONSUMPTION = ("consumed_step", "consumed_until_step", "consumed_version", "trainer_rank", "is_misaligned",
                 "occurrence", "trainer_tokens")
@@ -67,9 +72,10 @@ _CONSUMPTION = ("consumed_step", "consumed_until_step", "consumed_version", "tra
 FIELD_OWNERS: dict[str, tuple[PartRole, ...]] = {
     **dict.fromkeys(_TASK, (_GENERATOR, _HARBOR, _ATTEMPT)),
     **dict.fromkeys(_CONTENT, (_GENERATOR,)),
-    **dict.fromkeys(_TURNS, (_GENERATOR, _HARBOR)),
+    **dict.fromkeys(_TURNS, (_GENERATOR, _HARBOR, _REREAD)),
     **dict.fromkeys(_CONSUMPTION, (_TRAINER,)),
-    **dict.fromkeys(("reward", "normalized_reward", "scored_by", "reward_parts"), (_SCORER, _GENERATOR)),
+    #: `failure_reason` is read from the part whose reward is shown (`store/failure_reason/`), not field by field.
+    **dict.fromkeys(("reward", "normalized_reward", "scored_by", "reward_parts", "failure_reason"), (_SCORER, _GENERATOR)),
     **dict.fromkeys(("error_reason", "error_message", "log_tail", "log"), (_GENERATOR, _HARBOR, _ATTEMPT)),
     "drop_reason": (_TRAINER, _GENERATOR),
     "supersedes_key": (_GENERATOR, _HARBOR),
@@ -82,6 +88,9 @@ FIELD_OWNERS: dict[str, tuple[PartRole, ...]] = {
     "duration_s": (_GENERATOR,),
     **dict.fromkeys(("metrics", "extras"), (_GENERATOR, _TRAINER, _SCORER, _HARBOR, _ATTEMPT)),
 }
+#: The conversation: a read takes all three from the first owner whose part holds `turns` or `turns_blob`, never
+#: one field from one part and another from the next (a generator's blob beside a Harbor list, with the wrong source).
+CONVERSATION_FIELDS = ("turns", "turns_blob", "turns_source")
 #: Fields a read unions over every selected part instead of picking one: by key (by `name` for scored_by),
 #: the owner order above breaking a tie.
 UNION_FIELDS = frozenset({"scored_by", "reward_parts", "metrics", "extras"})
@@ -149,7 +158,7 @@ class SamplePartIn(_SAMPLE_PART):
     @property
     def is_final(self) -> bool:
         """Counts toward its seal: a generator part with content, a reward, an error or a drop; a trainer part
-        that consumed or dropped the sample. Attempt beats, scorer and harbor parts never do."""
+        that consumed or dropped the sample. Attempt beats, scorer, harbor and reread parts never do."""
         has_drop = self.drop_reason is not None
         if self.role is PartRole.GENERATOR:
             has_content = bool(self.response or self.response_blob or self.turns or self.turns_blob)

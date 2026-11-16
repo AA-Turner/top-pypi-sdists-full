@@ -4,6 +4,7 @@
 
 #include "serialize/internal.h"
 
+#include "core/work_steps.h"
 #include "dom/tree.h"
 #include "dom/tree_internal.h"
 #include "tokenizer/xml_names.h"
@@ -191,7 +192,7 @@ static void serialize_node(sbuf *out, th_tree *tree, th_node *root, int depth0) 
 }
 
 Py_UCS4 *th_tree_serialize(th_tree *tree, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     /* a fragment serializes the context root's children; a document serializes
        the document node's children */
     th_node *top = tree->fragment_root != NULL ? tree->fragment_root : tree->document;
@@ -224,6 +225,10 @@ Py_UCS4 *th_tree_serialize(th_tree *tree, Py_ssize_t *out_len) {
 #else
 #define SER_NOINLINE
 #endif
+
+int th_xml_element_name_wellformed(const Py_UCS4 *name, Py_ssize_t len) {
+    return xml_element_name_wellformed(name, len);
+}
 
 SER_NOINLINE int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t name_len) {
     Py_ssize_t index = 0;
@@ -260,6 +265,169 @@ SER_NOINLINE int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t n
     return 1;
 }
 
+void th_xml_unwrap_free(th_xml_unwrap *unwrap) {
+    PyMem_Free(unwrap->frames);
+    PyMem_Free(unwrap->decls);
+}
+
+/* Enter element, whose tag the XML output leaves out, before its children are written in its place. Returns -1 on
+   allocation failure. */
+static int ser_xml_unwrap_push(th_tree *tree, th_xml_unwrap *unwrap, const th_node *element) {
+    const th_xml_unwrap_frame *outer = ser_xml_unwrapped(unwrap, element->parent);
+    th_xml_unwrap_frame frame = {element, outer != NULL ? outer->anchor : element->parent,
+                                 outer != NULL ? outer->chain : unwrap->decls_len, unwrap->decls_len};
+    th_xml_unwrap_frame *frames = ser_reserve(unwrap->frames, unwrap->len, &unwrap->cap, sizeof(*frames));
+    if (frames == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    unwrap->frames = frames;
+    for (Py_ssize_t position = 0; position < element->attr_count; position++) {
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(tree, element->attrs[position].name_atom, &name_len);
+        if (!ser_xml_ns_name(name, name_len)) {
+            continue;
+        }
+        const th_node_attr **decls = ser_reserve(unwrap->decls, unwrap->decls_len, &unwrap->decls_cap, sizeof(*decls));
+        if (decls == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        unwrap->decls = decls;
+        unwrap->decls[unwrap->decls_len++] = &element->attrs[position];
+    }
+    unwrap->frames[unwrap->len++] = frame;
+    return 0;
+}
+
+static void ser_xml_unwrap_pop(th_xml_unwrap *unwrap) {
+    unwrap->decls_len = unwrap->frames[--unwrap->len].own;
+}
+
+/* Whether the walk is inside element, a left-out element whose children are done, so it leaves it in place of an end
+   tag. Only XML output leaves elements out. */
+static int ser_xml_unwrap_leave(const th_serialize_opts *opts, const th_node *element) {
+    if (!opts->xml || ser_xml_unwrapped(opts->xml_unwrap, element) == NULL) {
+        return 0;
+    }
+    ser_xml_unwrap_pop(opts->xml_unwrap);
+    return 1;
+}
+
+typedef struct {
+    const char *name;
+    Py_ssize_t name_len;
+    const th_node_attr *attr;
+    Py_ssize_t position; /* in the left-out run, outermost first */
+} ser_xml_run_decl;
+
+/* By name, the innermost of a name first: it is the one in effect where the children stand. */
+static int ser_xml_run_decl_cmp(const void *left, const void *right) {
+    const ser_xml_run_decl *first = left;
+    const ser_xml_run_decl *second = right;
+    Py_ssize_t common = first->name_len < second->name_len ? first->name_len : second->name_len;
+    int order = memcmp(first->name, second->name, (size_t)common);
+    if (order == 0) {
+        order = (first->name_len > second->name_len) - (first->name_len < second->name_len);
+    }
+    return order != 0 ? order : (first->position < second->position) - (first->position > second->position);
+}
+
+/* The first of decls[0..count) named name, or count when none is. */
+static Py_ssize_t ser_xml_run_decl_find(const ser_xml_run_decl *decls, Py_ssize_t count, const char *name,
+                                        Py_ssize_t name_len) {
+    ser_xml_run_decl key = {name, name_len, NULL, PY_SSIZE_T_MAX};
+    Py_ssize_t low = 0;
+    Py_ssize_t high = count;
+    while (low < high) {
+        Py_ssize_t middle = low + (high - low) / 2;
+        if (ser_xml_run_decl_cmp(&decls[middle], &key) < 0) {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
+    return low < count && decls[low].name_len == name_len && memcmp(decls[low].name, name, (size_t)name_len) == 0
+               ? low
+               : count;
+}
+
+#define SER_XML_RUN_DECLS 16
+
+/* Write onto node, a child of a left-out run, the namespace declarations the run carries from unwrap->decls[chain]
+   on: the innermost of each name, unless node declares that name itself or the start tag already binds it. The copies
+   are charged to unwrap->spend, since one left-out element above many children would multiply them; past the
+   allowance the serialization fails with ValueError rather than write names whose prefixes nothing binds. */
+SER_NOINLINE void ser_xml_unwrapped_ns_decls(sbuf *out, th_tree *tree, const th_node *node, xml_ns_emitted emitted,
+                                             int injected_xlink, th_xml_unwrap *unwrap, Py_ssize_t chain) {
+    if (out->failed) {
+        return;
+    }
+    Py_ssize_t count = unwrap->decls_len - chain;
+    Py_ssize_t cost = 0;
+    for (Py_ssize_t index = chain; index < unwrap->decls_len; index++) {
+        Py_ssize_t name_len;
+        th_attr_name(tree, unwrap->decls[index]->name_atom, &name_len);
+        cost += name_len + unwrap->decls[index]->value_len + 4;
+    }
+    th_xml_ns_spend *spend = &unwrap->spend;
+    if (!xml_ns_copy_funded(spend->copied, spend->flushed + out->len, cost, spend->base)) {
+        PyErr_Format(PyExc_ValueError,
+                     "the namespace declarations on elements left out for their names exceed the allowance of %zd "
+                     "characters plus %d per character of other output",
+                     spend->base, TH_XML_NS_PER_CHAR);
+        out->failed = 1;
+        return;
+    }
+    spend->copied += cost;
+    ser_xml_run_decl stack_decls[SER_XML_RUN_DECLS];
+    ser_xml_run_decl *decls =
+        count <= SER_XML_RUN_DECLS ? stack_decls : PyMem_Malloc((size_t)count * sizeof(ser_xml_run_decl));
+    if (decls == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t kept = 0;
+    for (Py_ssize_t index = chain; index < unwrap->decls_len; index++) {
+        const th_node_attr *attr = unwrap->decls[index];
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(tree, attr->name_atom, &name_len);
+        if ((name_len == 5 && emitted.default_ns) ||
+            (injected_xlink && name_len == 11 && memcmp(name, "xmlns:xlink", 11) == 0) ||
+            !ser_xml_ns_binding_valid(name, name_len, attr->value, attr->value_len)) {
+            continue;
+        }
+        decls[kept++] = (ser_xml_run_decl){name, name_len, attr, index};
+    }
+    qsort(decls, (size_t)kept, sizeof(ser_xml_run_decl), ser_xml_run_decl_cmp);
+    for (Py_ssize_t position = 0; position < node->attr_count; position++) {
+        const th_node_attr *attr = &node->attrs[position];
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(tree, attr->name_atom, &name_len);
+        if (!ser_xml_ns_name(name, name_len) || !xml_attr_name_writable(name, name_len, emitted) ||
+            !ser_xml_ns_binding_valid(name, name_len, attr->value, attr->value_len)) {
+            continue;
+        }
+        Py_ssize_t found = ser_xml_run_decl_find(decls, kept, name, name_len);
+        if (found < kept) {
+            decls[found].attr = NULL; /* node's own declaration is written with its attributes */
+        }
+    }
+    for (Py_ssize_t index = 0; index < kept; index++) {
+        if (decls[index].attr == NULL ||
+            (index > 0 && decls[index].name_len == decls[index - 1].name_len &&
+             memcmp(decls[index].name, decls[index - 1].name, (size_t)decls[index].name_len) == 0)) {
+            continue;
+        }
+        sbuf_putc(out, ' ');
+        sbuf_put_utf8(out, decls[index].name, decls[index].name_len);
+        sbuf_puts(out, "=\"");
+        sbuf_put_xml_text(out, decls[index].attr->value, decls[index].attr->value_len, 1);
+        sbuf_putc(out, '"');
+    }
+    if (decls != stack_decls) {
+        PyMem_Free(decls);
+    }
+}
+
 /* A raw-text element's text children go out literally; the first markup child hands the rest to the markup walk. */
 SER_NOINLINE static void ser_put_rawtext(sbuf *out, th_tree *tree, th_node *element, const th_serialize_opts *opts) {
     for (th_node *child = element->first_child; child != NULL; child = child->next_sibling) {
@@ -268,6 +436,63 @@ SER_NOINLINE static void ser_put_rawtext(sbuf *out, th_tree *tree, th_node *elem
             return;
         }
         sbuf_put_ucs4(out, need_text(tree, child), child->text_len);
+    }
+}
+
+/* Whether text[at..len) spells "script", in any case, and then a character that ends a tag name. A CR is one: a
+   re-parse reads the LF it normalizes to. */
+static int ser_script_name_at(const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t at) {
+    if (len - at <= 6 || !starts_with_ascii_ci(text + at, 6, "script")) {
+        return 0;
+    }
+    Py_UCS4 after = text[at + 6];
+    return is_space(after) || after == '/' || after == '>';
+}
+
+/* Whether a re-parse of out[content..] as script content ends in the script data double escaped state. */
+static int ser_script_double_escaped(const sbuf *out, Py_ssize_t content) {
+    enum { SCRIPT_DATA, SCRIPT_ESCAPED, SCRIPT_DOUBLE_ESCAPED } state = SCRIPT_DATA;
+    int dashes = 0; /* the "-" run just read, counted up to the two a ">" needs to end the escape */
+    for (Py_ssize_t index = content; index < out->len; index++) {
+        if (state == SCRIPT_DATA) {
+            /* nearly all script text stays in this state: jump from one "<" to the next */
+            index = sbuf_find_special(out->data, index, out->len, 0, 0);
+            if (index == out->len) {
+                break;
+            }
+            if (out->data[index] == '<' && starts_with_ascii_ci(out->data + index, out->len - index, "<!--")) {
+                state = SCRIPT_ESCAPED;
+                dashes = 2; /* so "<!-->" and "<!--->" end the escape they start */
+                index += 3;
+            }
+            continue;
+        }
+        Py_UCS4 character = out->data[index];
+        if (character == '-') {
+            dashes += dashes < 2;
+        } else if (character == '>' && dashes == 2) {
+            state = SCRIPT_DATA;
+        } else {
+            dashes = 0;
+            if (character == '<') {
+                int closing = index + 1 < out->len && out->data[index + 1] == '/';
+                if (ser_script_name_at(out->data, out->len, index + 1 + closing)) {
+                    /* an end tag met while only escaped is the element's own: what follows it is not script text */
+                    state = closing ? SCRIPT_ESCAPED : SCRIPT_DOUBLE_ESCAPED;
+                    index += 6 + closing;
+                }
+            }
+        }
+    }
+    return state == SCRIPT_DOUBLE_ESCAPED;
+}
+
+SER_NOINLINE void ser_script_end_scan(sbuf *out, th_node *element, Py_ssize_t content, th_node *alone) {
+    if (ser_script_double_escaped(out, content)) {
+        ser_close_tag(out, element);
+    } else if (alone != NULL) {
+        /* a later serialization writes the same text: skip the scan until a write to the text clears this */
+        alone->script_text_closes = 1;
     }
 }
 
@@ -416,6 +641,14 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
     switch ((enum th_node_type)node->type) { /* GCOVR_EXCL_BR_LINE: node types are exhaustive */
     case TH_NODE_ELEMENT:
         if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_element_name_wellformed(node->text, node->text_len)) {
+            /* XML has no spelling for the name, so the children take the element's place */
+            if (node->first_child == NULL) {
+                break;
+            }
+            if (ser_xml_unwrap_push(tree, opts->xml_unwrap, node) < 0) { /* GCOVR_EXCL_BR_LINE: OOM */
+                out->failed = 1;                                         /* GCOVR_EXCL_LINE: allocation-failure path */
+                return NULL;                                             /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
             descend = node->first_child;
             break;
         }
@@ -452,7 +685,12 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         }
         if (is_rawtext_element(node, tree->scripting)) {
             if (opts->markdown != TH_MARKDOWN_HTML_INLINE) {
+                Py_ssize_t content = out->len;
                 ser_put_rawtext(out, tree, node, opts);
+                /* nested in another raw-text element this end tag is text, and the outer element's end tag decides */
+                if (!opts->in_rawtext) {
+                    ser_end_script_double_escape(out, node, content, 1);
+                }
             }
             ser_close_tag(out, node);
             break;
@@ -483,6 +721,9 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         if (need_text(tree, node) == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: lazy text OOM */
             out->failed = 1;                                       /* GCOVR_EXCL_LINE: allocation failure */
             return NULL;                                           /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        if (opts->clone_budget != NULL) {
+            *opts->clone_budget += node->text_len; /* raw HTML text funds clone attributes as Markdown prose does */
         }
         if (opts->xml) {
             sbuf_put_xml_text(out, node->text, node->text_len, 0);
@@ -550,7 +791,7 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         }
         node = node->parent;
         if (node->type == TH_NODE_ELEMENT && !(opts->inner && node == root)) {
-            if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_element_name_wellformed(node->text, node->text_len)) {
+            if (ser_xml_unwrap_leave(opts, node)) {
                 continue;
             }
             if (cell_wrap != NULL && table_cell_needs_wrap(node, root)) {
@@ -591,6 +832,7 @@ SER_NOINLINE void ser_put_rawtext_markup(sbuf *out, th_tree *tree, th_node *elem
                                          const th_serialize_opts *opts, int strip_comments) {
     th_serialize_opts content = *opts;
     content.inner = 1;
+    content.in_rawtext = 1;
     th_node *node = from;
     while (node != NULL) {
         if ((node->type == TH_NODE_TEXT || node->type == TH_NODE_CDATA) &&
@@ -618,16 +860,23 @@ typedef struct {
     Py_ssize_t indent_len;
 } ser_opts;
 
+/* Lines past this depth keep its prefix: parse_xml nests without limit, and a prefix that grew with the depth would
+   make the output quadratic in the input. */
+#define TH_MAX_PRETTY_INDENT_LEVELS 64
+
 static void ser_newline_indent(sbuf *out, const ser_opts *opts, int depth) {
     if (depth == 0 || opts->indent_len == 0) {
         sbuf_putc(out, '\n');
         return;
     }
-    if (depth > (PY_SSIZE_T_MAX - out->len - 1) / opts->indent_len) { /* GCOVR_EXCL_BR_LINE: allocation size overflow */
-        out->failed = 1;                                              /* GCOVR_EXCL_LINE: allocation size overflow */
-        return;                                                       /* GCOVR_EXCL_LINE: allocation size overflow */
+    int levels = depth < TH_MAX_PRETTY_INDENT_LEVELS ? depth : TH_MAX_PRETTY_INDENT_LEVELS;
+    const Py_ssize_t room = (PY_SSIZE_T_MAX - out->len - 1) / opts->indent_len;
+    if (levels > room) { /* GCOVR_EXCL_BR_LINE: allocation size overflow */
+        out->failed = 1; /* GCOVR_EXCL_LINE: allocation size overflow */
+        return;          /* GCOVR_EXCL_LINE: allocation size overflow */
     }
-    Py_ssize_t length = depth * opts->indent_len;
+    Py_ssize_t length = levels * opts->indent_len;
+    TH_WORK_STEPS_ADD(length);
     sbuf_reserve(out, length + 1);
     if (out->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return;        /* GCOVR_EXCL_LINE: allocation failure */
@@ -875,9 +1124,11 @@ static th_node *serialize_pretty_step(sbuf *out, th_tree *tree, th_node *node, t
     } else if (node->type == TH_NODE_DOCUMENT || node->type == TH_NODE_CONTENT) {
         return pretty_first_item(tree, node, node->first_child);
     } else if (node->type != TH_NODE_ELEMENT || (node->ns == TH_NS_HTML && is_serialize_void_atom(node->atom)) ||
-               is_rawtext_element(node, tree->scripting) || pretty_layout(tree, node) == PRETTY_INLINE) {
-        /* a leaf, a raw-text or whitespace-significant element, or inline content:
-           written verbatim, and treated as a leaf by the walk */
+               is_rawtext_element(node, tree->scripting) || pretty_layout(tree, node) == PRETTY_INLINE ||
+               (node->atom == TH_TAG_UNKNOWN && opts->out->xml &&
+                !xml_element_name_wellformed(node->text, node->text_len))) {
+        /* a leaf, a raw-text or whitespace-significant element, inline content, or an element
+           XML leaves out: written verbatim, and treated as a leaf by the walk */
         serialize_compact(out, tree, node, &leaf_opts);
     } else {
         /* meta_charset injects the declaration as head's first child, on its own
@@ -996,7 +1247,7 @@ static void collect_text(sbuf *out, th_tree *tree, th_node *root) {
 }
 
 Py_UCS4 *th_node_text(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     if (node->type == TH_NODE_TEXT) {
         sbuf_put_ucs4(&out, need_text(tree, node), node->text_len);
     } else {
@@ -1005,8 +1256,18 @@ Py_UCS4 *th_node_text(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     return sbuf_finish(&out, out_len);
 }
 
+Py_UCS4 *th_node_child_text(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
+    sbuf out = {NULL, 0, 0, 0, 0};
+    for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
+        if (child->type == TH_NODE_TEXT) {
+            sbuf_put_ucs4(&out, need_text(tree, child), child->text_len);
+        }
+    }
+    return sbuf_finish(&out, out_len);
+}
+
 PyObject *th_node_text_string(th_tree *tree, th_node *root) {
-    sbuf snapshot = {NULL, 0, 0, 0};
+    sbuf snapshot = {NULL, 0, 0, 0, 0};
     Py_UCS4 bits = 0;
     th_node *first = root->type == TH_NODE_TEXT ? root : root->first_child;
     for (th_node *node = first; node != NULL; node = preorder_next(node, root)) {
@@ -1059,10 +1320,12 @@ PyObject *th_node_text_string(th_tree *tree, th_node *root) {
 }
 
 /* Copy every descendant Text node's code points of node into buf at pos, realizing
-   zero-copy spans on the way; the caller sizes buf to the subtree's text length.
-   The find(text=) C scan reuses one buffer across candidates so no per-node str is
-   built; a Text or Content child of a content fragment is descended like an element. */
-static int collect_text_into(th_tree *tree, th_node *root, Py_UCS4 *buf) {
+   zero-copy spans on the way; the caller sizes buf to at least the subtree's text
+   length. The find(text=) C scan reuses one buffer across candidates so no per-node
+   str is built; a Text or Content child of a content fragment is descended like an
+   element. Stores the count of code points copied in out_len and returns 0, or -1
+   when realizing a span fails. */
+static int collect_text_into(th_tree *tree, th_node *root, Py_UCS4 *buf, Py_ssize_t *out_len) {
     Py_ssize_t pos = 0;
     for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
         if (node->type == TH_NODE_TEXT) {
@@ -1074,35 +1337,51 @@ static int collect_text_into(th_tree *tree, th_node *root, Py_UCS4 *buf) {
             pos += node->text_len;
         }
     }
+    *out_len = pos;
     return 0;
 }
 
-int th_node_collect_text(th_tree *tree, th_node *node, Py_UCS4 *buf) {
-    return collect_text_into(tree, node, buf);
+int th_node_collect_text(th_tree *tree, th_node *node, Py_UCS4 *buf, Py_ssize_t *out_len) {
+    return collect_text_into(tree, node, buf, out_len);
 }
 
 /* The WHATWG-conformant defaults the html/inner_html accessors serialize under:
    minimal escaping, source attribute order, no charset injection. */
-static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL, 0};
+static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0,    0,    NULL, 0,    0, 0, NULL, 0,
+                                                   NULL,          NULL, NULL, NULL, NULL, 0};
 
 Py_UCS4 *th_node_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     sbuf_presize_for_root(&out, tree, node);
     serialize_compact(&out, tree, node, &ser_default_opts);
     return sbuf_finish(&out, out_len);
 }
 
 /* The html accessor defaults with the CommonMark attribute-name filter, for the HTML Markdown embeds raw. */
-Py_UCS4 *th_node_markdown_html(th_tree *tree, th_node *node, th_markdown_html context, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
-    const th_serialize_opts opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL, (int)context};
+Py_UCS4 *th_node_markdown_html(th_tree *tree, th_node *node, th_markdown_html context, Py_ssize_t *clone_budget,
+                               Py_ssize_t *out_len) {
+    sbuf out = {NULL, 0, 0, 0, 0};
+    const th_serialize_opts opts = {TH_FMT_WHATWG, 0,    0,    NULL, 0, 0, 0, NULL, (int)context, NULL,
+                                    clone_budget,  NULL, NULL, NULL, 0};
     serialize_compact(&out, tree, node, &opts);
     return sbuf_finish(&out, out_len);
 }
 
-Py_UCS4 *th_node_markdown_table_html(th_tree *tree, th_node *node, const th_cell_wrap *wrap, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
-    const th_serialize_opts opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL, TH_MARKDOWN_HTML_BLOCK};
+Py_UCS4 *th_node_markdown_open_tag(th_tree *tree, th_node *node, th_markdown_html context, Py_ssize_t *clone_budget,
+                                   Py_ssize_t *out_len) {
+    sbuf out = {NULL, 0, 0, 0, 0};
+    const th_serialize_opts opts = {TH_FMT_WHATWG, 0,    0,    NULL, 0, 0, 0, NULL, (int)context, NULL,
+                                    clone_budget,  NULL, NULL, NULL, 0};
+    ser_open_tag(&out, tree, node, &opts);
+    sbuf_putc(&out, '>');
+    return sbuf_finish(&out, out_len);
+}
+
+Py_UCS4 *th_node_markdown_table_html(th_tree *tree, th_node *node, const th_cell_wrap *wrap, Py_ssize_t *clone_budget,
+                                     Py_ssize_t *out_len) {
+    sbuf out = {NULL, 0, 0, 0, 0};
+    const th_serialize_opts opts = {TH_FMT_WHATWG, 0,    0,    NULL, 0, 0, 0, NULL, TH_MARKDOWN_HTML_CELL, NULL,
+                                    clone_budget,  NULL, NULL, NULL, 0};
     th_node *current = node;
     while (current != NULL) {
         current = serialize_compact_step(&out, tree, current, node, &opts, wrap);
@@ -1111,7 +1390,7 @@ Py_UCS4 *th_node_markdown_table_html(th_tree *tree, th_node *node, const th_cell
 }
 
 Py_UCS4 *th_node_inner_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     if (node->type == TH_NODE_ELEMENT && node->ns == TH_NS_HTML && is_serialize_void_atom(node->atom)) {
         return sbuf_finish(&out, out_len);
     }
@@ -1127,16 +1406,42 @@ Py_UCS4 *th_node_inner_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
 }
 
 /* The inner_html defaults with XML/XHTML syntax on, the same rules Node.serialize(Html(xml=True)) emits under. */
-static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 1, 0, NULL, 0};
+static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0,    0,    NULL, 0,    1, 0, NULL, 0,
+                                               NULL,          NULL, NULL, NULL, NULL, 0};
 
-Py_UCS4 *th_node_inner_xml(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+/* The children of node as XML. A non-NULL spend has each child of an XML tree carry the namespace declarations it
+   inherits, charged to that account; NULL leaves them out. */
+static Py_UCS4 *inner_xml(th_tree *tree, th_node *node, th_xml_ns_spend *spend, Py_ssize_t *out_len) {
+    sbuf out = {NULL, 0, 0, 0, 0};
     th_serialize_opts opts = ser_xml_opts;
-    opts.xml_boundary = th_tree_is_xml(tree) ? node : NULL;
+    th_xml_xlink_walk xlink = {NULL, NULL};
+    th_xml_ns_scope scope;
+    ser_xml_ns_scope_init(&scope, node);
+    opts.xml_scope = spend != NULL && th_tree_is_xml(tree) ? &scope : NULL;
+    opts.xml_xlink = th_tree_is_xml(tree) ? &xlink : NULL;
+    opts.xml_ns_spend = spend;
+    th_xml_unwrap unwrap = {.spend = {0, 0, TH_XML_NS_BASE}};
+    opts.xml_unwrap = &unwrap;
     for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
         serialize_compact(&out, tree, child, &opts);
     }
+    th_xml_unwrap_free(&unwrap);
+    ser_xml_ns_scope_free(&scope);
     return sbuf_finish(&out, out_len);
+}
+
+Py_UCS4 *th_node_inner_xml(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
+    th_xml_ns_spend spend = {0, 0, TH_XML_NS_BASE};
+    return inner_xml(tree, node, &spend, out_len);
+}
+
+Py_UCS4 *th_node_inner_xml_construct(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
+    th_xml_ns_spend spend = {0, 0, TH_XML_NS_FEED_BASE};
+    return inner_xml(tree, node, &spend, out_len);
+}
+
+Py_UCS4 *th_node_inner_xml_local(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
+    return inner_xml(tree, node, NULL, out_len);
 }
 
 static int inner_preserves_text(th_tree *tree, th_node *root, const th_serialize_opts *opts) {
@@ -1147,9 +1452,17 @@ static int inner_preserves_text(th_tree *tree, th_node *root, const th_serialize
 
 Py_UCS4 *th_node_serialize(th_tree *tree, th_node *node, const th_serialize_opts *opts, const Py_UCS4 *indent,
                            Py_ssize_t indent_len, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     th_serialize_opts context = *opts;
-    context.xml_boundary = opts->xml && th_tree_is_xml(tree) ? (opts->inner ? node : node->parent) : NULL;
+    th_xml_xlink_walk xlink = {NULL, NULL};
+    th_xml_ns_spend spend = {0, 0, TH_XML_NS_BASE};
+    th_xml_unwrap unwrap = {.spend = {0, 0, TH_XML_NS_BASE}};
+    th_xml_ns_scope scope;
+    ser_xml_ns_scope_init(&scope, opts->inner ? node : node->parent);
+    context.xml_scope = opts->xml && th_tree_is_xml(tree) ? &scope : NULL;
+    context.xml_xlink = th_tree_is_xml(tree) ? &xlink : NULL;
+    context.xml_ns_spend = opts->inner ? &spend : NULL; /* the one copy a whole subtree carries multiplies nothing */
+    context.xml_unwrap = &unwrap;
     opts = &context;
     sbuf_presize_for_root(&out, tree, node);
     if (indent == NULL || inner_preserves_text(tree, node, opts)) {
@@ -1158,6 +1471,8 @@ Py_UCS4 *th_node_serialize(th_tree *tree, th_node *node, const th_serialize_opts
         ser_opts pretty = {opts, indent, indent_len};
         serialize_pretty(&out, tree, node, &pretty, 0);
     }
+    th_xml_unwrap_free(&unwrap);
+    ser_xml_ns_scope_free(&scope);
     return sbuf_finish(&out, out_len);
 }
 
@@ -1167,25 +1482,42 @@ Py_UCS4 *th_node_serialize(th_tree *tree, th_node *node, const th_serialize_opts
    bounded to roughly one chunk, which is the point: no full-size string is built. */
 #define TH_SERIALIZE_CHUNK 8192
 
+/* The tree may be edited between chunks, so each chunk gathers the namespace scope it needs afresh rather than the
+   cursor carrying one that points into the tree. A scope larger than a chunk would then cost more to gather than the
+   chunk costs to write, every chunk, so a chunk that gathered one runs on until it holds as many code points as the
+   gather walked ancestors and attributes. */
+static int chunk_has_room(const sbuf *out, const th_xml_ns_scope *scope) {
+    return out->len < TH_SERIALIZE_CHUNK || out->len < scope->walked;
+}
+
 Py_UCS4 *th_node_serialize_chunk(th_tree *tree, th_node *root, const th_serialize_opts *opts, const Py_UCS4 *indent,
                                  Py_ssize_t indent_len, th_ser_cursor *cursor, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, cursor->clone_credit}; /* the earlier chunks still fund clone attributes */
     th_serialize_opts context = *opts;
-    context.xml_boundary = opts->xml && th_tree_is_xml(tree) ? (opts->inner ? root : root->parent) : NULL;
+    th_xml_ns_scope scope;
+    ser_xml_ns_scope_init(&scope, opts->inner ? root : root->parent);
+    context.xml_scope = opts->xml && th_tree_is_xml(tree) ? &scope : NULL;
+    context.xml_xlink = th_tree_is_xml(tree) ? &cursor->xlink : NULL; /* kept across chunks, like the resume node */
+    context.xml_ns_spend = opts->inner ? &cursor->xml_ns : NULL;
+    context.xml_unwrap = &cursor->unwrap;
     opts = &context;
     /* one chunk grows to about TH_SERIALIZE_CHUNK before it is handed off, so size the
        buffer to that up front rather than let the doubling reserve walk 256 -> 8192 on
        every chunk (a node straddling the limit still forces at most one more grow) */
     sbuf_reserve(&out, TH_SERIALIZE_CHUNK);
     if (indent == NULL || inner_preserves_text(tree, root, opts)) {
-        while (cursor->node != NULL && out.len < TH_SERIALIZE_CHUNK) {
+        while (cursor->node != NULL && chunk_has_room(&out, &scope)) {
             cursor->node = serialize_compact_step(&out, tree, cursor->node, root, opts, NULL);
         }
     } else {
         ser_opts pretty = {opts, indent, indent_len};
-        while (cursor->node != NULL && out.len < TH_SERIALIZE_CHUNK) {
+        while (cursor->node != NULL && chunk_has_room(&out, &scope)) {
             cursor->node = serialize_pretty_step(&out, tree, cursor->node, root, &pretty, &cursor->depth);
         }
     }
+    cursor->xml_ns.flushed += out.len;
+    cursor->unwrap.spend.flushed += out.len;
+    cursor->clone_credit = out.clone_credit + out.len;
+    ser_xml_ns_scope_free(&scope);
     return sbuf_finish(&out, out_len);
 }

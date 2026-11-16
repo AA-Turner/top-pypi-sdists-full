@@ -196,7 +196,7 @@ class Data:
 class URL:
     def __init__(self, base, rel=None):
         if rel is not None:
-            #: The base URL, if any (a :class:`URL`)
+            #: The base URL, if any (a [`URL`][mac_alias.URL])
             self.base = base
             #: The rest of the URL (a string)
             self.relative = rel
@@ -294,12 +294,12 @@ class Bookmark:
         elif dtype == BMK_NULL:
             return None
 
-        print("Unknown data type %08x" % typecode)  # noqa: T201
+        print(f"Unknown data type {typecode:08x}")  # noqa: T201
         return (typecode, databytes)
 
     @classmethod
     def from_bytes(cls, data):
-        """Create a :class:`Bookmark` given byte data."""
+        """Create a [`Bookmark`][mac_alias.Bookmark] given byte data."""
 
         if len(data) < 16:
             raise ValueError("Not a bookmark file (too short)")
@@ -307,7 +307,7 @@ class Bookmark:
         if isinstance(data, bytearray):
             data = bytes(data)
 
-        magic, size, dummy, hdrsize = struct.unpack(b"<4sIII", data[0:16])
+        magic, size, _dummy, hdrsize = struct.unpack(b"<4sIII", data[0:16])
 
         if magic not in (b"book", b"alis"):
             raise ValueError(f"Not a bookmark file (bad magic) {magic!r}")
@@ -348,7 +348,7 @@ class Bookmark:
             toc = {}
             for n in range(toccount):
                 ebase = tocbase + 20 + 12 * n
-                eid, eoffset, edummy = struct.unpack(b"<III", data[ebase : ebase + 12])
+                eid, eoffset, _edummy = struct.unpack(b"<III", data[ebase : ebase + 12])
 
                 if eid & 0x80000000:
                     eid = cls._get_item(data, hdrsize, eid & 0x7FFFFFFF)
@@ -418,7 +418,7 @@ class Bookmark:
             if item.base:
                 baseoff = offset + 16
                 reloff, baseenc = cls._encode_item(item.base, baseoff)
-                xoffset, relenc = cls._encode_item(item.relative, reloff)
+                _xoffset, relenc = cls._encode_item(item.relative, reloff)
                 result = b"".join(
                     [
                         struct.pack(
@@ -471,7 +471,7 @@ class Bookmark:
         return (offset, result)
 
     def to_bytes(self):
-        """Convert this :class:`Bookmark` to a byte representation."""
+        """Convert this [`Bookmark`][mac_alias.Bookmark] to a byte representation."""
 
         result = []
         tocs = []
@@ -547,7 +547,7 @@ class Bookmark:
 
     @classmethod
     def for_file(cls, path):
-        """Construct a :class:`Bookmark` for a given file."""
+        """Construct a [`Bookmark`][mac_alias.Bookmark] for a given file."""
 
         # Find the filesystem
         st = osx.statfs(path)

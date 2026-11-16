@@ -153,7 +153,8 @@ class CheckpointExports(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[CheckpointExportFile]:
-    """List a ready merged_model export's files, each with a fresh signed download link.
+    """List a ready merged_model or full_weights export's files, each with a fresh signed
+    download link.
 
     Args:
       extra_headers: Send extra headers

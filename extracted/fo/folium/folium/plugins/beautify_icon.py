@@ -14,7 +14,8 @@ class BeautifyIcon(JSCSSMixin, MacroElement):
     icon: string, default None
         the Font-Awesome icon name to use to render the marker.
     icon_shape: string, default None
-        the icon shape
+        One of "circle", "circle-dot", "doughnut", "rectangle-dot", or "marker".
+        If None, the plugin uses its default "circle" shape.
     border_width: integer, default 3
         the border width of the icon
     border_color: string with hexadecimal RGB, default '#000'
@@ -52,16 +53,14 @@ class BeautifyIcon(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = new L.BeautifyIcon.icon(
                 {{ this.options|tojavascript }}
             )
             {{ this._parent.get_name() }}.setIcon({{ this.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
     ICON_SHAPE_TYPES = [
         "circle",
         "circle-dot",
@@ -95,7 +94,7 @@ class BeautifyIcon(JSCSSMixin, MacroElement):
         inner_icon_style="",
         spin=False,
         number=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "BeautifyIcon"
@@ -111,5 +110,5 @@ class BeautifyIcon(JSCSSMixin, MacroElement):
             spin=spin,
             isAlphaNumericIcon=number is not None,
             text=number,
-            **kwargs
+            **kwargs,
         )

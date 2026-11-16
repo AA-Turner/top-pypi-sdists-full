@@ -93,8 +93,11 @@ from trilogy.core.processing.v4_helper.concept_graph import (
 )
 from trilogy.core.processing.v4_helper.functional_dependency import (
     build_fd_closure,
-    build_fd_determines,
+    strict_fd_closure,
+    strict_fd_determines,
+    strict_fd_determines_all,
 )
+from trilogy.core.processing.v4_helper.projection import lineage_existence_parts
 from trilogy.core.processing.v4_helper.region_domains import undemanded_spans
 from trilogy.core.processing.v4_helper.strategy_builder import under_span_scope
 from trilogy.core.processing.v4_node_generators.multiselect import gen_multiselect
@@ -251,14 +254,12 @@ def _scan_rows_at_grain(
     if ds.grain.abstract or not ds.grain.issubset(target_grain):
         return False
     return all(
-        build_fd_determines(
-            environment, ds.grain.components, component, include_empty_grain=False
-        )
+        strict_fd_determines(environment, ds.grain.components, component)
         for component in target_grain.components - ds.grain.components
     )
 
 
-def _lineage_sourceable(
+def lineage_sourceable(
     concept: BuildConcept, environment: BuildEnvironment, seen: set[str]
 ) -> bool:
     """Some plan can produce `concept`: a datasource binds it, or every leaf
@@ -271,7 +272,7 @@ def _lineage_sourceable(
         return True
     seen.add(concept.address)
     return all(
-        _lineage_sourceable(
+        lineage_sourceable(
             environment.concepts.get(arg.address) or arg, environment, seen
         )
         for arg in concept.lineage.concept_arguments
@@ -397,7 +398,7 @@ def _binding_only_roots(
         ]
         if (
             concept.canonical_address in environment.materialized_canonical_concepts
-            and not all(_lineage_sourceable(arg, environment, set()) for arg in args)
+            and not all(lineage_sourceable(arg, environment, set()) for arg in args)
             and _column_reproduces(concept, environment, datasources, where)
         ):
             out.add(concept.address)
@@ -411,6 +412,12 @@ def _binding_only_roots(
                 environment.concepts.get(c.address) or c
                 for c in upstream_concepts(concept, environment)
             )
+        # a membership's set (`x ? y in big`) is off the row lineage
+        stack.extend(
+            environment.concepts[address]
+            for address in lineage_existence_parts(concept)[0]
+            if address in environment.concepts
+        )
     return out
 
 
@@ -480,7 +487,17 @@ def materialized_root_addresses(
             for arg in origin.lineage.concept_arguments:
                 if isinstance(arg, BuildConcept):
                     candidates.append(environment.concepts.get(arg.address) or arg)
-    out = _binding_only_roots(candidates, environment, datasources, where)
+    # An existence source (`y in big`) is read as a set, so only a column that
+    # is its sole source matters; the grain gates below are about row counts.
+    existence_args = [
+        environment.concepts.get(arg.address) or arg
+        for clause in conditions
+        for group in clause.existence_arguments
+        for arg in group
+    ]
+    out = _binding_only_roots(
+        candidates + existence_args, environment, datasources, where
+    )
     row_grain = _expression_reduced_grain(
         _keyed_grain(target_grain, environment), environment
     )
@@ -521,6 +538,18 @@ def materialized_root_addresses(
         # select (`Rollup.total_gate_from_summary`)
         if not exact and _total_rolls_up(
             concept, condition_only, where, environment, datasources, unions
+        ):
+            out.add(concept.address)
+            continue
+        if not exact and _coarse_rolls_up(
+            concept,
+            condition_only,
+            mandatory_list,
+            target_grain,
+            where,
+            environment,
+            datasources,
+            unions,
         ):
             out.add(concept.address)
             continue
@@ -631,6 +660,107 @@ def _total_rolls_up(
     )
 
 
+def _coarse_rolls_up(
+    concept: BuildConcept,
+    condition_only: bool,
+    mandatory_list: list[BuildConcept],
+    target_grain: BuildGrain,
+    where: BuildWhereClause | None,
+    environment: BuildEnvironment,
+    datasources: Sequence[BuildDatasource],
+    unions: Sequence[BuildUnionDatasource],
+) -> bool:
+    """An aggregate `by` keys strictly coarser than the select's rows is
+    re-aggregated from a summary at its own grain and joined back on it
+    (`Rollup.coarse_resum_joined_on_its_grain`), not computed off the rows. Not
+    under a WHERE, which filters the rows it reads, nor beside a select value
+    that reads it or an aggregate at the select's rows, which groups by it, so
+    it must ride the rows. A WHERE of columns the aggregate's own keys
+    determine keeps or drops whole groups, so the unfiltered re-sum is the
+    filtered one (`Rollup.group_filter_commutes_with_resum`)."""
+    if condition_only or not _is_rollable_aggregate(concept):
+        return False
+    if where is not None and not _filters_whole_groups(where, concept, environment):
+        return False
+    if not isinstance(concept.lineage, BuildAggregateWrapper) or not concept.lineage.by:
+        return False
+    target = set(target_grain.components)
+    if not coarser_than_rows(concept, target, environment):
+        return False
+    if any(
+        _reads_beside(other, concept, target, environment) for other in mandatory_list
+    ):
+        return False
+    keys = [environment.concepts.get(c.address) or c for c in concept.lineage.by]
+    return bool(
+        _rollup_sources(
+            concept,
+            [concept, *keys],
+            concept.grain,
+            where,
+            environment,
+            datasources,
+            unions,
+        )
+    )
+
+
+def _filters_whole_groups(
+    where: BuildWhereClause, concept: BuildConcept, environment: BuildEnvironment
+) -> bool:
+    """Every value the WHERE reads is a column, or a scalar of columns, that
+    `concept`'s grain determines."""
+    grain = concept.grain.components if concept.grain else set()
+    lineage = walk_lineage(get_concept_row_arguments(where.conditional))
+    return (
+        bool(grain)
+        and all(
+            c.derivation in (Derivation.ROOT, Derivation.BASIC, Derivation.CONSTANT)
+            for c in lineage
+        )
+        and strict_fd_determines_all(
+            environment,
+            grain,
+            [c.address for c in lineage if c.derivation == Derivation.ROOT],
+        )
+    )
+
+
+def coarser_than_rows(
+    concept: BuildConcept, target: set[str], environment: BuildEnvironment
+) -> bool:
+    """An aggregate grouped by a strict subset of the select's row keys that
+    does not determine them: a grain off the rows' keys (`by tree_form` beside
+    `tree_id`) has no row to join back on."""
+    grain = set(concept.grain.components) if concept.grain else set()
+    return (
+        concept.derivation == Derivation.AGGREGATE
+        and bool(grain)
+        and grain < target
+        and not target <= set(strict_fd_closure(environment, grain))
+    )
+
+
+def _reads_beside(
+    other: BuildConcept,
+    concept: BuildConcept,
+    target: set[str],
+    environment: BuildEnvironment,
+) -> bool:
+    """`other` reads `concept`, or is an aggregate at the select's rows, which
+    a plan groups by every value the select holds, `concept` included."""
+    if other.address == concept.address or other.lineage is None:
+        return False
+    if other.derivation == Derivation.AGGREGATE and not coarser_than_rows(
+        other, target, environment
+    ):
+        return True
+    return any(
+        c.address == concept.address
+        for c in walk_lineage([other], descend=lambda c: c.address != concept.address)
+    )
+
+
 def _stored_coarser_roots(
     candidates: list[BuildConcept],
     target_grain: BuildGrain,
@@ -643,9 +773,7 @@ def _stored_coarser_roots(
     determine (`slope` by `g` beside `id`, or inside `count(id ? resid < 1)`):
     joined from that table on its grain, not recomputed from the finer rows
     and joined back on the same keys."""
-    reachable = build_fd_closure(
-        environment, target_grain.components, include_empty_grain=False
-    )
+    reachable = strict_fd_closure(environment, target_grain.components)
     found: set[str] = set()
     seen: set[str] = set()
     stack = list(candidates)
@@ -876,6 +1004,40 @@ def scan_filtered_roots(
         if concept.address in materialized_roots
         and concept.derivation == Derivation.AGGREGATE
         and filter_finer_row_args(where, concept.grain, environment.concepts)
+    )
+
+
+def coarse_rolled_roots(
+    mandatory_list: list[BuildConcept],
+    materialized_roots: frozenset[str],
+    conditions: list[BuildWhereClause],
+    environment: BuildEnvironment,
+    datasources: Sequence[BuildDatasource],
+    unions: Sequence[BuildUnionDatasource],
+) -> frozenset[str]:
+    """The roots `materialized_root_addresses` took by `_coarse_rolls_up` alone
+    (`ConceptAttrs.coarse_rolled`); a root it took by an exact or total read
+    keeps its own bucket."""
+    target_grain = BuildGrain.from_concepts(mandatory_list)
+    where = combine_where_clauses(conditions)
+    return frozenset(
+        c.address
+        for c in mandatory_list
+        if c.address in materialized_roots
+        and not _exactly_materialized(
+            c, target_grain, where, environment, datasources, unions
+        )
+        and not _total_rolls_up(c, False, where, environment, datasources, unions)
+        and _coarse_rolls_up(
+            c,
+            False,
+            mandatory_list,
+            target_grain,
+            where,
+            environment,
+            datasources,
+            unions,
+        )
     )
 
 
@@ -1326,6 +1488,18 @@ def _build_from_graph_traced(
         datasources=g.scope.datasources,
         scan_filtered_roots=scan_filtered_roots(
             mandatory_list, materialized_roots, conditions, environment
+        ),
+        coarse_rolled_roots=coarse_rolled_roots(
+            mandatory_list,
+            materialized_roots,
+            conditions,
+            environment,
+            g.scope.datasources,
+            [
+                ds
+                for ds in g.datasources.values()
+                if isinstance(ds, BuildUnionDatasource)
+            ],
         ),
     )
     if plan_trace.active():

@@ -1701,6 +1701,15 @@ class MCPServer(BaseModel):
         ),
         alias="sandboxEnvVars",
     )
+    optional_env_vars: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Environment variables the runtime is given when the account has "
+            "them, never required: LinkedIn's LINKEDIN_LI_AT, the person's "
+            "session pasted in Settings, written as the server's session"
+        ),
+        alias="optionalEnvVars",
+    )
     is_available: bool = Field(
         default=False,
         description="Whether the server is available (based on env var presence)",
@@ -3090,10 +3099,16 @@ class AppPapCompanySpec(BaseModel):
     #: access (`web.unscoped`), or personal agents are asked to use its agent and APIs (`web.disabled`).
     web_unscoped: bool = Field(default=False)
     web_disabled: bool = Field(default=False)
+    #: How personal agents reach it: `agent`, `openapi`, `mcp`, `web` (PAP §3.1).
+    interfaces: List[str] = Field(default_factory=lambda: ["agent"])
     scopes: List[AppPapCompanyScopeSpec] = Field(default_factory=list)
     excluded_tasks: List[AppPapExcludedTaskSpec] = Field(default_factory=list)
     extensions: List[str] = Field(default_factory=list)
-    operations: List[AppPapOperationSpec] = Field(default_factory=list)
+    #: `any`, or `registered` personal agents only, each by its `client_id` URL.
+    personal_agents: str = Field(default="any")
+    registered_agents: List[str] = Field(default_factory=list)
+    #: Derived from the application's `openapi` (its operations carrying `x-pap`), never written.
+    operations: List[AppPapOperationSpec] = Field(default_factory=list, exclude=True)
 
     def scope_names(self) -> List[str]:
         """The names of the scopes it offers, in order."""
@@ -3512,6 +3527,10 @@ class AppInterfaceSpec(BaseModel):
 
     layout: str = Field(default="chat", description="`chat`, `page` or `split`")
     accent: str = Field(default="green", description="The application's one colour")
+    theme: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Its theme, `{variant, mode}` (primer-addons' themes), when it names one",
+    )
     welcome: str = Field(default="")
     starters: List[AppStarterSpec] = Field(default_factory=list)
     commands: List[AppCommandSpec] = Field(
@@ -3888,6 +3907,13 @@ class AppSpec(BaseModel):
         default_factory=list,
         description="Tools of its own, written in its code",
     )
+    openapi: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "What it answers when called, as an OpenAPI 3.1 document, as agentspecs "
+            "checks it: its MCP tools, REST endpoints and PAP operations (`x-pap`)"
+        ),
+    )
     context: List[str] = Field(
         default_factory=list, description="The Frames it works under"
     )
@@ -3951,6 +3977,18 @@ class AppSpec(BaseModel):
         default="",
         description="Its banner, by name, from the set people choose theirs from; the one its id seeds when unsaid",
     )
+
+    @model_validator(mode="after")
+    def _pap_operations_of_its_openapi(self) -> "AppSpec":
+        """`pap.company.operations`, from its `openapi` (agentspecs `pap_operations`)."""
+        if self.openapi:
+            from agentspecs.apps import pap_operations
+
+            self.pap.company.operations = [
+                AppPapOperationSpec.model_validate(operation.model_dump(mode="json"))
+                for operation in pap_operations(self.openapi)
+            ]
+        return self
 
     def tool(self, name: str) -> Optional[AppToolSpec]:
         """Find its own tool of that name, or None."""

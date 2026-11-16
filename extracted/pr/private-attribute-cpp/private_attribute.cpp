@@ -26,6 +26,11 @@
 
 static const auto module_running_time = std::chrono::system_clock::now();
 
+// Set at the start of interpreter-shutdown cleanup, before the metaclass
+// registry and the private-attribute tables are cleared. Finalizers that run
+// after that point must not call back into metaclass lookup.
+static bool g_storage_torn_down = false;
+
 static std::string
 time_to_string() noexcept
 {
@@ -337,7 +342,9 @@ is_private_class_weakref_callback(PyObject* /*self*/, PyObject* weakref)
         // shutdown). Treat as a no-op rather than raising a spurious error.
         Py_RETURN_NONE;
     }
-    uintptr_t type_id = AllData::is_private_cache_weakref_dict.erase(weakref_id);
+    // erase(key) returns the number of removed entries, not the mapped type id.
+    uintptr_t type_id = it->second;
+    AllData::is_private_cache_weakref_dict.erase(it);
     AllData::is_private_cache.erase(type_id);
     Py_RETURN_NONE;
 }
@@ -345,7 +352,7 @@ is_private_class_weakref_callback(PyObject* /*self*/, PyObject* weakref)
 static PyMethodDef is_private_class_methods = {
     "is_private_class_weakref_callback",
     (PyCFunction)is_private_class_weakref_callback,
-    METH_O,
+    METH_O | METH_STATIC,
     NULL
 };
 
@@ -544,6 +551,7 @@ struct PrivateAttrCreationData
 };
 
 static bool PrivateAttrType_preprocess(PyObject* args, PyObject* kwds, PrivateAttrCreationData& data, const std::string& func_name) noexcept;
+
 static bool
 try_install_pending_creation(PyObject* new_type) noexcept
 {
@@ -643,6 +651,9 @@ type_parenttype_create_mutex(uintptr_t final_id, uintptr_t typ_id) noexcept
 static inline void
 clean_all_storages() noexcept
 {
+    // Finalizers may run while these tables are being destroyed. Mark that
+    // before dropping anything so __del__ does not re-enter metaclass lookup.
+    g_storage_torn_down = true;
     AllData::cache.clear();
     AllData::all_exist_name.clear();
     AllData::obj_attr_keys.clear();
@@ -2527,6 +2538,258 @@ PrivateSuper_New(PyTypeObject* type, PyObject* args, PyObject* kwds) noexcept
     return (PyObject*)self;
 }
 
+// ================================================================
+// PrivateObjSuper
+// ================================================================
+// Explicit, read-only access to a parent class's *per-instance* private
+// attribute (stored in all_object_attr[parent_class][obj]). This is the
+// instance-storage counterpart of PrivateSuper, which only reads class-level
+// storage.
+//
+//   PrivateObjSuper(now_class, parent_class, obj).name
+//       now_class    : the type whose code is currently running.
+//       parent_class : a private-attribute parent of now_class (not now_class
+//                      itself). The value is read from this class's instance
+//                      storage, using this class's private_func when it has one.
+//       obj          : an instance of now_class.
+//
+// The type relationship and the instance check are validated at construction.
+// The code-ownership check (the running code must belong to now_class) is
+// enforced at attribute access time. There is no class-level fallback and no
+// tp_setattro: missing slots and writes both fail.
+
+typedef struct {
+    PyObject_HEAD
+    PyObject* now_class;
+    PyObject* parent_class;
+    PyObject* obj;
+} PrivateObjSuperObject;
+
+static const char* PrivateObjSuper_doc =
+"Read-only cross-class access to a parent class's per-instance private attribute.\n"
+"Usage: PrivateObjSuper(now_class, parent_class, obj).name\n"
+"now_class is the running code's private-attribute type, parent_class is a\n"
+"private-attribute parent of now_class (not now_class itself), and obj is an\n"
+"instance of now_class. The attribute is resolved from parent_class's instance\n"
+"storage for obj. No keyword arguments. Not a class-level lookup (see PrivateSuper).";
+
+static PyObject*
+PrivateObjSuper_New(PyTypeObject* cls, PyObject* args, PyObject* kwds) noexcept
+{
+    PyObject *now_class, *parent_class, *obj;
+    if (!PyArg_ParseTuple(args, "OOO:private_attribute.PrivateObjSuper", &now_class, &parent_class, &obj)) {
+        return NULL;
+    }
+    if (kwds && PyDict_Check(kwds) && PyDict_Size(kwds) > 0) {
+        PyErr_SetString(PyExc_TypeError, "PrivateObjSuper takes no keyword arguments");
+        return NULL;
+    }
+    // Reject non-types before need_analyse_type(), which would otherwise fail
+    // inside the private-class cache with "type must be a type object".
+    if (!PyType_Check(now_class)) {
+        PyErr_SetString(PyExc_TypeError, "now_class must be a type");
+        return NULL;
+    }
+    if (!PyType_Check(parent_class)) {
+        PyErr_SetString(PyExc_TypeError, "parent_class must be a type");
+        return NULL;
+    }
+    // all class must be private class
+    AnalyseStatus check_now_class = need_analyse_type(now_class);
+    if (check_now_class == AnalyseStatus::Error) {return NULL;}
+    if (check_now_class == AnalyseStatus::No) {
+        PyErr_SetString(PyExc_TypeError, "now_class must be private class");
+        return NULL;
+    }
+    AnalyseStatus check_parent_class = need_analyse_type(parent_class);
+    if (check_parent_class == AnalyseStatus::Error) {return NULL;}
+    if (check_parent_class == AnalyseStatus::No) {
+        PyErr_SetString(PyExc_TypeError, "parent_class must be private class");
+        return NULL;
+    }
+    ParentIdsResult now_class_parent_id = type_get_parent_ids((uintptr_t)now_class);
+    if (!now_class_parent_id.ok) {return NULL;}
+    uintptr_t parent_id = (uintptr_t)parent_class;
+    Py_ssize_t find_result = mro_index_of(*now_class_parent_id.ids, parent_id);
+    if (find_result < 0) {
+        PyErr_SetString(PyExc_TypeError, "parent_class must be parent of now_class");
+        return NULL;
+    }
+    // obj must be an instance of now_class. A negative IsInstance result is an
+    // exception (for example a metaclass __instancecheck__ that raised); do not
+    // overwrite it or return an object while it is pending.
+    int is_inst = PyObject_IsInstance(obj, now_class);
+    if (is_inst < 0) {
+        return NULL;
+    }
+    if (!is_inst) {
+        PyErr_SetString(PyExc_TypeError, "obj must be an instance of now_class");
+        return NULL;
+    }
+
+    PrivateObjSuperObject* self = (PrivateObjSuperObject*)cls->tp_alloc(cls, 0);
+    if (!self) {
+        return NULL;
+    }
+    self->now_class = now_class;
+    self->parent_class = parent_class;
+    self->obj = obj;
+    Py_INCREF(now_class);
+    Py_INCREF(parent_class);
+    Py_INCREF(obj);
+    return (PyObject*)self;
+}
+
+static void
+PrivateObjSuper_dealloc(PrivateObjSuperObject* self) noexcept
+{
+    PyObject_GC_UnTrack(self);
+    Py_XDECREF(self->now_class);
+    Py_XDECREF(self->parent_class);
+    Py_XDECREF(self->obj);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static int
+PrivateObjSuper_traverse(PrivateObjSuperObject* self, visitproc visit, void* arg) noexcept
+{
+    Py_VISIT(self->now_class);
+    Py_VISIT(self->parent_class);
+    Py_VISIT(self->obj);
+    return 0;
+}
+
+static int
+PrivateObjSuper_clear(PrivateObjSuperObject* self) noexcept
+{
+    Py_CLEAR(self->now_class);
+    Py_CLEAR(self->parent_class);
+    Py_CLEAR(self->obj);
+    return 0;
+}
+
+static void PrivateAttr_object_init_private_dict(uintptr_t obj_id, uintptr_t type_id) noexcept;
+
+static PyObject*
+PrivateObjSuper_getattro(PrivateObjSuperObject* self, PyObject* name) noexcept
+{
+    if (!PyUnicode_Check(name)) {
+        PyErr_SetString(PyExc_TypeError, "attribute name must be a string");
+        return NULL;
+    }
+    const char* name_cstr = PyUnicode_AsUTF8(name);
+    if (!name_cstr) {
+        return NULL;
+    }
+    std::string attr_name(name_cstr);
+
+    // The running code must belong to now_class.
+    PyObjectStorage now_code = PyObjectStorage::from_new_ref(get_now_code());
+    if (!now_code) {
+        PyErr_SetString(PyExc_AttributeError, "cannot use 'PrivateObjSuper' outside the class");
+        return NULL;
+    }
+    if (!is_class_code((uintptr_t)self->now_class, (PyCodeObject*)now_code.get())) {
+        PyErr_SetString(PyExc_AttributeError, "cannot use 'PrivateObjSuper' outside the class");
+        return NULL;
+    }
+    uintptr_t parent_class_id = (uintptr_t)self->parent_class;
+    uintptr_t target_id = (uintptr_t)self->obj;
+    TypePrivateAttrResult pa = type_private_attr(parent_class_id, attr_name);
+    if (!pa.ok) {
+        return NULL;
+    }
+    if (!pa.is_private) {
+        const char* tn = get_name_from_tp_name((PyTypeObject*)self->parent_class);
+        if (!tn) {
+            return NULL;
+        }
+        PyErr_Format(PyExc_AttributeError, "'%s' has no private attribute '%s'", tn, attr_name.c_str());
+        return NULL;
+    }
+    std::string key;
+    PyObject* need_call = get_type_need_call(parent_class_id);
+    if (need_call) {
+        auto r = custom_random_string(target_id, attr_name, need_call);
+        if (!r.ok) {
+            return NULL;
+        }
+        key = r.value;
+    } else {
+        key = default_random_string(target_id, attr_name);
+    }
+    PrivateAttr_object_init_private_dict(target_id, parent_class_id);
+    object_create_mutex(parent_class_id, target_id);
+    {
+        std::shared_lock<std::shared_mutex> lock(*::AllData::all_object_mutex[parent_class_id][target_id]);
+        auto it = ::AllData::all_object_attr[parent_class_id][target_id].find(key);
+        if (it != ::AllData::all_object_attr[parent_class_id][target_id].end()) {
+            PyObjectStorage result = it->second;
+            if (!result) {
+                PyErr_Format(PyExc_SystemError, "%s (%d): attribute is NULL", __FILE__, __LINE__);
+                return NULL;
+            }
+            // A value stored on a class object (obj is itself a type) follows
+            // the same descriptor rule as id_getattr: call __get__(None, obj).
+            // Release the lock first. The mutex is not recursive, and __get__
+            // may re-enter this class's private storage.
+            if (PyType_Check(self->obj)) {
+                descrgetfunc d = Py_TYPE(result)->tp_descr_get;
+                if (d) {
+                    lock.unlock();
+                    PyObject* bound = d(result, Py_None, (PyObject*)self->obj);
+                    return bound;
+                }
+            }
+            Py_INCREF(result);
+            return result;
+        }
+    }
+    PyErr_Format(PyExc_AttributeError, "'PrivateObjSuper' object has no attribute '%s'", attr_name.c_str());
+    return NULL;
+}
+
+static PyTypeObject PrivateObjSuperType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "private_attribute.PrivateObjSuper",
+    sizeof(PrivateObjSuperObject),
+    0,
+    (destructor)PrivateObjSuper_dealloc,
+    0, // PyBaseObject_Type.tp_print
+    0, // PyBaseObject_Type.tp_getattr
+    0, // PyBaseObject_Type.tp_setattr
+    0, // PyBaseObject_Type.tp_compare
+    0, // PyBaseObject_Type.tp_repr
+    0, // PyBaseObject_Type.tp_as_number
+    0, // PyBaseObject_Type.tp_as_sequence
+    0, // PyBaseObject_Type.tp_as_mapping
+    0, // PyBaseObject_Type.tp_hash
+    0, // PyBaseObject_Type.tp_call
+    0, // PyBaseObject_Type.tp_str
+    (getattrofunc)PrivateObjSuper_getattro, // PyBaseObject_Type.tp_getattro
+    0, // PyBaseObject_Type.tp_setattro
+    0, // PyBaseObject_Type.tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
+    PrivateObjSuper_doc,
+    (traverseproc)PrivateObjSuper_traverse,
+    (inquiry)PrivateObjSuper_clear,
+    0, // PyBaseObject_Type.tp_richcompare
+    0, // PyBaseObject_Type.tp_weaklistoffset
+    0, // PyBaseObject_Type.tp_iter
+    0, // PyBaseObject_Type.tp_iternext
+    0, // PyBaseObject_Type.tp_methods
+    0, // PyBaseObject_Type.tp_members
+    0, // PyBaseObject_Type.tp_getset
+    0, // PyBaseObject_Type.tp_base
+    0, // PyBaseObject_Type.tp_dict
+    0, // PyBaseObject_Type.tp_descr_get
+    0, // PyBaseObject_Type.tp_descr_set
+    0, // PyBaseObject_Type.tp_dictoffset
+    0, // PyBaseObject_Type.tp_init
+    0, // PyBaseObject_Type.tp_alloc
+    PrivateObjSuper_New, // PyBaseObject_Type.tp_new
+};
+
 // ===============================================================
 // v3: special-method slot structs
 // ===============================================================
@@ -2562,7 +2825,6 @@ typedef struct {
 
 static void PrivateAttrType_finalize(PyObject* cls) noexcept;
 static void clear_object_related(uintptr_t id_self, uintptr_t typ_id) noexcept;
-static void PrivateAttr_object_init_private_dict(uintptr_t obj_id, uintptr_t type_id) noexcept;
 static bool try_install_pending_creation(PyObject* new_type) noexcept;
 
 static PyMemberDef PrivateAttrSlot_members[] = {
@@ -2870,6 +3132,8 @@ super_slot_call(PyObject* owner, PyObject* obj, const char* slot_name, PyObject*
     return PyObject_Call(method, args, kwds);
 }
 
+static bool is_handling_dict(PyObject* dict) noexcept;
+
 static PyObject*
 slot_new_impl(PrivateAttrSlot* self, PyObject* cls, PyObject* args, PyObject* kwds) noexcept
 {
@@ -2917,6 +3181,19 @@ slot_new_impl(PrivateAttrSlot* self, PyObject* cls, PyObject* args, PyObject* kw
             return PyObject_Call(self->callback, type_args, kwds);
         }
         return slot_new_impl((PrivateAttrSlot*)parent_new.get(), cls, args, kwds);
+    }
+    PyObjectStorage now_dict = PyTuple_GET_ITEM(args, 2);
+    if (PyAnyDict_Check(now_dict) && is_handling_dict(now_dict)) {
+        PyObjectStorage type_args = PyObjectStorage::from_new_ref(PyTuple_Pack(
+            4, cls,
+            PyTuple_GET_ITEM(args, 0),
+            PyTuple_GET_ITEM(args, 1),
+            PyTuple_GET_ITEM(args, 2)));
+        if (!type_args) return NULL;
+        if (self->callback) {
+            return PyObject_Call(self->callback, type_args, kwds);
+        }
+        return PyObject_Call(parent_new, type_args, kwds);
     }
     PrivateAttrCreationData data;
     PyTypeObject* typ = (PyTypeObject*)cls;
@@ -3228,23 +3505,27 @@ slot_delattr_impl(PrivateAttrSlot* self, PyObject* obj, PyObject* name) noexcept
     Py_RETURN_NONE;
 }
 
+// Private-class __del__ (instances, including classes created by a private
+// class that is itself used as a metaclass). This is not the registered-
+// metaclass finalizer: that one lives in meta_slot_del.
 static PyObject*
-slot_del_impl(PrivateAttrSlot* self, PyObject* obj) noexcept
+class_slot_del(PrivateAttrSlot* self, PyObject* obj) noexcept
 {
-    if (self->is_metaclass) {
-        if (!is_private_meta_type((PyObject*)Py_TYPE(obj))) {
-            PyErr_SetString(PyExc_TypeError,
-                "The metaclass is not a register type or a subclass of the PrivateAttrType! You may put it on a wrong place");
-            return NULL;
-        }
-    } else {
-        auto check_need_analyse = need_analyse_type((PyObject*)Py_TYPE(obj));
-        if (check_need_analyse == AnalyseStatus::Error) {return NULL;}
-        if (check_need_analyse == AnalyseStatus::No) {
-            PyErr_SetString(PyExc_TypeError,
-                "The class is not an instance of register type or the PrivateAttrType! You may put it on a wrong place");
-            return NULL;
-        }
+    // Shutdown drops the metaclass registry before the last class objects are
+    // finalized. Checking need_analyse_type from here used to call
+    // PyObject_IsInstance, which looks up __class__ and re-enters the
+    // metaclass slot, raising "not a register type" as an ignored exception.
+    if (g_storage_torn_down) {
+        // clean_all_storages is already destroying the tables. Do not touch
+        // them again from inside a destructor it triggered.
+        Py_RETURN_NONE;
+    }
+    auto check_need_analyse = need_analyse_type((PyObject*)Py_TYPE(obj));
+    if (check_need_analyse == AnalyseStatus::Error) {return NULL;}
+    if (check_need_analyse == AnalyseStatus::No) {
+        PyErr_SetString(PyExc_TypeError,
+            "The class is not an instance of register type or the PrivateAttrType! You may put it on a wrong place");
+        return NULL;
     }
     bool should_return_null = false;
     auto original_refcnt = Py_REFCNT(obj);
@@ -3273,13 +3554,57 @@ slot_del_impl(PrivateAttrSlot* self, PyObject* obj) noexcept
             }
         }
     }
-    if (Py_REFCNT(obj) > original_refcnt) goto final_return;
-    if (self->is_metaclass) {
-        PrivateAttrType_finalize(obj);
-    } else {
-        clear_object_related((uintptr_t)obj, (uintptr_t)Py_TYPE(obj));
+    if (Py_REFCNT(obj) > original_refcnt) {
+        if (should_return_null) return NULL;
+        Py_RETURN_NONE;
     }
-final_return:
+    clear_object_related((uintptr_t)obj, (uintptr_t)Py_TYPE(obj));
+    if (should_return_null) return NULL;
+    Py_RETURN_NONE;
+}
+
+// Registered-metaclass __del__. Runs for the metaclass object itself and for
+// classes whose type is that metaclass. Separate from class_slot_del so a
+// private class used as a metaclass does not share this check.
+static PyObject*
+meta_slot_del(PrivateAttrSlot* self, PyObject* obj) noexcept
+{
+    if (g_storage_torn_down) {
+        Py_RETURN_NONE;
+    }
+    if (!is_private_meta_type((PyObject*)Py_TYPE(obj))) {
+        PyErr_SetString(PyExc_TypeError,
+            "The metaclass is not a register type or a subclass of the PrivateAttrType! You may put it on a wrong place");
+        return NULL;
+    }
+    bool should_return_null = false;
+    auto original_refcnt = Py_REFCNT(obj);
+    if (self->callback) {
+        PyObjectStorage r = PyObjectStorage::from_new_ref(PyObject_CallFunction(self->callback, "O", obj));
+        if (!r) should_return_null = true;
+    } else {
+        PyObjectStorage super_obj = PyObjectStorage::from_new_ref(
+            PyObject_CallFunction((PyObject*)&PySuper_Type, "OO", self->owner_type, obj));
+        if (super_obj) {
+            int has = PyObject_HasAttrString(super_obj, "__del__");
+            if (has > 0) {
+                PyObjectStorage method = PyObjectStorage::from_new_ref(
+                    PyObject_GetAttrString(super_obj, "__del__"));
+                if (method) {
+                    PyObjectStorage empty = PyObjectStorage::from_new_ref(PyTuple_New(0));
+                    if (empty) {
+                        PyObjectStorage r = PyObjectStorage::from_new_ref(PyObject_Call(method, empty, NULL));
+                        if (!r) should_return_null = true;
+                    }
+                }
+            }
+        }
+    }
+    if (Py_REFCNT(obj) > original_refcnt) {
+        if (should_return_null) return NULL;
+        Py_RETURN_NONE;
+    }
+    PrivateAttrType_finalize(obj);
     if (should_return_null) return NULL;
     Py_RETURN_NONE;
 }
@@ -3341,7 +3666,11 @@ slot_call(PrivateAttrSlot* self, PyObject* args, PyObject* kwds) noexcept
         PyObject *obj;
         std::string format = "O:" + std::string(type_name) + "." + std::string(sn);
         if (!PyArg_ParseTuple(args, format.c_str(), &obj)) return NULL;
-        return slot_del_impl(self, obj);
+        // Private classes and registered metaclasses do not share a finalizer.
+        if (self->is_metaclass) {
+            return meta_slot_del(self, obj);
+        }
+        return class_slot_del(self, obj);
     }
     if (strcmp(sn, "__call__") == 0) {
         return slot_call_impl(self, args, kwds);
@@ -3905,6 +4234,22 @@ update_metaclass_new(PyTypeObject* owner, PyObject* callback) noexcept
     }
     int r = real_setattro((PyObject*)owner, name_obj, new_slot_storage);
     return r >= 0;
+}
+
+static bool
+is_handling_dict(PyObject* dict) noexcept
+{
+    if (!dict) return false;
+    const char** name = type_slot_names;
+    for (int i=0; name[i]; i++) {
+        PyObject* obj = PyDict_GetItemString(dict, name[i]);
+        if (!obj) continue;
+        if (PyObject_IsInstance(obj, (PyObject*)&PrivateAttrSlotType)) {
+            PrivateAttrSlotHasData * s = (PrivateAttrSlotHasData*)obj;
+            if (s->data) {return true;}
+        }
+    }
+    return false;
 }
 
 // ===============================================================
@@ -4891,12 +5236,11 @@ analyse_all_code(PyObject* obj, std::unordered_map<uintptr_t, PyObjectStorage>& 
 static std::string
 real_class_name(const std::string& name, const std::string& class_name) noexcept
 {
-    size_t start_pos = class_name.find_first_not_of('_');
-    std::string cleaned_class_name = (start_pos == std::string::npos) ? "" : class_name.substr(start_pos);
-    std::string pre_underline = cleaned_class_name.size() > 0 ? "_" : "";
-
     // if the name starts with "__" but does not end with "__", change to _ClassName__name
     if (name.length() >= 2 && name.substr(0, 2) == "__" && name.substr(name.length() - 2) != "__") {
+        size_t start_pos = class_name.find_first_not_of('_');
+        std::string cleaned_class_name = (start_pos == std::string::npos) ? "" : class_name.substr(start_pos);
+        std::string pre_underline = cleaned_class_name.size() > 0 ? "_" : "";
         return pre_underline + cleaned_class_name + name;
     }
     return name;
@@ -4916,11 +5260,11 @@ need_analyse_type(PyObject* type) noexcept
     bool result = false;
 
     // (1) Types created through PrivateAttrType always need analysis.
-    int is_private_attr = PyObject_IsInstance(type, (PyObject*)&PrivateAttrType);
-    if (is_private_attr < 0) {
-        return AnalyseStatus::Error;
-    }
-    if (is_private_attr) {
+    // PyObject_TypeCheck, not PyObject_IsInstance: IsInstance falls back to
+    // looking up __class__, which re-enters a metaclass __getattribute__ slot.
+    // That re-entry is what made finalizing a class created by a private
+    // metaclass raise "not a register type" once the registry was gone.
+    if (PyObject_TypeCheck(type, &PrivateAttrType)) {
         result = true;
     } else {
         // (2) Types whose metaclass is a registered metaclass need analysis.
@@ -4935,11 +5279,7 @@ need_analyse_type(PyObject* type) noexcept
             if (!metaclass.get() || metaclass.get() == Py_None || type == metaclass.get()) {
                 continue;
             }
-            int is_instance = PyObject_IsInstance(type, metaclass.get());
-            if (is_instance < 0) {
-                return AnalyseStatus::Error;
-            }
-            if (is_instance) {
+            if (PyObject_TypeCheck(type, (PyTypeObject*)metaclass.get())) {
                 result = true;
                 break;
             }
@@ -4949,11 +5289,7 @@ need_analyse_type(PyObject* type) noexcept
                 if (type == metaclass.get()) {
                     continue;
                 }
-                int is_instance = PyObject_IsInstance(type, metaclass.get());
-                if (is_instance < 0) {
-                    return AnalyseStatus::Error;
-                }
-                if (is_instance) {
+                if (PyObject_TypeCheck(type, (PyTypeObject*)metaclass.get())) {
                     result = true;
                     break;
                 }
@@ -4968,6 +5304,42 @@ need_analyse_type(PyObject* type) noexcept
 
     return result ? AnalyseStatus::Yes : AnalyseStatus::No;
 }
+
+class PyCriticalSectionHandler {
+private:
+#ifdef Py_GIL_DISABLED
+    PyCriticalSection _py_cs;
+#endif
+public:
+    PyCriticalSectionHandler(PyObject* op) noexcept {
+#ifdef Py_GIL_DISABLED
+        PyCriticalSection_Begin(&_py_cs, (PyObject*)(op));
+#endif
+    }
+    ~PyCriticalSectionHandler() noexcept {
+#ifdef Py_GIL_DISABLED
+        PyCriticalSection_End(&_py_cs);
+#endif
+    }
+};
+
+class PyCriticalSectionHandler2 {
+private:
+#ifdef Py_GIL_DISABLED
+    PyCriticalSection2 _py_cs;
+#endif
+public:
+    PyCriticalSectionHandler2(PyObject* op1, PyObject* op2) noexcept {
+#ifdef Py_GIL_DISABLED
+        PyCriticalSection2_Begin(&_py_cs, (PyObject*)(op1), (PyObject*)op2);
+#endif
+    }
+    ~PyCriticalSectionHandler2() noexcept {
+#ifdef Py_GIL_DISABLED
+        PyCriticalSection2_End(&_py_cs);
+#endif
+    }
+};
 
 static bool
 PrivateAttrType_preprocess(PyObject* args, PyObject* kwds, PrivateAttrCreationData& data, const std::string& func_name) noexcept
@@ -5218,6 +5590,7 @@ PrivateAttrType_preprocess(PyObject* args, PyObject* kwds, PrivateAttrCreationDa
         Py_ssize_t pos = 0;
         PyObject* key, *value;
         PyObjectStorage forward_analyse = PyObjectStorage::from_new_ref(PyDict_Copy(data.attrs_copy));
+        PyCriticalSectionHandler _(forward_analyse);
         while (PyDict_Next(forward_analyse, &pos, &key, &value)) {
             if (!key || !PyUnicode_Check(key)) {
                 PyErr_SetString(PyExc_TypeError, "all keys in 'attrs' must be strings");
@@ -5285,6 +5658,7 @@ PrivateAttrType_preprocess(PyObject* args, PyObject* kwds, PrivateAttrCreationDa
         PyObject* original_key;
         Py_ssize_t original_pos = 0;
         PyObject* original_value;
+        PyCriticalSectionHandler _(attrs);
         while (PyDict_Next(attrs, &original_pos, &original_key, &original_value)) {
             std::unordered_set<uintptr_t> set;
             analyse_all_code(original_value, data.code_map, set);
@@ -5943,7 +6317,7 @@ metaclass_weakref_callback(PyObject* /*self*/, PyObject* weakref) noexcept
 static PyMethodDef weakref_callback_def = {
     "metaclass_weakref_callback",
     (PyCFunction)metaclass_weakref_callback,
-    METH_O,
+    METH_O | METH_STATIC,
     NULL
 };
 
@@ -6144,6 +6518,14 @@ PrivateModule_get_PrivateClassSuper(PyObject* /*self*/, void* /*closure*/) noexc
     return o;
 }
 
+static PyObject*
+PrivateModule_get_PrivateObjSuper(PyObject* /*self*/, void* /*closure*/) noexcept
+{
+    PyObject* o = (PyObject*)&PrivateObjSuperType;
+    Py_INCREF(o);
+    return o;
+}
+
 // type PrivateAttrType
 static PyObject*
 PrivateModule_get_PrivateAttrType(PyObject* /*self*/, void* /*closure*/) noexcept
@@ -6180,12 +6562,13 @@ PrivateModule_dir(PyObject* self, PyObject* /*args*/) noexcept
 {
     PyObjectStorage parent_dir = PyObjectStorage::from_new_ref(PyObject_CallMethod((PyObject*)&PyModule_Type, "__dir__", "O", self));
     if (!parent_dir) return NULL;
-    PyObjectStorage attr_list = PyObjectStorage::from_new_ref(Py_BuildValue("[ssssssssss]",
+    PyObjectStorage attr_list = PyObjectStorage::from_new_ref(Py_BuildValue("[sssssssssss]",
         "PrivateWrapProxy",
         "PrivateAttrType",
         "PrivateAttrBase",
         "PrivateSuper",
         "PrivateClassSuper",
+        "PrivateObjSuper",
         "ensure_type",
         "ensure_metaclass",
         "create_new",
@@ -6222,9 +6605,12 @@ PrivateModule_setattro(PyObject* self, PyObject* name, PyObject* value) noexcept
             "PrivateAttrBase",
             "PrivateSuper",
             "PrivateClassSuper",
+            "PrivateObjSuper",
             "ensure_type",
             "ensure_metaclass",
             "create_new",
+            "create_meta_slot",
+            "create_slot",
             NULL
         };
         for (size_t i = 0; unsetable_attrs[i]; ++i) {
@@ -6327,9 +6713,9 @@ class MyClass(private_attribute.PrivateAttrBase):
 static PyMethodDef PrivateModule_methods[] = {
     {"ensure_type", (PyCFunction)ensure_type_tp, METH_O | METH_STATIC, ensure_type_doc},
     {"ensure_metaclass", (PyCFunction)ensure_metaclass_tp, METH_O | METH_STATIC, ensure_metaclass_doc},
-    {"create_new", (PyCFunction)register_type_create_new, METH_VARARGS, create_new_doc},
-    {"create_meta_slot", (PyCFunction)register_type_create_slot, METH_O, create_meta_slot_doc},
-    {"create_slot", (PyCFunction)private_type_create_slot, METH_O, create_slot_doc},
+    {"create_new", (PyCFunction)register_type_create_new, METH_VARARGS | METH_STATIC, create_new_doc},
+    {"create_meta_slot", (PyCFunction)register_type_create_slot, METH_O | METH_STATIC, create_meta_slot_doc},
+    {"create_slot", (PyCFunction)private_type_create_slot, METH_O | METH_STATIC, create_slot_doc},
     {NULL}  // Sentinel
 };
 
@@ -6369,6 +6755,7 @@ static PyGetSetDef PrivateModule_getsetters[] = {
     {"PrivateAttrBase", (getter)PrivateModule_get_PrivateAttrBase, NULL, NULL, NULL},
     {"PrivateSuper", (getter)PrivateModule_get_PrivateSuper, NULL, NULL, NULL},
     {"PrivateClassSuper", (getter)PrivateModule_get_PrivateClassSuper, NULL, NULL, NULL},
+    {"PrivateObjSuper", (getter)PrivateModule_get_PrivateObjSuper, NULL, NULL, NULL},
     {"ensure_type", (getter)PrivateModule_get_ensure_type, NULL, NULL, NULL},
     {"ensure_metaclass", (getter)PrivateModule_get_ensure_metaclass, NULL, NULL, NULL},
     {"create_new", (getter)PrivateModule_get_create_new, NULL, NULL, NULL},
@@ -6398,6 +6785,7 @@ PrivateModule_getattro(PyObject* self, PyObject* name) noexcept
     PrivateModule_GETATTRO_CASE(PrivateAttrBase);
     PrivateModule_GETATTRO_CASE(PrivateSuper);
     PrivateModule_GETATTRO_CASE(PrivateClassSuper);
+    PrivateModule_GETATTRO_CASE(PrivateObjSuper);
     PrivateModule_GETATTRO_CASE(ensure_type);
     PrivateModule_GETATTRO_CASE(ensure_metaclass);
     PrivateModule_GETATTRO_CASE(create_new);
@@ -6494,7 +6882,7 @@ AtExit_clean_storage(PyObject* /*self*/, PyObject* /*obj*/) noexcept
 static PyMethodDef clean_storage = {
     "clean_storage",
     (PyCFunction)AtExit_clean_storage,
-    METH_NOARGS,
+    METH_NOARGS | METH_STATIC,
     "Clean all storages"
 };
 
@@ -6555,12 +6943,13 @@ PrivateModule_exec(PyObject* m) noexcept
     if (PyModule_AddType(m, &PrivateWrapType) < 0) {
         return -1;
     }
-    PyObject* all = Py_BuildValue("[ssssssssss]",
+    PyObject* all = Py_BuildValue("[sssssssssss]",
         "PrivateWrapProxy",
         "PrivateAttrType",
         "PrivateAttrBase",
         "PrivateSuper",
         "PrivateClassSuper",
+        "PrivateObjSuper",
         "ensure_type",
         "ensure_metaclass",
         "create_new",
@@ -6600,6 +6989,7 @@ PyInit_private_attribute(void) noexcept
         PyType_Ready(&PrivateWrapProxyType) < 0 ||
         PyType_Ready(&PrivateSuperType) < 0 ||
         PyType_Ready(&PrivateClassSuperType) < 0 ||
+        PyType_Ready(&PrivateObjSuperType) < 0 ||
         PyType_Ready(&PrivateAttrType) < 0 ||
         PyType_Ready(&PrivateModuleType) < 0) {
         return NULL;

@@ -2,14 +2,25 @@
    parsel and scrapy lean on, and the Python hook the parser conformance tests call. */
 
 #include "core/common.h"
+#include "core/hash.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
 #include "dom/tree.h"
 #include "query/xpath/internal.h"
 #include "query/xpath/regex.h"
 #include "query/xpath/xpath.h"
+#include "tokenizer/binding.h"
 
 #include <math.h>
 #include <string.h>
+
+#if defined(_MSC_VER)
+#define TH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define TH_NOINLINE __attribute__((noinline))
+#else
+#define TH_NOINLINE
+#endif
 
 /* XPath 1.0 round(): the integer closest to the argument, ties resolved toward
    positive infinity (§4.4, so round(-2.5) is -2, not the -3 that C round() gives
@@ -185,7 +196,21 @@ typedef struct {
     Py_ssize_t position;
 } translate_entry;
 
-static size_t translate_slot(const translate_entry *entries, size_t mask, Py_UCS4 character);
+/* A run longer than TH_FAST_PROBE_LIMIT covers a whole aligned block of TRANSLATE_BLOCK slots, of which
+   translate_runs_long reads every TRANSLATE_SAMPLE-th; translate_index walks at most TRANSLATE_WALKS steps per
+   character on the multiplicative hash. */
+#define TRANSLATE_BLOCK 32
+#define TRANSLATE_SAMPLE 8
+#define TRANSLATE_WALKS 4
+
+static size_t translate_slot(const translate_entry *entries, size_t mask, Py_UCS4 character, int keyed);
+static int translate_index(translate_entry *entries, size_t capacity, const Py_UCS4 *from, Py_ssize_t flen);
+static inline Py_ssize_t translate_rest(const translate_entry *entries, size_t mask, int keyed, const Py_UCS4 *text,
+                                        Py_ssize_t index, Py_ssize_t slen, const Py_UCS4 *to, Py_ssize_t tlen,
+                                        Py_UCS4 *buf, Py_ssize_t write_pos);
+static TH_NOINLINE Py_ssize_t translate_rest_keyed(const translate_entry *entries, size_t mask, const Py_UCS4 *text,
+                                                   Py_ssize_t index, Py_ssize_t slen, const Py_UCS4 *to,
+                                                   Py_ssize_t tlen, Py_UCS4 *buf, Py_ssize_t write_pos);
 
 static int string_arg(struct th_tree *tree, const xp_result *value, const Py_UCS4 **text, Py_ssize_t *len,
                       Py_UCS4 **owned) {
@@ -200,8 +225,9 @@ static int string_arg(struct th_tree *tree, const xp_result *value, const Py_UCS
     return *owned == NULL ? -1 : 0; /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
 }
 
-static int translate(const Py_UCS4 *text, Py_ssize_t slen, const Py_UCS4 *from, Py_ssize_t flen, const Py_UCS4 *to,
-                     Py_ssize_t tlen, xp_result *out) {
+/* Out of line, so its scan loops keep their registers instead of sharing eval_function's. */
+static TH_NOINLINE int translate(const Py_UCS4 *text, Py_ssize_t slen, const Py_UCS4 *from, Py_ssize_t flen,
+                                 const Py_UCS4 *to, Py_ssize_t tlen, xp_result *out) {
     Py_UCS4 *buf = PyMem_Malloc((size_t)slen * sizeof(Py_UCS4));
     if (buf == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
         return -1;     /* GCOVR_EXCL_LINE */
@@ -224,6 +250,7 @@ static int translate(const Py_UCS4 *text, Py_ssize_t slen, const Py_UCS4 *from, 
     }
     translate_entry *entries = NULL;
     size_t capacity = 0;
+    int keyed = 0;
     size_t scan_budget = (size_t)flen * 2;
     Py_ssize_t write_pos = 0;
     Py_ssize_t index = 0;
@@ -256,12 +283,7 @@ static int translate(const Py_UCS4 *text, Py_ssize_t slen, const Py_UCS4 *from, 
                     PyMem_Free(buf);   /* GCOVR_EXCL_LINE: allocation failure */
                     return -1;         /* GCOVR_EXCL_LINE: allocation failure */
                 }
-                for (Py_ssize_t position = 0; position < flen; position++) {
-                    const size_t slot = translate_slot(entries, capacity - 1, from[position]);
-                    if (entries[slot].position == 0) {
-                        entries[slot] = (translate_entry){from[position], position + 1};
-                    }
-                }
+                keyed = translate_index(entries, capacity, from, flen);
                 break;
             }
         }
@@ -272,25 +294,125 @@ static int translate(const Py_UCS4 *text, Py_ssize_t slen, const Py_UCS4 *from, 
             buf[write_pos++] = replacement;
         }
     }
-    for (; index < slen; index++) {
-        const Py_ssize_t position = entries[translate_slot(entries, capacity - 1, text[index])].position;
-        if (position == 0) {
-            buf[write_pos++] = text[index];
-        } else if (position <= tlen) {
-            buf[write_pos++] = to[position - 1];
-        }
+    if (TH_UNLIKELY(keyed)) {
+        write_pos = translate_rest_keyed(entries, capacity - 1, text, index, slen, to, tlen, buf, write_pos);
+    } else {
+        write_pos = translate_rest(entries, capacity - 1, 0, text, index, slen, to, tlen, buf, write_pos);
     }
     PyMem_Free(entries);
     result_string(out, buf, write_pos);
     return 0;
 }
 
-static size_t translate_slot(const translate_entry *entries, size_t mask, Py_UCS4 character) {
-    size_t slot = ((size_t)character * 2654435761u) & mask;
-    while (entries[slot].position != 0 && entries[slot].character != character) {
-        slot = (slot + 1) & mask;
+/* The multiplicative hash keeps only the low bits of the product, which code points that agree in their low bits
+   share, so a translate() map can be given characters that all land on one home. Past TH_FAST_PROBE_LIMIT the table
+   moves to th_key_mix, which a document cannot steer (core/hash.h). */
+static size_t translate_slot(const translate_entry *entries, size_t mask, Py_UCS4 character, int keyed) {
+    const size_t home = (keyed ? (size_t)th_key_mix(character) : (size_t)character * 2654435761u) & mask;
+    const translate_entry *entry = &entries[home];
+    TH_WORK_STEP();
+    /* the walk steps a pointer, wrapping at the last slot, so each lookup keeps the slot's address alone rather than an
+       index and the address computed from it */
+    while (entry->position != 0 && entry->character != character) {
+        TH_WORK_STEP();
+        entry = entry == &entries[mask] ? entries : entry + 1;
     }
-    return slot;
+    return (size_t)(entry - entries);
+}
+
+/* 1 when a run of filled slots is longer than TH_FAST_PROBE_LIMIT. Such a run covers a whole aligned block of
+   TRANSLATE_BLOCK slots, and so the slot that starts it, so the walk reads every TRANSLATE_SAMPLE-th slot and measures
+   the run through the start of a block only when all its samples are filled, which they rarely are at half load. Each
+   measure stops past the limit and the samples are a fraction of the slots, so none is a counted work step. */
+static TH_NOINLINE int translate_runs_long(const translate_entry *entries, size_t capacity) {
+    size_t mask = capacity - 1;
+    for (size_t block = 0; block < capacity; block += TRANSLATE_BLOCK) {
+        size_t sample = block;
+        while (sample < block + TRANSLATE_BLOCK && entries[sample].position != 0) {
+            sample += TRANSLATE_SAMPLE;
+        }
+        if (sample < block + TRANSLATE_BLOCK) {
+            continue;
+        }
+        size_t length = 1;
+        for (size_t probe = (block - 1) & mask; length <= TH_FAST_PROBE_LIMIT && entries[probe].position != 0;
+             probe = (probe - 1) & mask) {
+            length++;
+        }
+        for (size_t probe = (block + 1) & mask; length <= TH_FAST_PROBE_LIMIT && entries[probe].position != 0;
+             probe = (probe + 1) & mask) {
+            length++;
+        }
+        if (length > TH_FAST_PROBE_LIMIT) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Out of line, so th_key_mix stays out of the multiplicative fill. */
+static TH_NOINLINE void translate_index_keyed(translate_entry *entries, size_t capacity, const Py_UCS4 *from,
+                                              Py_ssize_t flen) {
+    memset(entries, 0, capacity * sizeof(*entries));
+    for (Py_ssize_t position = 0; position < flen; position++) {
+        const size_t slot = translate_slot(entries, capacity - 1, from[position], 1);
+        if (entries[slot].position == 0) {
+            entries[slot] = (translate_entry){from[position], position + 1};
+        }
+    }
+}
+
+/* Fill the zeroed table with the first position of each from character, and return 1 when it ended on th_key_mix. The
+   multiplicative hash lets a map put its characters on one home, which makes the fill quadratic, or line them up into
+   one long run, which every lookup that misses walks to its end. So the fill starts over on th_key_mix (core/hash.h)
+   once its walks pass TRANSLATE_WALKS steps per character, or when it leaves a run longer than TH_FAST_PROBE_LIMIT. A
+   fill that seats each character at or next to its home, as ordinary maps do, takes no step of either. */
+static int translate_index(translate_entry *entries, size_t capacity, const Py_UCS4 *from, Py_ssize_t flen) {
+    size_t mask = capacity - 1;
+    size_t budget = (size_t)flen * TRANSLATE_WALKS;
+    for (Py_ssize_t position = 0; position < flen; position++) {
+        size_t slot = ((size_t)from[position] * 2654435761u) & mask;
+        TH_WORK_STEP();
+        while (entries[slot].position != 0 && entries[slot].character != from[position]) {
+            TH_WORK_STEP();
+            if (--budget == 0) {
+                translate_index_keyed(entries, capacity, from, flen);
+                return 1;
+            }
+            slot = (slot + 1) & mask;
+        }
+        if (entries[slot].position == 0) {
+            entries[slot] = (translate_entry){from[position], position + 1};
+        }
+    }
+    if (flen > TH_FAST_PROBE_LIMIT && translate_runs_long(entries, capacity)) {
+        translate_index_keyed(entries, capacity, from, flen);
+        return 1;
+    }
+    return 0;
+}
+
+/* Translate text[index, slen) through the table into buf from write_pos, returning the new write position. keyed is a
+   constant at each call, so each copy of the loop computes one hash. */
+static inline Py_ssize_t translate_rest(const translate_entry *entries, size_t mask, int keyed, const Py_UCS4 *text,
+                                        Py_ssize_t index, Py_ssize_t slen, const Py_UCS4 *to, Py_ssize_t tlen,
+                                        Py_UCS4 *buf, Py_ssize_t write_pos) {
+    for (; index < slen; index++) {
+        const Py_ssize_t position = entries[translate_slot(entries, mask, text[index], keyed)].position;
+        if (position == 0) {
+            buf[write_pos++] = text[index];
+        } else if (position <= tlen) {
+            buf[write_pos++] = to[position - 1];
+        }
+    }
+    return write_pos;
+}
+
+/* translate_rest on th_key_mix. Out of line, so the multiplicative copy keeps translate small. */
+static TH_NOINLINE Py_ssize_t translate_rest_keyed(const translate_entry *entries, size_t mask, const Py_UCS4 *text,
+                                                   Py_ssize_t index, Py_ssize_t slen, const Py_UCS4 *to,
+                                                   Py_ssize_t tlen, Py_UCS4 *buf, Py_ssize_t write_pos) {
+    return translate_rest(entries, mask, 1, text, index, slen, to, tlen, buf, write_pos);
 }
 
 static int substring(struct th_tree *tree, xp_result *args, int argc, xp_result *out) {
@@ -403,12 +525,13 @@ static int lang_tag_matches(const Py_UCS4 *tag, Py_ssize_t tag_len, const Py_UCS
    attributes": xml:lang in the XML namespace wins, and only a foreign element carries
    one (the HTML parser leaves xml:lang on an HTML element in no namespace); then lang,
    which counts on an HTML or SVG element. */
-static const th_node_attr *node_lang_attr(struct th_tree *tree, struct th_node *node, uint32_t xml_lang_atom) {
+const th_node_attr *xp_node_lang_attr(struct th_tree *tree, struct th_node *node, uint32_t xml_lang_atom) {
     int xml = th_tree_is_xml(tree);
     const th_node_attr *lang_attr = NULL;
     th_node_attr *attrs;
     Py_ssize_t attr_count = th_node_attributes(node, &attrs);
     for (Py_ssize_t index = 0; index < attr_count; index++) {
+        TH_WORK_STEP();
         if (attrs[index].name_atom == xml_lang_atom && (xml || node->ns != TH_NS_HTML)) {
             return &attrs[index];
         }
@@ -419,6 +542,10 @@ static const th_node_attr *node_lang_attr(struct th_tree *tree, struct th_node *
     return lang_attr;
 }
 
+/* Nodes and attributes lang() reads before it climbs through the memo: ordinary markup declares its language within
+   them and never pays for a hash probe. */
+#define XP_LANG_CLIMB 64
+
 /* lang(): true when the language the nearest self-or-ancestor element declares
    names a language the wanted code is a prefix of. */
 static int node_lang(xp_ctx *ctx, xp_result *arg) {
@@ -428,14 +555,22 @@ static int node_lang(xp_ctx *ctx, xp_result *arg) {
         return -1;      /* GCOVR_EXCL_LINE */
     }
     uint32_t xml_lang_atom = th_attr_lookup(ctx->tree, "xml:lang", 8);
-    int result = 0;
+    const th_node_attr *lang_attr = NULL;
+    Py_ssize_t budget = XP_LANG_CLIMB;
     for (struct th_node *node = ctx->node; node != NULL; node = node->parent) {
-        const th_node_attr *lang_attr = node_lang_attr(ctx->tree, node, xml_lang_atom);
+        TH_WORK_STEP();
+        th_node_attr *attrs;
+        budget -= 1 + th_node_attributes(node, &attrs);
+        if (budget < 0) {
+            lang_attr = xp_lang_memoized(ctx, node, xml_lang_atom);
+            break;
+        }
+        lang_attr = xp_node_lang_attr(ctx->tree, node, xml_lang_atom);
         if (lang_attr != NULL) {
-            result = lang_tag_matches(lang_attr->value, lang_attr->value_len, want, want_len);
             break;
         }
     }
+    int result = lang_attr != NULL && lang_tag_matches(lang_attr->value, lang_attr->value_len, want, want_len);
     PyMem_Free(want);
     return result;
 }
@@ -443,9 +578,16 @@ static int node_lang(xp_ctx *ctx, xp_result *arg) {
 typedef struct {
     const Py_UCS4 *value;
     Py_ssize_t len;
+    int claimed; /* the walk in eval_id has met the first element with this id */
 } xp_id_token;
 
-static uint64_t id_token_hash(const Py_UCS4 *value, Py_ssize_t len) {
+/* FNV-1a over the code points, the hash the token set starts on. The document picks the tokens, and FNV-1a lets it
+   pick ones that share a home, so a set that walks past TH_FAST_PROBE_LIMIT slots is built again under th_name_hash
+   (core/hash.h). */
+static uint64_t id_token_hash(const Py_UCS4 *value, Py_ssize_t len, int keyed) {
+    if (keyed) {
+        return th_name_hash(value, len * (Py_ssize_t)sizeof(Py_UCS4));
+    }
     uint64_t hash = 14695981039346656037u;
     for (Py_ssize_t index = 0; index < len; index++) {
         hash ^= value[index];
@@ -454,7 +596,75 @@ static uint64_t id_token_hash(const Py_UCS4 *value, Py_ssize_t len) {
     return hash;
 }
 
-static int id_token_set_build(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_token **slots, size_t *mask) {
+/* 1 when the TH_FAST_PROBE_LIMIT slots before probe are all filled. Out of line, so the loops that inline the test
+   below keep their registers. The walk stops at the limit, so it is no counted work step. */
+static TH_NOINLINE int id_token_run_full(const xp_id_token *slots, size_t mask, size_t probe) {
+    for (size_t back = 1; back <= TH_FAST_PROBE_LIMIT; back++) {
+        if (slots[(probe - back) & mask].value == NULL) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* 1 when the TH_FAST_PROBE_LIMIT + 1 slots before probe are all filled, which a walk that ended at probe more than
+   TH_FAST_PROBE_LIMIT slots from its home must have crossed. Testing the farthest slot first settles most calls with
+   one load, and the fill's walk needs no home kept across its comparisons. */
+static inline int id_token_run_behind(const xp_id_token *slots, size_t mask, size_t probe) {
+    if (slots[(probe - TH_FAST_PROBE_LIMIT - 1) & mask].value == NULL) {
+        return 0;
+    }
+    return id_token_run_full(slots, mask, probe);
+}
+
+/* Seat the whitespace-separated tokens of list in the zeroed slots. On FNV-1a it stops with 1 once a token would sit
+   behind a run of more than TH_FAST_PROBE_LIMIT filled slots; a token walks only through the run behind its seat, and a
+   repeated one no further than its first copy sat, so every walk of the fill stays within the limit. */
+static inline int id_token_set_fill(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_token *slots, size_t mask,
+                                    int keyed) {
+    Py_ssize_t index = 0;
+    while (index < list_len) {
+        while (index < list_len && xp_is_space(list[index])) {
+            index++;
+        }
+        if (index == list_len) {
+            break;
+        }
+        /* start < list_len here, so the token holds at least one character */
+        Py_ssize_t start = index;
+        uint64_t hash = 14695981039346656037u;
+        while (index < list_len && !xp_is_space(list[index])) {
+            hash ^= list[index++];
+            hash *= 1099511628211u;
+        }
+        Py_ssize_t len = index - start;
+        if (keyed) {
+            hash = id_token_hash(list + start, len, 1);
+        }
+        size_t probe = hash & mask;
+        while (slots[probe].value != NULL && (slots[probe].len != len || memcmp(slots[probe].value, list + start,
+                                                                                (size_t)len * sizeof(Py_UCS4)) != 0)) {
+            TH_WORK_STEP();
+            probe = (probe + 1) & mask;
+        }
+        if (slots[probe].value == NULL) {
+            if (!keyed && id_token_run_behind(slots, mask, probe)) {
+                return 1;
+            }
+            slots[probe] = (xp_id_token){list + start, len, 0};
+        }
+    }
+    return 0;
+}
+
+/* Clear the slots and seat the tokens again under th_name_hash. Out of line, so the FNV-1a fill and lookups keep their
+   registers. */
+static TH_NOINLINE void id_token_set_rekey(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_token *slots, size_t mask) {
+    memset(slots, 0, (mask + 1) * sizeof(xp_id_token));
+    id_token_set_fill(list, list_len, slots, mask, 1);
+}
+
+static int id_token_set_build(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_token **slots, size_t *mask, int *keyed) {
     Py_ssize_t count = 0;
     Py_ssize_t index = 0;
     while (index < list_len) {
@@ -467,6 +677,7 @@ static int id_token_set_build(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_to
         }
         count += index > start;
     }
+    *keyed = 0;
     if (count == 0) {
         *slots = NULL;
         *mask = 0;
@@ -483,57 +694,405 @@ static int id_token_set_build(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_to
         return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     *mask = cap - 1;
-    index = 0;
-    while (index < list_len) {
-        while (index < list_len && xp_is_space(list[index])) {
-            index++;
-        }
-        if (index == list_len) {
-            break;
-        }
-        /* start < list_len here, so the token holds at least one character */
-        Py_ssize_t start = index;
-        uint64_t hash = 14695981039346656037u;
-        while (index < list_len && !xp_is_space(list[index])) {
-            hash ^= list[index++];
-            hash *= 1099511628211u;
-        }
-        Py_ssize_t len = index - start;
-        size_t probe = hash & *mask;
-        while ((*slots)[probe].value != NULL &&
-               ((*slots)[probe].len != len ||
-                memcmp((*slots)[probe].value, list + start, (size_t)len * sizeof(Py_UCS4)) != 0)) {
-            probe = (probe + 1) & *mask;
-        }
-        if ((*slots)[probe].value == NULL) {
-            (*slots)[probe] = (xp_id_token){list + start, len};
-        }
+    if (id_token_set_fill(list, list_len, *slots, *mask, 0)) {
+        *keyed = 1;
+        id_token_set_rekey(list, list_len, *slots, *mask);
     }
     return 0;
 }
 
-static int id_token_set_contains(const xp_id_token *slots, size_t mask, const Py_UCS4 *value, Py_ssize_t len) {
-    if (slots == NULL || len == 0) {
+/* 1 when value is in the set and no earlier element claimed it, which claims it; 0 when it is not in the set or was
+   claimed; 2 when a miss on FNV-1a walked past TH_FAST_PROBE_LIMIT slots: a hit walks no further than its token did in
+   the fill, but a miss walks to the end of the run its home falls in, and the document can line up homes into one long
+   run without any token walking far. Of the elements that share an id only the first in document order has it (XPath
+   1.0 section 5.2.1), so each token selects at most one element. */
+static inline int id_token_set_claim(xp_id_token *slots, size_t mask, int keyed, const Py_UCS4 *value, Py_ssize_t len) {
+    if (len == 0) {
         return 0;
     }
-    for (size_t probe = id_token_hash(value, len) & mask; slots[probe].value != NULL; probe = (probe + 1) & mask) {
+    size_t hash = id_token_hash(value, len, keyed);
+    size_t probe = hash & mask;
+    if (slots[probe].value == NULL) {
+        return 0;
+    }
+    do {
+        TH_WORK_STEP();
         if (slots[probe].len == len && memcmp(slots[probe].value, value, (size_t)len * sizeof(Py_UCS4)) == 0) {
-            return 1;
+            int first = !slots[probe].claimed;
+            slots[probe].claimed = 1;
+            return first;
+        }
+        probe = (probe + 1) & mask;
+    } while (slots[probe].value != NULL);
+    return !keyed && ((probe - hash) & mask) > TH_FAST_PROBE_LIMIT ? 2 : 0;
+}
+
+/* The element's id attribute, or NULL. */
+static inline const th_node_attr *node_id_attr(const struct th_node *node) {
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        if (node->attrs[index].name_atom == TH_ATTR_ID) {
+            return &node->attrs[index];
+        }
+    }
+    return NULL;
+}
+
+/* Collect the elements from node on whose id is in the set and not yet claimed. On FNV-1a it stops at the element
+   whose lookup walked past TH_FAST_PROBE_LIMIT slots and returns it, unmatched, for the caller to scan again from under
+   th_name_hash. */
+static inline struct th_node *id_token_scan(xp_id_token *slots, size_t mask, int keyed, struct th_node *node,
+                                            xp_nodeset *found, int *rc) {
+    for (; node != NULL; node = document_next(node)) {
+        TH_WORK_STEP();
+        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? node_id_attr(node) : NULL;
+        if (id == NULL) {
+            continue;
+        }
+        int hit = id_token_set_claim(slots, mask, keyed, id->value, id->value_len);
+        if (!keyed && hit == 2) {
+            return node;
+        }
+        if (hit && ns_push(found, node, -1) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            *rc = -1;                              /* GCOVR_EXCL_LINE */
+        } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
+    }
+    return NULL;
+}
+
+/* Seat the tokens again under th_name_hash and claim those of the elements the FNV-1a scan already collected, so the
+   scan that goes on from where it stopped selects none of their ids again. */
+static TH_NOINLINE void id_token_set_rekey_claimed(const Py_UCS4 *list, Py_ssize_t list_len, xp_id_token *slots,
+                                                   size_t mask, const xp_nodeset *found) {
+    id_token_set_rekey(list, list_len, slots, mask);
+    for (Py_ssize_t index = 0; index < found->len; index++) {
+        const th_node_attr *id = node_id_attr(found->items[index].node);
+        (void)id_token_set_claim(slots, mask, 1, id->value, id->value_len);
+    }
+}
+
+/* One element under the indexed root that carries an id, with the value borrowed from its attribute. */
+typedef struct {
+    struct th_node *node;
+    const Py_UCS4 *value;
+    Py_ssize_t len;
+} xp_id_entry;
+
+/* Every element under one root that carries a non-empty id. A lookup reads its tokens' elements off the table where the
+   walk in eval_id visits the whole tree, so one lookup per node, as in //ref[id(@to)], costs time linear rather than
+   quadratic in the document. id_version is the tree's when it was built: every edit through the mutation API that can
+   change which element an id names bumps it, so the table is rebuilt after such an edit and kept across Python code
+   that makes none. */
+struct xp_id_index {
+    struct th_node *root;
+    uint64_t id_version;
+    xp_id_entry *entries; /* in document order */
+    size_t count;
+    size_t *slots; /* index + 1 of the first entry with an id; 0 marks a free slot */
+    size_t mask;
+};
+
+static void id_index_free(xp_id_index *index) {
+    if (index != NULL) {
+        PyMem_Free(index->entries);
+        PyMem_Free(index->slots);
+        PyMem_Free(index);
+    }
+}
+
+void xp_id_cache_clear(xp_id_cache *cache) {
+    id_index_free(cache->index);
+    *cache = (xp_id_cache){0};
+}
+
+/* The slot naming the first entry whose id is [value, value + len), or the free slot that id would take. The table
+   hashes under th_name_hash from the start: the document picks every id in it. */
+static size_t *id_index_slot(const xp_id_index *index, const Py_UCS4 *value, Py_ssize_t len) {
+    size_t slot = th_name_hash(value, len * (Py_ssize_t)sizeof(Py_UCS4)) & index->mask;
+    while (index->slots[slot] != 0) {
+        TH_WORK_STEP();
+        const xp_id_entry *entry = &index->entries[index->slots[slot] - 1];
+        if (entry->len == len && memcmp(entry->value, value, (size_t)len * sizeof(Py_UCS4)) == 0) {
+            break;
+        }
+        slot = (slot + 1) & index->mask;
+    }
+    return &index->slots[slot];
+}
+
+static int id_index_fill(xp_id_index *index) {
+    size_t entry_cap = 0;
+    for (struct th_node *node = index->root; node != NULL; node = document_next(node)) {
+        TH_WORK_STEP();
+        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? node_id_attr(node) : NULL;
+        if (id == NULL || id->value_len == 0) {
+            continue;
+        }
+        if (index->count == entry_cap) {
+            size_t bytes;
+            /* GCOVR_EXCL_BR_START: alloc */
+            if (!th_grow_cap(index->count + 1, entry_cap, 16, sizeof(xp_id_entry), &entry_cap, &bytes)) {
+                return -1; /* GCOVR_EXCL_LINE */
+            }
+            /* GCOVR_EXCL_BR_STOP */
+            xp_id_entry *grown = PyMem_Realloc(index->entries, bytes);
+            if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
+                return -1;       /* GCOVR_EXCL_LINE */
+            }
+            index->entries = grown;
+        }
+        index->entries[index->count++] = (xp_id_entry){node, id->value, id->value_len};
+    }
+    size_t capacity;
+    size_t bytes;
+    /* GCOVR_EXCL_BR_START: alloc */
+    if (index->count > SIZE_MAX / 2 || !th_grow_cap(index->count * 2, 0, 8, sizeof(size_t), &capacity, &bytes)) {
+        return -1; /* GCOVR_EXCL_LINE */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    index->slots = PyMem_Calloc(1, bytes);
+    if (index->slots == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
+        return -1;              /* GCOVR_EXCL_LINE */
+    }
+    index->mask = capacity - 1;
+    /* in document order, so a slot keeps the first element of its id and the later ones stay out of the table */
+    for (size_t position = 0; position < index->count; position++) {
+        size_t *slot = id_index_slot(index, index->entries[position].value, index->entries[position].len);
+        if (*slot == 0) {
+            *slot = position + 1;
         }
     }
     return 0;
 }
 
-/* id(object): the elements whose id attribute is one of the whitespace-separated
-   tokens in the argument's string-value (a node-set argument contributes the
-   string-value of each member). */
-static int eval_id(xp_ctx *ctx, xp_result *arg, xp_result *out) {
+/* Point *out at the index of root, or at NULL for the caller to walk the tree instead. The first lookup under a root
+   walks, which is all a lone id() costs; the next one there indexes it, and later ones reuse that index until an edit
+   moves the tree's id version. Returns 0, or -1 with MemoryError set. */
+static int id_cache_index(struct th_tree *tree, xp_id_cache *cache, struct th_node *root, xp_id_index **out) {
+    const uint64_t id_version = th_tree_id_version(tree);
+    xp_id_index *index = cache->index;
+    if (index != NULL && index->root == root && index->id_version == id_version) {
+        *out = index;
+        return 0;
+    }
+    *out = NULL;
+    if (cache->walked != root) {
+        cache->walked = root;
+        return 0;
+    }
+    xp_id_cache_clear(cache);
+    cache->walked = root;
+    index = PyMem_Calloc(1, sizeof(*index));
+    if (index == NULL) {  /* GCOVR_EXCL_BR_LINE: alloc */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    *index = (xp_id_index){.root = root, .id_version = id_version};
+    if (id_index_fill(index) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+        id_index_free(index);       /* GCOVR_EXCL_LINE */
+        PyErr_NoMemory();           /* GCOVR_EXCL_LINE */
+        return -1;                  /* GCOVR_EXCL_LINE */
+    }
+    cache->index = index;
+    *out = index;
+    return 0;
+}
+
+/* Every lookup in a tree of at most this many nodes walks it: such a walk costs less than building the index, and as
+   every node of the evaluation lies in its tree, it bounds each lookup. */
+#define XP_ID_INDEX_MIN_NODES 256
+
+static int id_position_order(const void *left, const void *right) {
+    const size_t first = *(const size_t *)left;
+    const size_t second = *(const size_t *)right;
+    return (first > second) - (first < second);
+}
+
+/* Append to found, in document order, the indexed element each token names. */
+static int id_index_select(const xp_id_index *index, const xp_id_token *slots, size_t mask, xp_nodeset *found) {
+    size_t *positions = PyMem_Malloc((mask + 1) * sizeof(size_t));
+    if (positions == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
+        PyErr_NoMemory();    /* GCOVR_EXCL_LINE */
+        return -1;           /* GCOVR_EXCL_LINE */
+    }
+    size_t count = 0;
+    for (size_t token = 0; token <= mask; token++) {
+        TH_WORK_STEP();
+        if (slots[token].value == NULL) {
+            continue;
+        }
+        size_t entry = *id_index_slot(index, slots[token].value, slots[token].len);
+        if (entry != 0) {
+            positions[count++] = entry - 1;
+        }
+    }
+    if (count > 1) {
+        qsort(positions, count, sizeof(size_t), id_position_order);
+    }
+    int rc = 0;
+    for (size_t position = 0; position < count; position++) {
+        if (ns_push(found, index->entries[positions[position]].node, -1) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            rc = -1;                                                            /* GCOVR_EXCL_LINE */
+        } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
+    }
+    PyMem_Free(positions);
+    return rc;
+}
+
+/* How far a function that gathers the string-value of each member has read its node-set. */
+typedef struct {
+    xp_caches **caches;
+    const xp_nodeset *set;
+    Py_ssize_t budget;      /* the steps comparing positions may still walk, as many as a sort of the set may */
+    th_node *top;           /* the last member that no earlier member contains */
+    th_node *at;            /* how far the walk of top's subtree has come: the last member met, NULL before the first */
+    Py_ssize_t last;        /* the index of the last member the walk met */
+    Py_ssize_t reach;       /* how far past top's subtree to look for the next member before comparing positions */
+    Py_ssize_t settled;     /* once the set is ranked, the index of its first member out of place; 0 before */
+    int unordered;          /* a member came before the one ahead of it, so the walk cannot tell what the rest repeat */
+    Py_ssize_t repeated;    /* characters the members inside one another have repeated so far */
+    Py_ssize_t next;        /* the index of the first member the walk has not read */
+    const xp_nodeset *kept; /* the members whose text the caller kept, when it keeps only some */
+    Py_ssize_t kept_at;     /* how many of the kept members the walk has read */
+} xp_gather;
+
+/* Whether the member at index lies past the subtree of top, which the walk left at end: the place of the next member
+   of a set in document order that is not inside top; -1 with MemoryError. It is mostly a few nodes on, so look ahead
+   before comparing its position with that of the member before it, since that climbs from both. Looking as far as the
+   deepest climb keeps the cost of the two in step where the tree is deep and the members lie far apart. The
+   comparisons share the budget a sort of the set has, and once they spend it the set is ranked once, as the sort
+   does, which settles the rest. */
+static int gather_follows(xp_gather *seen, th_node *end, Py_ssize_t index) {
+    if (seen->settled > 0) {
+        return index < seen->settled;
+    }
+    th_node *node = seen->set->items[index].node;
+    th_node *ahead = preorder_next(end, NULL);
+    for (Py_ssize_t steps = 0; ahead != NULL && ahead != node && steps < seen->reach; steps++) {
+        TH_WORK_STEP();
+        ahead = preorder_next(ahead, NULL);
+    }
+    if (ahead == NULL || ahead == node) {
+        return ahead == node;
+    }
+    Py_ssize_t depth = 0;
+    for (th_node *parent = node->parent; parent != NULL; parent = parent->parent) {
+        TH_WORK_STEP();
+        depth++;
+    }
+    if (depth > seen->reach) {
+        seen->reach = depth;
+    }
+    int order = xp_node_order(seen->caches, seen->set->items[seen->last].node, node, &seen->budget);
+    if (order != XP_ORDER_UNKNOWN) {
+        return order < 0;
+    }
+    seen->settled = xp_first_out_of_order(seen->caches, seen->set, seen->last);
+    if (seen->settled < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;           /* GCOVR_EXCL_LINE */
+    }
+    return index < seen->settled;
+}
+
+/* Whether an earlier member's string-value already holds the text of the member at index, as it does for a member
+   inside it; -1 with MemoryError. An element's string-value is the text of its whole subtree, so the values of nested
+   elements add up to the depth times the text, and the document chooses both: the callers charge what repeats to the
+   call's allowance. A node-set is in document order, so the members inside one follow it directly, and one walk of its
+   subtree, which reading its string-value makes as well, meets them all. The result of an extension function keeps the
+   order the function gave it; from the first member out of place on, every member counts as repeating. */
+static int gather_repeats(xp_gather *seen, Py_ssize_t index) {
+    if (seen->unordered) {
+        return 1;
+    }
+    xp_item item = seen->set->items[index];
+    if (item.attr != -1) {
+        return 0; /* no element's string-value holds an attribute or a namespace node */
+    }
+    th_node *end = seen->at;
+    while (seen->at != NULL && seen->at != item.node) {
+        TH_WORK_STEP();
+        end = seen->at;
+        seen->at = preorder_next(seen->at, seen->top);
+    }
+    if (seen->at != NULL) {
+        seen->last = index;
+        return item.node->type != TH_NODE_COMMENT; /* nor a comment */
+    }
+    int follows = end == NULL ? 1 : gather_follows(seen, end, index);
+    if (follows < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;     /* GCOVR_EXCL_LINE */
+    }
+    if (!follows) {
+        seen->unordered = 1;
+        return 1;
+    }
+    seen->top = item.node;
+    seen->at = item.node;
+    seen->last = index;
+    return 0;
+}
+
+/* What one call may gather of the text its members repeat: 10 MiB, the ceiling the regex engine puts on its buffers.
+   The text that the members of a set do not share is no longer than the document, so a call holds at most that plus
+   the allowance. The allowance is per call and not per evaluation: the result is a string or a set of existing nodes,
+   never members for another gathering call, so calls cannot multiply one another, and a predicate that gathers a
+   little for each of many candidates frees it between them. */
+#define XP_GATHER_ALLOWANCE (((Py_ssize_t)10 << 20) / (Py_ssize_t)sizeof(Py_UCS4))
+
+/* Count len characters against the allowance when the member at index of set repeats text; -1 with ValueError past
+   it, or with MemoryError. A caller only starts once it holds more than the allowance in all, since members cannot
+   repeat more than the call holds, which keeps the walk off every call that gathers less, and from then on calls for
+   each member it keeps. The first of those calls passes start, which sets seen up, so the callers' loops neither set
+   it up nor test whether it is. The members up to index the walk has not read yet are read here first, each
+   repeating one charged its string-value; when kept is not NULL it lists the members whose text the caller kept,
+   ending with the one at index, as set:distinct keeps only the first of equal values, and only those are charged. */
+static TH_NOINLINE int charge_repeated(xp_gather *seen, xp_ctx *ctx, const xp_nodeset *set, const xp_nodeset *kept,
+                                       Py_ssize_t index, Py_ssize_t len, int start) {
+    if (start) {
+        *seen = (xp_gather){.caches = ctx->caches, .set = set, .budget = xp_order_budget(set->len), .kept = kept};
+    }
+    struct th_tree *tree = ctx->tree;
+    for (; seen->next <= index; seen->next++) {
+        xp_item item = seen->set->items[seen->next];
+        int counted = seen->kept == NULL || xp_item_equal(seen->kept->items[seen->kept_at], item);
+        seen->kept_at += counted; /* unread when kept is NULL */
+        int repeats = gather_repeats(seen, seen->next);
+        if (repeats < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;     /* GCOVR_EXCL_LINE */
+        }
+        if (!repeats || !counted) {
+            continue;
+        }
+        Py_ssize_t each = len;
+        if (seen->next < index) {
+            Py_UCS4 *text = item_string(tree, item, &each);
+            if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;      /* GCOVR_EXCL_LINE */
+            }
+            PyMem_Free(text);
+        }
+        if (each > XP_GATHER_ALLOWANCE - seen->repeated) {
+            PyErr_Format(PyExc_ValueError,
+                         "xpath: node-set members inside one another repeat more than %zd characters (10 MiB) of text; "
+                         "select nodes that do not contain one another",
+                         XP_GATHER_ALLOWANCE);
+            return -1;
+        }
+        seen->repeated += each;
+    }
+    return 0;
+}
+
+/* id(object): for each whitespace-separated token in the argument's string-value (a node-set argument contributes the
+   string-value of each member), the first element in document order whose id attribute is that token. Out of line, so
+   its lookup loop keeps its registers instead of sharing eval_function's. */
+static TH_NOINLINE int eval_id(xp_ctx *ctx, xp_result *arg, xp_result *out) {
     memset(out, 0, sizeof(*out));
     out->kind = XP_NODESET;
     Py_UCS4 *list = NULL;
     Py_ssize_t list_len = 0;
     size_t capacity = 0;
     if (arg->kind == XP_NODESET) {
+        xp_gather seen;
         for (Py_ssize_t index = 0; index < arg->nodes.len; index++) {
             Py_ssize_t each;
             Py_UCS4 *text = item_string(ctx->tree, arg->nodes.items[index], &each);
@@ -541,11 +1100,19 @@ static int eval_id(xp_ctx *ctx, xp_result *arg, xp_result *out) {
                 PyMem_Free(list); /* GCOVR_EXCL_LINE */
                 return -1;        /* GCOVR_EXCL_LINE */
             }
-            const size_t limit = (size_t)PY_SSIZE_T_MAX / sizeof(Py_UCS4);
-            if ((size_t)each + 1 > limit - (size_t)list_len) { /* GCOVR_EXCL_BR_LINE: alloc */
-                PyMem_Free(text);                              /* GCOVR_EXCL_LINE */
-                PyMem_Free(list);                              /* GCOVR_EXCL_LINE */
-                return -1;                                     /* GCOVR_EXCL_LINE */
+            /* an overflow is past the allowance too, so the common short list checks once; >= counts the separator */
+            if (each >= XP_GATHER_ALLOWANCE - list_len) {
+                if (charge_repeated(&seen, ctx, &arg->nodes, NULL, index, each, list_len <= XP_GATHER_ALLOWANCE) < 0) {
+                    PyMem_Free(text);
+                    PyMem_Free(list);
+                    return -1;
+                }
+                const size_t limit = (size_t)PY_SSIZE_T_MAX / sizeof(Py_UCS4);
+                if ((size_t)each + 1 > limit - (size_t)list_len) { /* GCOVR_EXCL_BR_LINE: alloc */
+                    PyMem_Free(text);                              /* GCOVR_EXCL_LINE */
+                    PyMem_Free(list);                              /* GCOVR_EXCL_LINE */
+                    return -1;                                     /* GCOVR_EXCL_LINE */
+                }
             }
             const size_t needed = (size_t)list_len + (size_t)each + 1;
             if (needed > capacity) {
@@ -578,23 +1145,28 @@ static int eval_id(xp_ctx *ctx, xp_result *arg, xp_result *out) {
     }
     xp_id_token *ids;
     size_t id_mask;
-    if (id_token_set_build(list, list_len, &ids, &id_mask) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        PyMem_Free(list);                                         /* GCOVR_EXCL_LINE: allocation-failure path */
-        return -1;                                                /* GCOVR_EXCL_LINE */
+    int keyed;
+    if (id_token_set_build(list, list_len, &ids, &id_mask, &keyed) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyMem_Free(list);                                                 /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;                                                        /* GCOVR_EXCL_LINE */
     }
     int rc = 0;
-    for (struct th_node *node = tree_root(ctx->tree, ctx->node); node != NULL; node = document_next(node)) {
-        if (node->type != TH_NODE_ELEMENT) {
-            continue;
+    if (ids != NULL) {
+        struct th_node *node = tree_root(ctx);
+        xp_id_index *index = NULL;
+        if (th_tree_node_count(ctx->tree) > XP_ID_INDEX_MIN_NODES) {
+            rc = id_cache_index(ctx->tree, ctx->root->ids != NULL ? ctx->root->ids : &ctx->root->own, node, &index);
         }
-        for (Py_ssize_t index = 0; index < node->attr_count; index++) {
-            if (node->attrs[index].name_atom == TH_ATTR_ID &&
-                id_token_set_contains(ids, id_mask, node->attrs[index].value, node->attrs[index].value_len)) {
-                if (ns_push(&out->nodes, node, -1) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
-                    rc = -1;                              /* GCOVR_EXCL_LINE */
-                } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
-                break;
+        if (index != NULL) {
+            rc = id_index_select(index, ids, id_mask, &out->nodes);
+        } else if (rc == 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            if (!keyed) {
+                node = id_token_scan(ids, id_mask, 0, node, &out->nodes, &rc);
+                if (node != NULL) {
+                    id_token_set_rekey_claimed(list, list_len, ids, id_mask, &out->nodes);
+                }
             }
+            id_token_scan(ids, id_mask, 1, node, &out->nodes, &rc);
         }
     }
     PyMem_Free(ids);
@@ -672,8 +1244,10 @@ static int regex_test(xp_ctx *ctx, xp_result *args, int argc, xp_result *out) {
     Py_UCS4 *owned_pattern;
     int failed = string_arg(ctx->tree, &args[1], &pattern, &pattern_len, &owned_pattern);
     Py_UCS4 *input = to_string(ctx->tree, &args[0], &input_len);
+    xr_cache *cache = NULL;
     /* GCOVR_EXCL_BR_START: alloc */
-    if (failed < 0 || input == NULL || regex_flags(ctx->tree, argc >= 3 ? &args[2] : NULL, &flags, &global) < 0) {
+    if (failed < 0 || input == NULL || regex_flags(ctx->tree, argc >= 3 ? &args[2] : NULL, &flags, &global) < 0 ||
+        (cache = xp_regex_cache(ctx)) == NULL) {
         PyMem_Free(owned_pattern); /* GCOVR_EXCL_LINE */
         PyMem_Free(input);         /* GCOVR_EXCL_LINE */
         return -1;                 /* GCOVR_EXCL_LINE */
@@ -682,8 +1256,7 @@ static int regex_test(xp_ctx *ctx, xp_result *args, int argc, xp_result *out) {
     xr_error error;
     /* An empty computed string can have a null buffer; the regex cache compares pattern buffers with memcmp. */
     const Py_UCS4 empty_pattern = 0;
-    int found =
-        xr_test(ctx->regex_cache, pattern_len ? pattern : &empty_pattern, pattern_len, flags, input, input_len, &error);
+    int found = xr_test(cache, pattern_len ? pattern : &empty_pattern, pattern_len, flags, input, input_len, &error);
     PyMem_Free(owned_pattern);
     PyMem_Free(input);
     if (found < 0) {
@@ -705,18 +1278,21 @@ static int regex_replace(xp_ctx *ctx, xp_result *args, int argc, int exslt, xp_r
     Py_UCS4 *pattern = to_string(ctx->tree, &args[1], &pattern_len);
     Py_UCS4 *input = to_string(ctx->tree, &args[0], &input_len);
     Py_UCS4 *replacement = to_string(ctx->tree, &args[exslt ? 3 : 2], &replacement_len);
-    if (pattern == NULL || input == NULL || replacement == NULL || /* GCOVR_EXCL_BR_LINE: alloc */
-        regex_flags(ctx->tree, flags_arg, &flags, &global) < 0) {
+    xr_cache *cache = NULL;
+    /* GCOVR_EXCL_BR_START: alloc */
+    if (pattern == NULL || input == NULL || replacement == NULL ||
+        regex_flags(ctx->tree, flags_arg, &flags, &global) < 0 || (cache = xp_regex_cache(ctx)) == NULL) {
         PyMem_Free(pattern);     /* GCOVR_EXCL_LINE */
         PyMem_Free(input);       /* GCOVR_EXCL_LINE */
         PyMem_Free(replacement); /* GCOVR_EXCL_LINE */
         return -1;               /* GCOVR_EXCL_LINE */
     }
+    /* GCOVR_EXCL_BR_STOP */
     xr_error error;
     Py_UCS4 *result;
     Py_ssize_t result_len;
-    int rc = xr_replace(ctx->regex_cache, pattern, pattern_len, flags, input, input_len, replacement, replacement_len,
-                        !exslt, exslt && !global, &result, &result_len, &error);
+    int rc = xr_replace(cache, pattern, pattern_len, flags, input, input_len, replacement, replacement_len, !exslt,
+                        exslt && !global, &result, &result_len, &error);
     PyMem_Free(pattern);
     PyMem_Free(input);
     PyMem_Free(replacement);
@@ -754,11 +1330,21 @@ static int case_convert(struct th_tree *tree, xp_result *arg, int to_upper, xp_r
     return 0;
 }
 
+/* Charge `copies` strings of `length` characters that a replace, join or padding adds beyond its inputs. */
+static int charge_growth(xp_ctx *ctx, Py_ssize_t length, Py_ssize_t copies) {
+    xr_cache *cache = xp_regex_cache(ctx);
+    if (cache == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;       /* GCOVR_EXCL_LINE */
+    }
+    return xr_charge_growth(cache, length, copies);
+}
+
 /* string-join(seq, sep): the string-values of the node-set members joined by the
    separator -- the XPath-1.0-engine reading of fn:string-join, where a node-set is the
    sequence (antchfx does the same). A non-node-set first argument is the lone item, so
    its string-value passes through unseparated. */
-static int string_join(struct th_tree *tree, xp_result *args, xp_result *out) {
+static int string_join(xp_ctx *ctx, xp_result *args, xp_result *out) {
+    struct th_tree *tree = ctx->tree;
     Py_ssize_t sep_len;
     Py_UCS4 *sep = to_string(tree, &args[1], &sep_len);
     if (sep == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
@@ -766,6 +1352,11 @@ static int string_join(struct th_tree *tree, xp_result *args, xp_result *out) {
     }
     int is_set = args[0].kind == XP_NODESET;
     Py_ssize_t count = is_set ? args[0].nodes.len : 1;
+    /* the first copy is the separator itself, an input already; the copies after it can come from empty members */
+    if (count > 2 && sep_len > 0 && charge_growth(ctx, sep_len, count - 2) < 0) {
+        PyMem_Free(sep);
+        return -1;
+    }
     Py_UCS4 **parts = PyMem_Calloc((size_t)count, sizeof(Py_UCS4 *));
     Py_ssize_t *lens = PyMem_Calloc((size_t)count, sizeof(Py_ssize_t));
     if (parts == NULL || lens == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
@@ -776,6 +1367,8 @@ static int string_join(struct th_tree *tree, xp_result *args, xp_result *out) {
     }
     int rc = 0;
     Py_ssize_t total = count > 0 ? sep_len * (count - 1) : 0;
+    Py_ssize_t text_total = 0;
+    xp_gather seen;
     for (Py_ssize_t index = 0; index < count; index++) {
         parts[index] = is_set ? item_string(tree, args[0].nodes.items[index], &lens[index])
                               : to_string(tree, &args[0], &lens[index]);
@@ -783,8 +1376,15 @@ static int string_join(struct th_tree *tree, xp_result *args, xp_result *out) {
             rc = -1;                /* GCOVR_EXCL_LINE */
         } /* GCOVR_EXCL_LINE */
         total += lens[index];
+        text_total += lens[index];
+        if (is_set && text_total > XP_GATHER_ALLOWANCE &&
+            charge_repeated(&seen, ctx, &args[0].nodes, NULL, index, lens[index],
+                            text_total - lens[index] <= XP_GATHER_ALLOWANCE) < 0) {
+            rc = -1;
+            break;
+        }
     }
-    if (rc == 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+    if (rc == 0) {
         Py_UCS4 *buf = PyMem_Malloc((size_t)total * sizeof(Py_UCS4));
         if (buf == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
             rc = -1;       /* GCOVR_EXCL_LINE */
@@ -908,8 +1508,10 @@ static int set_has_same_node(const xp_result *args, xp_result *out) {
     return 0;
 }
 
+static int concat_item_view(th_tree *tree, xp_item item, const Py_UCS4 **part, Py_ssize_t *len, Py_UCS4 **owned);
+
 /* set:distinct: the first member, in document order, of every distinct string-value. */
-static int set_distinct(struct th_tree *tree, const xp_result *arg, xp_result *out) {
+static int set_distinct(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
     memset(out, 0, sizeof(*out));
     out->kind = XP_NODESET;
     const xp_nodeset *nodes = &arg->nodes;
@@ -923,16 +1525,22 @@ static int set_distinct(struct th_tree *tree, const xp_result *arg, xp_result *o
     if (seen == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return -1;      /* GCOVR_EXCL_LINE: allocation failure */
     }
+    struct th_tree *tree = ctx->tree;
     int rc = 0;
+    xp_gather walk;
+    Py_ssize_t spare = XP_GATHER_ALLOWANCE;
     for (Py_ssize_t index = 0; index < nodes->len; index++) {
         Py_ssize_t candidate_len;
-        Py_UCS4 *candidate = item_string(tree, nodes->items[index], &candidate_len);
-        if (candidate == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
-            rc = -1;             /* GCOVR_EXCL_LINE */
-            break;               /* GCOVR_EXCL_LINE */
+        Py_UCS4 *owned;
+        const Py_UCS4 *candidate;
+        /* GCOVR_EXCL_BR_START: allocation failure cannot be forced */
+        if (concat_item_view(tree, nodes->items[index], &candidate, &candidate_len, &owned) < 0) {
+            rc = -1; /* GCOVR_EXCL_LINE: allocation failure */
+            break;   /* GCOVR_EXCL_LINE: allocation failure */
         }
+        /* GCOVR_EXCL_BR_STOP */
         PyObject *text = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, candidate, candidate_len);
-        PyMem_Free(candidate);
+        PyMem_Free(owned);
         if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             rc = -1;        /* GCOVR_EXCL_LINE: allocation failure */
             break;          /* GCOVR_EXCL_LINE: allocation failure */
@@ -949,12 +1557,19 @@ static int set_distinct(struct th_tree *tree, const xp_result *arg, xp_result *o
                 rc = -1;                                              /* GCOVR_EXCL_LINE */
                 break;                                                /* GCOVR_EXCL_LINE: allocation failure */
             } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
+            /* the set keeps each distinct value until the end, so those of nested members add up as well */
+            spare -= candidate_len;
+            if (spare < 0 &&
+                charge_repeated(&walk, ctx, nodes, &out->nodes, index, candidate_len, spare + candidate_len >= 0) < 0) {
+                rc = -1;
+                break;
+            }
         }
     }
     Py_DECREF(seen);
-    if (rc < 0) {                     /* GCOVR_EXCL_BR_LINE: alloc */
-        xp_nodeset_free(&out->nodes); /* GCOVR_EXCL_LINE */
-    } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
+    if (rc < 0) {
+        xp_nodeset_free(&out->nodes);
+    }
     return rc;
 }
 
@@ -1031,11 +1646,13 @@ static int concat_item_view(th_tree *tree, xp_item item, const Py_UCS4 **part, P
 }
 
 /* str:concat(node-set): the string-values of every member joined in document order. */
-static int str_concat(struct th_tree *tree, const xp_result *arg, xp_result *out) {
+static int str_concat(xp_ctx *ctx, const xp_result *arg, xp_result *out) {
+    struct th_tree *tree = ctx->tree;
     const xp_nodeset *nodes = &arg->nodes;
     Py_UCS4 *buf = NULL;
     Py_ssize_t total = 0;
     size_t capacity = 0;
+    xp_gather seen;
     for (Py_ssize_t index = 0; index < nodes->len; index++) {
         Py_ssize_t part_len;
         Py_UCS4 *owned;
@@ -1044,11 +1661,19 @@ static int str_concat(struct th_tree *tree, const xp_result *arg, xp_result *out
             PyMem_Free(buf);                                                             /* GCOVR_EXCL_LINE */
             return -1;                                                                   /* GCOVR_EXCL_LINE */
         }
-        const size_t limit = (size_t)PY_SSIZE_T_MAX / sizeof(Py_UCS4);
-        if ((size_t)part_len > limit - (size_t)total) { /* GCOVR_EXCL_BR_LINE: alloc */
-            PyMem_Free(owned);                          /* GCOVR_EXCL_LINE */
-            PyMem_Free(buf);                            /* GCOVR_EXCL_LINE */
-            return -1;                                  /* GCOVR_EXCL_LINE */
+        /* an overflow is past the allowance too, so the common short total checks once */
+        if (part_len > XP_GATHER_ALLOWANCE - total) {
+            if (charge_repeated(&seen, ctx, nodes, NULL, index, part_len, total <= XP_GATHER_ALLOWANCE) < 0) {
+                PyMem_Free(owned);
+                PyMem_Free(buf);
+                return -1;
+            }
+            const size_t limit = (size_t)PY_SSIZE_T_MAX / sizeof(Py_UCS4);
+            if ((size_t)part_len > limit - (size_t)total) { /* GCOVR_EXCL_BR_LINE: alloc */
+                PyMem_Free(owned);                          /* GCOVR_EXCL_LINE */
+                PyMem_Free(buf);                            /* GCOVR_EXCL_LINE */
+                return -1;                                  /* GCOVR_EXCL_LINE */
+            }
         }
         const size_t needed = (size_t)total + (size_t)part_len;
         if (needed > capacity) {
@@ -1086,8 +1711,10 @@ static int str_concat(struct th_tree *tree, const xp_result *arg, xp_result *out
 
 /* str:replace(string, search, replace): every non-overlapping literal occurrence of
    `search` in `string` swapped for `replace`. An empty `search` leaves the input
-   untouched (no zero-width match loop). */
-static int str_replace(struct th_tree *tree, const xp_result *args, xp_result *out) {
+   untouched (no zero-width match loop). Out of line, so its match loop keeps its own registers: inlined, it shares
+   them with all of eval_function and moves a pointer to the stack whenever another function there changes. */
+static TH_NOINLINE int str_replace(xp_ctx *ctx, const xp_result *args, xp_result *out) {
+    struct th_tree *tree = ctx->tree;
     Py_ssize_t src_len;
     Py_ssize_t search_len;
     Py_ssize_t repl_len;
@@ -1124,6 +1751,12 @@ static int str_replace(struct th_tree *tree, const xp_result *args, xp_result *o
         return -1;          /* GCOVR_EXCL_LINE: allocation size overflow */
     }
     const Py_ssize_t out_len = (Py_ssize_t)(retained + (size_t)count * (size_t)repl_len);
+    if (out_len > src_len && charge_growth(ctx, out_len - src_len, 1) < 0) {
+        PyMem_Free(src);
+        PyMem_Free(search);
+        PyMem_Free(repl);
+        return -1;
+    }
     Py_UCS4 *buf = PyMem_Malloc((size_t)(out_len > 0 ? out_len : 1) * sizeof(Py_UCS4));
     if (buf == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure */
         PyMem_Free(src);    /* GCOVR_EXCL_LINE */
@@ -1151,7 +1784,8 @@ static int str_replace(struct th_tree *tree, const xp_result *args, xp_result *o
 
 /* str:padding(length, pattern?): a string of `length` characters built by cycling
    `pattern` (a single space by default). An empty pattern pads with spaces. */
-static int str_padding(struct th_tree *tree, const xp_result *args, int argc, xp_result *out) {
+static int str_padding(xp_ctx *ctx, const xp_result *args, int argc, xp_result *out) {
+    struct th_tree *tree = ctx->tree;
     double requested = round(to_number(tree, &args[0]));
     /* source data can supply the length, so a tiny document could size a huge allocation; the ceiling is libexslt's
        (strings.c, df878571), raised as an error since truncating would contradict the EXSLT definition */
@@ -1175,6 +1809,10 @@ static int str_padding(struct th_tree *tree, const xp_result *args, int argc, xp
             return -1;             /* GCOVR_EXCL_LINE */
         }
         pattern = pattern_buf;
+    }
+    if (target > pattern_len && charge_growth(ctx, target - pattern_len, 1) < 0) {
+        PyMem_Free(pattern_buf);
+        return -1;
     }
     Py_UCS4 *buf = PyMem_Malloc((size_t)target * sizeof(Py_UCS4));
     if (buf == NULL) {           /* GCOVR_EXCL_BR_LINE: alloc */
@@ -1500,6 +2138,18 @@ int xp_pattern_is_static(const xp_program *prog) {
     return 1;
 }
 
+/* Whether the pattern reads a variable or calls a function outside the core set, so its matches can differ between
+   two evaluations over one source. A prefixed name test cannot: its namespace is fixed where the pattern is written. */
+int xp_pattern_reads_call(const xp_program *prog) {
+    for (int32_t index = 0; index < prog->count; index++) {
+        const xn *node = &prog->nodes[index];
+        if (node->kind == XN_VAR || (node->kind == XN_FUNC && func_signature(node) == NULL)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* A fresh Python str of the called function's name, for an error message. */
 static PyObject *function_name(const xn *fn) {
     return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, fn->str, fn->str_len);
@@ -1558,12 +2208,14 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
     }
     xp_live_frame frame;
     if (ctx->live != NULL) {
-        frame = (xp_live_frame){.results = args, .result_count = argc};
+        frame = (xp_live_frame){.results = args}; /* result_count follows the arguments as they are stored */
         xp_live_enter(ctx, &frame);
     }
     int filled = 0;
+    int condition = func_is(fn, "not") || func_is(fn, "boolean"); /* the argument is only read by to_boolean() */
     for (int32_t arg_node = fn->first; arg_node >= 0; arg_node = prog->nodes[arg_node].next) {
-        int arg_rc = eval_expr(prog, arg_node, ctx, &args[filled]);
+        int arg_rc = condition ? eval_held(prog, arg_node, ctx, &args[filled], 1)
+                               : eval_held(prog, arg_node, ctx, &args[filled], 0);
         if (arg_rc < 0) {
             xp_live_leave(ctx, &frame);
             for (int cleanup_index = 0; cleanup_index < filled; cleanup_index++) {
@@ -1575,7 +2227,9 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
             return arg_rc;
         }
         filled++;
-        xp_live_changed(ctx);
+        if (ctx->live != NULL) {
+            frame.result_count = filled;
+        }
     }
     int rc = 0;
     if (func_is(fn, "true") || func_is(fn, "false")) {
@@ -1687,19 +2341,19 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
             *ctx->feature = "set:distinct on a non-node-set";
             rc = -4;
         } else if ((rc = xp_before_python(ctx)) == 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            rc = set_distinct(ctx->tree, &args[0], out);
+            rc = set_distinct(ctx, &args[0], out);
         }
     } else if (func_is(fn, "str:concat")) {
         if (args[0].kind != XP_NODESET) {
             *ctx->feature = "str:concat on a non-node-set";
             rc = -4;
         } else {
-            rc = str_concat(ctx->tree, &args[0], out);
+            rc = str_concat(ctx, &args[0], out);
         }
     } else if (func_is(fn, "str:replace")) {
-        rc = str_replace(ctx->tree, args, out);
+        rc = str_replace(ctx, args, out);
     } else if (func_is(fn, "str:padding")) {
-        rc = str_padding(ctx->tree, args, argc, out);
+        rc = str_padding(ctx, args, argc, out);
     } else if (func_is(fn, "str:align")) {
         rc = str_align(ctx->tree, args, argc, out);
     } else if (func_is(fn, "math:min") || func_is(fn, "math:max") || func_is(fn, "math:highest") ||
@@ -1797,7 +2451,7 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
         PyMem_Free(hay);
         PyMem_Free(needle);
     } else if (func_is(fn, "string-join")) {
-        rc = string_join(ctx->tree, args, out);
+        rc = string_join(ctx, args, out);
     } else if (func_is(fn, "lower-case") || func_is(fn, "upper-case")) {
         if ((rc = xp_before_python(ctx)) == 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             rc = case_convert(ctx->tree, &args[0], func_is(fn, "upper-case"), out);
@@ -1805,8 +2459,10 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
     } else if (func_is(fn, "replace")) {
         rc = regex_replace(ctx, args, argc, 0, out);
     } else if (ctx->extension != NULL) {
+        ctx->root->mixed = 1; /* the result can lie in any subtree, and Python can move this tree's own nodes */
         if ((rc = xp_before_python(ctx)) == 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            rc = ctx->extension(ctx->extension_ctx, ctx->node, fn->str, fn->str_len, args, argc, out);
+            rc = ctx->extension(ctx->extension_ctx, (xp_item){ctx->node, ctx->attr}, fn->str, fn->str_len, args, argc,
+                                out);
         }
         if (rc == -2) {
             rc = raise_unknown_function(fn);
@@ -1824,7 +2480,7 @@ int eval_function(const xp_program *prog, int32_t idx, xp_ctx *ctx, xp_result *o
     return rc;
 }
 
-PyObject *turbohtml_xpath_parse(PyObject *Py_UNUSED(module), PyObject *arg) {
+PyObject *turbohtml_xpath_parse(PyObject *module, PyObject *arg) {
     if (!PyUnicode_Check(arg)) {
         PyErr_SetString(PyExc_TypeError, "xpath expression must be a str");
         return NULL;
@@ -1835,7 +2491,8 @@ PyObject *turbohtml_xpath_parse(PyObject *Py_UNUSED(module), PyObject *arg) {
         return NULL;   /* GCOVR_EXCL_LINE */
     }
     char err[128];
-    xp_program *prog = xp_compile(src, len, err, sizeof(err));
+    module_state *state = PyModule_GetState(module);
+    xp_program *prog = xp_compile(src, len, err, sizeof(err), state->xpath_depth_error);
     PyMem_Free(src);
     if (prog == NULL) {
         if (!PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: allocation error */

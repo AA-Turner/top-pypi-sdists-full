@@ -57,8 +57,7 @@ class HeatMapWithTime(JSCSSMixin, Layer):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro header(this, kwargs) %}
             <script>
             var TDHeatmap = L.TimeDimension.Layer.extend({
@@ -184,8 +183,7 @@ class HeatMapWithTime(JSCSSMixin, Layer):
                 });
 
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -288,15 +286,16 @@ class HeatMapWithTime(JSCSSMixin, Layer):
 
         """
         bounds = [[None, None], [None, None]]
-        for point in self.data:
-            bounds = [
-                [
-                    none_min(bounds[0][0], point[0]),
-                    none_min(bounds[0][1], point[1]),
-                ],
-                [
-                    none_max(bounds[1][0], point[0]),
-                    none_max(bounds[1][1], point[1]),
-                ],
-            ]
+        for points in self.data:
+            for point in points:
+                bounds = [
+                    [
+                        none_min(bounds[0][0], point[0]),
+                        none_min(bounds[0][1], point[1]),
+                    ],
+                    [
+                        none_max(bounds[1][0], point[0]),
+                        none_max(bounds[1][1], point[1]),
+                    ],
+                ]
         return bounds

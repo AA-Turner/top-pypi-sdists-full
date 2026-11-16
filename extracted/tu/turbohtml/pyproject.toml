@@ -1,10 +1,11 @@
 [build-system]
-build-backend = "mesonpy"
+build-backend = "python_sbom.backend"
 requires = [
   "meson>=1.12.1",
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "patchelf>=0.11; sys_platform=='linux'",
+  "python-sbom>=0.2",
 ]
 
 [project]
@@ -103,6 +104,7 @@ test = [
   "pytest-mock>=3.16",
   "pytest-run-parallel>=0.10", # runs each test in many threads to surface free-threaded data races
   "pytest-xdist>=3.8",
+  "python-sbom>=0.2",
   "tenacity>=9.1.4",           # the retry policy wrapping every tools/ HTTP fetch (httpfetch.py)
   "tinycss2>=1.5.1",           # preserve nested CSS contexts during structural reduction
   "typing-extensions>=4.16",
@@ -199,6 +201,7 @@ build = [
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "patchelf>=0.11; sys_platform=='linux'",
+  "python-sbom>=0.2",
   "setuptools>=80",
 ]
 coverage = [
@@ -214,6 +217,7 @@ fuzz-build = [
   "meson>=1.12.1",
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
+  "python-sbom>=0.2",
   "tinycss2>=1.5.1",
   "typing-extensions>=4.16",
 ]
@@ -228,6 +232,7 @@ pgo = [
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "patchelf>=0.11; sys_platform=='linux'",
+  "python-sbom>=0.2",
   "tenacity>=9.1.4",
 ]
 pkg-meta = [
@@ -333,11 +338,17 @@ lint.select = [
 lint.ignore = [
   "CPY",                                       # no copyright statements
   "DOC",                                       # no support yet
-  "incorrect-blank-line-before-class",         # incompatible with D211
+  "incorrect-blank-line-before-class",         # incompatible with blank-line-before-class
   "magic-value-comparison",                    # comparing against literal numbers is clear enough on its own
   "missing-trailing-comma",                    # conflicts with the formatter
-  "multi-line-summary-first-line",             # incompatible with D213
+  "multi-line-summary-first-line",             # incompatible with multi-line-summary-second-line
   "single-line-implicit-string-concatenation", # conflicts with the formatter
+  "undocumented-magic-method",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-class",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-function",              # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-init",                  # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-method",                # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-nested-class",          # undocumented-public-api (simplint) covers the public API instead
 ]
 lint.per-file-ignores."docs/conf.py" = [
   "any-type",                   # the autodoc-engine wrappers forward Sphinx's arbitrary *args/**kwargs
@@ -353,8 +364,10 @@ lint.per-file-ignores."tests/**/*.py" = [
   "assert",                     # asserts allowed in tests
   "D",                          # don't document tests
   "implicit-namespace-package", # no implicit namespace
-  "import-private-name",        # the conformance harness drives the private _html._tokenize_states hook
-  "private-member-access",      # same private hook
+]
+lint.per-file-ignores."tests/_html/**/*.py" = [
+  "import-private-name",   # these tests mirror the native extension
+  "private-member-access", # fuzz-only hooks have no public wrapper
 ]
 lint.per-file-ignores."tests/conformance/test_cssom_jsdom_conformance.py" = [
   "suspicious-non-cryptographic-random-usage", # deterministic grammar seeds reproduce public parser cases
@@ -421,6 +434,10 @@ environment.python-version = "3.15"
 ini_options.testpaths = [
   "tests",
 ]
+ini_options.pythonpath = [
+  "tools",
+  "tests", # spawned search workers import amplify_seam by name
+]
 # the default set drops "build", which would silently skip tests/build (it mirrors turbohtml.build);
 # testpaths is tests only, so no build artifact dir is ever swept
 ini_options.norecursedirs = [ "*.egg", ".*", "_darcs", "{arch}", "CVS", "dist", "node_modules", "venv" ]
@@ -450,12 +467,12 @@ ini_options.filterwarnings = [
 # from portable coverage; the oracle marker scopes exclusions within consolidated modules.
 run.omit = [
   ".tox/*/cbuild/*",                                   # generated editable-build files can be imported during another tox env's run
+  "tests/_html/fuzz/test_self_test.py",                # dedicated fuzz-only and Atheris checks run in their own envs
   "tests/benchmarks/*",                                # run only under --codspeed (the CI benchmark job), never in the coverage run
   "tests/conformance/test_c14n_conformance.py",        # runs only in the dedicated conformance env; the matrix deselects tests/conformance
   "tests/conformance/test_cssom_jsdom_conformance.py", # differential oracle: skips when the node/jsdom toolchain is absent
   "tests/conformance/test_dom_jsdom_differential.py",
   "tests/conformance/test_xml_conformance.py",
-  "tests/test_fuzz_self_test.py",                      # dedicated fuzz-only and Atheris checks run in their own envs
 ]
 run.parallel = true
 run.plugins = [
@@ -498,6 +515,10 @@ type = [
   { directory = "packaging", name = "Packaging", showcontent = true },
 ]
 
+[tool.python-sbom]
+build-backend = "mesonpy"
+supplier = { name = "tox-dev", url = [ "https://github.com/tox-dev" ] }
+
 [tool.nab]
 mode = "universal"
 base-group = "project-runtime"
@@ -507,11 +528,11 @@ decision-order = "stable"
 matrix.python = ">=3.15,<3.16"
 matrix.platforms = [ "linux_x86_64", "linux_aarch64", "macos_arm64", "windows_amd64" ]
 # release-creator 4.4.0 needs a seven-day cutoff exception.
-# expires 2026-11-09
+# expires 2026-11-17
 packages.release-creator.uploaded-prior-to = 2026-11-02T21:45:00Z
-# ty 0.0.99, which renamed unresolved-import to import-not-found, needs one through 2026-11-13.
-# expires 2026-11-13
-packages.ty.uploaded-prior-to = 2026-11-06T10:14:00Z
+# python-sbom 0.2.0 needs a seven-day cutoff exception.
+# expires 2026-11-16
+packages.python-sbom.uploaded-prior-to = 2026-11-09T19:56:00Z
 
 [[tool.nab.package-rules]]
 match = [ "csscompressor" ]
@@ -583,3 +604,6 @@ match = [ "jieba3k" ]
 allow-zip-sdists = true
 assume-universal-deps = true
 build-policy = "build-remote"
+
+[tool.simplint]
+docstring-style = "rst"

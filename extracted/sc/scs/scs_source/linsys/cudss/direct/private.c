@@ -121,6 +121,47 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
   CUDSS_CHECK_ABORT(cudssDataCreate(p->handle, &p->solver_data), p,
                     "cudssDataCreate");
 
+  /* Plain LDL' with no pivoting, matching or refinement, as in the CPU direct
+   * solver (QDLDL): the KKT matrix [R_x + P, A'; A, -R_y] is quasi-definite,
+   * so the factorization exists under any ordering. From version 1.0 cuDSS by
+   * default applies a matching to a symmetric indefinite matrix. With its
+   * default pivoting that makes the factor up to four times larger (2.4 times
+   * in geometric mean on 17 LPs and QPs), and without pivoting it made the
+   * solves inaccurate enough to stall SCS on some LPs. Tradeoff: one solve
+   * per iteration, but the accuracy of a solve rests on the conditioning of
+   * the system (worst test-suite residual 6e-8, against 5e-11 with cuDSS's
+   * default pivoting and matching).
+   *
+   * Single precision keeps one refinement step per solve, which about doubles
+   * the cost of a solve: without it the test suite fails (rob_gauss_cov_est
+   * does not converge), and Bunch-Kaufman pivoting instead of refinement does
+   * not fix that. */
+  {
+    cudssPivotType_t pivot_type = CUDSS_PIVOT_NONE;
+#ifdef SFLOAT
+    int ir_n_steps = 1;
+#else
+    int ir_n_steps = 0; /* cuDSS's default, set so that it stays fixed */
+#endif
+    CUDSS_CHECK_ABORT(cudssConfigSet(p->solver_config, CUDSS_CONFIG_PIVOT_TYPE,
+                                     &pivot_type, sizeof(pivot_type)),
+                      p, "cudssConfigSet: pivot type");
+    CUDSS_CHECK_ABORT(cudssConfigSet(p->solver_config, CUDSS_CONFIG_IR_N_STEPS,
+                                     &ir_n_steps, sizeof(ir_n_steps)),
+                      p, "cudssConfigSet: refinement steps");
+#if defined(CUDSS_VERSION) && CUDSS_VERSION >= 10000
+    /* cuDSS 1.0 turned matching on by default (CUDSS_MATCHING_ALG_AUTO).
+     * Older versions do not match unless asked to (0.5 has no matching, 0.6
+     * and 0.7 default to CUDSS_CONFIG_USE_MATCHING = 0, 0.8 to
+     * CUDSS_MATCHING_ALG_NONE), so they need no call. */
+    cudssMatchingAlg_t matching_alg = CUDSS_MATCHING_ALG_NONE;
+    CUDSS_CHECK_ABORT(cudssConfigSet(p->solver_config,
+                                     CUDSS_CONFIG_MATCHING_ALG, &matching_alg,
+                                     sizeof(matching_alg)),
+                      p, "cudssConfigSet: matching");
+#endif
+  }
+
   /* Allocate device memory for KKT matrix */
   scs_int nnz = p->kkt->p[p->n_plus_m];
 
@@ -208,7 +249,14 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
                                  p->d_sol_mat, p->d_b_mat),
                     p, "cudssExecute: factorization");
 
-  /* Inertia check: verify P is PSD by checking positive eigenvalue count */
+  /* Inertia check. The KKT matrix has n positive eigenvalues exactly when
+   * R_x + P + A' R_y^{-1} A is positive definite, which holds whenever P is
+   * PSD. Fewer means P is not PSD (a P that is only mildly indefinite can
+   * still pass). cuDSS returns the two counts in the matrix's index type
+   * (SCS_CUDA_INDEX): 64-bit integers under DLONG, where it writes 16 bytes,
+   * and 32-bit ones otherwise, where it rejects a 16-byte buffer (cuDSS 1.0.0).
+   * scs_int follows DLONG in the same way, so it matches; test_non_psd_p
+   * covers both widths. */
   {
     scs_int inertia[2]; /* [0] = positive, [1] = negative */
     size_t inertia_written;
@@ -217,7 +265,7 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
                      sizeof(inertia), &inertia_written),
         p, "cudssDataGet: inertia");
     if (inertia[0] < p->n) {
-      scs_printf("KKT matrix has < n positive eigenvalues. P not PSD.");
+      scs_printf("KKT matrix has < n positive eigenvalues. P not PSD.\n");
       scs_free_lin_sys_work(p);
       return SCS_NULL;
     }

@@ -22,6 +22,7 @@ from folium.plugins.minimap import MiniMap
 from folium.plugins.mouse_position import MousePosition
 from folium.plugins.overlapping_marker_spiderfier import OverlappingMarkerSpiderfier
 from folium.plugins.pattern import CirclePattern, StripePattern
+from folium.plugins.polyline_decorator import PolyLineDecorator
 from folium.plugins.polyline_offset import PolyLineOffset
 from folium.plugins.polyline_text_path import PolyLineTextPath
 from folium.plugins.realtime import Realtime
@@ -37,6 +38,12 @@ from folium.plugins.timestamped_geo_json import TimestampedGeoJson
 from folium.plugins.timestamped_wmstilelayer import TimestampedWmsTileLayers
 from folium.plugins.treelayercontrol import TreeLayerControl
 from folium.plugins.vectorgrid_protobuf import VectorGridProtobuf
+from folium.plugins.webgl_earth import (
+    WebGLEarth,
+    WebGLEarthMarker,
+    WebGLEarthRealtime,
+    WebGLEarthTileLayer,
+)
 
 __all__ = [
     "AntPath",
@@ -63,6 +70,7 @@ __all__ = [
     "PolygonFromEncoded",
     "PolyLineFromEncoded",
     "PolyLineTextPath",
+    "PolyLineDecorator",
     "PolyLineOffset",
     "Realtime",
     "ScrollZoomToggler",
@@ -79,4 +87,8 @@ __all__ = [
     "TimestampedWmsTileLayers",
     "TreeLayerControl",
     "VectorGridProtobuf",
+    "WebGLEarth",
+    "WebGLEarthMarker",
+    "WebGLEarthTileLayer",
+    "WebGLEarthRealtime",
 ]

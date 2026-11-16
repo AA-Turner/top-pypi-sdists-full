@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-bugbear
-Version: 26.11.9
+Version: 26.11.16
 Summary: A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle.
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License: MIT
@@ -96,6 +96,10 @@ Development
 
 If you'd like to do a PR we have development instructions `here <https://github.com/PyCQA/flake8-bugbear/blob/master/DEVELOPMENT.md>`_.
 
+When adding a code example to a warning below, label the snippets with
+``# Avoid:`` and ``# Prefer:`` comments, and link to the warning's test file
+under ``tests/eval_files/`` for more examples.
+
 List of warnings
 ----------------
 
@@ -142,6 +146,22 @@ are created during function definition time. All calls to the function
 reuse this one instance of that data structure, persisting changes
 between them.
 
+.. code-block:: python
+
+    # Avoid: calls share the same list.
+    def add_item(item, items=[]):
+        items.append(item)
+        return items
+
+    # Prefer: create a list for each call that omits items.
+    def add_item(item, items=None):
+        if items is None:
+            items = []
+        items.append(item)
+        return items
+
+More examples: `B006 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b006_b008.py>`_.
+
 .. _B007:
 
 **B007**: Loop control variable not used within the loop body.  If this is
@@ -154,6 +174,22 @@ performed only once at function definition time. All calls to your
 function will reuse the result of that definition-time function call.  If
 this is intended, assign the function call to a module-level variable and
 use that variable as a default value.
+
+.. code-block:: python
+
+    from datetime import datetime
+
+    # Avoid: the default timestamp is fixed when the function is defined.
+    def log(message, timestamp=datetime.now()):
+        print(timestamp, message)
+
+    # Prefer: get the current time for each call that omits timestamp.
+    def log(message, timestamp=None):
+        if timestamp is None:
+            timestamp = datetime.now()
+        print(timestamp, message)
+
+More examples: `B008 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b006_b008.py>`_.
 
 .. _B009:
 
@@ -197,6 +233,16 @@ Write ``except Exception:``, which catches exactly the same exceptions.
 **B015**: Pointless comparison. This comparison does nothing but
 waste CPU instructions. Either prepend ``assert`` or remove it.
 
+.. code-block:: python
+
+    # Avoid: the comparison result is discarded.
+    sum([1, 2]) == 3
+
+    # Prefer: fail the test if the result differs.
+    assert sum([1, 2]) == 3
+
+More examples: `B015 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b015.py>`_.
+
 .. _B016:
 
 **B016**: Cannot raise a literal. Did you intend to return it or raise
@@ -211,6 +257,20 @@ specific exception (builtin or custom), or use ``assertRaisesRegex``
 (if using ``assertRaises``), or add the ``match`` keyword argument (if
 using ``pytest.raises``), or use the context manager form with a target
 (e.g. ``with self.assertRaises(Exception) as ex:``).
+
+.. code-block:: python
+
+    import pytest
+
+    # Avoid: an unrelated exception can make the test pass.
+    with pytest.raises(Exception):
+        int("not a number")
+
+    # Prefer: check for the expected exception type.
+    with pytest.raises(ValueError):
+        int("not a number")
+
+More examples: `B017 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b017.py>`_.
 
 .. _B018:
 
@@ -258,6 +318,22 @@ positives due to similarly named user-defined functions.
 **B023**: Functions defined inside a loop must not use variables redefined in
 the loop, because `late-binding closures are a classic gotcha
 <https://docs.python-guide.org/writing/gotchas/#late-binding-closures>`__.
+
+.. code-block:: python
+
+    # Avoid: callbacks read i after the loop has finished.
+    callbacks = []
+    for i in range(3):
+        callbacks.append(lambda: i)
+    print([callback() for callback in callbacks])  # [2, 2, 2]
+
+    # Prefer: capture each iteration's value.
+    callbacks = []
+    for i in range(3):
+        callbacks.append(lambda i=i: i)
+    print([callback() for callback in callbacks])  # [0, 1, 2]
+
+More examples: `B023 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b023.py>`_.
 
 .. _B024:
 
@@ -308,6 +384,20 @@ second usage. Save the result to a list if the result is needed multiple times.
 .. _B032:
 
 **B032**: Possible unintentional type annotation (using ``:``). Did you mean to assign (using ``=``)?
+
+.. code-block:: python
+
+    # Avoid: an annotation leaves the dictionary unchanged.
+    settings = {}
+    settings["port"]: 8000
+    print(settings)  # {}
+
+    # Prefer: assign the value with =.
+    settings = {}
+    settings["port"] = 8000
+    print(settings)  # {'port': 8000}
+
+More examples: `B032 tests <https://github.com/PyCQA/flake8-bugbear/blob/main/tests/eval_files/b032.py>`_.
 
 .. _B033:
 
@@ -388,6 +478,17 @@ so changing it for one key changes it for all of them. Use a dict comprehension 
 exception that this one is a subclass of, e.g. ``except ValueError:`` after
 ``except Exception:``, or a bare ``except:`` after ``except BaseException:``. Only builtin
 exceptions are checked, since the hierarchy of other classes isn't known from the source.
+
+.. _B048:
+
+**B048**: Do not use the result of ``str.find()`` or ``str.rfind()`` directly as a boolean.
+They return ``-1`` when the substring is missing, which is truthy, and ``0`` when it is found at the
+start of the string, which is falsy, so ``if s.find(x):`` reads backwards from what it does. Compare
+the returned index explicitly instead, e.g. ``if s.find(x) != -1:`` or ``if s.find(x) == 0:``.
+This also applies when the result is only used through ``not``/``and``/``or`` or a walrus
+assignment in a condition (e.g. ``if (i := s.find(x)):``).
+This is a name-based check, so it can fire on unrelated objects that also define a ``find`` method
+(such as BeautifulSoup); add a ``# noqa: B048`` there if needed.
 
 .. _B049:
 
@@ -609,6 +710,19 @@ MIT
 
 Change Log
 ----------
+
+UNRELEASED
+~~~~~~~~~~
+
+26.11.16
+~~~~~~~~
+
+* B048: Add new check for using the result of `str.find()`/`str.rfind()` directly as a boolean (#170)
+* B909: detect mutations when a loop unpacks the iterable's elements.
+* B040: don't report an exception whose note is shown by ``logger.exception()``,
+  ``exc_info=True``, ``traceback.print_exc()``/``format_exc()`` or ``sys.exc_info()``
+* B021: also check f-string docstrings on ``async def`` functions
+* README: add Avoid/Prefer code examples for B006, B008, B015, B017, B023 and B032
 
 26.11.9
 ~~~~~~~

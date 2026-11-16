@@ -7,13 +7,16 @@ use pyo3::types::{PyDict, PyDictMethods, PyStringMethods, PyTuple, PyTupleMethod
 use sqlbuild_core::cli_text::models::ModelLine;
 
 use crate::bindings::_helpers::compile_command::report::diagnostic_item;
-use crate::bindings::_helpers::compile_context::delta::guarded;
-use crate::bindings::_helpers::compile_context::delta::{
-    CapturedDiagnostic, CapturedModel, CapturedTest, capture, capturing, injection,
-};
-use crate::bindings::_helpers::compile_outputs::json_report::plain_json;
 use crate::bindings::_helpers::graph::project_graph::NativeProjectGraph;
-use crate::bindings::_helpers::records::fields::field as native_field;
+use sqlbuild_python_base::compile_context::main::delta::capture::capture;
+use sqlbuild_python_base::compile_context::main::delta::capturing::capturing;
+use sqlbuild_python_base::compile_context::main::delta::guarded::guarded;
+use sqlbuild_python_base::compile_context::main::delta::injection::injection;
+use sqlbuild_python_base::compile_context::models::CapturedDiagnostic;
+use sqlbuild_python_base::compile_context::models::CapturedModel;
+use sqlbuild_python_base::compile_context::models::CapturedTest;
+use sqlbuild_python_base::compile_outputs::main::plain_json::plain_json;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
 
 /// The graph key kind of a model.
 const MODEL_KIND: &str = "model";

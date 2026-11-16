@@ -21,7 +21,6 @@ from .error_log_journald import (
     container_page,
     first_cursor,
     journald_page,
-    range_header,
 )
 from .exceptions import (
     HomeAssistantAdminRequiredError as HomeAssistantAdminRequiredError,
@@ -1059,7 +1058,6 @@ class HomeAssistantClient:
         self,
         path: str,
         lines: int | None = None,
-        offset: int | None = None,
     ) -> str:
         """Fetch ``text/plain`` logs from a Supervisor REST endpoint.
 
@@ -1070,14 +1068,7 @@ class HomeAssistantClient:
           multicast}) for system-service logs
 
         ``lines`` maps to the endpoint's ``?lines=`` journald-window query
-        param; omitted → Supervisor's 100-line default window. Adding
-        ``offset`` switches the same window to a ``Range: entries=`` header
-        (see ``_journald_range_header``), which is the only form that can
-        address an older window. The two forms are mutually exclusive on the
-        wire — Supervisor tests ``if "lines" in request.query`` first and
-        ignores a ``Range`` header whenever that query param is present — so
-        the offset form sends the window in the header and no query param,
-        rather than a pair that could contradict each other.
+        param; omitted → Supervisor's 100-line default window.
 
         Bypasses ``HomeAssistantClient.httpx_client`` because that client targets
         Home Assistant Core through ``http://supervisor/core/api``, while logs
@@ -1107,17 +1098,11 @@ class HomeAssistantClient:
         params: dict[str, Any] = {"no_colors": "true"}
         if lines is not None:
             params["lines"] = lines
-        if offset is not None:
-            # An offset window with no size asked for falls back to the
-            # smallest one the Range syntax can express.
-            size = lines if lines is not None else MIN_LOG_WINDOW_LINES
-            headers["Range"] = range_header(size, offset)
-            params.pop("lines", None)
         logger.debug(
-            "Fetching %s/%s/logs via Supervisor direct (%s)",
+            "Fetching %s/%s/logs via Supervisor direct (lines=%s)",
             get_supervisor_base_url(),
             path,
-            f"range={headers['Range']}" if offset is not None else f"lines={lines}",
+            lines,
         )
         response = await self._supervisor_logs_response(path, headers, params)
         return response.text
@@ -1503,11 +1488,7 @@ class HomeAssistantClient:
                 "operation": "deleted",
             }
         except HomeAssistantAPIError as e:
-            # Core's DELETE answers a missing id with 400, not 404.
-            if (
-                e.status_code == 400
-                and (e.response_data or {}).get("message") == "Resource not found"
-            ):
+            if e.config_not_found:
                 raise HomeAssistantAPIError(
                     f"Automation not found: {identifier} (unique_id: {unique_id})",
                     status_code=404,
@@ -1854,7 +1835,9 @@ class HomeAssistantClient:
             # decides the policy. ``send_command`` re-raises the original
             # ``ConnectionClosed`` / ``ConnectionResetError`` to keep writes
             # at-most-once, so those arrive untranslated.
-            logger.error(f"WebSocket transport failed ({message.get('type')}): {e}")
+            # A caller that waits zero seconds sent a command Core never answers.
+            log = logger.debug if message.get("_wait_timeout") == 0 else logger.error
+            log(f"WebSocket transport failed ({message.get('type')}): {e}")
             if isinstance(e, HomeAssistantConnectionError):
                 # Re-raised unchanged so subtypes and the traceback survive.
                 raise
@@ -2101,7 +2084,7 @@ class HomeAssistantClient:
                 "operation": "deleted",
             }
         except HomeAssistantAPIError as e:
-            if e.status_code == 404:
+            if e.config_not_found:
                 msg = f"Script not found: {script_id}"
                 if resolved_id != script_id:
                     msg += f" (resolved storage key: {resolved_id})"
@@ -2380,7 +2363,7 @@ class HomeAssistantClient:
                 "operation": "deleted",
             }
         except HomeAssistantAPIError as e:
-            if e.status_code == 404:
+            if e.config_not_found:
                 await self._raise_scene_config_404(scene_id, resolved_id, resolution)
             elif e.status_code == 405:
                 raise HomeAssistantAPIError(

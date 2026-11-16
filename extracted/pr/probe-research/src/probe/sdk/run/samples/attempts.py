@@ -19,6 +19,9 @@ ATTEMPTS_REMEMBERED = 100_000
 FLUSH_EVERY_SECONDS = 5.0
 #: The snapshot's fields whose change is real progress (a model call, a tool call, a phase change).
 PROGRESS_FIELDS = ("phase", "turns", "tokens", "activity")
+#: The snapshot's fields that describe the attempt, never progress: kept on every beat (a beat without them resets
+#: them on the server); a new phase clears its limit.
+KEPT_FIELDS = ("phase_limit_s", "is_output_visible")
 
 
 class AttemptBeats:
@@ -47,7 +50,8 @@ class AttemptBeats:
 
     def update_progress(self, key: str, changes: Mapping[str, Any], at: str) -> bool:
         """Merge ``changes`` (phase, turns, tokens, activity) into the snapshot; a value that changed is progress and
-        moves `last_progress_at` to ``at`` (the producer's clock). True when the beat is news that goes at once: the
+        moves `last_progress_at` to ``at`` (the producer's clock). `phase_limit_s` and `is_output_visible` are kept, not
+        progress; a new phase without a limit drops the old one. True when the beat is news that goes at once: the
         attempt's first progress, or a new phase (a 4 s rollout otherwise ended before its first beat)."""
         with self._lock:
             snapshot = self._snapshots.setdefault(key, {})
@@ -55,6 +59,9 @@ class AttemptBeats:
             moved = [name for name in PROGRESS_FIELDS
                      if changes.get(name) is not None and snapshot.get(name) != changes[name]]  # fmt: skip
             snapshot.update({name: changes[name] for name in moved})
+            if "phase" in moved:
+                snapshot.pop("phase_limit_s", None)
+            snapshot.update({name: changes[name] for name in KEPT_FIELDS if changes.get(name) is not None})
             given = changes.get("last_progress_at")
             if given is not None and given != snapshot.get("last_progress_at"):
                 snapshot["last_progress_at"] = given  # when it happened, as the framework saw it

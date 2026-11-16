@@ -761,6 +761,7 @@ class ComposioManagedAuthConfigCreate(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     type: Literal["use_composio_managed_auth"]
     name: Optional[Annotated[str, Field(max_length=255)]] = Field(default=None, description="The name of the integration")
+    managed_app_id: Optional[str] = Field(default=None, description="The Composio-managed app to use, as composio_managed_auth[].managed_app_id from GET /api/v3/toolkits/{toolkit_slug}. Omit to use the toolkit's default app.")
     credentials: Optional[ComposioManagedAuthConfigCreateCredentials] = None
     tool_access_config: Optional[ComposioManagedAuthConfigCreateToolAccessConfig] = Field(default=None, description="DEPRECATED: use [Get required scopes](https://docs.composio.dev/reference/api-reference/toolkits/recommendToolkitScopes) to resolve the scopes for the tools you need, then pass those scopes in `credentials.scopes`.", deprecated=True)
     restrict_to_following_tools: Optional[list[str]] = Field(default="", description="List of tool slugs this auth config is restricted to use with. DEPRECATED: use [Get required scopes](https://docs.composio.dev/reference/api-reference/toolkits/recommendToolkitScopes) to resolve the scopes for the tools you need, then pass those scopes in `credentials.scopes`.", deprecated=True)

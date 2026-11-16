@@ -8,31 +8,34 @@ use pyo3::{IntoPyObject, pyfunction, wrap_pyfunction};
 use sqlbuild_host::entries::models::ExecutorHost;
 use sqlbuild_rules::lint_text::main::counts_toward_exit::counts_toward_exit;
 
-use crate::bindings::_helpers::boundary::python_calls::{
-    Status, call_with, imported, keywords, within,
-};
-use crate::bindings::_helpers::command_runtime::adapters::resolve_cli_adapter;
 use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
 use crate::bindings::_helpers::compile_driver::project::build_project_graph_with_analysis_selection;
-use crate::bindings::_helpers::compile_driver::stage_work::{
-    COLUMN_LINEAGE, MODEL_CONTRACTS, count_stage,
-};
 use crate::bindings::_helpers::contracts::contract_diagnostics::evaluate_model_contracts;
 use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
 use crate::bindings::_helpers::lineage::project_lineage::build_project_column_lineage;
-use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_selection::selectors::select_project_graph;
 use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::records::construct::{enum_member, new_record_with};
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::replaced;
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::rules::constants::RULE_FIX_AVAILABLE_NOTE;
 use crate::bindings::_helpers::rules::early_builtin_rules::{EarlyRulesScope, EarlyRulesSettings};
 use crate::bindings::_helpers::rules::early_sql_lint::EarlySqlLint;
 use crate::bindings::_helpers::rules::results::rules_progress;
 use crate::bindings::_helpers::rules::rule_dispatch::evaluate_rules;
 use crate::bindings::_helpers::rules::rules_config::load_rules_config_with_cache;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::main::within::within;
+use sqlbuild_python_base::boundary::models::Status;
+use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
+use sqlbuild_python_base::compile_driver::constants::COLUMN_LINEAGE;
+use sqlbuild_python_base::compile_driver::constants::MODEL_CONTRACTS;
+use sqlbuild_python_base::compile_driver::main::count_stage::count_stage;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::enum_member::enum_member;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::replaced::replaced;
+use sqlbuild_python_base::records::types::RecordId;
 
 const RICH_LINEAGE: &str = "rich";
 const FAST_LINEAGE: &str = "fast";
@@ -156,7 +159,7 @@ pub(crate) fn analyze<'py>(
     let selection: &Bound<'py, PyAny> = &options.analysis_selection;
     let enabled: bool = !(native_field(selection, "select")?.is_truthy()?
         || native_field(selection, "exclude")?.is_truthy()?)
-        && crate::bindings::_helpers::compile_context::delta::injection().is_none();
+        && sqlbuild_python_base::compile_context::main::delta::injection::injection().is_none();
     let sql_lint_enabled: bool = enabled && !options.no_sql_validation.is_truthy()?;
     let early_lint: Bound<'py, EarlySqlLint> =
         Bound::new(py, EarlySqlLint::new(sql_lint_enabled, options.no_cache()?))?;
@@ -219,7 +222,9 @@ fn analyzed<'py>(
         driver.graph((&discovered, &adapter), &lint_dialect)?;
     let project: Bound<'py, PyAny> = native_field(&graph, "project")?;
     let graph_failed: bool = any_error(&native_field(&project, "diagnostics")?)?;
-    crate::bindings::_helpers::compile_context::delta::stop_on_errors(graph_failed)?;
+    sqlbuild_python_base::compile_context::main::delta::stop_on_errors::stop_on_errors(
+        graph_failed,
+    )?;
     let mut early_lint_wait_ms: Bound<'py, PyAny> = 0_i64.into_pyobject(py)?.into_any();
     if graph_failed {
         if let Some(early_rules) = early_rules {
@@ -229,10 +234,9 @@ fn analyzed<'py>(
     }
     let (lineage, lineage_ms): (Bound<'py, PyAny>, u64) = driver.lineage(&graph, &dialect)?;
     let contracts: ContractPhase<'py> = driver.contracts(&project, (&dialect, &adapter))?;
-    crate::bindings::_helpers::compile_context::delta::stop_on_errors(any_error(&native_field(
-        &contracts.result,
-        "diagnostics",
-    )?)?)?;
+    sqlbuild_python_base::compile_context::main::delta::stop_on_errors::stop_on_errors(any_error(
+        &native_field(&contracts.result, "diagnostics")?,
+    )?)?;
     let selected_keys: Bound<'py, PyAny> =
         select_project_graph(&graph, &driver.select, &driver.exclude)?.into_any();
     let core_diagnostics: Bound<'py, PyTuple> = PyTuple::new(
@@ -301,6 +305,10 @@ fn analyzed<'py>(
             (
                 "custom_rule_timings",
                 native_field(&rules_result, "custom_rule_timings")?,
+            ),
+            (
+                "skipped_models",
+                native_field(&rules_result, "skipped_models")?,
             ),
         ],
     )
@@ -374,7 +382,7 @@ impl<'py> Driver<'_, 'py> {
         let started: Instant = Instant::now();
         self.status.start("Compiling project graph...")?;
         let lifecycle: Bound<'py, PyAny> = call_with(
-            &host::entry(py, ExecutorHost::OperationLifecycle)?,
+            &host_entry(py, ExecutorHost::OperationLifecycle)?,
             &[
                 ("operation_kind", PyString::new(py, "project").into_any()),
                 (

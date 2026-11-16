@@ -108,55 +108,6 @@ on:
       GH_APP_PRIVATE_KEY:
         required: false
 
-  workflow_dispatch:
-    inputs:
-      tag:
-        type: string
-        required: false
-        default: ""
-        description: "Tag to re-publish (existing tag). Omit + set from-head to release HEAD."
-      from-head:
-        type: string
-        required: false
-        default: ""
-        description: "'true' to release/retry the current HEAD -- the CI creates the tag (issue #35). Mutually exclusive with `tag`."
-      bump:
-        type: string
-        required: false
-        default: "auto"
-        description: "Version resolution for from-head: auto | patch | minor (forced) | X.Y.Z (exact version)."
-      test-tier:
-        type: choice
-        required: false
-        default: "core"
-        options: [core, full]
-        description: "core | full. full runs the full test tier on this run; core never lowers a tier."
-      runner-mode:
-        type: string
-        default: ""
-      publish-target:
-        type: string
-        default: "oss"
-      python-version:
-        type: string
-        # hyperi-ci:pin runtimes.python
-        default: "3.14"
-      skip-optimize:
-        type: string
-        required: false
-        default: ""
-        description: "'true' to skip the optimisation stage for this release. No-op for Python today, kept for parity. Empty = optimisation on."
-      release-unoptimized:
-        type: string
-        required: false
-        default: ""
-        description: "'true' to consent, for this run only, to shipping a skipped-optimisation build under a release tag. No-op for Python today, kept for parity."
-      optimize-tier:
-        type: string
-        required: false
-        default: ""
-        description: "'release' to build the release optimisation tier on a run that publishes nothing. No-op for Python today, kept for parity."
-
 concurrency:
   # A schedule and a no-publish dispatch get their own group: sharing main's, either
   # could cancel a release in flight or be cancelled by the next push.
@@ -174,7 +125,9 @@ env:
   # `uvx --python 3.14 hyperi-ci==X.Y.Z`; drop --python and uv picks the runner's Python, which may only resolve an old release. Unset = latest PyPI.
   # `--python` pins the CLI's OWN interpreter. Without it uvx takes the project's
   # interpreter and silently back-solves to an old hyperi-ci (issue #157).
-  HYPERCI_INSTALL: ${{ vars.HYPERCI_INSTALL_OVERRIDE || 'uvx --python 3.14 --no-cache --refresh hyperi-ci' }}
+  # Third-party deps resolve 7 days back (the supply-chain cooldown). hyperi-ci
+  # and scalo are ours, so they come in at their latest.
+  HYPERCI_INSTALL: ${{ vars.HYPERCI_INSTALL_OVERRIDE || 'uvx --python 3.14 --no-cache --refresh --exclude-newer P7D --exclude-newer-package hyperi-ci=P0D --exclude-newer-package scalo=P0D hyperi-ci' }}
   # HYPERCI_QUALITY_SKIP (repo/org variable, e.g. "semgrep") force-skips a quality
   # tool whose false positive is halting CI until the real fix lands.
   HYPERCI_QUALITY_SKIP: ${{ vars.HYPERCI_QUALITY_SKIP }}
@@ -249,22 +202,8 @@ jobs:
           python-version: ${{ inputs.python-version }}
 
       - name: Install uv (preflight)
-        id: uv_try1
         if: steps.predict.outputs.will-release == 'true'
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-      - name: Install uv (preflight) (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-      - name: Install uv (preflight) (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
 
@@ -310,21 +249,7 @@ jobs:
           # Keeps the job token away from the code this job runs (issue #402).
           persist-credentials: false
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
       - name: Validate commit messages
@@ -591,24 +516,8 @@ jobs:
       # The CLI ships via uvx, which a bare runner lacks, so the gate would exit 127
       # on an otherwise green run.
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         # Gate never checks out the repo, so its workdir is always empty.
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: false
           ignore-empty-workdir: true

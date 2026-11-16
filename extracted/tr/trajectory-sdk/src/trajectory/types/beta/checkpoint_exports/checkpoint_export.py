@@ -42,4 +42,4 @@ class CheckpointExport(BaseModel):
   """Present only on retrieval of a ready lora_adapter export."""
 
   size_bytes: int | None = None
-  """Total size of a ready merged_model export's files."""
+  """Total size of a ready merged_model or full_weights export's files."""

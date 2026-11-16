@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Final, cast
 import pytest
 from bench.operations import INPUTS
 
-from turbohtml import Element, parse, parse_fragment
+from turbohtml import Element, Node, parse, parse_fragment
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -14,8 +14,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def rows() -> Callable[[str], list[list[str]]]:
-    """Parse a fragment, find its first ``<table>``, and read it into a row grid."""
-
+    # Parse a fragment, find its first ``<table>``, and read it into a row grid.
     def extract(html: str) -> list[list[str]]:
         table = parse_fragment(html).find("table")
         assert isinstance(table, Element)
@@ -26,8 +25,7 @@ def rows() -> Callable[[str], list[list[str]]]:
 
 @pytest.fixture
 def records() -> Callable[[str], list[dict[str, str]]]:
-    """Parse a fragment, find its first ``<table>``, and read it into header-keyed records."""
-
+    # Parse a fragment, find its first ``<table>``, and read it into header-keyed records.
     def extract(html: str) -> list[dict[str, str]]:
         table = parse_fragment(html).find("table")
         assert isinstance(table, Element)
@@ -36,7 +34,7 @@ def records() -> Callable[[str], list[dict[str, str]]]:
     return extract
 
 
-ROWS_CASES = [
+_ROWS_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         "<table><tr><th>H1</th><th>H2</th></tr><tr><td>a</td><td>b</td></tr></table>",
         [["H1", "H2"], ["a", "b"]],
@@ -45,6 +43,8 @@ ROWS_CASES = [
     pytest.param("<table><tr><td>  hello  </td></tr></table>", [["hello"]], id="cell-text-stripped"),
     pytest.param("<table><tr><td>a<b>b</b>c</td></tr></table>", [["abc"]], id="nested-markup-flattened"),
     pytest.param("<table><tr><td>a</td><td></td></tr></table>", [["a", ""]], id="empty-cell-is-empty-string"),
+    pytest.param("<table><tr><template><td>x</template></table>", [[]], id="cell-under-template-is-no-cell"),
+    pytest.param("<table> <tr><td>a</td></tr> </table>", [["a"]], id="text-between-rows-is-no-cell"),
     pytest.param("<table><tr><td>   </td><td>b</td></tr></table>", [["", "b"]], id="whitespace-cell-is-empty-string"),
     pytest.param(
         "<table><tr><td colspan=2>A</td><td>B</td></tr><tr><td>1</td><td>2</td><td>3</td></tr></table>",
@@ -164,7 +164,7 @@ ROWS_CASES = [
 ]
 
 
-@pytest.mark.parametrize(("html", "expected"), ROWS_CASES)
+@pytest.mark.parametrize(("html", "expected"), _ROWS_CASES)
 def test_rows(rows: Callable[[str], list[list[str]]], html: str, expected: list[list[str]]) -> None:
     assert rows(html) == expected
 
@@ -184,28 +184,13 @@ def test_huge_colspan_is_clamped(rows: Callable[[str], list[list[str]]]) -> None
     grid = rows('<table><tr><td colspan="5000">A</td></tr></table>')
     assert len(grid) == 1
     assert len(grid[0]) == 1000
-    assert grid[0][0] == "A"
-    assert grid[0][999] == "A"
+    assert (grid[0][0], grid[0][999]) == ("A", "A")
 
 
 def test_rowspan_beyond_colspan_limit(rows: Callable[[str], list[list[str]]]) -> None:
-    body: Final = "<tr><td rowspan=1002>A</td><td>0</td></tr>" + "<tr><td>x</td></tr>" * 1001
+    body: Final = f"<tr><td rowspan=1002>A</td><td>0</td></tr>{'<tr><td>x</td></tr>' * 1001}"
     grid: Final = rows(f"<table>{body}</table>")
     assert grid == [["A", "0"], *[["A", "x"] for _ in range(1001)]]
-
-
-def _rehome_rows(destination: Element) -> None:
-    # The parser always wraps rows in a tbody, so move real <tr> elements under `destination` to give a table
-    # rows with no row-group ancestor: a rowspan=0 cell then has no group to stop at and grows to the last row.
-    source = parse_fragment(
-        "<table><tbody><tr><td rowspan=0>A</td><td>B</td></tr><tr><td>C</td></tr></tbody></table>",
-    ).find("table")
-    assert isinstance(source, Element)
-    body = source.find("tbody")
-    assert isinstance(body, Element)
-    for row in list(body.children):
-        row.extract()
-        destination.append(row)
 
 
 def _table_itself(table: Element) -> Element:
@@ -231,7 +216,21 @@ def test_zero_rowspan_without_a_row_group_spans_to_table_end(receiver: Callable[
     assert table.rows() == [["A", "B"], ["A", "C"]]
 
 
-RECORDS_CASES = [
+def _rehome_rows(destination: Element) -> None:
+    # The parser always wraps rows in a tbody, so move real <tr> elements under `destination` to give a table
+    # rows with no row-group ancestor: a rowspan=0 cell then has no group to stop at and grows to the last row.
+    source = parse_fragment(
+        "<table><tbody><tr><td rowspan=0>A</td><td>B</td></tr><tr><td>C</td></tr></tbody></table>",
+    ).find("table")
+    assert isinstance(source, Element)
+    body = source.find("tbody")
+    assert isinstance(body, Element)
+    for row in list(body.children):
+        row.extract()
+        destination.append(row)
+
+
+_RECORDS_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         "<table><tr><th>H1</th><th>H2</th></tr><tr><td>a</td><td>b</td></tr></table>",
         [{"H1": "a", "H2": "b"}],
@@ -261,12 +260,12 @@ RECORDS_CASES = [
 ]
 
 
-@pytest.mark.parametrize(("html", "expected"), RECORDS_CASES)
+@pytest.mark.parametrize(("html", "expected"), _RECORDS_CASES)
 def test_records(records: Callable[[str], list[dict[str, str]]], html: str, expected: list[dict[str, str]]) -> None:
     assert records(html) == expected
 
 
-DOCUMENT_TABLES_CASES = [
+_DOCUMENT_TABLES_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         "<table><tr><td>a</td></tr></table><p>x</p><table><tr><td>b</td><td>c</td></tr></table>",
         [[["a"]], [["b", "c"]]],
@@ -281,7 +280,7 @@ DOCUMENT_TABLES_CASES = [
 ]
 
 
-@pytest.mark.parametrize(("html", "expected"), DOCUMENT_TABLES_CASES)
+@pytest.mark.parametrize(("html", "expected"), _DOCUMENT_TABLES_CASES)
 def test_document_tables(html: str, expected: list[list[list[str]]]) -> None:
     assert parse(html).tables() == expected
 
@@ -300,18 +299,93 @@ def test_nested_table_rows_belong_to_the_inner_table() -> None:
     assert outer.rows() == [["outerinner"]]
 
 
+def test_rows_of_a_table_in_a_caption_belong_to_that_table(rows: Callable[[str], list[list[str]]]) -> None:
+    # a cell hides the tables inside it from the row walk; a caption is the one place a table sits outside every cell
+    assert rows("<table><caption><table><tr><td>inner</table></caption><tr><td>outer</table>") == [["outer"]]
+
+
 def test_tables_called_on_a_table_returns_only_its_nested_tables() -> None:
     outer = parse_fragment("<table><tr><td><table><tr><td>inner</td></tr></table></td></tr></table>").find("table")
     assert isinstance(outer, Element)
     assert outer.tables() == [[["inner"]]]
 
 
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        # <tr> and <td> do not break out of SVG or MathML content, so they nest there instead of closing each other
+        pytest.param("<table><tr><td>a<svg><tr><td>b<tr><td>c</svg><td>d</table>", [["abc", "d"]], id="svg"),
+        pytest.param("<table><tr><th>a<math><tr><th>b<tr><td>c</math><td>d</table>", [["abc", "d"]], id="math"),
+        pytest.param("<table><tr><td>a<template><tr><td>b</template><td>c</table>", [["ab", "c"]], id="template"),
+        pytest.param("<table><tr><td>a<svg><tr><td>b</svg><tr><td>c</table>", [["ab"], ["c"]], id="later-row"),
+    ],
+)
+def test_rows_inside_a_cell_are_cell_content(
+    rows: Callable[[str], list[list[str]]], html: str, expected: list[list[str]]
+) -> None:
+    assert rows(html) == expected
+    assert parse(html).tables() == [expected]
+
+
+def test_records_inside_a_cell_are_cell_content(records: Callable[[str], list[dict[str, str]]]) -> None:
+    assert records("<table><tr><th>h<tr><td>a<svg><tr><td>b<tr><td>c</svg></table>") == [{"h": "abc"}]
+
+
+def test_nested_tables_up_to_the_text_limit_are_kept() -> None:
+    # the two outermost tables are not charged; the 100 inside them repeat exactly the 16,000,000 characters allowed
+    text: Final = "x" * 160_000
+    assert parse(f"{'<table><tr><td>' * 102}{text}").tables() == [[[text]]] * 102
+
+
+def test_nested_tables_beyond_the_text_limit_raise(nested_past_text_limit: Node) -> None:
+    with pytest.raises(ValueError, match="nested tables repeat more than 16000000 characters of cell text"):
+        nested_past_text_limit.tables()
+
+
+def test_nested_tables_past_the_text_limit_are_read_one_at_a_time(nested_past_text_limit: Node) -> None:
+    # one table's cells never overlap, so reading the tables one at a time is not limited
+    assert [len(table.rows()) for table in nested_past_text_limit.select("table")] == [1] * 102
+
+
+def test_tables_that_are_not_nested_are_not_charged_for_text() -> None:
+    text: Final = "x" * 8_000_001
+    nested: Final = "<table><tr><td><table><tr><td>y</table></table>"
+    flat: Final = f"<table><tr><td>{text}</table>"
+    assert parse(f"{nested}{flat}{flat}<div>{nested}</div>").tables() == [
+        [["y"]],
+        [["y"]],
+        [[text]],
+        [[text]],
+        [["y"]],
+        [["y"]],
+    ]
+
+
+def test_tables_called_inside_a_table_does_not_count_it_as_enclosing() -> None:
+    # the table holding the cell is not an enclosing table of this call, so only 99 tables are charged
+    text: Final = "x" * 160_001
+    cell: Final = parse(f"<table><tr><td>{'<table><tr><td>' * 101}{text}").select("td")[0]
+    assert cell.tables() == [[[text]]] * 101
+
+
+def test_tables_nested_inside_one_table_are_not_charged() -> None:
+    # tables nested in exactly one other table are disjoint, so their combined text is not limited
+    cell: Final = "x" * 100_000
+    inner: Final = f"<table><tr><td>{cell}</table>"
+    assert parse(f"<table><tr><td>{inner * 170}</table>").tables()[1:] == [[[cell]]] * 170
+
+
 @pytest.fixture
 def non_table_div() -> Element:
-    """A ``<div>`` wrapping a table, the wrong receiver for rows()/records()."""
+    # A ``<div>`` wrapping a table, the wrong receiver for rows()/records().
     div = parse_fragment("<div><table><tr><td>a</td></tr></table></div>", "body").find("div")
     assert isinstance(div, Element)
     return div
+
+
+@pytest.fixture
+def nested_past_text_limit() -> Node:
+    return parse(f"{'<table><tr><td>' * 102}{'x' * 160_001}")
 
 
 def test_rows_on_a_non_table_raises_type_error(non_table_div: Element) -> None:
@@ -322,6 +396,41 @@ def test_rows_on_a_non_table_raises_type_error(non_table_div: Element) -> None:
 def test_records_on_a_non_table_raises_type_error(non_table_div: Element) -> None:
     with pytest.raises(TypeError, match="records can only be called on a table element"):
         non_table_div.records()
+
+
+def test_padding_up_to_the_spare_slot_limit_is_kept(rows: Callable[[str], list[list[str]]]) -> None:
+    # 2,000 cells pay for their own slots; padding 2,000 empty rows to that width adds exactly the 4,000,000 allowed.
+    grid: Final = rows(f"<table><tr>{'<td>x' * 2000}{'<tr>' * 2000}</table>")
+    assert grid == [["x"] * 2000, *[[""] * 2000] * 2000]
+
+
+_SPARE_SLOT_LIMIT_CASES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(f"<table><tr>{'<td>x' * 2000}{'<tr>' * 2001}</table>", id="padding"),
+    pytest.param(f"<table><tr>{'<td colspan=1000>x' * 5}{'<tr>' * 1000}</table>", id="colspan-padding"),
+    pytest.param(f"<table><tr>{'<td colspan=1000 rowspan=0>x' * 5}{'<tr>' * 1000}</table>", id="spans"),
+    pytest.param(f"<table><tr>{'<td>x' * 2000}<td rowspan=0>y{'<tr>' * 2000}</table>", id="far-right-rowspan"),
+]
+_SPARE_SLOT_LIMIT_MESSAGE: Final[str] = "table spans and row padding add more than 4000000 cells to the grid"
+
+
+@pytest.mark.parametrize("html", _SPARE_SLOT_LIMIT_CASES)
+@pytest.mark.parametrize("read", [pytest.param(Element.rows, id="rows"), pytest.param(Element.records, id="records")])
+def test_table_beyond_the_spare_slot_limit_raises(html: str, read: Callable[[Element], object]) -> None:
+    with pytest.raises(ValueError, match=_SPARE_SLOT_LIMIT_MESSAGE):
+        read(parse(html).select("table")[0])
+
+
+@pytest.mark.parametrize("html", _SPARE_SLOT_LIMIT_CASES)
+def test_document_beyond_the_spare_slot_limit_raises(html: str) -> None:
+    with pytest.raises(ValueError, match=_SPARE_SLOT_LIMIT_MESSAGE):
+        parse(html).tables()
+
+
+def test_tables_share_one_spare_slot_limit() -> None:
+    table: Final = f"<table><tr>{'<td colspan=1000 rowspan=0>x' * 3}{'<tr>' * 999}</table>"
+    assert [(len(grid), len(grid[0])) for grid in parse(table).tables()] == [(1000, 3000)]
+    with pytest.raises(ValueError, match=_SPARE_SLOT_LIMIT_MESSAGE):
+        parse(table * 2).tables()
 
 
 @pytest.mark.parametrize(

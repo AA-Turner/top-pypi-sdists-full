@@ -202,7 +202,9 @@ HELP_FLAGS = frozenset({HELP_FLAG, "-h"})
 #: is an argument and the command runs (`probe daemon worker -h`), so it is no help.
 #: `test_daemon_profile.py` holds this to the CLI's tree.
 UNKNOWN_OPTIONS_PASSED = frozenset(
-    {"exec", "docs", "cli search", "daemon worker", "daemon override", "daemon session", "daemon task", "run resume"}
+    {"exec", "docs", "cli search", "daemon worker", "daemon override", "daemon session", "daemon task", "run resume",
+     # The removed W&B imports take any old argv and only print what replaced them (#5245).
+     "wandb import-local", "wandb import-hosted"}
 )
 
 
@@ -477,6 +479,7 @@ def daemon_allows_agent(matched: str) -> bool:
 #: `pin add|list|rm` pin a view the researcher asked for, read the pins and unpin
 #: (pinned views D11, D12): the daemon's writer never pins, so they are the agent's;
 #: the CLI's gate still asks `pin add` and `pin rm` for `--directed` (DIRECTED_ONLY).
+#: `client check` runs the agent's own client against a stand-in on this computer: nothing reaches Probe.
 DAEMON_PROFILE_ALLOWED = frozenset(
     {"ask", "session status", "session send", "run expect", "paper find",
      "docs", "cli search", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
@@ -485,7 +488,7 @@ DAEMON_PROFILE_ALLOWED = frozenset(
      "statusline show", "mcp status", "workspace list", "workspace get", "workspace writers show",
      "access-group list", "notes sync", "agent-rules refresh", "draft edit",
      "file preview", "feedback flush", "feedback install", "capy sync", "capy disconnect", "session owed", "session home show",
-     "pin add", "pin list", "pin rm"}
+     "pin add", "pin list", "pin rm", "client check"}
 )
 
 #: Reads of ONE run, named by its id: the agent looks at the runs it launched

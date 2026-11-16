@@ -9,6 +9,7 @@ from .errors import HubConnectionError
 from signalrcore.helpers import Helpers
 from .handlers import StreamHandler, InvocationHandler
 from ..transport.base_transport import BaseTransport
+from ..transport.sockets.utils import create_ssl_context
 from ..subject import Subject
 from ..messages.invocation_message import InvocationMessage
 from collections import defaultdict
@@ -78,16 +79,18 @@ class BaseHubConnection(object):
             preferred_transport: Optional[HttpTransportType] = None,
             skip_negotiation=False,
             headers=None,
-            ssl_context: ssl.SSLContext = ssl.create_default_context(),
+            ssl_context: ssl.SSLContext = None,
             protocol=None,
-            proxies: dict = {},
+            proxies: Optional[dict] = None,
             **kwargs):
         self.preferred_protocol = preferred_protocol
         self.preferred_transport = preferred_transport
         self.kwargs = kwargs
         self.url = url
-        self.ssl_context = ssl_context
-        self.proxies = proxies
+        self.ssl_context = ssl_context\
+            if ssl_context is not None else\
+            create_ssl_context(True)
+        self.proxies = proxies if proxies is not None else {}
         self.token = None
         self._selected_protocol = protocol
 
@@ -101,6 +104,8 @@ class BaseHubConnection(object):
         self.stream_handlers = defaultdict(list)
         self.skip_negotiation = skip_negotiation
         self._callbacks = HubCallbacks()
+        self._receive_sequence_id = 0
+        self._send_sequence_id = 0
 
     def _negotiate(self) -> NegotiateResponse:
         """Negotiates connection with the server, do not call it
@@ -146,6 +151,11 @@ class BaseHubConnection(object):
             if self._selected_protocol is None else\
             self._selected_protocol
 
+        def wrapped_on_reconnect():
+            self.logger.debug("Reconnecting: Sending SequenceMessage")
+            self.transport.send(SequenceMessage(self._receive_sequence_id))
+            self._callbacks.on_reconnect()
+
         self.transport = TransportFactory.create(
             negotiate_response,
             self.preferred_transport,
@@ -159,10 +169,20 @@ class BaseHubConnection(object):
             proxies=self.proxies,
             on_close=self._callbacks.on_close,
             on_open=self._callbacks.on_open,
-            on_reconnect=self._callbacks.on_reconnect,
+            on_reconnect=wrapped_on_reconnect,
             on_message=self.on_message,
             **self.kwargs
         )
+
+        # On start, reset sequence
+        self._receive_sequence_id = 0
+        self._send_sequence_id = 0
+
+        # Note: If this is a reconnect we'd need to emit SequenceMessage
+        # Actually start will re-negotiate,
+        # handle reconnect logic separately if needed
+        # Or if we just need to send it on actual reconnect event:
+        # For now, start is fresh connection.
 
         return self.transport.start()
 
@@ -307,6 +327,7 @@ class BaseHubConnection(object):
                         message.invocation_id,
                         on_invocation))
 
+            self._send_sequence_id += 1
             self.transport.send(message)
             result.message = message
 
@@ -344,13 +365,23 @@ class BaseHubConnection(object):
             handler.next_callback(message.item)
 
     def __on_completion_message(self, message: CompletionMessage) -> None:  # 3
-        if message.error is not None and len(message.error) > 0:
-            self._callbacks.on_error(message)
-        else:
-            # Send callbacks
-            fired_handlers: List[StreamHandler] = self.stream_handlers.get(
-                message.invocation_id, [])
+        fired_handlers = self.stream_handlers.get(
+            message.invocation_id, [])
 
+        if message.error is not None and len(message.error) > 0:
+            # Stream errors belong to the stream subscription. Only fall
+            # back to the connection level handler when the invocation
+            # has no stream handler (for example invoke() callbacks).
+            stream_handlers = [
+                handler for handler in fired_handlers
+                if isinstance(handler, StreamHandler)]
+
+            if len(stream_handlers) > 0:
+                for handler in stream_handlers:
+                    handler.error_callback(message)
+            else:
+                self._callbacks.on_error(message)
+        else:
             # Stream callbacks
             for handler in fired_handlers:
                 handler: StreamHandler
@@ -405,6 +436,18 @@ class BaseHubConnection(object):
     def on_message(self, messages: List[BaseMessage]) -> None:
         for message in messages:
             self.logger.debug(message)
+
+            is_trackable = message.type in [
+                MessageType.invocation,
+                MessageType.stream_item,
+                MessageType.completion,
+                MessageType.stream_invocation,
+                MessageType.cancel_invocation
+            ]
+
+            if is_trackable:
+                self._receive_sequence_id += 1
+
             if message.type == MessageType.invocation_binding_failure:  # pragma: no cover # noqa: E501
                 self.__on_binding_failure(message)
             elif message.type == MessageType.invocation:
@@ -427,6 +470,9 @@ class BaseHubConnection(object):
             elif message.type == MessageType.sequence:  # pragma: no cover # 9
                 self.__on_sequence_message(message)
 
+            if is_trackable and self.transport is not None:
+                self.transport.send(AckMessage(self._receive_sequence_id))
+
     def stream(self, event, event_params) -> StreamHandler:
         """Starts server streaming
             connection.stream(
@@ -444,9 +490,14 @@ class BaseHubConnection(object):
         Returns:
             [StreamHandler]: stream handler
         """
+        if self.transport is None or not self.transport.is_running():
+            raise HubConnectionError(
+                "Cannot connect to SignalR hub. Unable to transmit messages")
+
         invocation_id = str(uuid.uuid4())
         stream_obj = StreamHandler(event, invocation_id)
         self.stream_handlers[invocation_id].append(stream_obj)
+        self._send_sequence_id += 1
         self.transport.send(
             StreamInvocationMessage(
                 invocation_id,

@@ -6,11 +6,12 @@ from typing import Literal, TypedDict
 
 
 class CheckpointExportsCreateParams(TypedDict, total=False):
-  export_type: Literal["lora_adapter", "merged_model"]
+  export_type: Literal["lora_adapter", "merged_model", "full_weights"]
   """
   lora_adapter downloads the adapter weights as one ZIP. merged_model downloads the full base
   model with the adapter merged in, as a Hugging Face folder of files, which is far larger and
-  takes longer to prepare.
+  takes longer to prepare. full_weights downloads a full-parameter checkpoint's weights as a
+  Hugging Face folder of files.
   """
   precision: Literal["bf16", "f32", "mxfp8", "nvfp4"] | None
   """

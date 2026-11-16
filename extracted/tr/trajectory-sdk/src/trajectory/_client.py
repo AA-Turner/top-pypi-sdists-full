@@ -24,6 +24,7 @@ if TYPE_CHECKING:
   from trajectory.resources.beta.beta import Beta
   from trajectory.resources.billing import Billing
   from trajectory.resources.chat.chat import Chat
+  from trajectory.resources.decisions import Decisions
   from trajectory.resources.deployments import Deployments
   from trajectory.resources.diagnostics import Diagnostics
   from trajectory.resources.evals.evals import Evals
@@ -230,6 +231,12 @@ class Client(APIClient):
     from trajectory.resources.inference.inference import Inference
 
     return Inference(self)
+
+  @cached_property
+  def decisions(self) -> Decisions:
+    from trajectory.resources.decisions import Decisions
+
+    return Decisions(self)
 
   @cached_property
   def organizations(self) -> Organizations:

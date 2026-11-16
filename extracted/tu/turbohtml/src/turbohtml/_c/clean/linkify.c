@@ -13,6 +13,7 @@
 #include "clean/phone_binding.h"
 #include "core/ascii.h"
 #include "core/common.h"
+#include "core/work_steps.h"
 #include "dom/nodes.h"
 #include "dom/tree.h"
 #include "tokenizer/binding.h"
@@ -244,9 +245,10 @@ static int host_name_underscored(int kind, const void *data, Py_ssize_t start, P
    labels must be host-name shaped (the bare-domain rules); a scheme URL passes 0,
    so a numeric host like 1.2.3.4 is accepted. Returns the index past the host on
    success, or -1. Hyphens are allowed inside a label, not at its edges, and a
-   trailing one is punctuation the host ends before. */
+   trailing one is punctuation the host ends before. A non-NULL `tail` receives
+   the start of the last two labels read, the ones the bare-domain rules judge. */
 static Py_ssize_t scan_host(int kind, const void *data, Py_ssize_t start, Py_ssize_t len, int require_tld,
-                            PyObject *extra_tlds) {
+                            PyObject *extra_tlds, Py_ssize_t *tail) {
     Py_ssize_t pos = start;
     Py_ssize_t last_label_start = start;
     Py_ssize_t previous_label_start = start;
@@ -255,6 +257,7 @@ static Py_ssize_t scan_host(int kind, const void *data, Py_ssize_t start, Py_ssi
     int label_ended_with_hyphen = 0;
     int dots = 0;
     while (pos < len) {
+        TH_WORK_STEP();
         Py_UCS4 c = READ(pos);
         if (is_label_char(c)) {
             label_len++;
@@ -279,6 +282,9 @@ static Py_ssize_t scan_host(int kind, const void *data, Py_ssize_t start, Py_ssi
         } else {
             break;
         }
+    }
+    if (tail != NULL) {
+        *tail = previous_label_start;
     }
     /* A bare domain needs a dot to be told apart from an ordinary word; an authority written behind an explicit
        scheme does not, so `http://localhost:8000/` and `http://intranet/` are the links their authors wrote. */
@@ -323,8 +329,13 @@ static Py_ssize_t scan_authority_host(int kind, const void *data, Py_ssize_t sta
     if (start < len && READ(start) == '[') {
         return scan_ip_literal(kind, data, start, len);
     }
-    return scan_host(kind, data, start, len, 0, NULL);
+    return scan_host(kind, data, start, len, 0, NULL, NULL);
 }
+
+/* Real URL tails nest brackets a handful deep. A walk that finds an unclosed opener keeps reading past the link it
+   returns, so a run of links that each end in one re-reads every later link. The cap bounds how many walks re-read
+   a byte. */
+#define LINK_MAX_BRACKET_DEPTH 32
 
 /* Consume a run of URL tail characters from `begin`, balancing brackets and
    trimming trailing punctuation so a link in prose keeps only what belongs to it.
@@ -337,6 +348,7 @@ static Py_ssize_t scan_balanced(int kind, const void *data, Py_ssize_t begin, Py
     int square = 0;
     int curly = 0;
     while (pos < len) {
+        TH_WORK_STEP();
         Py_UCS4 c = READ(pos);
         if (!is_url_tail_char(c)) {
             break;
@@ -364,6 +376,9 @@ static Py_ssize_t scan_balanced(int kind, const void *data, Py_ssize_t begin, Py
                 break;
             }
             curly--;
+        }
+        if (round + square + curly > LINK_MAX_BRACKET_DEPTH) {
+            break;
         }
         pos++;
         /* a closing bracket or a non-trailing-punctuation byte can end the link;
@@ -493,10 +508,17 @@ static int match_url(int kind, const void *data, Py_ssize_t colon, Py_ssize_t st
     return 1;
 }
 
+/* Where the bare-domain matcher's last refused host scan started, up to the last two labels of its run. A label in
+   [from, until) would read the same run and be refused the same way, so it is refused without another scan. */
+typedef struct {
+    Py_ssize_t from;
+    Py_ssize_t until;
+} host_refusal;
+
 /* Try to match a bare domain (no scheme) whose first label dot triggered it; the
    domain starts by expanding left over label characters from `dot`. */
 static int match_domain(int kind, const void *data, Py_ssize_t dot, Py_ssize_t start, Py_ssize_t len,
-                        Py_ssize_t *out_start, Py_ssize_t *out_end, PyObject *extra_tlds) {
+                        Py_ssize_t *out_start, Py_ssize_t *out_end, PyObject *extra_tlds, host_refusal *refused) {
     Py_ssize_t pos = dot;
     while (pos > start) {
         Py_UCS4 before = READ(pos - 1);
@@ -512,8 +534,14 @@ static int match_domain(int kind, const void *data, Py_ssize_t dot, Py_ssize_t s
     if (pos == dot || blocked_on_left(kind, data, pos) || after_url_syntax(kind, data, pos)) {
         return 0;
     }
-    Py_ssize_t host_end = scan_host(kind, data, pos, len, 1, extra_tlds);
+    if (pos >= refused->from && pos < refused->until) {
+        return 0;
+    }
+    Py_ssize_t tail;
+    Py_ssize_t host_end = scan_host(kind, data, pos, len, 1, extra_tlds, &tail);
     if (host_end < 0) {
+        refused->from = pos;
+        refused->until = tail;
         return 0;
     }
     *out_start = pos;
@@ -538,7 +566,7 @@ static int match_email(int kind, const void *data, Py_ssize_t at, Py_ssize_t sta
     if (pos == at || (pos > start && READ(pos - 1) == '@')) {
         return 0;
     }
-    Py_ssize_t host_end = scan_host(kind, data, at + 1, len, 1, extra_tlds);
+    Py_ssize_t host_end = scan_host(kind, data, at + 1, len, 1, extra_tlds, NULL);
     if (host_end < 0) {
         return 0;
     }
@@ -609,9 +637,9 @@ static int match_mailto(int kind, const void *data, Py_ssize_t colon, Py_ssize_t
     return 1;
 }
 
-/* The scan reads the text through one view: the code-point accessor the recognizer takes, the matcher policy, and
+/* The scan reads the text through one view: the code-point accessor the recognizer takes, the matcher policy,
    `resume`, the end of the last emitted span, which bounds every leftward expansion so a matcher never reads into a
-   link already emitted. */
+   link already emitted, and `refused`, the labels the bare-domain matcher need not start a host scan from again. */
 typedef struct {
     PyObject *text;
     int kind;
@@ -627,6 +655,7 @@ typedef struct {
        match. The href is the identity, not the matched text, so a bare domain and its written-out scheme collapse. */
     PyObject *seen;
     Py_ssize_t resume;
+    host_refusal refused;
 } scan_view;
 
 static uint32_t read_point(const void *text, size_t index) {
@@ -732,8 +761,25 @@ static Py_ssize_t skip_ucs4(const Py_UCS4 *points, Py_ssize_t pos, Py_ssize_t le
     return pos;
 }
 
-static TH_FORCEINLINE int match_trigger(const scan_view *scan, Py_UCS4 c, Py_ssize_t pos, Py_ssize_t *start,
-                                        Py_ssize_t *end, enum th_link_kind *link_kind, th_phone_match *number) {
+/* With phone detection on, th_phone_parse refuses a tel: payload over TH_PHONE_MAX_PARSE_CHARS, so the walk stops one
+   past that limit: otherwise each tel: in a run walks to the end of the run. */
+static TH_FORCEINLINE Py_ssize_t scheme_less_len(const scan_view *scan, Py_ssize_t colon) {
+    if (scan->phone == NULL) {
+        return scan->len;
+    }
+    Py_ssize_t bound = colon + 1 + TH_PHONE_MAX_PARSE_CHARS + 1;
+    if (bound >= scan->len) {
+        return scan->len;
+    }
+    Py_ssize_t scheme_start = scan_scheme_start(scan->kind, scan->data, colon, scan->resume);
+    if (scheme_start < 0 || !scheme_is(scan->kind, scan->data, scheme_start, colon, "tel", 3)) {
+        return scan->len;
+    }
+    return bound;
+}
+
+static TH_FORCEINLINE int match_trigger(scan_view *scan, Py_UCS4 c, Py_ssize_t pos, Py_ssize_t *start, Py_ssize_t *end,
+                                        enum th_link_kind *link_kind, th_phone_match *number) {
     int kind = scan->kind;
     const void *data = scan->data;
     if (c == ':') {
@@ -747,7 +793,7 @@ static TH_FORCEINLINE int match_trigger(const scan_view *scan, Py_UCS4 c, Py_ssi
         }
         *link_kind = TH_LINK_SCHEME;
         if (scan->schemes == NULL ||
-            !match_scheme_less(kind, data, pos, scan->resume, scan->len, start, end, scan->schemes)) {
+            !match_scheme_less(kind, data, pos, scan->resume, scheme_less_len(scan, pos), start, end, scan->schemes)) {
             return 0;
         }
         /* a written tel: URI links only when its payload reads as a number, so `tel:not-a-number` stays text */
@@ -767,11 +813,12 @@ static TH_FORCEINLINE int match_trigger(const scan_view *scan, Py_UCS4 c, Py_ssi
         return scan->parse_email && match_email(kind, data, pos, scan->resume, scan->len, start, end, scan->extra_tlds);
     }
     *link_kind = TH_LINK_URL;
-    return scan->bare_domains && match_domain(kind, data, pos, scan->resume, scan->len, start, end, scan->extra_tlds);
+    return scan->bare_domains &&
+           match_domain(kind, data, pos, scan->resume, scan->len, start, end, scan->extra_tlds, &scan->refused);
 }
 
-static inline int match_trigger_wide(const scan_view *scan, Py_UCS4 point, Py_ssize_t pos, Py_ssize_t *start,
-                                     Py_ssize_t *end, enum th_link_kind *link_kind) {
+static inline int match_trigger_wide(scan_view *scan, Py_UCS4 point, Py_ssize_t pos, Py_ssize_t *start, Py_ssize_t *end,
+                                     enum th_link_kind *link_kind) {
     if (point == ':') {
         if (match_url(scan->kind, scan->data, pos, scan->resume, scan->len, start, end, scan->url_schemes)) {
             *link_kind = TH_LINK_HAS_SCHEME;
@@ -792,8 +839,8 @@ static inline int match_trigger_wide(const scan_view *scan, Py_UCS4 point, Py_ss
                match_email(scan->kind, scan->data, pos, scan->resume, scan->len, start, end, scan->extra_tlds);
     }
     *link_kind = TH_LINK_URL;
-    return scan->bare_domains &&
-           match_domain(scan->kind, scan->data, pos, scan->resume, scan->len, start, end, scan->extra_tlds);
+    return scan->bare_domains && match_domain(scan->kind, scan->data, pos, scan->resume, scan->len, start, end,
+                                              scan->extra_tlds, &scan->refused);
 }
 
 /* Does a domain the `.` arm would link overlap the number just recognized? It keeps winning, so `1password.com` is
@@ -801,7 +848,7 @@ static inline int match_trigger_wide(const scan_view *scan, Py_UCS4 point, Py_ss
    not punctuation a run allows, and a number touching `@` was rejected with its neighbors. A domain found from a
    dot inside or right after the number includes the number's digits, so finding one is overlapping. The trigger that
    decided it is memoized for the scan to read back. */
-static int token_overlaps(const scan_view *scan, Py_ssize_t start, Py_ssize_t end, trigger_memo *memo) {
+static int token_overlaps(scan_view *scan, Py_ssize_t start, Py_ssize_t end, trigger_memo *memo) {
     Py_ssize_t probe_end = end < scan->len ? end + 1 : end;
     for (Py_ssize_t probe = start; probe < probe_end; probe++) {
         if (PyUnicode_READ(scan->kind, scan->data, probe) != '.') {
@@ -810,7 +857,7 @@ static int token_overlaps(const scan_view *scan, Py_ssize_t start, Py_ssize_t en
         memo->pos = probe;
         memo->link_kind = TH_LINK_URL;
         memo->found = scan->bare_domains && match_domain(scan->kind, scan->data, probe, scan->resume, scan->len,
-                                                         &memo->start, &memo->end, scan->extra_tlds);
+                                                         &memo->start, &memo->end, scan->extra_tlds, &scan->refused);
         if (memo->found) {
             return 1;
         }
@@ -921,6 +968,7 @@ static int scan_matches_wide(PyObject *text, int parse_email, int bare_domains, 
         .phone = NULL,
         .seen = seen,
         .resume = 0,
+        .refused = {0, 0},
     };
     scan_view *scan = &view;
     Py_ssize_t pos = 0;
@@ -965,6 +1013,7 @@ static int scan_matches(PyObject *text, int parse_email, int bare_domains, PyObj
         .phone = phone,
         .seen = seen,
         .resume = 0,
+        .refused = {0, 0},
     };
     trigger_memo memo = {.pos = -1, .link_kind = TH_LINK_URL};
     Py_ssize_t pos = 0;
@@ -1270,11 +1319,30 @@ static int holds_text_only(th_tree *tree, const th_node *node) {
     return (th_tag_flags(node->atom) & (TH_TAG_RAWTEXT | TH_TAG_RCDATA)) != 0;
 }
 
-TH_NODE_API(static, PyObject *, collect_targets,
-            (PyObject * module, PyObject *owner, int process_existing, PyObject *skip_tags),
-            (module, owner, process_existing, skip_tags),
-            (PyObject * module, PyObject *owner, int process_existing, PyObject *skip_tags), (NodeObject *)owner,
-            NULL) {
+/* Nothing under an <a>, the owner included, is a link target: a new <a> there would nest inside the existing one. */
+static int inside_anchor(const th_node *node) {
+    for (; node != NULL; node = node->parent) {
+        if (node->type == TH_NODE_ELEMENT && node->atom == TH_TAG_A) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* subtree_after() without its entry test: the walk only ever leaves a node strictly below root. */
+static inline th_node *after_descendant(th_node *node, const th_node *root) {
+    while (node->next_sibling == NULL) {
+        node = node->parent;
+        if (node == root) {
+            return NULL;
+        }
+    }
+    return node->next_sibling;
+}
+
+TH_NODE_API(static, PyObject *, collect_targets, (PyObject * owner, int process_existing, PyObject *skip_tags),
+            (owner, process_existing, skip_tags), (PyObject * owner, int process_existing, PyObject *skip_tags),
+            (NodeObject *)owner, NULL) {
     PyObject *targets = PyList_New(0);
     if (targets == NULL) { /* GCOVR_EXCL_BR_LINE: target list allocation cannot be forced from a test */
         return NULL;       /* GCOVR_EXCL_LINE */
@@ -1283,29 +1351,32 @@ TH_NODE_API(static, PyObject *, collect_targets,
     PyObject *handle = turbohtml_node_handle(owner);
     (void)handle;
     Py_BEGIN_CRITICAL_SECTION(handle);
-    th_tree *tree;
-    th_node *root;
-    (void)turbohtml_node_borrow(module, owner, &tree, &root);
-    th_node *node = root->first_child;
+    /* the caller already checked that owner is a node, so read its tree and node without checking again */
+    th_tree *tree = ((HandleObject *)handle)->tree;
+    th_node *root = ((NodeObject *)owner)->node;
+    th_node *node = inside_anchor(root) ? NULL : root->first_child;
     while (node != NULL) {
         if (node->type == TH_NODE_TEXT) {
             if (append_target(targets, owner, node) < 0) { /* GCOVR_EXCL_BR_LINE: wrapper/list allocation */
                 error = 1;                                 /* GCOVR_EXCL_LINE */
                 break;                                     /* GCOVR_EXCL_LINE */
             }
-        } else if (node->type == TH_NODE_ELEMENT &&
-                   (node->atom == TH_TAG_A || node->atom == TH_TAG_SCRIPT || node->atom == TH_TAG_STYLE ||
-                    holds_text_only(tree, node) || tag_in_tuple(node, skip_tags))) {
+            node = after_descendant(node, root);
+            continue;
+        }
+        if (node->type == TH_NODE_ELEMENT &&
+            (node->atom == TH_TAG_A || node->atom == TH_TAG_SCRIPT || node->atom == TH_TAG_STYLE ||
+             holds_text_only(tree, node) || tag_in_tuple(node, skip_tags))) {
             if (process_existing && node->atom == TH_TAG_A) {
                 if (append_target(targets, owner, node) < 0) { /* GCOVR_EXCL_BR_LINE: wrapper/list allocation */
                     error = 1;                                 /* GCOVR_EXCL_LINE */
                     break;                                     /* GCOVR_EXCL_LINE */
                 }
             }
-            node = subtree_after(node, root);
+            node = after_descendant(node, root);
             continue;
         }
-        node = node->first_child != NULL ? node->first_child : subtree_after(node, root);
+        node = node->first_child != NULL ? node->first_child : after_descendant(node, root);
     }
     Py_END_CRITICAL_SECTION();
     if (error) {            /* GCOVR_EXCL_BR_LINE: target wrapper/list allocation cannot be forced from a test */
@@ -1437,8 +1508,8 @@ static int prepare_candidate(PyObject *candidate_type, PyObject *url, PyObject *
     return 0;
 }
 
+/* Give anchor, which carries no attributes, the candidate's href and attributes. */
 static int set_candidate_attrs(th_tree *tree, th_node *anchor, PyObject *url, PyObject *attrs, int include_empty_url) {
-    anchor->attr_count = 0;
     PyObject *name;
     PyObject *value;
     Py_ssize_t pos = 0;
@@ -1491,8 +1562,12 @@ static int replace_anchor_text(th_tree *tree, th_node *anchor, PyObject *text) {
     return 0;
 }
 
+/* a vetoing callback can detach the anchor, leaving no sibling list to splice its children into */
 static void unwrap_anchor(th_tree *tree, th_node *anchor) {
     th_node *parent = anchor->parent;
+    if (parent == NULL) {
+        return;
+    }
     while (anchor->first_child != NULL) {
         th_node *child = anchor->first_child;
         th_node_remove_silent(tree, child);
@@ -1553,14 +1628,19 @@ TH_NODE_API(static, int, apply_existing,
     int status = 0;
     Py_BEGIN_CRITICAL_SECTION(handle);
     (void)turbohtml_node_borrow(module, target, &tree, &anchor);
+    /* unwrapping the anchor or replacing its text edits the child lists the element index and the path caches read */
+    handle_drop_index(handle);
     if (result->vetoed) {
         unwrap_anchor(tree, anchor);
     } else {
+        th_node_attrs_clear(tree, anchor);
         status = set_candidate_attrs(tree, anchor, result->url, result->attrs, 0);
         if (status == 0 && replace_text) { /* GCOVR_EXCL_BR_LINE: attribute encoding/arena allocation */
             status = replace_anchor_text(tree, anchor, result->text);
         }
     }
+    /* the unwrap relinks the anchor's children and clears its attributes, both out of the slot cache's sight */
+    handle_drop_slots((HandleObject *)handle);
     Py_END_CRITICAL_SECTION();
     return status;
 }
@@ -1702,8 +1782,11 @@ TH_NODE_API(static, int, apply_text,
         if (status == 0) { /* GCOVR_EXCL_BR_LINE: prior child allocation */
             status = append_data_slice(tree, fragment, points, cursor, PyUnicode_GET_LENGTH(text));
         }
-        if (status == 0) { /* GCOVR_EXCL_BR_LINE: fragment child allocation */
+        /* a callback can detach the node after collect_targets() listed it, leaving nothing to splice into */
+        if (status == 0 && node->parent != NULL) { /* GCOVR_EXCL_BR_LINE: fragment child allocation */
             th_node *parent = node->parent;
+            th_tree_note_deepened(tree);
+            handle_drop_index(handle); /* the new anchors enter a child list the element index and path caches read */
             /* no iterator can point into the fragment this call built, so its children move without the steps */
             while (fragment->first_child != NULL) {
                 th_node *child = fragment->first_child;
@@ -1711,6 +1794,7 @@ TH_NODE_API(static, int, apply_text,
                 th_node_insert_before(parent, child, node);
             }
             th_node_remove_silent(tree, node);
+            handle_drop_slots((HandleObject *)handle);
         }
     }
     Py_END_CRITICAL_SECTION();
@@ -1799,7 +1883,7 @@ PyObject *turbohtml_linkify_apply(PyObject *module, PyObject *args) {
         PyErr_SetString(PyExc_TypeError, "expected a turbohtml element");
         return NULL;
     }
-    PyObject *targets = collect_targets(module, owner, process_existing_flag, skip_tags);
+    PyObject *targets = collect_targets(owner, process_existing_flag, skip_tags);
     if (targets == NULL) { /* GCOVR_EXCL_BR_LINE: target list/wrapper allocation */
         return NULL;       /* GCOVR_EXCL_LINE */
     }

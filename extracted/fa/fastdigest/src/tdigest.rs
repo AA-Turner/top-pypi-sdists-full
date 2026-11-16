@@ -44,7 +44,7 @@ impl Centroid {
         self.weight.into_inner()
     }
 
-    pub fn add(&mut self, sum: f64, weight: f64) -> f64 {
+    pub fn add(&mut self, sum: f64, weight: f64) {
         let weight_: f64 = self.weight.into_inner();
         let mean_: f64 = self.mean.into_inner();
 
@@ -52,7 +52,6 @@ impl Centroid {
         let new_weight: f64 = weight_ + weight;
         self.weight = OrderedFloat::from(new_weight);
         self.mean = OrderedFloat::from(new_sum / new_weight);
-        new_sum
     }
 }
 
@@ -81,8 +80,6 @@ impl TDigest {
     const VERSION: u32 = 1;
     const HEADER_BYTES: usize = 80; // beginning of centroids in binary format
     const PADDING_BYTES: usize = 4; // HEADER_BYTES - sum(used header bytes)
-    const TARGET_DIGITS: u32 = 8;
-    const RECOMP_THRESH: u128 = 10u128.pow(f64::DIGITS - Self::TARGET_DIGITS);
 
     pub fn new_with_size(max_size: usize) -> Result<Self, TryReserveError> {
         let mut centroids: Vec<Centroid> = Vec::new();
@@ -349,8 +346,7 @@ impl TDigest {
 
         let mut result = TDigest::new_with_size(self.max_size)?;
         result.count = self.count + sorted_values.len() as u128;
-        result.mass =
-            OrderedFloat::from(self.mass() + (sorted_values.len() as f64));
+        let merge_mass = self.mass() + sorted_values.len() as f64;
 
         let maybe_min = *sorted_values.first().unwrap();
         let maybe_max = *sorted_values.last().unwrap();
@@ -368,7 +364,7 @@ impl TDigest {
 
         let mut k_limit: f64 = 1.0;
         let mut q_limit_times_mass: f64 =
-            Self::k_to_q(k_limit, self.max_size as f64) * result.mass();
+            Self::k_to_q(k_limit, self.max_size as f64) * merge_mass;
         k_limit += 1.0;
 
         let mut iter_centroids = self.centroids.iter().peekable();
@@ -390,6 +386,8 @@ impl TDigest {
         let mut weight_so_far: f64 = curr.weight();
         let mut sums_to_merge: f64 = 0.0;
         let mut weights_to_merge: f64 = 0.0;
+        let mut total_weight: f64 = 0.0;
+        let mut total_sum: f64 = 0.0;
 
         while iter_centroids.peek().is_some()
             || iter_sorted_values.peek().is_some()
@@ -420,29 +418,30 @@ impl TDigest {
                 sums_to_merge += next_sum;
                 weights_to_merge += next.weight();
             } else {
-                result.sum = OrderedFloat::from(
-                    result.sum() + curr.add(sums_to_merge, weights_to_merge),
-                );
+                curr.add(sums_to_merge, weights_to_merge);
+                total_weight += curr.weight();
+                total_sum += curr.mean() * curr.weight();
                 sums_to_merge = 0.0;
                 weights_to_merge = 0.0;
 
                 compressed.push(curr.clone());
                 q_limit_times_mass =
-                    Self::k_to_q(k_limit, self.max_size as f64) * result.mass();
+                    Self::k_to_q(k_limit, self.max_size as f64) * merge_mass;
                 k_limit += 1.0;
                 curr = next;
             }
         }
 
-        result.sum = OrderedFloat::from(
-            result.sum() + curr.add(sums_to_merge, weights_to_merge),
-        );
+        curr.add(sums_to_merge, weights_to_merge);
+        total_weight += curr.weight();
+        total_sum += curr.mean() * curr.weight();
         compressed.push(curr);
         compressed.shrink_to_fit();
         compressed.sort();
 
         result.centroids = compressed;
-        result.maybe_recompute_totals(self.count);
+        result.mass = OrderedFloat::from(total_weight);
+        result.sum = OrderedFloat::from(total_sum);
 
         Ok(result)
     }
@@ -462,7 +461,7 @@ impl TDigest {
 
         let mut result = TDigest::new_with_size(self.max_size)?;
         result.count = self.count + sorted_values_weights.len() as u128;
-        result.mass = OrderedFloat::from(self.mass() + total_new_weight);
+        let merge_mass = self.mass() + total_new_weight;
 
         let maybe_min = sorted_values_weights.first().unwrap().0;
         let maybe_max = sorted_values_weights.last().unwrap().0;
@@ -480,7 +479,7 @@ impl TDigest {
 
         let mut k_limit: f64 = 1.0;
         let mut q_limit_times_mass: f64 =
-            Self::k_to_q(k_limit, self.max_size as f64) * result.mass();
+            Self::k_to_q(k_limit, self.max_size as f64) * merge_mass;
         k_limit += 1.0;
 
         let mut iter_centroids = self.centroids.iter().peekable();
@@ -501,6 +500,8 @@ impl TDigest {
         let mut weight_so_far: f64 = curr.weight();
         let mut sums_to_merge: f64 = 0.0;
         let mut weights_to_merge: f64 = 0.0;
+        let mut total_weight: f64 = 0.0;
+        let mut total_sum: f64 = 0.0;
 
         while iter_centroids.peek().is_some()
             || iter_values_weights.peek().is_some()
@@ -527,29 +528,30 @@ impl TDigest {
                 sums_to_merge += next_sum;
                 weights_to_merge += next.weight();
             } else {
-                result.sum = OrderedFloat::from(
-                    result.sum() + curr.add(sums_to_merge, weights_to_merge),
-                );
+                curr.add(sums_to_merge, weights_to_merge);
+                total_weight += curr.weight();
+                total_sum += curr.mean() * curr.weight();
                 sums_to_merge = 0.0;
                 weights_to_merge = 0.0;
 
                 compressed.push(curr.clone());
                 q_limit_times_mass =
-                    Self::k_to_q(k_limit, self.max_size as f64) * result.mass();
+                    Self::k_to_q(k_limit, self.max_size as f64) * merge_mass;
                 k_limit += 1.0;
                 curr = next;
             }
         }
 
-        result.sum = OrderedFloat::from(
-            result.sum() + curr.add(sums_to_merge, weights_to_merge),
-        );
+        curr.add(sums_to_merge, weights_to_merge);
+        total_weight += curr.weight();
+        total_sum += curr.mean() * curr.weight();
         compressed.push(curr);
         compressed.shrink_to_fit();
         compressed.sort();
 
         result.centroids = compressed;
-        result.maybe_recompute_totals(self.count);
+        result.mass = OrderedFloat::from(total_weight);
+        result.sum = OrderedFloat::from(total_sum);
 
         Ok(result)
     }
@@ -628,8 +630,6 @@ impl TDigest {
         starts.try_reserve_exact(digests.len())?;
 
         let count: u128 = digests.iter().map(|d| d.count).sum();
-        let max_count: u128 = digests.iter().map(|d| d.count).max().unwrap();
-
         let mut mass: f64 = 0.0;
         let mut min = OrderedFloat::from(f64::INFINITY);
         let mut max = OrderedFloat::from(f64::NEG_INFINITY);
@@ -683,6 +683,8 @@ impl TDigest {
         let mut weight_so_far: f64 = curr.weight();
         let mut sums_to_merge: f64 = 0.0;
         let mut weights_to_merge: f64 = 0.0;
+        let mut total_weight: f64 = 0.0;
+        let mut total_sum: f64 = 0.0;
 
         for centroid in iter_centroids {
             weight_so_far += centroid.weight();
@@ -691,9 +693,9 @@ impl TDigest {
                 sums_to_merge += centroid.mean() * centroid.weight();
                 weights_to_merge += centroid.weight();
             } else {
-                result.sum = OrderedFloat::from(
-                    result.sum() + curr.add(sums_to_merge, weights_to_merge),
-                );
+                curr.add(sums_to_merge, weights_to_merge);
+                total_weight += curr.weight();
+                total_sum += curr.mean() * curr.weight();
                 sums_to_merge = 0.0;
                 weights_to_merge = 0.0;
                 compressed.push(curr.clone());
@@ -704,20 +706,19 @@ impl TDigest {
             }
         }
 
-        result.sum = OrderedFloat::from(
-            result.sum() + curr.add(sums_to_merge, weights_to_merge),
-        );
+        curr.add(sums_to_merge, weights_to_merge);
+        total_weight += curr.weight();
+        total_sum += curr.mean() * curr.weight();
         compressed.push(curr.clone());
         compressed.shrink_to_fit();
         compressed.sort();
 
         result.centroids = compressed;
-        result.mass = OrderedFloat::from(mass);
+        result.mass = OrderedFloat::from(total_weight);
+        result.sum = OrderedFloat::from(total_sum);
         result.min = min;
         result.max = max;
         result.count = count;
-
-        result.maybe_recompute_totals(max_count);
 
         Ok(result)
     }
@@ -1050,17 +1051,116 @@ impl TDigest {
             .unwrap_or(f64::NAN)
     }
 
-    /// Estimates population variance using Var(X) = E[X^2] - (E[X])^2.
-    pub fn estimate_var(&self) -> f64 {
-        if self.mass() == 0.0 {
-            return f64::NAN;
+    /// Returns (second moment, requested higher moment, scale), with moments
+    /// computed from (centroid mean - mean) / scale. ORDER=2 skips higher powers.
+    fn estimate_scaled_moments<const ORDER: i32>(&self) -> (f64, f64, f64) {
+        if self.centroids.is_empty() || self.mass() == 0.0 {
+            return (f64::NAN, f64::NAN, f64::NAN);
         }
-        let m2: f64 = self
-            .centroids
-            .iter()
-            .map(|c| c.mean() * c.mean() * c.weight())
-            .sum();
-        m2 / self.mass() - self.mean() * self.mean()
+        // Check the sorted centroid range directly: rounding in sum / mass
+        // can otherwise give constant data a spurious nonzero variance.
+        if self.centroids.len() <= 1
+            || self.centroids[0].mean()
+                == self.centroids[self.centroids.len() - 1].mean()
+        {
+            return (0.0, 0.0, 0.0);
+        }
+        // Use the stored mean only as a nearby origin. Adding a small
+        // correction back to a large origin would round it away again.
+        let mean = self.mean();
+        let origin = if mean.is_finite() {
+            mean
+        } else {
+            self.centroids[self.centroids.len() / 2].mean()
+        };
+        // Centroids are sorted, so the endpoints determine the scale.
+        let scale = (self.centroids[0].mean() - origin).abs().max(
+            (self.centroids[self.centroids.len() - 1].mean() - origin).abs(),
+        );
+        if scale == 0.0 {
+            return (0.0, 0.0, 0.0);
+        }
+
+        // Accumulate moments about a nearby origin in one pass, including
+        // the first moment needed to correct for rounding in the stored mean.
+        // Scaling avoids overflow/underflow in powers of the deviations.
+        let mut m1 = 0.0;
+        let mut m2 = 0.0;
+        let mut m3 = 0.0;
+        let mut mk = 0.0;
+        for centroid in &self.centroids {
+            let delta = (centroid.mean() - origin) / scale;
+            let weight = centroid.weight() / self.mass();
+            let weighted_delta = weight * delta;
+            let weighted_square = weighted_delta * delta;
+            m1 += weighted_delta;
+            m2 += weighted_square;
+            if ORDER > 2 {
+                let weighted_cube = weighted_square * delta;
+                if ORDER == 4 {
+                    m3 += weighted_cube;
+                    mk += weighted_cube * delta;
+                } else {
+                    mk += weighted_cube;
+                }
+            }
+        }
+        // Translate from the nearby origin to the true center without adding
+        // a small correction back to a large, rounded floating-point mean.
+        let m1_squared = m1 * m1;
+        // If the origin is more than roughly one standard deviation from
+        // the center, subtracting moments can lose precision. Recenter
+        // directly in that uncommon case; ordinary queries keep one pass.
+        if m1_squared > 0.5 * m2 {
+            let mut m2_centered = 0.0;
+            let mut mk_centered = 0.0;
+            for centroid in &self.centroids {
+                let delta = (centroid.mean() - origin) / scale - m1;
+                let weighted_square =
+                    (centroid.weight() / self.mass()) * delta * delta;
+                m2_centered += weighted_square;
+                if ORDER == 4 {
+                    mk_centered += weighted_square * delta * delta;
+                } else if ORDER == 3 {
+                    mk_centered += weighted_square * delta;
+                }
+            }
+            return (m2_centered, mk_centered, scale);
+        }
+        let m2_centered = m2 - m1_squared;
+        let mk_centered = if ORDER == 4 {
+            mk - 4.0 * m1 * m3 + 6.0 * m1_squared * m2
+                - 3.0 * m1_squared * m1_squared
+        } else if ORDER == 3 {
+            mk - 3.0 * m1 * m2 + 2.0 * m1 * m1_squared
+        } else {
+            0.0
+        };
+        (m2_centered, mk_centered, scale)
+    }
+
+    /// Estimates the population variance of the distribution.
+    pub fn estimate_var(&self) -> f64 {
+        let (m2_centered, _, scale) = self.estimate_scaled_moments::<2>();
+        (m2_centered * scale) * scale
+    }
+
+    /// Standardized population moment of the weighted centroid means.
+    fn estimate_standardized_moment<const ORDER: i32>(&self) -> f64 {
+        let (m2_centered, mk_centered, _) =
+            self.estimate_scaled_moments::<ORDER>();
+        mk_centered / m2_centered.powf(f64::from(ORDER) / 2.0)
+    }
+
+    /// Estimates the population skewness of the distribution.
+    pub fn estimate_skew(&self) -> f64 {
+        self.estimate_standardized_moment::<3>()
+    }
+
+    /// Estimates the population kurtosis of the distribution.
+    pub fn estimate_kurtosis(&self, excess: bool) -> f64 {
+        self.estimate_standardized_moment::<4>()
+            - if excess { 3.0 } else { 0.0 }
     }
 
     /// Approximate error function (Abramowitz-Stegun 7.1.26).
@@ -1129,25 +1229,6 @@ impl TDigest {
         let n = self.mass();
         let d_crit = (-0.5 * (alpha / 2.0).ln()).sqrt() / n.sqrt();
         d <= d_crit
-    }
-
-    fn maybe_recompute_totals(&mut self, old_count: u128) {
-        let old_count_level = old_count / Self::RECOMP_THRESH;
-        let new_count_level = self.count / Self::RECOMP_THRESH;
-        if new_count_level > old_count_level {
-            self.recompute_totals();
-        }
-    }
-
-    fn recompute_totals(&mut self) {
-        let mut mass = 0.0;
-        let mut sum = 0.0;
-        for c in self.centroids.iter() {
-            mass += c.weight();
-            sum += c.mean() * c.weight();
-        }
-        self.mass = OrderedFloat::from(mass);
-        self.sum = OrderedFloat::from(sum);
     }
 }
 

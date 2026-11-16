@@ -350,6 +350,11 @@ PyArray_TakeFrom(PyArrayObject *self0, PyObject *indices0, int axis,
         goto fail;
     }
 
+    /* Empty results cannot wrap an index around a zero-length axis. */
+    if (max_item == 0 && clipmode == NPY_WRAP) {
+        n = 0;
+    }
+
     if (npy_fasttake(
             dest, src, indices_data, n, m, max_item, nelem, chunk,
             clipmode, itemsize, needs_refcounting, src_descr, dst_descr,
@@ -1646,6 +1651,9 @@ fail:
         PyDataMem_UserFREE(valbuffer, N * elsize, mem_handler);
     }
     PyDataMem_UserFREE(idxbuffer, N * sizeof(npy_intp), mem_handler);
+    if (ret == 0 && PyErr_Occurred()) {
+        ret = -1;
+    }
     if (ret < 0) {
         if (!PyErr_Occurred()) {
             /* Out of memory during sorting or buffer creation */
@@ -2026,8 +2034,7 @@ PyArray_LexSort(PyObject *sort_keys, int axis)
                     _strided_byte_swap(valbuffer, (npy_intp) elsize, N, elsize);
                 }
                 rcode = argsort(valbuffer, (npy_intp *)indbuffer, N, mps[j]);
-                if (rcode < 0 || (PyDataType_REFCHK(PyArray_DESCR(mps[j]))
-                            && PyErr_Occurred())) {
+                if (rcode < 0 || (object && PyErr_Occurred())) {
                     PyDataMem_FREE(valbuffer);
                     PyDataMem_FREE(indbuffer);
                     PyMem_RawFree(swaps);
@@ -2068,6 +2075,9 @@ PyArray_LexSort(PyObject *sort_keys, int axis)
 
     if (!object) {
         NPY_END_THREADS;
+        if (PyErr_Occurred()) {
+            goto fail;
+        }
     }
 
  finish:
@@ -2289,6 +2299,9 @@ PyArray_SearchSorted(PyArrayObject *op1, PyObject *op2,
 
     if (error < 0) {
         PyErr_SetString(PyExc_ValueError, "Sorter index out of range.");
+        goto fail;
+    }
+    if (PyErr_Occurred()) {
         goto fail;
     }
     if (ap3 != NULL) {

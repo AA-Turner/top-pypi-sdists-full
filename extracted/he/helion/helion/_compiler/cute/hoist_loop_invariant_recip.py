@@ -59,10 +59,11 @@ single reciprocal computation.
        v_12 = v_11 / v_9
        v_13 = v_12 / v_9
 
-   and the scalar ``truediv`` lowering emits the full IEEE divide
-   sequence (~20 SASS instructions with a BSSY/BSYNC branch) for every
-   quotient.  The block-local pass rewrites this to one IEEE reciprocal
-   plus one FMUL per quotient::
+   and the scalar ``truediv`` lowering emits one division per quotient:
+   ``div.full.f32`` (an operand scaling, a reciprocal and a multiply), or
+   under ``Settings.cute_exact_division`` the full IEEE divide sequence
+   (~20 SASS instructions with a BSSY/BSYNC branch).  The block-local pass
+   rewrites this to one reciprocal plus one FMUL per quotient::
 
        v_9 = v_7 + v_8
        _helion_inv_div_0 = 1.0 / v_9
@@ -86,7 +87,9 @@ neighbours (at most 1 ulp away from the IEEE division result).  The bound
 assumes ``1 / d`` is a normal fp32 value (roughly ``2**-128 < |d| <=
 2**126``); outside that range the reciprocal can overflow or lose bits
 where the division would not, exactly as for the loop-invariant hoist.
-Both rewrites use only IEEE-rounded ``/`` and ``*``, but they still change
+(The bounds are for the IEEE ``/`` of ``Settings.cute_exact_division``;
+by default ``/`` and the reciprocal are ``div.full.f32``, within 2 ulp
+each.)  Both rewrites use only ``/`` and ``*``, but they still change
 results, and only where they fire: inside a loop for the hoist, and where
 a block repeats a divisor for the sharing.  Which loops and blocks exist
 depends on the config (a lane loop when ``num_threads`` is below the block
@@ -111,15 +114,17 @@ import ast
 import operator
 from typing import TYPE_CHECKING
 from typing import Literal
-from typing import TypeVar
-from typing import cast
 
 import torch
 
-from ..ast_extension import ExtendedAST
 from ..ast_extension import expr_from_string
 from ..ast_extension import statement_from_string
-from ._ast_pass_utils import _names_read
+from ._ast_pass_utils import dealias_shared_nodes
+from ._ast_pass_utils import deep_clone
+from ._ast_pass_utils import is_name_assign
+from ._ast_pass_utils import is_staged_loop
+from ._ast_pass_utils import is_trace_time_test
+from ._ast_pass_utils import names_read
 from .scalar_recipe_rounding import _kind
 from .scaled_sub_fusion import SCALED_SUBTRACTION_ATTR
 
@@ -129,7 +134,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from collections.abc import Mapping
 
-_AstT = TypeVar("_AstT", bound=ast.AST)
 
 _HOIST_COUNTER: list[int] = [0]
 
@@ -239,14 +243,30 @@ def _collect_assigns_in_body(
 
     _walk(body, True)
 
-    def _reads(node: ast.AST, canon: str) -> int:
-        return sum(
-            1
-            for sub in ast.walk(node)
-            if isinstance(sub, ast.Name)
-            and isinstance(sub.ctx, ast.Load)
-            and _canonical(sub.id) == canon
-        )
+    read_summaries: dict[int, tuple[dict[str, int], dict[str, int]]] = {}
+
+    def _read_summary(stmts: list[ast.stmt]) -> tuple[dict[str, int], dict[str, int]]:
+        """Count reads and their first statement once per lexical body.
+
+        Testing every assignment by walking the whole body and its suffix
+        costs quadratic time for large unrolled kernels. Equal body/total
+        counts and a first read after the write prove the same dominance.
+        """
+        cached = read_summaries.get(id(stmts))
+        if cached is not None:
+            return cached
+        counts: dict[str, int] = {}
+        first: dict[str, int] = {}
+        for position, statement in enumerate(stmts):
+            for sub in ast.walk(statement):
+                if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+                    name = _canonical(sub.id)
+                    counts[name] = counts.get(name, 0) + 1
+                    first.setdefault(name, position)
+        read_summaries[id(stmts)] = counts, first
+        return counts, first
+
+    total_reads, _ = _read_summary(body)
 
     assigns_by_target: dict[str, list[ast.expr]] = {}
     for canon, entries in bindings.items():
@@ -262,9 +282,11 @@ def _collect_assigns_in_body(
         ):
             continue
         # Every read of the name must follow the write in its own list.
-        total_reads = sum(_reads(top, canon) for top in body)
-        dominated_reads = sum(_reads(later, canon) for later in stmts[idx + 1 :])
-        if total_reads != dominated_reads:
+        local_reads, first_read = _read_summary(stmts)
+        if (
+            total_reads.get(canon, 0) != local_reads.get(canon, 0)
+            or first_read.get(canon, len(stmts)) <= idx
+        ):
             continue
         assigns_by_target[canon] = [stmt.value]
     return assigns_by_target, all_written
@@ -329,7 +351,7 @@ def _is_loop_invariant(
         # First, conservatively forbid Subscript / Call / BinOp that we
         # can't fully analyze.  Actually, allow them — the deciding
         # factor is whether the rhs reads any non-invariant name.
-        rhs_reads = _names_read(rhs)
+        rhs_reads = names_read(rhs)
         for r in rhs_reads:
             if not _is_loop_invariant(
                 r,
@@ -1213,33 +1235,33 @@ def _collect_all_name_reads(body: list[ast.stmt]) -> set[str]:
             # Skip the LHS targets of Assign but include the RHS.  Use
             # ast.walk on stmt.value to collect Loads.
             if isinstance(stmt, ast.Assign):
-                reads.update(_names_read(stmt.value))
+                reads.update(names_read(stmt.value))
                 # Also collect from any non-Name LHS components
                 # (Subscripts, Attributes — those count as reads of
                 # base names).
                 for target in stmt.targets:
                     if not isinstance(target, ast.Name):
-                        reads.update(_names_read(target))
+                        reads.update(names_read(target))
                 continue
             if isinstance(stmt, ast.AugAssign):
-                reads.update(_names_read(stmt.value))
-                reads.update(_names_read(stmt.target))
+                reads.update(names_read(stmt.value))
+                reads.update(names_read(stmt.target))
                 continue
             if isinstance(stmt, ast.Expr):
-                reads.update(_names_read(stmt.value))
+                reads.update(names_read(stmt.value))
                 continue
             if isinstance(stmt, ast.If):
-                reads.update(_names_read(stmt.test))
+                reads.update(names_read(stmt.test))
                 _walk(stmt.body)
                 _walk(stmt.orelse)
                 continue
             if isinstance(stmt, ast.For):
-                reads.update(_names_read(stmt.iter))
+                reads.update(names_read(stmt.iter))
                 _walk(stmt.body)
                 _walk(stmt.orelse)
                 continue
             if isinstance(stmt, ast.While):
-                reads.update(_names_read(stmt.test))
+                reads.update(names_read(stmt.test))
                 _walk(stmt.body)
                 _walk(stmt.orelse)
                 continue
@@ -1248,10 +1270,10 @@ def _collect_all_name_reads(body: list[ast.stmt]) -> set[str]:
                 continue
             if isinstance(stmt, ast.Return):
                 if stmt.value is not None:
-                    reads.update(_names_read(stmt.value))
+                    reads.update(names_read(stmt.value))
                 continue
             # Fallback: walk the whole stmt.
-            reads.update(_names_read(stmt))
+            reads.update(names_read(stmt))
 
     _walk(body)
     return reads
@@ -1259,17 +1281,18 @@ def _collect_all_name_reads(body: list[ast.stmt]) -> set[str]:
 
 def _dce_pure_assigns(body: list[ast.stmt]) -> list[ast.stmt]:
     """Remove ``NAME = pure-expr`` statements where NAME is never read
-    afterwards, and ``pure-expr`` has no side effects.
+    anywhere in the kernel, and ``pure-expr`` has no side effects.
 
     A pure-expr is conservatively any expression with no Call nodes.
-    The pass iterates until fixed point so cascaded dead chains
-    (``v_10 = v_9 - mi; v_X = v_10 + 1``) DCE together — if the second
-    is removed, the first becomes dead too.
 
-    Reads are collected across the ENTIRE body before any DCE so an
-    assignment inside an ``if`` branch is never removed when the name
-    is read in an enclosing scope (the previous per-scope read set
-    would miss those outer reads and silently drop the assignment).
+    Reads are collected ONCE across the ENTIRE body before any DCE so an
+    assignment inside an ``if`` branch is never removed when the name is
+    read in an enclosing scope (a per-scope read set would miss those outer
+    reads and silently drop the assignment).  That whole-body read set also
+    counts the reads of the statements removed here, so the head of a dead
+    chain (``v_10 = v_9 - mi; v_X = v_10 + 1``) stays when only its tail is
+    dead: every removal is decided against the same set, which makes one
+    pass over each scope complete.
 
     Mutates ``body`` in place.
     """
@@ -1301,42 +1324,29 @@ def _dce_pure_assigns(body: list[ast.stmt]) -> list[ast.stmt]:
             return None
         return name
 
-    def _walk(stmts: list[ast.stmt], outer_reads: set[str]) -> list[ast.stmt]:
+    # The full body's reads: every scope decides against this one set, so a
+    # name assigned in an ``if`` branch and read after it is never removed.
+    reads = _collect_all_name_reads(body)
+
+    def _walk(stmts: list[ast.stmt]) -> list[ast.stmt]:
         if _is_placeholder_body(stmts):
             return stmts
-        # Recurse into children first so DCE at the leaves can propagate
-        # upward via fixed-point iteration.  ``outer_reads`` carries reads
-        # from enclosing scopes so a name assigned in an ``if`` branch is
-        # preserved if it is read after the if/else.
+        new_stmts = []
         for stmt in stmts:
             if isinstance(
                 stmt, (ast.For, ast.While, ast.If, ast.With, ast.FunctionDef)
             ):
-                stmt.body = _walk(stmt.body, outer_reads)
+                stmt.body = _walk(stmt.body)
             if isinstance(stmt, (ast.For, ast.While, ast.If)):
-                stmt.orelse = _walk(stmt.orelse, outer_reads)
+                stmt.orelse = _walk(stmt.orelse)
+            if isinstance(stmt, ast.Assign):
+                name = _eligible_target(stmt)
+                if name is not None and name not in reads and _is_pure(stmt.value):
+                    continue
+            new_stmts.append(stmt)
+        return new_stmts
 
-        # Iterate to fixed point.
-        while True:
-            reads = _collect_all_name_reads(stmts) | outer_reads
-            new_stmts = []
-            removed = False
-            for stmt in stmts:
-                if isinstance(stmt, ast.Assign):
-                    name = _eligible_target(stmt)
-                    if name is not None and name not in reads and _is_pure(stmt.value):
-                        removed = True
-                        continue
-                new_stmts.append(stmt)
-            stmts = new_stmts
-            if not removed:
-                break
-        return stmts
-
-    # Seed with the full body's reads so the inner ``_walk`` calls see
-    # every read across the entire kernel, not just reads local to their
-    # own scope.
-    body[:] = _walk(body, _collect_all_name_reads(body))
+    body[:] = _walk(body)
     return body
 
 
@@ -1415,10 +1425,10 @@ def _dce_pure_assigns(body: list[ast.stmt]) -> list[ast.stmt]:
 #   included), or written once by a plain assignment that precedes every
 #   read within one iteration.  ``for ...: v = x / d; d = e`` divides by the
 #   pre-loop ``d`` first and by ``e`` afterwards; it is left alone.
-# * Codegen emits a reduction sweep and its rematerialized store sweep with
-#   the same statement objects; ``_dealias_shared_nodes`` gives every
-#   position its own copy before the first in-place rewrite, so each sweep
-#   is rewritten in its own context (its own hoisted names and divisor).
+# * Every position of the tree is its own node (``dealias_shared_nodes``)
+#   before the first in-place rewrite, so a statement placed in two sweeps
+#   is rewritten in each sweep's own context (its own hoisted names and
+#   divisor).
 # * The values the redo copy rolls back are the names the loop rebinds that
 #   were bound when it starts -- under the DSL's staging rules
 #   (``_bound_before`` / ``_is_unrolled_region``): the kernel's parameters,
@@ -1450,79 +1460,6 @@ def _new_exact_names() -> tuple[str, str, str]:
         f"{EXACT_DIV_PREFIX}lo_{index}",
         f"{EXACT_DIV_PREFIX}hi_{index}",
     )
-
-
-# ``ExtendedAST.new`` carries these itself; every other non-field attribute
-# of a node (the ``_helion_*`` markers passes leave on loops and
-# statements) is copied by ``_deep_clone``.
-_EXTENDED_AST_INTERNALS = frozenset(
-    {"_location", "_type_info", "_loop_type", "_is_kernel_call", "_root_id"}
-)
-
-
-def _deep_clone(node: _AstT) -> _AstT:
-    """A fresh copy of ``node``'s whole subtree that also keeps the marker
-    attributes set on its nodes (``scalar_recipe._clone`` copies fields
-    only), so a redo copy or a de-aliased statement is indistinguishable
-    from the original to every later pass."""
-
-    def clone_field(value: object) -> object:
-        if isinstance(value, ast.AST):
-            return _deep_clone(value)
-        if isinstance(value, list):
-            return [clone_field(item) for item in value]
-        return value
-
-    fields = {name: clone_field(value) for name, value in ast.iter_fields(node)}
-    if isinstance(node, ExtendedAST):
-        result = node.new(fields)
-    else:
-        result = ast.copy_location(type(node)(**fields), node)
-    skip = set(node._fields) | set(node._attributes) | _EXTENDED_AST_INTERNALS
-    for key, value in vars(node).items():
-        if key not in skip and key not in vars(result):
-            setattr(result, key, value)
-    return cast("_AstT", result)
-
-
-def _dealias_shared_nodes(body: list[ast.stmt]) -> None:
-    """Give every position in the tree its own node object.
-
-    Helion's codegen reuses statement objects: the rematerialized store
-    sweep of a reduction is emitted with the SAME ``ast.Assign`` (and lane
-    loop body) objects as the reduction sweep.  A rewrite of one occurrence
-    in place is then a rewrite of both, with the other occurrence's context
-    (its own hoisted names, its own divisor) ignored.  Every repeated node
-    reached through a field or a body list is replaced by a deep clone, and
-    a body list held by two nodes by its own list, before the pass rewrites
-    anything; the rendered text is unchanged.
-    """
-    seen: set[int] = set()
-    seen_lists: set[int] = set()
-
-    def visit(node: ast.AST) -> None:
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                if id(value) in seen_lists:
-                    value = list(value)
-                    setattr(node, field, value)
-                seen_lists.add(id(value))
-                for index, item in enumerate(value):
-                    if isinstance(item, ast.AST):
-                        value[index] = fresh(item)
-            elif isinstance(value, ast.AST):
-                setattr(node, field, fresh(value))
-
-    def fresh(node: ast.AST) -> ast.AST:
-        if id(node) in seen:
-            # The clone's subtree is new to the tree; no need to walk it.
-            return _deep_clone(node)
-        seen.add(id(node))
-        visit(node)
-        return node
-
-    for index, stmt in enumerate(body):
-        body[index] = cast("ast.stmt", fresh(stmt))
 
 
 class _CanonicalKinds:
@@ -1645,7 +1582,7 @@ def _select_derived_names(body: list[ast.stmt]) -> set[str]:
         for target in targets:
             for sub in ast.walk(target):
                 if isinstance(sub, ast.Subscript):
-                    bound.update(_canonical(n) for n in _names_read(sub.value))
+                    bound.update(_canonical(n) for n in names_read(sub.value))
         reads = {_canonical(n) for n in _value_reads(stmt.value)}
         facts.append((_contains_select(stmt.value), reads, bound))
     tainted: set[str] = set()
@@ -1671,11 +1608,61 @@ def _iterator_tensor(node: ast.AST) -> str | None:
     return None
 
 
+def _register_fragment_dtypes(body: list[ast.stmt]) -> dict[str, str]:
+    """Canonical name -> element type of each register fragment: a name every
+    ``Store`` or ``Del`` of which is the target of ``NAME =
+    cute.make_rmem_tensor(size, dtype)`` with one dtype, and which is read
+    only through its elements (a cross-sweep load cache, for one)."""
+    nodes = [node for stmt in body for node in ast.walk(stmt)]
+    declared = {
+        id(node.targets[0]): ast.unparse(node.value.args[1])
+        for node in nodes
+        if is_name_assign(node)
+        and isinstance(node.value, ast.Call)
+        and ast.unparse(node.value.func) == "cute.make_rmem_tensor"
+        and len(node.value.args) == 2
+    }
+    dtypes: dict[str, str | None] = {}
+    for node in nodes:
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            name, dtype = _canonical(node.id), declared.get(id(node))
+            same = dtype is not None and dtypes.get(name, dtype) == dtype
+            dtypes[name] = dtype if same else None
+    # A fragment read other than as one element (``alias = cache``, a view
+    # ``cache[None]``, a call's argument) may be written through another name,
+    # whose stores the masked values reach (``_select_derived_names``): it
+    # gets no element type.
+    elements = {
+        id(node.value)
+        for node in nodes
+        if isinstance(node, ast.Subscript) and _picks_one_element(node.slice)
+    }
+    for node in nodes:
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and id(node) not in elements
+        ):
+            dtypes[_canonical(node.id)] = None
+    return {name: dtype for name, dtype in dtypes.items() if dtype is not None}
+
+
 def _expression_kind(
-    node: ast.expr, kinds: _CanonicalKinds, tensor_dtypes: Mapping[str, str]
+    node: ast.expr,
+    kinds: _CanonicalKinds,
+    tensor_dtypes: Mapping[str, str],
+    fragments: Mapping[str, str],
 ) -> _Kind:
     """``_kind`` plus the scalar loads: ``(t.iterator + ...).load()``, whose
-    dtype is the tensor argument's, and the helper forms that spell it."""
+    dtype is the tensor argument's, the helper forms that spell it, and an
+    element of an fp32 register fragment (``fragments``)."""
+    if (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Name)
+        and fragments.get(_canonical(node.value.id)) == _FP32_DTYPE_STR
+        and _picks_one_element(node.slice)
+    ):
+        return "fp32"
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
@@ -1695,6 +1682,17 @@ def _expression_kind(
         if path in {"_cute_scalar_policy_load", "cute.arch.load"}:
             return "fp32" if ast.unparse(node.args[1]) == _FP32_DTYPE_STR else None
     return _kind(node, kinds)  # pyrefly: ignore[bad-argument-type]
+
+
+def _picks_one_element(index: ast.expr) -> bool:
+    """Whether a fragment subscript's ``index`` names one element: a view
+    (a ``None`` mode, a slice or an ellipsis anywhere in it, a nested
+    coordinate's included) is no fp32 scalar."""
+    return not any(
+        isinstance(node, ast.Slice)
+        or (isinstance(node, ast.Constant) and node.value in (None, Ellipsis))
+        for node in ast.walk(index)
+    )
 
 
 def _infer_scalar_kinds(
@@ -1717,6 +1715,7 @@ def _infer_scalar_kinds(
     assigns = [
         node for stmt in body for node in ast.walk(stmt) if isinstance(node, ast.stmt)
     ]
+    fragments = _register_fragment_dtypes(body)
     # Two rounds: the first defines in program order, the second re-derives
     # every assignment with the complete map and records disagreements.
     for _round in range(2):
@@ -1735,7 +1734,7 @@ def _infer_scalar_kinds(
                 # A reassigned scalar argument is no longer the argument.
                 unknown.add(name)
                 continue
-            kind = _expression_kind(stmt.value, kinds, tensor_dtypes)
+            kind = _expression_kind(stmt.value, kinds, tensor_dtypes, fragments)
             if name not in kinds.kinds:
                 kinds.kinds[name] = kind
             elif kinds.kinds[name] != kind:
@@ -1938,8 +1937,6 @@ def _new_redo_names() -> tuple[str, str]:
 # else -- ``cutlass.range_constexpr`` and any non-``range`` iterable, an
 # ``if`` / ``while`` on ``cutlass.const_expr(...)``, a ``with`` -- stays
 # Python, runs while tracing, and keeps its bindings like any Python block.
-_STAGED_RANGE_CALLS = frozenset({"range", "range_dynamic"})
-_UNROLLED_TESTS = frozenset({"const_expr", "target_version"})
 
 
 def _is_unrolled_region(stmt: ast.stmt) -> bool:
@@ -1948,18 +1945,9 @@ def _is_unrolled_region(stmt: ast.stmt) -> bool:
     if isinstance(stmt, ast.With):
         return True
     if isinstance(stmt, ast.For):
-        func = stmt.iter.func if isinstance(stmt.iter, ast.Call) else None
-        if isinstance(func, ast.Name):
-            return func.id not in _STAGED_RANGE_CALLS
-        if isinstance(func, ast.Attribute):
-            return func.attr not in _STAGED_RANGE_CALLS
-        return True
+        return not is_staged_loop(stmt)
     if isinstance(stmt, (ast.If, ast.While)):
-        func = stmt.test.func if isinstance(stmt.test, ast.Call) else None
-        if isinstance(func, ast.Name):
-            return func.id in _UNROLLED_TESTS
-        if isinstance(func, ast.Attribute):
-            return func.attr in _UNROLLED_TESTS
+        return is_trace_time_test(stmt.test)
     return False
 
 
@@ -2185,9 +2173,9 @@ def _tainted_names(loop: ast.For, seeds: set[str]) -> set[str]:
         changed = False
         for node in ast.walk(loop):
             if isinstance(node, (ast.Assign, ast.AugAssign)):
-                reads = {_canonical(n) for n in _names_read(node.value)}
+                reads = {_canonical(n) for n in names_read(node.value)}
                 if isinstance(node, ast.AugAssign):
-                    reads |= {_canonical(n) for n in _names_read(node.target)}
+                    reads |= {_canonical(n) for n in names_read(node.target)}
                 if reads & tainted:
                     for name in _names_bound_by(node):
                         canon = _canonical(name)
@@ -2249,7 +2237,7 @@ def _redo_eligible(
         if isinstance(node, ast.For):
             guarded.append(node.iter)
     for expression in guarded:
-        if {_canonical(n) for n in _names_read(expression)} & tainted:
+        if {_canonical(n) for n in names_read(expression)} & tainted:
             return None
     # Roll back what the loop reads and updates (accumulators); its own
     # loop variables and the temporaries it defines before reading are
@@ -2260,9 +2248,9 @@ def _redo_eligible(
         if isinstance(node, ast.For)
         for name in _names_bound_by(node.target)  # pyrefly: ignore[bad-argument-type]
     }
-    read_in_loop = {_canonical(name) for name in _names_read(loop)}
+    read_in_loop = {_canonical(name) for name in names_read(loop)}
     # An augmented assignment reads its target (a Store context, which
-    # ``_names_read`` does not count).
+    # ``names_read`` does not count).
     read_in_loop |= {
         _canonical(name)
         for node in ast.walk(loop)
@@ -2333,7 +2321,7 @@ def _apply_redo_form(
 ) -> int:
     """Rewrite ``loop`` into its speculative form and append the redo copy.
     Returns the number of statements inserted before ``loop_idx``."""
-    original = _deep_clone(loop)
+    original = deep_clone(loop)
     before: list[ast.stmt] = []
     tests: list[str] = []
     for root, sites in sites_by_root.items():
@@ -2598,10 +2586,9 @@ def hoist_exact_invariant_divisions(
     _RENAME_GROUPS = dict(rename_groups or {})
     _USE_CANONICAL_INVARIANCE[0] = True
     try:
-        # Codegen shares statement objects between a reduction sweep and
-        # its rematerialized store sweep; each position gets its own copy
-        # before any in-place rewrite.
-        _dealias_shared_nodes(body)
+        # Each position gets its own node before any in-place rewrite, should
+        # an earlier pass have placed one statement object in two sweeps.
+        dealias_shared_nodes(body)
         kinds = _infer_scalar_kinds(
             body, float_scalar_names=float_scalar_names, tensor_dtypes=tensor_dtypes
         )

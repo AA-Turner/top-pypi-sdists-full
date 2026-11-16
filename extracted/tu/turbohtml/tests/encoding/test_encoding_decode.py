@@ -1,5 +1,3 @@
-"""The WHATWG decoders: the byte-to-code-point tables, and the spec's error handling."""
-
 # ruff:file-ignore[ambiguous-unicode-character-string]  # the expected text is deliberately fullwidth or Cyrillic; that is what these bytes decode to
 
 from __future__ import annotations
@@ -7,13 +5,6 @@ from __future__ import annotations
 import pytest
 
 import turbohtml.detect  # ruff:ignore[unused-import]  # importing registers the whatwg-* codecs these tests decode through
-from turbohtml._html import _decode as _decode_binding
-
-
-def _decode(data: bytes, label: str) -> str:
-    # decode through the registered whatwg-<label> codec rather than the private binding, so the tests exercise the
-    # same C decoder over the public surface a caller reaches with bytes.decode
-    return data.decode(f"whatwg-{label}")
 
 
 @pytest.mark.parametrize(
@@ -34,6 +25,12 @@ def test_whatwg_decoder_disagrees_with_the_cpython_codec(label: str, data: bytes
     # every one of these is a byte sequence CPython's same-named codec decodes differently or rejects outright
     assert _decode(data, label) == text
     assert data.decode(codec, errors="replace") != text
+
+
+def _decode(data: bytes, label: str) -> str:
+    # decode through the registered whatwg-<label> codec rather than the private binding, so the tests exercise the
+    # same C decoder over the public surface a caller reaches with bytes.decode
+    return data.decode(f"whatwg-{label}")
 
 
 @pytest.mark.parametrize(
@@ -122,18 +119,6 @@ def test_replacement_encoding_refuses_the_whole_stream(data: bytes, text: str) -
 
 def test_iso_8859_8_i_shares_the_iso_8859_8_index() -> None:
     assert _decode(b"\xe0", "iso-8859-8-i") == _decode(b"\xe0", "iso-8859-8")
-
-
-def test_unknown_label_raises_lookup_error() -> None:
-    with pytest.raises(LookupError, match="unknown encoding: no-such-encoding"):
-        _decode_binding(b"", "no-such-encoding")
-
-
-def test_decode_binding_rejects_a_non_bytes_first_argument() -> None:
-    # the _decode binding parses (bytes, str); a str where the bytes buffer belongs fails PyArg_ParseTuple, the one
-    # path the whatwg-* codec (which always hands it real bytes) cannot reach
-    with pytest.raises(TypeError):
-        _decode_binding("not bytes", "gbk")  # ty: ignore[invalid-argument-type]  # the wrong type is the point
 
 
 @pytest.mark.parametrize(

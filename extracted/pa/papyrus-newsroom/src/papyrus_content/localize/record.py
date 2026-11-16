@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 
 import hashlib
 import json
@@ -25,6 +26,7 @@ from ..publishing import utc_now_iso
 from ..record_helpers import compact_dict, to_aws_json
 from .blocks import FRONT_MATTER_FIELDS
 from .engine import AlignedBlock, LocalizeRequest, SourceVersion, stage_key
+from .image_variants import carry_forward, images_with_text, normalize, read_variants, revert_body
 from .models import PROMPT_VERSION
 
 ACTOR = "AI"
@@ -76,6 +78,29 @@ class AttachmentStageStore:
         upload_attachment_body(self.client, entry["attachment"], entry["body"])
 
 
+def figure_facts(client, version_id: str) -> dict[str, dict[str, Any]]:
+    """What `papyrus figures render` recorded about each stored picture of a version (``MediaAsset.metadata.figure``), by normalized stored path."""
+    facts: dict[str, dict[str, Any]] = {}
+    for media in client.list_by_index("mediaAssetsByItemAndSortKey", version_id):
+        metadata = _metadata(media)
+        path = normalize(metadata.get("srcPath"))
+        if path and isinstance(metadata.get("figure"), dict):
+            facts[path] = metadata["figure"]
+    return facts
+
+
+def with_image_variants(client, row: dict[str, Any], source: SourceVersion, current: dict[str, Any] | None,
+                        previous: list[AlignedBlock] | None) -> tuple[SourceVersion, list[AlignedBlock] | None, list[Any]]:
+    """What a run needs to know about pictures. The source with the figures and cover that hold words listed (advice for an editor, ``images_with_text``);
+    the translation's language variants (``image_variants``); and the previous alignment with those variants put back to the original's pictures, because the
+    run compares texts that name the original's pictures and :func:`save` applies the variants again."""
+    variants = read_variants(_metadata(current).get("frontMatterYaml")) if current else []
+    if variants and previous:
+        previous = [replace(block, text=revert_body(block.text, variants)) for block in previous]
+    found = images_with_text(source.body, _metadata(row).get("frontMatterYaml"), figure_facts(client, row["id"]), variants)
+    return replace(source, images_with_text=tuple(found)), previous, variants
+
+
 def _source_fields(row: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     """The reader-facing front matter texts the Story has, in the order of ``FRONT_MATTER_FIELDS``."""
     from ..item_front_matter import front_matter
@@ -96,19 +121,25 @@ def run_key(source: SourceVersion, language: str, *, procedure_version: str, che
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:32]
 
 
+def read_provenance(client, version: dict[str, Any]) -> dict[str, Any]:
+    """The provenance record of one localization version (its alignment included). Raises when the version has none."""
+    from ..model_attachments import download_attachment_buffer, model_attachment_id
+
+    row = client.get_record("ModelAttachment", model_attachment_id("item", version["id"], PROVENANCE_ROLE, PROVENANCE_ROLE))
+    if row is None:
+        raise ValueError(f"Localization version {version['id']} has no provenance record; its alignment cannot be read.")
+    return json.loads(download_attachment_buffer(client, row))
+
+
 def previous_alignment(client, lineage: str) -> tuple[dict[str, Any] | None, list[AlignedBlock] | None]:
     """The localization's current version and its alignment (from its provenance), or (None, None) before the first translation."""
-    from ..model_attachments import download_attachment_buffer, model_attachment_id
     from ..story_reporting import story_versions
 
     versions = story_versions(client, lineage)
     if not versions:
         return None, None
     current = next((row for row in versions if row.get("versionState") == "current"), versions[0])
-    row = client.get_record("ModelAttachment", model_attachment_id("item", current["id"], PROVENANCE_ROLE, PROVENANCE_ROLE))
-    if row is None:
-        raise ValueError(f"Localization version {current['id']} has no provenance record; its alignment cannot be read.")
-    provenance = json.loads(download_attachment_buffer(client, row))
+    provenance = read_provenance(client, current)
     return current, [AlignedBlock(entry.get("sourceBlock"), entry["text"], entry.get("owner", "machine"), bool(entry.get("pinned")))
                      for entry in provenance["alignment"]]
 
@@ -194,6 +225,7 @@ def collect(client, *, story: str, language: str, judge, procedure_version: str,
     source = source_version(row, source_language)
     lineage = localization_lineage_id(story, target)
     current, previous = previous_alignment(client, lineage)
+    source, previous, variants = with_image_variants(client, row, source, current, previous)
     guidelines = GuidelineStore(client)
     glossary = once(("glossary", target, source.section), lambda: resolve_glossary(guidelines, target, source.section))
     pack = deepcopy(once(("pack", source.section, target), lambda: editing_pack_and_context(store, source.section, settings, target))[0])
@@ -201,8 +233,9 @@ def collect(client, *, story: str, language: str, judge, procedure_version: str,
     source_pack = deepcopy(once(("pack", source.section, source_language), lambda: editing_pack_and_context(store, source.section, settings, source_language))[0])
     source_pack["papyrusStarterPacks"] = list(starter_packs_for(source_language))
     lanes = {"rules": bool(settings["lanes"].get("rules", True)), "classifier": bool(settings["lanes"].get("classifier", False))}
+    notes = once(("register", source.section, target), lambda: register_notes(resolve_guidelines(guidelines, "writing", source.section, target)))
     checker = BlockChecker(source_language=source_language, target_language=target, glossary=glossary, copy_edit_pack=pack, judge=judge,
-                           lanes=lanes, decision_model=decision_model)
+                           lanes=lanes, decision_model=decision_model, notes=notes)   # the judge reads the notes the translator does
     english = BlockChecker(source_language=source_language, target_language=source_language, glossary=glossary, copy_edit_pack=source_pack,
                            judge=None, lanes={"rules": True, "classifier": False})
     procedure_key = procedure_key or (automation_procedure_key(client, automation_id) if history is None else None)
@@ -212,10 +245,10 @@ def collect(client, *, story: str, language: str, judge, procedure_version: str,
     return LocalizeRequest(
         source=source, language=target, localization_lineage=lineage, run_key=key, glossary=glossary, checker=checker,
         slug_policy=serving_languages(settings).slugs[target],
-        register_notes=once(("register", source.section, target), lambda: register_notes(resolve_guidelines(guidelines, "writing", source.section, target))),
+        register_notes=notes,
         previous=previous, previous_source_hash=_metadata(current).get("localization", {}).get("sourceContentHash") if current else None,
         prediction=predict(target, characters, history), ceiling_usd=ceiling_usd,
-        procedure_version=procedure_version, source_checker=lambda text: english.copy_edit(text)[0])
+        procedure_version=procedure_version, source_checker=lambda text: english.copy_edit(text)[0], image_variants=variants)
 
 
 def _front_matter(primary: dict[str, Any], title: str, deck: str, fields: dict[str, str] | None = None) -> str | None:
@@ -266,16 +299,20 @@ def save(client, request: LocalizeRequest, outcome: dict[str, Any], *, now: str 
                          f"this run translated version {request.source.version_number} and saves nothing.")
     translation = outcome["translation"]
     front_matter = _front_matter(primary, translation["title"], translation["deck"], translation.get("fields"))
+    body_markus = translation["body"]
+    if request.image_variants:   # a localized figure survives a re-translation: the new text keeps naming the language's own picture
+        front_matter, body_markus = carry_forward(front_matter, body_markus, request.image_variants)
     slug = latest["slug"] if latest is not None else _first_slug(client, request, primary, translation["title"])
     fields = ItemFields(type=primary["type"], slug=slug, section=primary.get("section"), front_matter_yaml=front_matter,
-                        body_markus=translation["body"], aliases=[])
-    envelope = _derive_or_raise(front_matter, translation["body"])
+                        body_markus=body_markus, aliases=[])
+    envelope = _derive_or_raise(front_matter, body_markus)
     number = (max(int(row.get("versionNumber") or 0) for row in versions) + 1) if versions else 1
     record_id = next_version_record_id(request.localization_lineage, number, {row["id"] for row in versions})
     metadata = {"frontMatterYaml": front_matter,
                 "localization": {"runKey": request.run_key, "outcome": outcome["outcome"], "reason": outcome["reason"], "translation": "machine",
                                  "reviewed": False, "sourceContentHash": request.source.content_hash, "rounds": outcome["rounds"],
-                                 "revertedBlocks": outcome["revertedBlocks"], "costUsd": outcome["costUsd"]}}
+                                 "revertedBlocks": outcome["revertedBlocks"], "costUsd": outcome["costUsd"],
+                                 **({"imagesWithText": list(request.source.images_with_text)} if request.source.images_with_text else {})}}
     base = {name: value for name, value in _without_server_fields(primary).items()
             if name not in ("starRating", "starRatedAt", "starRatedBy", "headStageKey", "scheduledPublishAt", "scheduledBy", "scheduledAt",
                             "scheduleState", "scheduleName", "tenantSlug", "shortSlug")}
@@ -293,7 +330,7 @@ def save(client, request: LocalizeRequest, outcome: dict[str, Any], *, now: str 
         "sourceVersionNumber": request.source.version_number, "sourceContentHash": request.source.content_hash, "syncState": "current",
     }
     client.create_record("Item", compact_dict(record))
-    _carry_media_forward(client, record_id, envelope, front_matter, [primary])   # the pictures are the original's: a translation is published with them (publish checks each)
+    _carry_media_forward(client, record_id, envelope, front_matter, [primary, *versions])   # the original's pictures and the translation's own variants: a translation is published with them (publish checks each)
     alignment = [{**entry, "text": text} for entry, text in zip(outcome["provenance"]["alignment"], outcome["translation"]["blocks"])]
     provenance = {**outcome["provenance"], "alignment": alignment, "target": {**outcome["provenance"]["target"], "versionId": record_id}}
     entry = build_json_model_payload_attachment({"ownerKind": "item", "ownerId": record_id, "ownerLineageId": request.localization_lineage,
@@ -304,6 +341,23 @@ def save(client, request: LocalizeRequest, outcome: dict[str, Any], *, now: str 
         if row.get("versionState") != "superseded":
             client.update_record("Item", superseding_update(row))
     return record
+
+
+def carry_provenance(client, previous: dict[str, Any], record: dict[str, Any]) -> None:
+    """Gives ``record`` (a person's new version of a localization, for example one that points at a localized figure) the provenance of the version it
+    follows, unchanged except for the version it names, so the next translation run still finds its alignment: the text is the machine's and a
+    picture changed, not a block."""
+    from ..model_attachments import build_json_model_payload_attachment, download_attachment_buffer, model_attachment_id, upload_attachment_body
+
+    row = client.get_record("ModelAttachment", model_attachment_id("item", previous["id"], PROVENANCE_ROLE, PROVENANCE_ROLE))
+    if row is None:
+        return
+    provenance = json.loads(download_attachment_buffer(client, row))
+    provenance["target"] = {**provenance.get("target", {}), "versionId": record["id"]}
+    entry = build_json_model_payload_attachment({"ownerKind": "item", "ownerId": record["id"], "ownerLineageId": record["lineageId"],
+                                                 "ownerVersionNumber": record.get("versionNumber"), "role": PROVENANCE_ROLE, "sortKey": PROVENANCE_ROLE,
+                                                 "filename": "provenance.json", "content": provenance, "now": utc_now_iso()})
+    upload_attachment_body(client, entry["attachment"], entry["body"])
 
 
 def report_back(client, request: LocalizeRequest, advice: list[dict[str, Any]]) -> None:
@@ -331,4 +385,4 @@ def stage_store_for(client, request: LocalizeRequest) -> AttachmentStageStore:
                                          "versionNumber": request.source.version_number})
 
 
-__all__ = ["AttachmentStageStore", "NothingToDo", "collect", "hold", "report_back", "save", "stage_key", "stage_store_for"]
+__all__ = ["AttachmentStageStore", "NothingToDo", "carry_provenance", "collect", "hold", "report_back", "save", "stage_key", "stage_store_for"]

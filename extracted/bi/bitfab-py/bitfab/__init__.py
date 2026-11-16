@@ -77,6 +77,12 @@ from bitfab.experiments import (
     ExperimentTally,
     ExperimentTotals,
 )
+from bitfab.gmail_sandbox import (
+    gmail_message,
+    gmail_sandbox,
+    gmail_sandbox_accounts,
+    google_sandbox_http,
+)
 from bitfab.graders import (
     GraderLabel,
     GraderLabelOutcome,
@@ -143,6 +149,14 @@ from bitfab.replay_registry import (
     ReplayRegistryContext,
     reseed_from_registry,
     seed_from_registry,
+)
+from bitfab.sandbox import (
+    RecordedSpan,
+    Sandbox,
+    SandboxStartCtx,
+    sandbox_active,
+    sandbox_state,
+    without_sandbox,
 )
 from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
 from bitfab.spans import (
@@ -335,6 +349,7 @@ __all__ = [
     "OrganizationMembersClient",
     "OutputTarget",
     "ReadTraceAssertion",
+    "RecordedSpan",
     "RemoveDatasetGradersResult",
     "RemoveDatasetTracesResult",
     "ReplayBranch",
@@ -355,6 +370,8 @@ __all__ = [
     "ReplayResult",
     "RerunGradersResult",
     "ReseedResult",
+    "Sandbox",
+    "SandboxStartCtx",
     "SaveAssertion",
     "SaveDatasetResult",
     "SaveScenarioData",
@@ -408,10 +425,17 @@ __all__ = [
     "get_current_replay_branch",
     "get_current_span",
     "get_current_trace",
+    "gmail_message",
+    "gmail_sandbox",
+    "gmail_sandbox_accounts",
+    "google_sandbox_http",
     "report_replay_progress",
     "reseed_from_registry",
+    "sandbox_active",
+    "sandbox_state",
     "seed_from_registry",
     "serialize_replay_result",
+    "without_sandbox",
 ]
 
 from bitfab.openai_agent_sdk import BitfabOpenAIAgentHandler  # noqa: F401

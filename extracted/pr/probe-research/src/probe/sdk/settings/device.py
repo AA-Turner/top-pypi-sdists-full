@@ -14,6 +14,7 @@ import base64
 import hashlib
 import os
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -35,6 +36,23 @@ _SLOW_DOWN_BACKOFF = 5
 #: Set (by the Probe service, for a fenced caller's command, D25): the sign-in link is printed and
 #: no browser opened, as on a machine without one.
 NO_BROWSER_ENV = "PROBE_NO_BROWSER"
+
+
+def open_link(url: str) -> bool:
+    """Open `url` in this computer's browser (sign-in's tab, the W&B key page); False where none opened, and the
+    printed link is the way in: `PROBE_NO_BROWSER` set, or a Linux box with no display (Python's fallback there is
+    a console browser it waits on, which would hang an agent's command). A `BROWSER` the person set still runs, and
+    WSL without a display opens Windows' browser through `wslview`, never waited on."""
+    if os.environ.get(NO_BROWSER_ENV):
+        return False
+    try:
+        if (sys.platform.startswith("linux") and not os.environ.get("BROWSER")
+                and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))):
+            wslview = shutil.which("wslview") if os.environ.get("WSL_DISTRO_NAME") else None
+            return bool(wslview and webbrowser.BackgroundBrowser(wslview).open(url))
+        return bool(webbrowser.open(url))
+    except (webbrowser.Error, OSError):
+        return False
 
 
 @lru_cache(maxsize=1)
@@ -266,11 +284,8 @@ def device_authorize(
             _prompt_observer(prompt)
         if on_prompt is not None:
             on_prompt(prompt)
-        if open_browser and not os.environ.get(NO_BROWSER_ENV):
-            try:
-                webbrowser.open(prompt.verification_uri_complete)
-            except webbrowser.Error:
-                pass  # headless: the printed URL is the fallback
+        if open_browser:
+            open_link(prompt.verification_uri_complete)
 
         device_code = data["device_code"]
         interval = max(1, int(data.get("interval", 5)))

@@ -13,14 +13,22 @@
    maps to turbohtml.convert.ExpressionError. */
 
 #include "core/vec.h"
+#include "core/work_steps.h"
 #include "dom/nodes.h"
 #include "css/select/selector.h"
+
+/* The longest expression a selector may translate to, in code points. XPath 1.0 cannot name a subexpression, so every
+   An+B term of :nth-child(An+B of S) spells the condition for S out again, and nesting such clauses multiplies the
+   text by up to three per level; past the cap the selector is reported as untranslatable. */
+#define XT_MAX_OUTPUT ((Py_ssize_t)1 << 24)
 
 typedef struct {
     Py_UCS4 *data;
     Py_ssize_t len;
     Py_ssize_t cap;
-    int failed; /* an allocation failed; emission becomes a no-op */
+    Py_ssize_t limit; /* the length the output may not pass, 0 for no bound */
+    int failed;       /* an allocation failed or the output passed limit; emission becomes a no-op */
+    int overlong;     /* the output passed limit */
 } xt_buf;
 
 typedef struct {
@@ -30,6 +38,11 @@ typedef struct {
 
 static void xt_reserve(xt_buf *buf, Py_ssize_t extra) {
     if (buf->len + extra <= buf->cap) {
+        return;
+    }
+    if (buf->limit != 0 && buf->len + extra > buf->limit) {
+        buf->failed = 1;
+        buf->overlong = 1;
         return;
     }
     size_t cap;
@@ -50,8 +63,8 @@ static void xt_reserve(xt_buf *buf, Py_ssize_t extra) {
 
 static void xt_char(xt_buf *buf, Py_UCS4 ch) {
     xt_reserve(buf, 1);
-    if (buf->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (buf->failed) {
+        return;
     }
     buf->data[buf->len++] = ch;
 }
@@ -60,8 +73,8 @@ static void xt_char(xt_buf *buf, Py_UCS4 ch) {
 static void xt_text(xt_buf *buf, const char *text) {
     Py_ssize_t length = (Py_ssize_t)strlen(text);
     xt_reserve(buf, length);
-    if (buf->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (buf->failed) {
+        return;
     }
     for (Py_ssize_t index = 0; index < length; index++) {
         buf->data[buf->len++] = (Py_UCS4)(unsigned char)text[index];
@@ -71,12 +84,22 @@ static void xt_text(xt_buf *buf, const char *text) {
 /* Append a code-point slice, ASCII-lowercased when fold is set. */
 static void xt_slice(xt_buf *buf, const Py_UCS4 *text, Py_ssize_t length, int fold) {
     xt_reserve(buf, length);
-    if (buf->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (buf->failed) {
+        return;
     }
     for (Py_ssize_t index = 0; index < length; index++) {
         buf->data[buf->len++] = sel_fold(text[index], fold);
     }
+}
+
+/* Append a copy of the buffer's own run at start; it is named by offset because growing the buffer may move it. */
+static void xt_repeat(xt_buf *buf, Py_ssize_t start, Py_ssize_t length) {
+    xt_reserve(buf, length);
+    if (buf->failed) {
+        return; /* the copy would pass the limit, or an allocation failed */
+    }
+    memcpy(buf->data + buf->len, buf->data + start, (size_t)length * sizeof(Py_UCS4));
+    buf->len += length;
 }
 
 static void xt_int(xt_buf *buf, long value) {
@@ -94,6 +117,7 @@ static int xt_safe_name(const Py_UCS4 *name, Py_ssize_t length) {
         return 0;
     }
     for (Py_ssize_t index = 1; index < length; index++) {
+        TH_WORK_STEP();
         Py_UCS4 ch = name[index];
         if ((ch | 32) - 'a' >= 26 && ch - '0' >= 10 && ch != '_' && ch != '.' && ch != '-') {
             return 0;
@@ -119,6 +143,7 @@ static void xt_literal(xt_ctx *ctx, const Py_UCS4 *text, Py_ssize_t length) {
     int squote = 0;
     int dquote = 0;
     for (Py_ssize_t index = 0; index < length; index++) {
+        TH_WORK_STEP();
         squote |= text[index] == '\'';
         dquote |= text[index] == '"';
     }
@@ -222,29 +247,35 @@ static void xt_folded_attr(xt_ctx *ctx, const char *name) {
     xt_text(&ctx->out, ", 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')");
 }
 
-static int xt_compound_conds(xt_ctx *ctx, const sel_compound *compound, const sel_simple *skip);
+static int xt_compound_conds(xt_ctx *ctx, const sel_compound *compound);
 static void xt_condition_alts(xt_ctx *ctx, const sel_complex *alts, int count);
 static void xt_has_path(xt_ctx *ctx, const sel_complex *rel);
 
-/* The type simple the step's node test can express: the first 'e' simple whose
-   (lowercased) name XPath accepts verbatim, or NULL when the test must stay '*'. */
-static const sel_simple *xt_nodetest(const sel_compound *compound) {
-    for (int index = 0; index < compound->count; index++) {
-        const sel_simple *simple = &compound->simples[index];
-        if (simple->kind == 'e' && xt_safe_name(simple->name, simple->name_len)) {
-            return simple;
-        }
-    }
-    return NULL;
+/* The compound's type simple, or NULL when it has none. The parser admits a type selector only first, so one look
+   suffices; scanning the compound for each of-type pseudo-class is quadratic in its length. */
+static const sel_simple *xt_type_simple(const sel_compound *compound) {
+    return compound->simples[0].kind == 'e' ? &compound->simples[0] : NULL;
 }
 
-/* Emit the chosen node test: the type simple's lowercased name, or '*'. */
-static void xt_emit_nodetest(xt_ctx *ctx, const sel_simple *test) {
-    if (test != NULL) {
-        xt_slice(&ctx->out, test->name, test->name_len, 1);
-    } else {
-        xt_char(&ctx->out, '*');
+/* The sibling axis an nth-* condition counts over: the detached axis step and, under an 'of S' list, the run of the
+   output that already holds the condition for S (the self test), which the step's predicate repeats. */
+typedef struct {
+    const Py_UCS4 *step;
+    Py_ssize_t step_len;
+    Py_ssize_t of_at;  /* where the 'of S' condition starts in the output */
+    Py_ssize_t of_len; /* its length; 0 without an 'of S' list */
+} xt_axis;
+
+/* Emit the axis of one count() term. The 'of S' predicate is copied from the output rather than translated again,
+   so S is translated once however many terms and nesting levels repeat it. */
+static void xt_emit_axis(xt_ctx *ctx, const xt_axis *axis) {
+    xt_slice(&ctx->out, axis->step, axis->step_len, 0);
+    if (axis->of_len == 0) {
+        return;
     }
+    xt_char(&ctx->out, '[');
+    xt_repeat(&ctx->out, axis->of_at, axis->of_len);
+    xt_char(&ctx->out, ']');
 }
 
 /* Emit the An+B condition over a sibling count expression (the axis text), following
@@ -256,7 +287,7 @@ static void xt_emit_nodetest(xt_ctx *ctx, const sel_simple *test) {
    The mod operand is shifted by a non-negative constant so the dividend stays
    non-negative and truncating mod cannot flip its sign. Returns the number of
    condition terms written (0 when every index matches). */
-static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const Py_UCS4 *axis, Py_ssize_t axis_len) {
+static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const xt_axis *axis) {
     long b_minus_1 = (long)nth_b - 1;
     if (nth_a == 1 && b_minus_1 <= 0) {
         return 0; /* n+b with b <= 1 matches every position */
@@ -267,7 +298,7 @@ static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const Py_UCS4 *axis, Py_ssi
     }
     if (nth_a == 0) {
         xt_text(&ctx->out, "count(");
-        xt_slice(&ctx->out, axis, axis_len, 0);
+        xt_emit_axis(ctx, axis);
         xt_text(&ctx->out, ") = ");
         xt_int(&ctx->out, b_minus_1);
         return 1;
@@ -275,7 +306,7 @@ static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const Py_UCS4 *axis, Py_ssi
     int wrote = 0;
     if (nth_a < 0 || b_minus_1 > 0) {
         xt_text(&ctx->out, "count(");
-        xt_slice(&ctx->out, axis, axis_len, 0);
+        xt_emit_axis(ctx, axis);
         xt_text(&ctx->out, nth_a > 0 ? ") >= " : ") <= ");
         xt_int(&ctx->out, b_minus_1);
         wrote = 1;
@@ -291,7 +322,7 @@ static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const Py_UCS4 *axis, Py_ssi
         } else {
             xt_text(&ctx->out, "count(");
         }
-        xt_slice(&ctx->out, axis, axis_len, 0);
+        xt_emit_axis(ctx, axis);
         xt_char(&ctx->out, ')');
         if (shift != 0) {
             xt_text(&ctx->out, " + ");
@@ -308,8 +339,11 @@ static int xt_nth(xt_ctx *ctx, int nth_a, int nth_b, const Py_UCS4 *axis, Py_ssi
 
 /* Copy the emitted tail of the output (from mark) into a fresh slice and truncate the
    output back, so a fragment can be re-spliced (the nth-* count axis appears in up to
-   two terms). Returns NULL and fails the buffer on allocation failure. */
+   two terms). Returns NULL on a failed buffer, and fails the buffer on allocation failure. */
 static Py_UCS4 *xt_detach(xt_ctx *ctx, Py_ssize_t mark, Py_ssize_t *out_len) {
+    if (ctx->out.failed) {
+        return NULL; /* a failed buffer keeps nothing more, so there is no fragment to splice */
+    }
     *out_len = ctx->out.len - mark; /* never zero: every detached fragment starts with an axis name */
     Py_UCS4 *copy = PyMem_Malloc((size_t)*out_len * sizeof(Py_UCS4));
     if (copy == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -321,24 +355,27 @@ static Py_UCS4 *xt_detach(xt_ctx *ctx, Py_ssize_t mark, Py_ssize_t *out_len) {
     return copy;
 }
 
-/* Emit the of-type sibling node test for the compound: its type simple's name, or
-   *[name() = '...'] when XPath rejects the spelling. Returns 0 (with the error set)
-   for a compound with no type selector, whose element type the translation cannot
-   know. */
-static int xt_of_type_test(xt_ctx *ctx, const sel_compound *compound) {
-    const sel_simple *test = xt_nodetest(compound);
-    if (test != NULL) {
-        xt_emit_nodetest(ctx, test);
-        return 1;
+/* The lowercased type name as a string literal. A safe name needs no quoting or escaping, so it is written straight
+   into the output; a folding literal would stage every name in a temporary buffer first. */
+static void xt_type_literal(xt_ctx *ctx, const sel_simple *simple) {
+    if (xt_safe_name(simple->name, simple->name_len)) {
+        xt_char(&ctx->out, '\'');
+        xt_slice(&ctx->out, simple->name, simple->name_len, 1);
+        xt_char(&ctx->out, '\'');
+        return;
     }
-    for (int index = 0; index < compound->count; index++) {
-        const sel_simple *named = &compound->simples[index];
-        if (named->kind == 'e') {
-            xt_text(&ctx->out, "*[name() = ");
-            xt_value_literal(ctx, named->name, named->name_len, 1, 0, 0);
-            xt_char(&ctx->out, ']');
-            return 1;
-        }
+    xt_value_literal(ctx, simple->name, simple->name_len, 1, 0, 0);
+}
+
+/* Emit the of-type sibling node test for the compound: *[name() = '...'] over its type simple's name. Returns 0
+   (with the error set) for a compound with no type selector, whose element type the translation cannot know. */
+static int xt_of_type_test(xt_ctx *ctx, const sel_compound *compound) {
+    const sel_simple *named = xt_type_simple(compound);
+    if (named != NULL) {
+        xt_text(&ctx->out, "*[name() = ");
+        xt_type_literal(ctx, named);
+        xt_char(&ctx->out, ']');
+        return 1;
     }
     ctx->error = "the of-type pseudo-classes need a type selector";
     return 0;
@@ -359,22 +396,22 @@ static void xt_nth_pseudo(xt_ctx *ctx, const sel_simple *simple, const sel_compo
         }
     } else {
         xt_char(&ctx->out, '*');
-        if (simple->sub != NULL) {
-            xt_char(&ctx->out, '[');
-            xt_condition_alts(ctx, simple->sub, simple->sub_count);
-            xt_char(&ctx->out, ']');
-        }
     }
-    Py_ssize_t axis_len = 0;
-    Py_UCS4 *axis = xt_detach(ctx, mark, &axis_len);
-    if (axis == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;         /* GCOVR_EXCL_LINE: allocation-failure path */
+    Py_ssize_t step_len = 0;
+    Py_UCS4 *step = xt_detach(ctx, mark, &step_len);
+    if (step == NULL) {
+        return; /* the buffer failed: the output passed the cap, or an allocation failed */
     }
+    xt_axis axis = {step, step_len, 0, 0};
     int wrote = 0;
-    /* only :nth-child()/:nth-last-child() can carry an 'of S' list, never the of-type pair */
+    /* only :nth-child()/:nth-last-child() can carry an 'of S' list, never the of-type pair; S is translated here
+       alone, and the axis predicates repeat this text, since translating S per use would double the work with every
+       nesting level */
     if (simple->sub != NULL) {
         xt_char(&ctx->out, '(');
+        axis.of_at = ctx->out.len;
         xt_condition_alts(ctx, simple->sub, simple->sub_count);
+        axis.of_len = ctx->out.len - axis.of_at;
         xt_char(&ctx->out, ')');
         wrote = 1;
     }
@@ -382,10 +419,10 @@ static void xt_nth_pseudo(xt_ctx *ctx, const sel_simple *simple, const sel_compo
     if (wrote) {
         xt_text(&ctx->out, " and ");
     }
-    if (xt_nth(ctx, simple->nth_a, simple->nth_b, axis, axis_len) == 0) {
+    if (xt_nth(ctx, simple->nth_a, simple->nth_b, &axis) == 0) {
         ctx->out.len = nth_mark; /* every position matches: drop the dangling " and " */
     }
-    PyMem_Free(axis);
+    PyMem_Free(step);
 }
 
 /* The elements HTML can disable, as a self-test union. */
@@ -634,23 +671,16 @@ static int xt_pseudo_cond(xt_ctx *ctx, const sel_simple *simple, const sel_compo
     }
 }
 
-/* Emit the condition for one simple selector. Returns 0 when the simple holds on
-   every element (the universal selector and the type already used as the node test). */
-static int xt_simple_cond(xt_ctx *ctx, const sel_simple *simple, const sel_compound *compound, const sel_simple *skip) {
+/* Emit the condition for one simple selector. Returns 0 when the simple holds on every element (the universal
+   selector). A type compares the element's qualified name: a name test would resolve a default namespace the
+   selector never sees, and the CSS matcher compares the qualified name too. */
+static int xt_simple_cond(xt_ctx *ctx, const sel_simple *simple, const sel_compound *compound) {
     switch (simple->kind) {
     case '*':
         return 0;
     case 'e':
-        if (simple == skip) {
-            return 0; /* already expressed as the step's node test */
-        }
-        if (xt_safe_name(simple->name, simple->name_len)) {
-            xt_text(&ctx->out, "self::");
-            xt_slice(&ctx->out, simple->name, simple->name_len, 1);
-        } else {
-            xt_text(&ctx->out, "name() = ");
-            xt_value_literal(ctx, simple->name, simple->name_len, 1, 0, 0);
-        }
+        xt_text(&ctx->out, "name() = ");
+        xt_type_literal(ctx, simple);
         return 1;
     case '#':
         xt_text(&ctx->out, "@id = ");
@@ -738,16 +768,17 @@ static int xt_simple_cond(xt_ctx *ctx, const sel_simple *simple, const sel_compo
     }
 }
 
-/* Emit the compound's conditions joined by " and ", skipping the type simple already
-   expressed as the node test. Returns the number of conditions written. */
-static int xt_compound_conds(xt_ctx *ctx, const sel_compound *compound, const sel_simple *skip) {
+/* Emit the compound's conditions joined by " and ". Returns the number of conditions written. */
+static int xt_compound_conds(xt_ctx *ctx, const sel_compound *compound) {
     int wrote = 0;
-    for (int index = 0; index < compound->count; index++) {
+    /* past the output limit nothing is kept, and each of-type pseudo-class would re-scan the type name */
+    for (int index = 0; index < compound->count && !ctx->out.failed; index++) {
+        TH_WORK_STEP();
         Py_ssize_t mark = ctx->out.len;
         if (wrote) {
             xt_text(&ctx->out, " and ");
         }
-        if (!xt_simple_cond(ctx, &compound->simples[index], compound, skip)) {
+        if (!xt_simple_cond(ctx, &compound->simples[index], compound)) {
             ctx->out.len = mark; /* the simple needs no condition: drop the joiner */
         } else {
             wrote++;
@@ -762,7 +793,6 @@ static int xt_compound_conds(xt_ctx *ctx, const sel_compound *compound, const se
 static void xt_left_chain(xt_ctx *ctx, const sel_complex *complex, int index) {
     char combinator = complex->compounds[index].combinator;
     const sel_compound *target = &complex->compounds[index - 1];
-    const sel_simple *test = combinator == '+' ? NULL : xt_nodetest(target);
     switch (combinator) {
     case '>':
         xt_text(&ctx->out, "parent::");
@@ -780,11 +810,11 @@ static void xt_left_chain(xt_ctx *ctx, const sel_complex *complex, int index) {
         break;
     }
     if (combinator != '+') {
-        xt_emit_nodetest(ctx, test);
+        xt_char(&ctx->out, '*');
     }
     Py_ssize_t mark = ctx->out.len;
     xt_char(&ctx->out, '[');
-    int wrote = xt_compound_conds(ctx, target, test);
+    int wrote = xt_compound_conds(ctx, target);
     if (index - 1 > 0) {
         if (wrote) {
             xt_text(&ctx->out, " and ");
@@ -803,7 +833,7 @@ static void xt_left_chain(xt_ctx *ctx, const sel_complex *complex, int index) {
    its own compound's conditions plus the left-chain existence test. */
 static void xt_condition_complex(xt_ctx *ctx, const sel_complex *complex) {
     int subject = complex->count - 1;
-    int wrote = xt_compound_conds(ctx, &complex->compounds[subject], NULL);
+    int wrote = xt_compound_conds(ctx, &complex->compounds[subject]);
     if (subject > 0) {
         if (wrote) {
             xt_text(&ctx->out, " and ");
@@ -829,12 +859,46 @@ static void xt_condition_alts(xt_ctx *ctx, const sel_complex *alts, int count) {
 }
 
 /* Emit one location step: the node test plus the compound's bracketed conditions. */
+/* A step that is a lone safe type name, the common selector, is written as one reserve: its name is ASCII, so the fold
+   is a range check, and the step matches what the general path below writes. Returns 0 when the step is not one. */
+static int xt_lone_type_step(xt_ctx *ctx, const sel_compound *compound) {
+    if (compound->count != 1 || compound->simples[0].kind != 'e') {
+        return 0;
+    }
+    const sel_simple *simple = &compound->simples[0];
+    if (!xt_safe_name(simple->name, simple->name_len)) {
+        return 0;
+    }
+    static const char head[] = "*[name() = '";
+    const Py_ssize_t head_len = (Py_ssize_t)sizeof(head) - 1;
+    xt_reserve(&ctx->out, head_len + simple->name_len + 2);
+    if (ctx->out.failed) {
+        return 1;
+    }
+    Py_UCS4 *out = ctx->out.data + ctx->out.len;
+    for (Py_ssize_t index = 0; index < head_len; index++) {
+        out[index] = (Py_UCS4)(unsigned char)head[index];
+    }
+    out += head_len;
+    for (Py_ssize_t index = 0; index < simple->name_len; index++) {
+        Py_UCS4 ch = simple->name[index];
+        out[index] = ch >= 'A' && ch <= 'Z' ? ch + ('a' - 'A') : ch;
+    }
+    out += simple->name_len;
+    out[0] = '\'';
+    out[1] = ']';
+    ctx->out.len += head_len + simple->name_len + 2;
+    return 1;
+}
+
 static void xt_step(xt_ctx *ctx, const sel_compound *compound) {
-    const sel_simple *test = xt_nodetest(compound);
-    xt_emit_nodetest(ctx, test);
+    if (xt_lone_type_step(ctx, compound)) {
+        return;
+    }
+    xt_char(&ctx->out, '*');
     Py_ssize_t mark = ctx->out.len;
     xt_char(&ctx->out, '[');
-    if (xt_compound_conds(ctx, compound, test) == 0) {
+    if (xt_compound_conds(ctx, compound) == 0) {
         ctx->out.len = mark;
     } else {
         xt_char(&ctx->out, ']');
@@ -903,7 +967,8 @@ static void xt_path_complex(xt_ctx *ctx, const sel_complex *complex) {
 
 /* _css_to_xpath(selector, prefix, /): translate a CSS selector list to XPath 1.0.
    Raises SelectorSyntaxError on a selector the CSS grammar rejects and NotImplementedError
-   on a valid selector XPath 1.0 cannot express; the facade maps the latter to ExpressionError. */
+   on a valid selector XPath 1.0 cannot express or whose expression would pass XT_MAX_OUTPUT;
+   the facade maps the latter to ExpressionError. */
 PyObject *turbohtml_css_to_xpath(PyObject *module, PyObject *args) {
     PyObject *selector = NULL;
     PyObject *prefix = NULL;
@@ -914,7 +979,7 @@ PyObject *turbohtml_css_to_xpath(PyObject *module, PyObject *args) {
     if (source == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    sel_parser parser = {source, 0, PyUnicode_GET_LENGTH(selector), NULL, 0, 0, 0, "unexpected token"};
+    sel_parser parser = {source, 0, PyUnicode_GET_LENGTH(selector), NULL, 0, 0, 0, "unexpected token", 0};
     sel_complex *alts = NULL;
     int count = 0;
     if (sel_parse_alts(&parser, &alts, &count, 0, 0, 0) < 0) {
@@ -928,7 +993,7 @@ PyObject *turbohtml_css_to_xpath(PyObject *module, PyObject *args) {
         PyMem_Free(source);         /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;                /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    xt_ctx ctx = {{NULL, 0, 0, 0}, NULL};
+    xt_ctx ctx = {{NULL, 0, 0, XT_MAX_OUTPUT, 0, 0}, NULL};
     for (int index = 0; index < count && ctx.error == NULL; index++) {
         if (index > 0) {
             xt_text(&ctx.out, " | ");
@@ -942,6 +1007,11 @@ PyObject *turbohtml_css_to_xpath(PyObject *module, PyObject *args) {
     PyObject *result = NULL;
     if (ctx.error != NULL) {
         PyErr_SetString(PyExc_NotImplementedError, ctx.error);
+    } else if (ctx.out.overlong) {
+        PyErr_Format(PyExc_NotImplementedError,
+                     "the selector needs more than %zd characters of XPath 1.0; split the selector list, or nest "
+                     "fewer :nth-child(... of S) clauses",
+                     XT_MAX_OUTPUT);
     } else if (!ctx.out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         result = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, ctx.out.data, ctx.out.len);
     } else {              /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
@@ -962,7 +1032,7 @@ PyObject *turbohtml_xpath_literal(PyObject *Py_UNUSED(module), PyObject *value) 
     if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    xt_ctx ctx = {{NULL, 0, 0, 0}, NULL};
+    xt_ctx ctx = {{NULL, 0, 0, 0, 0, 0}, NULL};
     xt_literal(&ctx, text, PyUnicode_GET_LENGTH(value));
     PyMem_Free(text);
     PyObject *result = NULL;
@@ -1046,7 +1116,7 @@ PyObject *turbohtml_css_specificity(PyObject *module, PyObject *args) {
     if (source == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    sel_parser parser = {source, 0, PyUnicode_GET_LENGTH(selector), NULL, 0, 0, 0, "unexpected token"};
+    sel_parser parser = {source, 0, PyUnicode_GET_LENGTH(selector), NULL, 0, 0, 0, "unexpected token", 0};
     sel_complex *alts = NULL;
     int count = 0;
     if (sel_parse_alts(&parser, &alts, &count, 0, 0, 0) < 0) {

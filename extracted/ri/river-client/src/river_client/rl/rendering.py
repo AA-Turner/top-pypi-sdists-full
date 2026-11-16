@@ -9,7 +9,10 @@ def prompt_chunks(renderer, messages, *, tools=None):
 
 
 def sample_prompt_chunks(renderer, prompt):
-    ids = list(renderer.tokenizer.encode(prompt.prompt, add_special_tokens=False))
+    ids = prompt.prompt_token_ids
+    if ids is None:
+        ids = renderer.tokenizer.encode(prompt.prompt, add_special_tokens=False)
+    ids = list(ids)
     if not prompt.images:
         return [{"type": "text", "tokens": ids}]
     placeholder = _image_placeholder_token_id(renderer.tokenizer)

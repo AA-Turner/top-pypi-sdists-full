@@ -39,8 +39,9 @@ jobs:
     with:
       # what keeps this run out of the branch concurrency groups: inside a
       # called workflow github.ref is the ref of this workflow's own run,
-      # so without it a rehearsal dispatched on a branch and a push to that
-      # branch share a group and cancel each other. The reasoning is in
+      # so without it a rehearsal dispatched on a branch and a dispatch of
+      # the called workflow on that branch share a group and cancel each
+      # other. The reasoning is in
       # lint.yml, next to the group; the value only has to be a string no
       # branch group can contain
       concurrency-suffix: "-release"
@@ -52,10 +53,11 @@ jobs:
       # see the lint job above
       concurrency-suffix: "-release"
 
-  # the suite on every platform and every interpreter, which test.yml runs
-  # one cell of, for the reason os-ubuntu.yml's header gives: a week is the
-  # right sample rate for a regression that can sit on main for a week,
-  # and the wrong one for a version that cannot be unpublished
+  # the suite on Linux, macOS and Windows, on every interpreter, which
+  # test.yml runs one cell of, for the reason os-ubuntu.yml's header
+  # gives: a week is the right sample rate for a regression that can sit
+  # on main for a week, and the wrong one for a version that cannot be
+  # unpublished
   ubuntu:
     name: Run the ubuntu workflow
     uses: ./.github/workflows/os-ubuntu.yml # zizmor: ignore[self-repository]
@@ -93,7 +95,7 @@ jobs:
   # submodule-pin-release, below, is this tree's own job, kept out of the called
   # workflow for the reason its own header gives (btclib-org/.github#35)
   version-check:
-    uses: btclib-org/.github/.github/workflows/reusable-version-check.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-version-check.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
     with:
       tag-requires-day: false
 
@@ -222,7 +224,7 @@ jobs:
   # family has no default for, the equality with the repository name being a
   # coincidence of four trees and not a rule (btclib-org/.github#35)
   public-api:
-    uses: btclib-org/.github/.github/workflows/reusable-public-api.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-public-api.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
     with:
       package: btclib_secp256k1
 
@@ -236,7 +238,7 @@ jobs:
   # above do. github-release does not name it: it runs only after publish-pypi
   # succeeds
   audit:
-    uses: btclib-org/.github/.github/workflows/reusable-audit.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-audit.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
 
   # the sdist, the bill of materials and their signature: btclib-org/.github's
   # reusable-build.yml, called at a tagged commit (section 10 of
@@ -268,7 +270,7 @@ jobs:
       contents: read
       id-token: write # the OIDC token the callee's attest job mints
       attestations: write # the build provenance attestation it writes
-    uses: btclib-org/.github/.github/workflows/reusable-build.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-build.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
     with:
       python: "3.15"
       version-suffix: ${{ needs.version-check.outputs.version-suffix }}
@@ -279,7 +281,7 @@ jobs:
       build-constraints: build-constraints.txt
 
   # reuse the whole build/test pipeline: every wheel the release ships is
-  # built and tested here, by the very matrices that run on a push, and
+  # built and checked here, by the jobs a push runs and by build-ios, and
   # the sdist the build job signed is checked and installed here
   test:
     name: Run the test workflow
@@ -524,7 +526,7 @@ jobs:
     # starts (a startup_failure, measured in btclib-org/.github#912)
     permissions:
       contents: write # the one job that writes to the repository through its token
-    uses: btclib-org/.github/.github/workflows/reusable-github-release.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-github-release.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
     with:
       dist-artifact: sdist
       # refuses the files unless their digests are the ones the build job
@@ -578,6 +580,6 @@ jobs:
   documented:
     needs: version-check
     if: github.event_name == 'push'
-    uses: btclib-org/.github/.github/workflows/reusable-documented.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
+    uses: btclib-org/.github/.github/workflows/reusable-documented.yml@64fe8e701fb481dddd471dd256ade86f90e60b0f # v2026.11.14
     with:
       readthedocs-slug: btclib-secp256k1

@@ -7,6 +7,7 @@ from typing import Literal
 from trajectory._models import BaseModel
 from trajectory.types.benchmark_runtime import BenchmarkRuntime
 from trajectory.types.benchmark_spec_tool import BenchmarkSpecTool
+from trajectory.types.benchmark_type import BenchmarkType
 from trajectory.types.benchmarks.tasks.benchmark_spec_task import BenchmarkSpecTask
 
 
@@ -35,6 +36,8 @@ class BenchmarkDetails(BaseModel):
   ingestion: BenchmarkUploadProgress | None = None
 
   bench_id: str
+
+  benchmark_type: BenchmarkType = "generative"
 
   task_count: int
 

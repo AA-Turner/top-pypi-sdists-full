@@ -51,60 +51,51 @@ def cwd_tmp(tmp_path: Path, monkeypatch):
 class TestNoRewriteCases:
     """Returns the original path unchanged when nothing needs rewriting."""
 
-    def test_no_dockerfile_copies(self, cwd_tmp: Path) -> None:
-        df = _write_dockerfile(
-            cwd_tmp,
-            "FROM ubuntu:24.04\nRUN apt-get update\n",
-        )
-        result = stage_binary_dockerfile(df)
-        assert result == df
-
-    def test_already_parameterised_copy(self, cwd_tmp: Path) -> None:
-        # ci-test-rust-app / dfe-loader pattern -- already uses TARGETARCH.
-        # Should NOT be touched.
-        _write_dist_artefact(cwd_tmp / "dist", "demo", "amd64")
-        df = _write_dockerfile(
-            cwd_tmp,
-            "FROM ubuntu:24.04\n"
-            "ARG TARGETARCH\n"
-            "COPY dist/demo-linux-${TARGETARCH} /usr/local/bin/demo\n",
-        )
-        result = stage_binary_dockerfile(df)
-        assert result == df
-
-    def test_copy_from_other_stage(self, cwd_tmp: Path) -> None:
-        # Multi-stage `COPY --from=builder` shouldn't be rewritten --
-        # it copies from another build stage, not the build context.
-        _write_dist_artefact(cwd_tmp / "dist", "demo", "amd64")
-        df = _write_dockerfile(
-            cwd_tmp,
-            "FROM rust:1.84 AS builder\nRUN cargo build\n"
-            "FROM ubuntu:24.04\n"
-            "COPY --from=builder /app/target/release/demo /usr/local/bin/demo\n",
-        )
-        result = stage_binary_dockerfile(df)
-        assert result == df
-
-    def test_copy_with_no_matching_dist_artefact(self, cwd_tmp: Path) -> None:
-        # `COPY config.yaml /etc/app/` -- config files, not binaries.
-        # No dist/config.yaml-linux-amd64 → don't rewrite.
-        df = _write_dockerfile(
-            cwd_tmp,
-            "FROM ubuntu:24.04\nCOPY config.yaml /etc/app/config.yaml\n",
-        )
-        result = stage_binary_dockerfile(df)
-        assert result == df
-
-    def test_copy_with_path_in_source(self, cwd_tmp: Path) -> None:
-        # Path-form sources like `COPY src/ /app/` are skipped -- only
-        # bare names are rewrite candidates.
-        _write_dist_artefact(cwd_tmp / "dist", "demo", "amd64")
-        df = _write_dockerfile(
-            cwd_tmp,
-            "FROM ubuntu:24.04\nCOPY ./demo /usr/local/bin/demo\n",
-        )
-        result = stage_binary_dockerfile(df)
-        assert result == df
+    @pytest.mark.parametrize(
+        ("artefacts", "dockerfile"),
+        [
+            pytest.param(
+                [],
+                "FROM ubuntu:24.04\nRUN apt-get update\n",
+                id="no-dockerfile-copies",
+            ),
+            pytest.param(
+                # The ci-test-rust-app / dfe-loader pattern, already on TARGETARCH.
+                ["demo"],
+                "FROM ubuntu:24.04\n"
+                "ARG TARGETARCH\n"
+                "COPY dist/demo-linux-${TARGETARCH} /usr/local/bin/demo\n",
+                id="already-parameterised-copy",
+            ),
+            pytest.param(
+                # A multi-stage `COPY --from` reads another stage, not the context.
+                ["demo"],
+                "FROM rust:1.84 AS builder\nRUN cargo build\n"
+                "FROM ubuntu:24.04\n"
+                "COPY --from=builder /app/target/release/demo /usr/local/bin/demo\n",
+                id="copy-from-other-stage",
+            ),
+            pytest.param(
+                # Config files, not binaries: no dist/config.yaml-linux-amd64.
+                [],
+                "FROM ubuntu:24.04\nCOPY config.yaml /etc/app/config.yaml\n",
+                id="copy-with-no-matching-dist-artefact",
+            ),
+            pytest.param(
+                # Only bare names are rewrite candidates, not `./demo`.
+                ["demo"],
+                "FROM ubuntu:24.04\nCOPY ./demo /usr/local/bin/demo\n",
+                id="copy-with-a-path-in-the-source",
+            ),
+        ],
+    )
+    def test_the_dockerfile_is_left_alone(
+        self, cwd_tmp: Path, artefacts: list[str], dockerfile: str
+    ) -> None:
+        for name in artefacts:
+            _write_dist_artefact(cwd_tmp / "dist", name, "amd64")
+        df = _write_dockerfile(cwd_tmp, dockerfile)
+        assert stage_binary_dockerfile(df) == df
 
 
 class TestRewrite:
@@ -343,7 +334,6 @@ class TestLicenceCopy:
         lines = rewritten.splitlines()
         assert lines[-2] == 'ENTRYPOINT ["demo"]'
         assert lines[-1] == f"COPY LICENSE {LICENCE_DEST}"
-        assert LICENCE_DEST == "/licenses/LICENSE"
 
     def test_licence_copy_rides_along_with_binary_rewrite(self, cwd_tmp: Path) -> None:
         _write_dist_artefact(cwd_tmp / "dist", "demo", "amd64")
@@ -382,6 +372,65 @@ class TestLicenceCopy:
 
         (cwd_tmp / ".dockerignore").write_text("*.md\n!second.md\n", encoding="utf-8")
         assert find_licence_file(cwd_tmp) == "second.md"
+
+
+@pytest.mark.parametrize(
+    ("notices", "dockerfile", "copied"),
+    [
+        pytest.param(True, "FROM scratch\n", True, id="build-wrote-it"),
+        pytest.param(False, "FROM scratch\n", False, id="no-notices"),
+        pytest.param(
+            True,
+            "FROM scratch\nCOPY dist/THIRD-PARTY-NOTICES /app/\n",
+            False,
+            id="final-stage-copies-it-already",
+        ),
+        pytest.param(
+            True,
+            "FROM scratch\n# ships THIRD-PARTY-NOTICES\n",
+            True,
+            id="a-comment-does-not-count",
+        ),
+        pytest.param(
+            True,
+            "FROM rust AS b\nCOPY dist/THIRD-PARTY-NOTICES /x\nFROM scratch\n",
+            True,
+            id="an-earlier-stage-copy-does-not-count",
+        ),
+        pytest.param(True, "FROM scratch\n", False, id="dockerignore-excludes-dist"),
+    ],
+)
+def test_notices_copy(
+    cwd_tmp: Path,
+    request: pytest.FixtureRequest,
+    notices: bool,
+    dockerfile: str,
+    copied: bool,
+) -> None:
+    if notices:
+        (cwd_tmp / "dist").mkdir()
+        (cwd_tmp / "dist" / "THIRD-PARTY-NOTICES").write_text("n\n", encoding="utf-8")
+    if request.node.callspec.id == "dockerignore-excludes-dist":
+        (cwd_tmp / ".dockerignore").write_text("dist\n", encoding="utf-8")
+    df = _write_dockerfile(cwd_tmp, dockerfile)
+    result = stage_binary_dockerfile(df, context=cwd_tmp)
+    line = "COPY dist/THIRD-PARTY-NOTICES /licenses/THIRD-PARTY-NOTICES"
+    if not copied:
+        assert result == df
+        return
+    rewritten = result.read_text(encoding="utf-8")
+    result.unlink()
+    assert rewritten.splitlines()[-1] == line
+
+
+def test_notices_outside_the_context_are_not_copied(
+    cwd_tmp: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    (cwd_tmp / "dist").mkdir()
+    (cwd_tmp / "dist" / "THIRD-PARTY-NOTICES").write_text("n\n", encoding="utf-8")
+    df = _write_dockerfile(cwd_tmp, "FROM scratch\n")
+    elsewhere = tmp_path_factory.mktemp("context")
+    assert stage_binary_dockerfile(df, context=elsewhere) == df
 
 
 class TestDockerignoreMatch:

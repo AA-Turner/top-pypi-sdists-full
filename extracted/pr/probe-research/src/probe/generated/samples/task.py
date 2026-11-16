@@ -28,6 +28,9 @@ from .provenance import Sha256
 MAX_SCENARIO_KEYS = 32
 MAX_SCENARIO_TEXT_CHARS = 256
 MAX_TASK_KEY_CHARS = 512
+#: The same cap as a person's rename (`app/runs/rl_dashboard/task_names.py`).
+MAX_TASK_NAME_CHARS = 256
+MAX_TASK_DESCRIPTION_CHARS = 4_000
 #: Text over this goes to R2 whole, with a pointer + sha256 on the row (D2).
 MAX_INLINE_TEXT_BYTES = 64 * 1024
 #: No dots, so `--where scenario.<key>=...` parses with no quoting.
@@ -111,6 +114,19 @@ def check_inline_text(value: str) -> str:
 InlineText = Annotated[str, AfterValidator(check_inline_text)]
 
 
+def check_one_line(value: str) -> str:
+    """A task name is one line of text: the RL page shows it as a row title, so no line break of any kind
+    (`str.splitlines`) and not blank."""
+    if value.splitlines() != [value]:
+        raise ValueError("a task name is one line")
+    if not value.strip():
+        raise ValueError("a task name is not blank")
+    return value
+
+
+TaskName = Annotated[str, Field(min_length=1, max_length=MAX_TASK_NAME_CHARS), AfterValidator(check_one_line)]
+
+
 class DatasetRow(BaseModel):
     """Where the task came from: a dataset file (by sha256, as the data catalog records it) and a row."""
 
@@ -142,3 +158,7 @@ class Task(Record):
     label: JsonValue | None = None
     #: The full reward for this task, when it is not the plan's (`Plan.reward_max`).
     reward_max: float | None = None
+    #: A readable name the setup agent gives the task. Not part of its identity.
+    name: TaskName | None = None
+    #: What the task tests, in markdown. Not part of its identity.
+    description: str | None = Field(default=None, max_length=MAX_TASK_DESCRIPTION_CHARS)

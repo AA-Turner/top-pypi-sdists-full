@@ -1,0 +1,568 @@
+"""Scope/values, shape rules, validation errors, parameters, and Problem."""
+
+import sys
+
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
+import sparsediffpy as sp
+from sparsediffpy import _compile
+
+
+def test_values_are_column_major(scope):
+    X, y = scope.Variable(2, 2), scope.Variable(1, 1)
+    X.value = np.array([[1.0, 2.0], [3.0, 4.0]])
+    y.value = 5.0
+    np.testing.assert_array_equal(scope.get_values(), [1, 3, 2, 4, 5])
+    scope.set_values(np.arange(5.0))
+    np.testing.assert_array_equal(X.value, [[0, 2], [1, 3]])
+
+
+def test_wrong_sizes(scope):
+    x = scope.Variable(3, 1)
+    p = scope.Parameter(2, 1)
+    with pytest.raises(sp.DimensionError):
+        x.value = [1.0, 2.0]
+    with pytest.raises(sp.DimensionError):
+        p.value = [1.0, 2.0, 3.0]
+    with pytest.raises(sp.DimensionError):
+        scope.set_values(np.zeros(4))
+    assert p.value is None
+
+
+def test_value_shapes(scope):
+    """Values need the exact shape, not just the right number of elements."""
+    X, r, c, y = (scope.Variable(2, 3), scope.Variable(1, 3),
+                  scope.Variable(3, 1), scope.Variable(1, 1))
+    P = scope.Parameter(2, 3)
+    for leaf in (X, P):
+        for bad in (np.zeros(6), np.zeros((3, 2)), np.zeros((6, 1)), 1.0):
+            with pytest.raises(sp.DimensionError, match="expected shape"):
+                leaf.value = bad
+        leaf.value = np.arange(6.0).reshape(2, 3)
+        np.testing.assert_array_equal(leaf.value, np.arange(6.0).reshape(2, 3))
+    with pytest.raises(sp.DimensionError):
+        r.value = np.zeros((3, 1))
+    with pytest.raises(sp.DimensionError):
+        c.value = np.zeros((1, 3))
+    r.value, c.value, y.value = [1.0, 2.0, 3.0], [4.0, 5.0, 6.0], 7.0
+    np.testing.assert_array_equal(r.value, [[1, 2, 3]])
+    np.testing.assert_array_equal(c.value, [[4], [5], [6]])
+    y.value = [8.0]
+    assert y.value.shape == (1, 1)
+
+    n = scope.total_var_size
+    with pytest.raises(sp.DimensionError, match="values"):
+        scope.set_values(np.zeros((n, 1)))
+    scope.set_values(np.zeros(n))
+
+    fn = sp.compile(sp.exp(X))
+    with pytest.raises(sp.DimensionError):
+        fn.hessian(np.ones(6))
+    assert fn.hessian(np.ones((2, 3))).shape == (n, n)
+    fn = sp.compile(sp.exp(c))
+    assert fn.hessian(np.ones(3)).shape == fn.hessian(np.ones((3, 1))).shape
+    with pytest.raises(sp.DimensionError):
+        fn.hessian(np.ones((1, 3)))
+
+
+@pytest.mark.parametrize("shape", [(0, 1), (-1, 2), (2.0, 1)])
+def test_invalid_shapes(scope, shape):
+    with pytest.raises((ValueError, TypeError)):
+        scope.Variable(*shape)
+
+
+def test_too_many_entries(scope):
+    """Sizes are C ints in the engine; larger shapes must fail before reaching C."""
+    big = (65536, 65537)  # 2**32 + 65536 entries
+    x = scope.Variable(1, 1)
+    a, b = scope.Variable(65536, 1), scope.Variable(1, 65537)
+    for make in (lambda: scope.Variable(*big), lambda: scope.Parameter(*big),
+                 lambda: sp.broadcast(x, big), lambda: a @ b):
+        with pytest.raises(ValueError, match="at most"):
+            make()
+    assert sp.broadcast(x, (2**31 - 1, 1)).size == 2**31 - 1
+
+
+def test_large_sparse_constant(scope):
+    """A sparse constant is limited by its nonzeros, not by rows times columns."""
+    m, n = 65536, 65537  # 2**32 + 65536 entries
+    rows, cols = np.array([0, 1, m - 1]), np.array([n - 1, 0, 2])
+    A = sps.csr_matrix((np.array([1.0, 2.0, 3.0]), (rows, cols)), (m, n))
+    x = scope.Variable(n, 1)
+    x.value = np.arange(n, dtype=float)
+    fn = sp.compile(A @ x)
+    np.testing.assert_array_equal(fn.forward().ravel(), A @ np.arange(n))
+    assert abs(fn.jacobian() - A).max() == 0
+    row = scope.Variable(1, m)
+    assert abs(sp.compile(row @ A).jacobian()[:, n:] - A.T).max() == 0
+    # any other use would need the matrix dense
+    with pytest.raises(ValueError, match="at most"):
+        sp.compile(sp.sum(A) * x)
+    with pytest.raises(ValueError, match="at most"):
+        A * scope.Variable(1, 1)
+
+
+def test_reevaluates_at_new_values(scope):
+    x = scope.Variable(2, 1)
+    fn = sp.compile(sp.exp(x))
+    for v in ([0.0, 1.0], [2.0, -1.0]):
+        x.value = v
+        np.testing.assert_allclose(fn.forward(), np.exp(v)[:, None])
+        np.testing.assert_allclose(fn.jacobian().diagonal(), np.exp(v))
+        np.testing.assert_allclose(fn.hessian([1, 1]).diagonal(), np.exp(v))
+
+
+def test_two_compiles_share_scope(scope):
+    x, y = scope.Variable(2, 1), scope.Variable(2, 1)
+    f, g = sp.compile(sp.sin(x)), sp.compile(x * y)
+    scope.set_values([1.0, 2.0, 3.0, 4.0])
+    np.testing.assert_allclose(f.forward(), np.sin([[1], [2]]))
+    np.testing.assert_allclose(g.forward(), [[3], [8]])
+    assert f.jacobian().shape == g.jacobian().shape == (2, 4)
+
+
+def test_forward_has_expression_shape(scope):
+    x, M = scope.Variable(1, 3), scope.Variable(2, 2)
+    scope.set_values([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    assert sp.compile(2.0 * x).forward().shape == (1, 3)
+    out = sp.compile(sp.exp(M)).forward()
+    assert out.shape == (2, 2)
+    np.testing.assert_allclose(out, np.exp([[4.0, 6.0], [5.0, 7.0]]))  # column-major
+
+
+def test_constants_must_be_2d(scope):
+    x = scope.Variable(3, 1)
+    for bad in (np.ones(3), [1.0, 2.0, 3.0], np.zeros((2, 2, 2))):
+        with pytest.raises(ValueError, match="2-D"):
+            x + bad
+        with pytest.raises(ValueError, match="2-D"):
+            bad * x
+    assert (x + np.array([2.0])).shape == (x + 2.0).shape == (3, 1)
+    assert (x + np.ones((3, 1))).shape == (3, 1)
+
+
+def test_variable_declared_after_compile(scope):
+    x = scope.Variable(2, 1)
+    fn = sp.compile(sp.exp(x))
+    scope.Variable(3, 1)
+    x.value = [0.0, 1.0]
+    np.testing.assert_allclose(fn.forward(), np.exp([[0.0], [1.0]]))
+    assert fn.jacobian().shape == (2, 2)
+
+
+def test_affine_hessian_is_zero(scope):
+    x = scope.Variable(3, 1)
+    fn = sp.compile(sp.sum(-x[0:2]) + 2.0)
+    x.value = [1.0, 2.0, 3.0]
+    assert not fn.hessian([1.0]).toarray().any()
+
+
+def test_shapes(scope):
+    x, r, X = scope.Variable(3, 1), scope.Variable(1, 2), scope.Variable(3, 2)
+    assert (x + r).shape == (3, 2)
+    assert (X @ r.T).shape == (3, 1)
+    assert x.T.shape == (1, 3)
+    assert x[1].shape == (1, 1) and x[-2:].shape == (2, 1)
+    assert r[1].shape == (1, 1) and X[:, 1].shape == (3, 1)
+    assert sp.sum(X, axis=1).shape == (1, 3)
+
+
+@pytest.mark.parametrize("make", [
+    lambda s: s.Variable(3, 1) + s.Variable(2, 1),
+    lambda s: s.Variable(3, 2) @ s.Variable(3, 2),
+    lambda s: sp.trace(s.Variable(2, 3)),
+    lambda s: sp.diag_vec(s.Variable(1, 3)),
+    lambda s: sp.reshape(s.Variable(3, 2), 4, 2),
+    lambda s: sp.hstack([]),
+    lambda s: sp.vstack([s.Variable(2, 1), s.Variable(2, 2)]),
+    lambda s: sp.quad_form(s.Variable(3, 1), np.eye(2)),
+    lambda s: sp.sum(s.Variable(2, 2), axis=2),
+    lambda s: sp.rel_entr(s.Variable(3, 1), s.Variable(2, 1)),
+])
+def test_shape_errors(scope, make):
+    with pytest.raises(ValueError):
+        make(scope)
+
+
+@pytest.mark.parametrize("make", [
+    lambda x: sp.log(x[1:3]),
+    lambda x: sp.entr(2.0 * x),
+    lambda x: sp.prod(sp.exp(x)),
+    lambda x: sp.quad_over_lin(x, x[0]),
+    lambda x: sp.rel_entr(x, x),
+])
+def test_variable_only_atoms(scope, make):
+    with pytest.raises(ValueError):
+        make(scope.Variable(4, 1))
+
+
+@pytest.mark.parametrize("key", [4, -5, [0, 4], (0, 3), (3, 0)])
+def test_index_out_of_range(scope, key):
+    X = scope.Variable(2, 2) if isinstance(key, tuple) else scope.Variable(4, 1)
+    with pytest.raises(IndexError):
+        X[key]
+
+
+def test_index_must_be_explicit(scope):
+    x, X = scope.Variable(4, 1), scope.Variable(2, 3)
+    for key in (1, slice(0, 2), [0, 1]):
+        with pytest.raises(IndexError, match="ambiguous"):
+            X[key]
+    assert X[1, :].shape == (1, 3) and X[:, 1].shape == (2, 1)
+    with pytest.raises(IndexError, match="integer"):
+        x[[True, False, True, False]]
+    for key in (True, False, np.True_, (True, 0), (0, False)):
+        with pytest.raises(IndexError, match="Boolean"):
+            x[key]
+    with pytest.raises(IndexError, match="1-D"):
+        x[np.array([[0, 1]])]
+    with pytest.raises(IndexError, match="2 indices"):
+        X[0, 0, 0]
+
+
+def test_compile_errors(scope):
+    with pytest.raises(ValueError, match="at least one Variable"):
+        sp.compile(sp.Scope().Parameter(1, 1, value=1.0) * 2.0)
+    with pytest.raises(ValueError, match="same Scope"):
+        sp.compile(scope.Variable(1, 1) + sp.Scope().Variable(1, 1))
+    with pytest.raises(TypeError):
+        scope.Variable(1, 1) ** scope.Variable(1, 1)
+
+
+def test_expressions_are_not_iterable(scope):
+    x, X = scope.Variable(3, 1), scope.Variable(2, 2)
+    with pytest.raises(TypeError, match="not iterable"):
+        list(x)
+    with pytest.raises(TypeError, match="not iterable"):
+        sp.Problem(sp.sum(X), X)  # constraints must be a list
+    assert sp.Problem(sp.sum(X), [X]).total_constraint_size == 4
+
+
+def test_none_is_rejected(scope):
+    x, p = scope.Variable(2, 1), scope.Parameter(2, 1)
+    with pytest.raises(TypeError, match="None"):
+        x + None
+    with pytest.raises(TypeError, match="None"):
+        x.value = None
+    with pytest.raises(TypeError, match="None"):
+        p.value = None
+
+
+def test_index_flat_wraps_constants(scope):
+    x = scope.Variable(2, 1)
+    fn = sp.compile(sp.index_flat(np.array([[5.0], [6.0]]), [1], (1, 1)) + x[0])
+    x.value = [1.0, 2.0]
+    np.testing.assert_array_equal(fn.forward(), [[7.0]])
+
+
+def test_index_flat_checks_before_casting(scope):
+    """Indices are validated as given, not after conversion to int32."""
+    x = scope.Variable(3, 1)
+    with pytest.raises(IndexError):
+        sp.index_flat(x, np.array([2**32 + 1]), (1, 1))  # would wrap to 1
+    for bad in ([1.7], [True]):
+        with pytest.raises(TypeError):
+            sp.index_flat(x, bad, (1, 1))
+    idx = np.array([0, 1], dtype=np.int32)
+    e = sp.index_flat(x, idx, (2, 1))
+    idx[1] = 10**6  # editing the array afterwards must not reach the engine
+    x.value = [10.0, 20.0, 30.0]
+    np.testing.assert_array_equal(sp.compile(e).forward(), [[10.0], [20.0]])
+
+
+def test_numpy_scalar_exponent(scope):
+    x = scope.Variable(2, 1)
+    f1, f2 = sp.compile(x ** np.int64(2)), sp.compile(x ** np.float32(2))
+    x.value = [1.5, -2.0]
+    np.testing.assert_array_equal(f1.forward(), x.value ** 2)
+    np.testing.assert_array_equal(f2.forward(), x.value ** 2)
+
+
+def test_division_only_by_nonzero_constants(scope):
+    x = scope.Variable(2, 1)
+    with pytest.raises(TypeError, match="d \\*\\* -1"):
+        x / x
+    with pytest.raises(TypeError):
+        1.0 / x
+    with pytest.raises(ZeroDivisionError):
+        x / np.array([[1.0], [0.0]])
+
+
+def test_quad_form_parameter_must_be_symmetric(scope):
+    x = scope.Variable(2, 1)
+    N, S = np.array([[1.0, 5.0], [0.0, 1.0]]), np.array([[1.0, 2.0], [2.0, 3.0]])
+    with pytest.raises(ValueError, match="symmetric"):
+        sp.quad_form(x, scope.Parameter(2, 2, value=N))
+    P = scope.Parameter(2, 2, value=S)
+    fn = sp.compile(sp.quad_form(x, P))
+    with pytest.raises(ValueError, match="symmetric"):
+        P.value = N
+    x.value = [1.0, 1.0]
+    P.value = 2 * S
+    np.testing.assert_allclose(fn.jacobian().toarray(), [2 * (2 * S) @ [1.0, 1.0]])
+
+
+def test_parameter_update_without_recompile(scope):
+    x = scope.Variable(3, 1)
+    A = scope.Parameter(2, 3, value=np.ones((2, 3)))
+    c = scope.Parameter(1, 1, value=1.0)
+    fn = sp.compile(c * sp.exp(A @ x))
+    x.value = [0.1, 0.2, 0.3]
+    for Av, cv in [(np.ones((2, 3)), 1.0), (np.arange(6.0).reshape(2, 3), -2.0)]:
+        A.value, c.value = Av, cv
+        np.testing.assert_allclose(fn.forward(), cv * np.exp(Av @ x.value))
+        J = cv * np.exp(Av @ x.value) * Av
+        np.testing.assert_allclose(fn.jacobian().toarray(), J)
+
+
+def test_parameter_value_is_copied(scope):
+    """Editing the assigned array in place must not change the parameter."""
+    x = scope.Variable(2, 1)
+    x.value = [1.0, 2.0]
+    arr = np.ones(2)
+    p = scope.Parameter(2, 1, value=arr)
+    fn = sp.compile(sp.sum(p * x))
+    arr[:] = 10.0
+    np.testing.assert_array_equal(p.value, [[1.0], [1.0]])
+    assert fn.forward().item() == 3.0
+
+
+def test_unset_parameter_raises(scope):
+    x, p = scope.Variable(2, 1), scope.Parameter(2, 1)
+    fn = sp.compile(p * x)
+    with pytest.raises(ValueError, match="no value"):
+        fn.forward()
+    p.value = [1.0, 2.0]
+    np.testing.assert_allclose(fn.forward(), [[0], [0]])
+
+
+def count_calls(monkeypatch, name):
+    """Count calls to the engine function `name` as seen from _compile."""
+    calls, real = [], getattr(_compile._C, name)
+
+    def counted(*args):
+        calls.append(1)
+        return real(*args)
+    monkeypatch.setattr(_compile._C, name, counted)
+    return calls
+
+
+def test_forward_runs_once_per_point(scope, monkeypatch):
+    n_fwd = count_calls(monkeypatch, "problem_constraint_forward")
+    x, p = scope.Variable(2, 1), scope.Parameter(1, 1, value=1.0)
+    fn = sp.compile(p * sp.exp(x))
+    x.value = [0.0, 1.0]
+    for _ in range(3):
+        np.testing.assert_allclose(fn.forward(), np.exp([[0.0], [1.0]]))
+    assert len(n_fwd) == 1
+    x.value = [1.0, 1.0]
+    fn.forward()
+    scope.set_values([2.0, 2.0])
+    fn.forward()
+    assert len(n_fwd) == 3
+    p.value = 3.0
+    np.testing.assert_allclose(fn.forward(), 3.0 * np.exp([[2.0], [2.0]]))
+    assert len(n_fwd) == 4
+
+
+def test_derivatives_reuse_forward_and_jacobian(scope, monkeypatch):
+    n_fwd = count_calls(monkeypatch, "problem_constraint_forward")
+    n_jac = count_calls(monkeypatch, "problem_jacobian")
+    n_hess = count_calls(monkeypatch, "problem_hessian")
+    x = scope.Variable(2, 1)
+    fn = sp.compile(sp.exp(x))
+    x.value = [0.5, -0.5]
+    fn.forward()
+    J = fn.jacobian()
+    assert fn.jacobian() is J
+    fn.hessian([1.0, 1.0])
+    fn.hessian([2.0, 0.0])
+    assert (len(n_fwd), len(n_jac), len(n_hess)) == (1, 1, 2)
+    x.value = [0.0, 0.0]
+    fn.hessian([1.0, 1.0])
+    assert (len(n_fwd), len(n_jac), len(n_hess)) == (2, 2, 3)
+
+
+def test_problem_runs_each_stage_once_per_point(scope, monkeypatch):
+    names = ["problem_objective_forward", "problem_constraint_forward",
+             "problem_gradient", "problem_jacobian", "problem_hessian"]
+    calls = {n: count_calls(monkeypatch, n) for n in names}
+    counts = lambda: tuple(len(calls[n]) for n in names)  # noqa: E731
+    x, a = scope.Variable(2, 1), scope.Parameter(1, 1, value=1.0)
+    prob = sp.Problem(sp.sum(a * x ** 2), [sp.exp(x)])
+    scope.set_values([1.0, 2.0])
+    for _ in range(2):
+        prob.hessian(1.0, [1.0, 1.0])
+        prob.objective(), prob.gradient(), prob.constraints(), prob.jacobian()
+    assert counts() == (1, 1, 1, 1, 2)
+    scope.set_values(np.array([1.0, 2.0]))  # equal values: same point
+    prob.gradient()
+    assert counts() == (1, 1, 1, 1, 2)
+    x.value = [1.0, 3.0]
+    prob.gradient()
+    assert counts() == (2, 1, 2, 1, 2)
+    a.value = 2.0
+    prob.jacobian()
+    assert counts() == (2, 2, 2, 2, 2)
+
+
+def test_problem(scope):
+    x = scope.Variable(3, 1)
+    shared = sp.sin(x)
+    prob = sp.Problem(sp.sum(sp.exp(shared)), [x[0:2] * x[1:3], shared])
+    u = np.array([0.3, -0.5, 0.8])
+    s, c = np.sin(u), np.cos(u)
+    scope.set_values(u)
+
+    assert prob.objective() == pytest.approx(np.exp(s).sum())
+    np.testing.assert_allclose(prob.gradient(), np.exp(s) * c)
+    np.testing.assert_allclose(prob.constraints(), np.r_[u[:2] * u[1:], s])
+
+    J = prob.jacobian().toarray()
+    np.testing.assert_allclose(J[:2], [[u[1], u[0], 0], [0, u[2], u[1]]])
+    np.testing.assert_allclose(J[2:], np.diag(c))
+
+    lam = np.array([1.0, 2.0, 0.5, -1.0, 3.0])
+    H = prob.hessian(2.0, lam).toarray()
+    H_obj = np.diag(np.exp(s) * (c ** 2 - s))
+    H_con = np.array([[0, 1, 0], [1, 0, 2], [0, 2, 0]]) + np.diag(-s * lam[2:])
+    np.testing.assert_allclose(H, 2.0 * H_obj + H_con)
+
+    with pytest.raises(ValueError, match="lagrange"):
+        prob.hessian(1.0, np.ones(4))
+    with pytest.raises(sp.DimensionError, match="lagrange"):
+        prob.hessian(1.0, lam[:, None])
+    with pytest.raises(ValueError, match="scalar"):
+        sp.Problem(x)
+
+
+def test_problem_without_constraints(scope):
+    x = scope.Variable(2, 1)
+    prob = sp.Problem(sp.sum(sp.exp(x)))
+    x.value = [0.0, 1.0]
+    np.testing.assert_allclose(prob.gradient(), np.exp([0.0, 1.0]))
+    assert prob.constraints().shape == (0,)
+    assert prob.jacobian().shape == (0, 2)
+    np.testing.assert_allclose(prob.hessian(1.0, []).diagonal(), np.exp([0.0, 1.0]))
+
+
+def test_problem_parameters(scope):
+    x, a = scope.Variable(2, 1), scope.Parameter(1, 1, value=2.0)
+    prob = sp.Problem(sp.sum(a * x ** 2))
+    x.value = [1.0, 3.0]
+    assert prob.objective() == pytest.approx(20.0)
+    a.value = 0.5
+    assert prob.objective() == pytest.approx(5.0)
+    np.testing.assert_allclose(prob.gradient(), [1.0, 3.0])
+
+
+@pytest.mark.parametrize("shared", [True, False])
+def test_problem_interleaved_points(scope, shared):
+    """Moving the point between a forward and its derivative never goes stale."""
+    x = scope.Variable(3, 1)
+    e = sp.exp(x)
+    obj, con = (sp.sum(e), e * x) if shared else (sp.sum(x * x), sp.exp(x) * x)
+    grad = (lambda u: np.exp(u)) if shared else (lambda u: 2 * u)  # noqa: E731
+    jac = lambda u: np.exp(u) * (1 + u)  # noqa: E731
+    u1, u2 = np.zeros(3), np.array([1.0, 2.0, 3.0])
+    prob = sp.Problem(obj, [con])
+    scope.set_values(u1)
+    prob.objective()
+    scope.set_values(u2)
+    prob.constraints()
+    np.testing.assert_allclose(prob.gradient(), grad(u2))
+    scope.set_values(u1)
+    np.testing.assert_allclose(prob.jacobian().diagonal(), jac(u1))
+    np.testing.assert_allclose(prob.gradient(), grad(u1))
+
+
+def test_results_are_read_only(scope):
+    x, p = scope.Variable(2, 1), scope.Parameter(2, 1, value=[1.0, 2.0])
+    fn = sp.compile(p * sp.exp(x))
+    prob = sp.Problem(sp.sum(sp.exp(x)), [sp.exp(x)])
+    x.value = [0.0, 1.0]
+    for arr in (x.value, p.value, fn.forward(), fn.jacobian().data,
+                prob.constraints(), prob.gradient(), prob.jacobian().data):
+        with pytest.raises(ValueError, match="read-only"):
+            arr[0] = 5.0
+    np.testing.assert_array_equal(x.value, [[0.0], [1.0]])
+    assert scope.get_values().flags.writeable
+
+
+def test_hessian_without_prior_jacobian(scope):
+    """hessian() must refresh the Jacobian values the engine's Hessian reuses."""
+    x, y = scope.Variable(2, 1), scope.Variable(2, 1)
+    fn = sp.compile(x * y + sp.sin(x * y))
+    prob = sp.Problem(sp.sum(x * y), [x * y])
+    for u in ([0.1, 0.2, 0.3, 0.4], [1.0, -2.0, 0.5, 3.0]):
+        scope.set_values(u)
+        xy, xv, yv = np.multiply(u[:2], u[2:]), np.array(u[:2]), np.array(u[2:])
+        w = np.array([1.0, 2.0])
+        # d2/dx_i dy_i of w_i * (x_i y_i + sin(x_i y_i))
+        d2 = lambda a, b: w * (-np.sin(xy) * a * b)  # noqa: E731
+        off = np.diag(w * (1 + np.cos(xy)) + d2(xv, yv))
+        H = np.block([[np.diag(d2(yv, yv)), off], [off, np.diag(d2(xv, xv))]])
+        np.testing.assert_allclose(fn.hessian(w).toarray(), H, atol=1e-12)
+
+        H_prob = np.block([[np.zeros((2, 2)), np.diag(2.0 + w)],
+                           [np.diag(2.0 + w), np.zeros((2, 2))]])
+        np.testing.assert_allclose(prob.hessian(2.0, w).toarray(), H_prob,
+                                   atol=1e-12)
+
+
+def test_compile_deep_sum(scope):
+    """A loop-built sum is a chain of adds deeper than the recursion limit."""
+    x, p = scope.Variable(3, 1), scope.Parameter(1, 1, value=2.0)
+    n_adds = 5000
+    assert n_adds > sys.getrecursionlimit()  # each add is one level deeper
+    f = x[0]
+    for i in range(1, n_adds + 1):
+        f = f + p * sp.sin(x[i % 3])
+    fn = sp.compile(f)
+    u = np.array([0.3, -0.7, 1.1])
+    x.value = u
+    counts = np.bincount(np.arange(1, n_adds + 1) % 3, minlength=3)
+    for pv in (2.0, 3.0):
+        p.value = pv
+        np.testing.assert_allclose(fn.forward(), [[u[0] + pv * counts @ np.sin(u)]])
+        np.testing.assert_allclose(fn.jacobian().toarray(),
+                                   [np.eye(3)[0] + pv * counts * np.cos(u)])
+        np.testing.assert_allclose(fn.hessian(1.0).toarray(),
+                                   np.diag(-pv * counts * np.sin(u)), atol=1e-9)
+
+
+def test_compile_deep_nonlinear_chain(scope):
+    """A deep chain of nonlinear atoms that all reuse one shared subexpression.
+
+    The shared node is shallow on purpose: the engine re-evaluates a shared
+    subexpression once per use, so reusing a deep one would take exponential time.
+    """
+    x = scope.Variable(1, 1)
+    n_levels, c = 3000, 1e-3
+    shared = sp.sin(x)
+    g = x
+    for _ in range(n_levels):
+        g = sp.sin(g) + c * shared
+
+    x0 = 0.7
+    v, d1, d2 = x0, 1.0, 0.0  # g, dg/dx, d2g/dx2 by the chain rule
+    for _ in range(n_levels):
+        d2 = np.cos(v) * d2 - np.sin(v) * d1 ** 2 - c * np.sin(x0)
+        d1 = np.cos(v) * d1 + c * np.cos(x0)
+        v = np.sin(v) + c * np.sin(x0)
+
+    x.value = x0
+    fn = sp.compile(g)
+    np.testing.assert_allclose(fn.forward(), [[v]], rtol=1e-12)
+    np.testing.assert_allclose(fn.jacobian().toarray(), [[d1]], rtol=1e-10)
+    np.testing.assert_allclose(fn.hessian(1.0).toarray(), [[d2]], rtol=1e-8)
+
+    prob = sp.Problem(sp.sum(g), [g])
+    assert prob.objective() == pytest.approx(v, rel=1e-12)
+    np.testing.assert_allclose(prob.gradient(), [d1], rtol=1e-10)
+    np.testing.assert_allclose(prob.constraints(), [v], rtol=1e-12)
+    np.testing.assert_allclose(prob.jacobian().toarray(), [[d1]], rtol=1e-10)
+    np.testing.assert_allclose(prob.hessian(1.0, [2.0]).toarray(), [[3 * d2]],
+                               rtol=1e-8)

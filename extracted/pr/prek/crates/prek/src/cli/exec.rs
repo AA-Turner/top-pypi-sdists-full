@@ -5,8 +5,8 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 
 use crate::cli::ExitStatus;
-use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
-use crate::cli::run::{InstallCache, Selectors, install_hooks};
+use crate::cli::reporter::HookInitReporter;
+use crate::cli::run::{Selectors, install_hooks};
 use crate::fs::CWD;
 use crate::printer::Printer;
 use crate::store::Store;
@@ -25,12 +25,12 @@ pub(crate) async fn exec(
     let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
     let init_reporter = HookInitReporter::new(printer);
-    let lock = store.lock_async().await?;
-    store.track_configs(workspace.config_files())?;
+    let locked_store = store.lock().await?;
+    locked_store.track_configs(workspace.config_files())?;
 
     let hooks = workspace
         .init_hooks(
-            store,
+            &locked_store,
             HookInitFilters::new(Some(&selectors), None),
             Some(&init_reporter),
         )
@@ -57,16 +57,12 @@ pub(crate) async fn exec(
     };
     hook.language.ensure_exec_supported(&hook)?;
 
-    let install_reporter = HookInstallReporter::new(printer);
-    let mut install_cache = InstallCache::new();
-    let installed_hooks =
-        install_hooks(vec![hook], store, &install_reporter, &mut install_cache).await?;
-    install_reporter.on_complete();
+    let installed_hooks = install_hooks(vec![hook], &locked_store, printer).await?;
     let installed_hook = installed_hooks
         .into_iter()
         .next()
         .context("Failed to prepare the selected hook environment")?;
-    drop(lock);
+    drop(locked_store);
 
     let status = installed_hook
         .language

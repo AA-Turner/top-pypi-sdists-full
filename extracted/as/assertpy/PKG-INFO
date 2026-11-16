@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: assertpy
-Version: 2.36.0
+Version: 2.36.1
 Summary: Fluent, fully typed assertion library for Python: your type checker sees only the assertions that fit the value, and every failure carries a structured diff. Soft assertions, polling, inline snapshots, OpenAPI contracts.
 Project-URL: Homepage, https://github.com/assertpy/assertpy
 Project-URL: Repository, https://github.com/assertpy/assertpy

@@ -14,19 +14,15 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 from typing import Final
 
-from turbohtml._html import _collapse_whitespace
-
 
 class Renderable:
-    """Renders itself as already-safe HTML through the __html__ protocol."""
-
+    # Renders itself as already-safe HTML through the __html__ protocol.
     def __html__(self) -> str:
         return "<raw & unescaped>"
 
 
 class HtmlBoom:
-    """__html__ raises, to exercise escape's error-propagation path."""
-
+    # __html__ raises, to exercise escape's error-propagation path.
     def __html__(self) -> str:
         raise ValueError
 
@@ -39,16 +35,14 @@ class HtmlLookupError:
 
 
 class Unstringable:
-    """Conversion to text raises, to exercise escape's stringification error path."""
-
+    # Conversion to text raises, to exercise escape's stringification error path.
     def __str__(self) -> str:
         raise ValueError
 
 
 class HtmlReturnsUnstringable:
-    """__html__ returns a value whose own str() raises, exercising the nested error path."""
-
-    def __html__(self) -> object:
+    # __html__ returns a value whose own str() raises, exercising the nested error path.
+    def __html__(self) -> Unstringable:
         return Unstringable()
 
 
@@ -143,7 +137,8 @@ def test_escape_silent_delegates_for_values() -> None:
 
 def test_escape_classmethod_returns_the_calling_subclass() -> None:
     class Sub(Markup):
-        """A Markup subclass, to check Markup.escape returns the called class."""
+        # A Markup subclass, to check Markup.escape returns the called class.
+        ...
 
     result = Sub.escape("<b>")
     assert type(result) is Sub
@@ -158,7 +153,7 @@ def test_escape_classmethod_returns_the_calling_subclass() -> None:
         pytest.param(7, str, "7", id="int-coerced"),
     ],
 )
-def test_soft_str(value: object, expected_type: type, expected: str) -> None:
+def test_soft_str(value: Markup | str | int, expected_type: type, expected: str) -> None:
     result = soft_str(value)
     assert type(result) is expected_type
     assert result == expected
@@ -170,12 +165,14 @@ def test_soft_str(value: object, expected_type: type, expected: str) -> None:
         pytest.param("<b>", "<b>", id="trusts-str-without-escaping"),
         pytest.param(Renderable(), "<raw & unescaped>", id="uses-html-protocol"),
         pytest.param(42, "42", id="stringifies-non-str-without-html"),
-        pytest.param(b"caf\xc3\xa9", "café", id="decodes-bytes"),
     ],
 )
-def test_markup_constructor(base: object, expected: str) -> None:
-    markup = Markup(base, "utf-8") if isinstance(base, bytes) else Markup(base)
-    assert str(markup) == expected
+def test_markup_constructor(base: str | Renderable | int, expected: str) -> None:
+    assert str(Markup(base)) == expected
+
+
+def test_markup_constructor_decodes_bytes_with_the_given_encoding() -> None:
+    assert str(Markup(b"caf\xc3\xa9", "utf-8")) == "café"
 
 
 def test_markup_default_is_empty() -> None:
@@ -215,7 +212,9 @@ def test_mul_keeps_markup() -> None:
         pytest.param("%r", "<x>", "&#39;&lt;x&gt;&#39;", id="repr"),
     ],
 )
-def test_mod_escapes_interpolated_values(template: str, operand: object, expected: str) -> None:
+def test_mod_escapes_interpolated_values(
+    template: str, operand: str | tuple[str, str] | dict[str, str] | tuple[int, float], expected: str
+) -> None:
     assert str(Markup(template) % operand) == expected
 
 
@@ -230,12 +229,12 @@ def test_join_escapes_parts() -> None:
 @pytest.mark.parametrize(
     ("op", "expected"),
     [
-        pytest.param(lambda m: m.capitalize(), "Ab cd", id="capitalize"),
-        pytest.param(lambda m: m.title(), "Ab Cd", id="title"),
-        pytest.param(lambda m: m.lower(), "ab cd", id="lower"),
-        pytest.param(lambda m: m.upper(), "AB CD", id="upper"),
-        pytest.param(lambda m: m.swapcase(), "AB cD", id="swapcase"),
-        pytest.param(lambda m: m.casefold(), "ab cd", id="casefold"),
+        pytest.param(lambda markup: markup.capitalize(), "Ab cd", id="capitalize"),
+        pytest.param(lambda markup: markup.title(), "Ab Cd", id="title"),
+        pytest.param(lambda markup: markup.lower(), "ab cd", id="lower"),
+        pytest.param(lambda markup: markup.upper(), "AB CD", id="upper"),
+        pytest.param(lambda markup: markup.swapcase(), "AB cD", id="swapcase"),
+        pytest.param(lambda markup: markup.casefold(), "ab cd", id="casefold"),
     ],
 )
 def test_case_methods_keep_markup(op: Callable[[Markup], Markup], expected: str) -> None:
@@ -247,10 +246,10 @@ def test_case_methods_keep_markup(op: Callable[[Markup], Markup], expected: str)
 @pytest.mark.parametrize(
     ("op", "expected"),
     [
-        pytest.param(lambda m: m.strip(), "ab Cd", id="strip"),
-        pytest.param(lambda m: m.lstrip(), "ab Cd  ", id="lstrip"),
-        pytest.param(lambda m: m.rstrip(), "  ab Cd", id="rstrip"),
-        pytest.param(lambda m: m.expandtabs(2), "  ab Cd  ", id="expandtabs"),
+        pytest.param(lambda markup: markup.strip(), "ab Cd", id="strip"),
+        pytest.param(lambda markup: markup.lstrip(), "ab Cd  ", id="lstrip"),
+        pytest.param(lambda markup: markup.rstrip(), "  ab Cd", id="rstrip"),
+        pytest.param(lambda markup: markup.expandtabs(2), "  ab Cd  ", id="expandtabs"),
     ],
 )
 def test_trim_methods_keep_markup(op: Callable[[Markup], Markup], expected: str) -> None:
@@ -268,10 +267,10 @@ def test_getitem_keeps_markup() -> None:
 @pytest.mark.parametrize(
     ("op", "expected"),
     [
-        pytest.param(lambda m: m.removeprefix("ab"), "cd", id="removeprefix"),
-        pytest.param(lambda m: m.removesuffix("cd"), "ab", id="removesuffix"),
-        pytest.param(lambda m: m.zfill(6), "00abcd", id="zfill"),
-        pytest.param(lambda m: m.translate({ord("a"): "x"}), "xbcd", id="translate"),
+        pytest.param(lambda markup: markup.removeprefix("ab"), "cd", id="removeprefix"),
+        pytest.param(lambda markup: markup.removesuffix("cd"), "ab", id="removesuffix"),
+        pytest.param(lambda markup: markup.zfill(6), "00abcd", id="zfill"),
+        pytest.param(lambda markup: markup.translate({ord("a"): "x"}), "xbcd", id="translate"),
     ],
 )
 def test_more_wrap_only_methods_keep_markup(op: Callable[[Markup], Markup], expected: str) -> None:
@@ -325,9 +324,9 @@ def test_replace_escapes_replacement() -> None:
 @pytest.mark.parametrize(
     ("op", "expected"),
     [
-        pytest.param(lambda m: m.ljust(5, "."), "ab...", id="ljust"),
-        pytest.param(lambda m: m.rjust(5, "."), "...ab", id="rjust"),
-        pytest.param(lambda m: m.center(4, "."), ".ab.", id="center"),
+        pytest.param(lambda markup: markup.ljust(5, "."), "ab...", id="ljust"),
+        pytest.param(lambda markup: markup.rjust(5, "."), "...ab", id="rjust"),
+        pytest.param(lambda markup: markup.center(4, "."), ".ab.", id="center"),
     ],
 )
 def test_justify_keeps_markup(op: Callable[[Markup], Markup], expected: str) -> None:
@@ -339,9 +338,9 @@ def test_justify_keeps_markup(op: Callable[[Markup], Markup], expected: str) -> 
 @pytest.mark.parametrize(
     "op",
     [
-        pytest.param(lambda m: m.ljust(5, "<"), id="ljust"),
-        pytest.param(lambda m: m.rjust(5, "<"), id="rjust"),
-        pytest.param(lambda m: m.center(4, "<"), id="center"),
+        pytest.param(lambda markup: markup.ljust(5, "<"), id="ljust"),
+        pytest.param(lambda markup: markup.rjust(5, "<"), id="rjust"),
+        pytest.param(lambda markup: markup.center(4, "<"), id="center"),
     ],
 )
 def test_justify_escapes_fill_then_str_rejects_it(op: Callable[[Markup], Markup]) -> None:
@@ -360,7 +359,7 @@ def test_justify_escapes_fill_then_str_rejects_it(op: Callable[[Markup], Markup]
         pytest.param("{:>4}", "ab", "  ab", id="plain-field-with-spec"),
     ],
 )
-def test_format_escapes_fields(template: str, field: object, expected: str) -> None:
+def test_format_escapes_fields(template: str, field: Markup | str | Renderable, expected: str) -> None:
     assert str(Markup(template).format(field)) == expected
 
 
@@ -394,12 +393,12 @@ def test_striptags(markup: str, expected: str) -> None:
 
 
 def test_escape_formatter_is_public_and_subclassable() -> None:
-    seen: list[object] = []
+    seen: list[object] = []  # simplint: ignore[imprecise-annotation]  # the override records any field value
 
     class Recording(EscapeFormatter):
-        """Record each field, to show EscapeFormatter cooperates with subclassing the way Jinja2 needs."""
-
-        def format_field(self, value: object, format_spec: str) -> str:
+        # Record each field, to show EscapeFormatter cooperates with subclassing the way Jinja2 needs.
+        # Formatter passes arbitrary values to this override.
+        def format_field(self, value: object, format_spec: str) -> str:  # simplint: ignore[imprecise-annotation]
             seen.append(value)
             return super().format_field(value, format_spec)
 
@@ -409,7 +408,7 @@ def test_escape_formatter_is_public_and_subclassable() -> None:
     assert seen == ["<x>"]
 
 
-_MIGRATION_SCRIPT = dedent(
+_MIGRATION_SCRIPT: Final[str] = dedent(
     """
     import sys, types
     import turbohtml.migration.markupsafe as tm
@@ -467,27 +466,7 @@ def test_jinja2_migrates_to_turbohtml_markup() -> None:
 )
 def test_escape_adjacent_byte_lanes(pair: str, escaped: str, offset: int) -> None:
     prefix: Final = "x" * offset
-    assert str(escape(prefix + pair * 8 + "tail")) == prefix + escaped * 8 + "tail"
-
-
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        pytest.param("  a \t b\n\nc  ", "a b c", id="runs-collapse-and-edges-drop"),
-        pytest.param("a\u00a0b\u2003c", "a b c", id="unicode-whitespace-splits"),
-        pytest.param("", "", id="empty"),
-        pytest.param(" \n ", "", id="only-whitespace"),
-        pytest.param("one", "one", id="one-word"),
-        pytest.param("\u00e9t\u00e9 \U0001f600", "\u00e9t\u00e9 \U0001f600", id="wide-code-points-survive"),
-    ],
-)
-def test_collapse_whitespace(text: str, expected: str) -> None:
-    assert _collapse_whitespace(text) == expected
-
-
-def test_collapse_needs_a_str() -> None:
-    with pytest.raises(TypeError, match="must be a str"):
-        _collapse_whitespace(b"a b")  # ty: ignore[invalid-argument-type]  # the argument check is the point
+    assert str(escape(f"{prefix}{pair * 8}tail")) == f"{prefix}{escaped * 8}tail"
 
 
 def test_striptags_reads_the_same_fold() -> None:

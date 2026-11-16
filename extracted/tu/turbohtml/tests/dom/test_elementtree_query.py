@@ -6,9 +6,14 @@ from typing import TYPE_CHECKING, Final, cast
 import pytest
 
 from turbohtml import Document, etree, parse
+from turbohtml.clean import Linkify, linkify_node
+from turbohtml.etree import Element, SubElement, XPath, document_fromstring, fragment_fromstring, fromstring, tostring
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
+
+    from traced_bytes import PeakBytes
+    from work_steps import WorkSteps
 
     from turbohtml.etree import ElementView
 
@@ -47,19 +52,19 @@ def test_element_tree_index_counts_elements(tree: ElementView) -> None:
 
 
 def test_element_tree_absolute_root_xpath_returns_document() -> None:
-    tree: Final = etree.document_fromstring("<p>text</p>")
+    tree: Final = document_fromstring("<p>text</p>")
     result: Final = cast("list[Document]", tree.xpath("/"))
     assert [document.root for document in result] == [tree.node]
 
 
 def test_element_tree_absolute_child_xpath_selects_root() -> None:
-    tree: Final = etree.document_fromstring("<p>text</p>")
+    tree: Final = document_fromstring("<p>text</p>")
     assert tree.find("/html") is tree
 
 
 def test_element_tree_xpath_selects_unicode_name() -> None:
-    tree: Final = etree.Element("root")
-    child: Final = etree.SubElement(tree, "é")
+    tree: Final = Element("root")
+    child: Final = SubElement(tree, "é")
     assert tree.find("//é") is child
 
 
@@ -69,13 +74,16 @@ def test_element_tree_xpath_does_not_rewrite_quoted_slashes(tree: ElementView, q
     assert tree.findall(f"//*[@data-path={quote}//p{quote}]") == [tree]
 
 
+_TEST_ELEMENT_TREE_REPR_CONTAINS_TAG_PATTERN: Final[re.Pattern[str]] = re.compile(r"<Element div at 0x[0-9a-fA-F]+>")
+
+
 def test_element_tree_repr_contains_tag(tree: ElementView) -> None:
-    assert re.fullmatch(r"<Element div at 0x[0-9a-fA-F]+>", repr(tree))
+    assert _TEST_ELEMENT_TREE_REPR_CONTAINS_TAG_PATTERN.fullmatch(repr(tree))
 
 
 def test_element_tree_keyword_factory_retains_attributes() -> None:
-    tree: Final = etree.Element(tag="p", attrib={"id": "paragraph"}, title="label")
-    assert etree.tostring(tree, encoding="unicode") == '<p id="paragraph" title="label"/>'
+    tree: Final = Element(tag="p", attrib={"id": "paragraph"}, title="label")
+    assert tostring(tree, encoding="unicode") == '<p id="paragraph" title="label"/>'
 
 
 @pytest.mark.parametrize(
@@ -102,6 +110,75 @@ def test_element_tree_index_out_of_bounds(tree: ElementView, index: int) -> None
         tree[index]
 
 
+@pytest.mark.parametrize(
+    ("index", "expected"),
+    [
+        pytest.param(0, "a", id="first"),
+        pytest.param(2, "c", id="last"),
+        pytest.param(-1, "c", id="from-end"),
+        pytest.param(-3, "a", id="from-end-first"),
+        pytest.param(True, "b", id="bool"),
+    ],
+)
+def test_element_tree_subscript_skips_non_elements(mixed: ElementView, index: int, expected: str) -> None:
+    assert mixed[index].tag == expected
+
+
+def test_element_tree_slice_skips_non_elements(mixed: ElementView) -> None:
+    assert [child.tag for child in mixed[1:]] == ["b", "c"]
+
+
+def test_element_tree_subscript_too_large_for_an_index(tree: ElementView) -> None:
+    with pytest.raises(IndexError, match="cannot fit"):
+        tree[2**70]
+
+
+def test_element_tree_subscript_rejects_non_index(tree: ElementView) -> None:
+    with pytest.raises(TypeError, match="integers or slices"):
+        tree[cast("int", "a")]
+
+
+def test_element_tree_index_skips_non_elements(mixed: ElementView) -> None:
+    assert [mixed.index(child) for child in mixed] == [0, 1, 2]
+
+
+@pytest.mark.parametrize(
+    "select",
+    [
+        pytest.param(lambda tree: tree[0][0], id="grandchild"),
+        pytest.param(lambda tree: tree, id="itself"),
+        pytest.param(lambda _tree: etree.Element("a"), id="other-tree"),
+        pytest.param(lambda _tree: cast("ElementView", "a"), id="not-a-view"),
+    ],
+)
+def test_element_tree_index_rejects_non_child(tree: ElementView, select: Callable[[ElementView], ElementView]) -> None:
+    with pytest.raises(ValueError, match="not in sequence"):
+        tree.index(select(tree))
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        pytest.param("tree[0]", id="subscript"),
+        pytest.param("tree[-1]", id="subscript-from-end"),
+        pytest.param("tree.index(tree[-1])", id="index"),
+        pytest.param("next(iter(tree))", id="iter"),
+        pytest.param("next(tree.iterchildren(reversed=True))", id="iterchildren-reversed"),
+    ],
+)
+def test_element_tree_reads_one_child_without_wrapping_its_siblings(read: str, peak_bytes: PeakBytes) -> None:
+    peak: Final = peak_bytes(
+        "import tracemalloc\n"
+        "from turbohtml import etree\n"
+        "tree = etree.fromstring('<ul>' + '<li>x</li>' * 5_000 + '</ul>')\n"
+        "tracemalloc.start()\n"
+        f"{read}\n"
+        "print(tracemalloc.get_traced_memory()[1])\n",
+        (),
+    )
+    assert peak < 32 * 1024, peak
+
+
 def test_element_tree_find_absent_tag(tree: ElementView) -> None:
     assert tree.find(".//missing") is None
 
@@ -119,7 +196,7 @@ def test_element_tree_xpath_boolean(tree: ElementView) -> None:
 
 
 def test_element_tree_compiled_xpath_exposes_expression() -> None:
-    expression: Final = etree.XPath(".//p")
+    expression: Final = XPath(".//p")
     assert (str(expression), expression.path) == (".//p", ".//p")
 
 
@@ -150,7 +227,7 @@ def test_element_tree_rejects_invalid_tag_filter(tree: ElementView, tag: int | l
 
 
 def test_element_tree_attributes_return_strings() -> None:
-    tree: Final = etree.fromstring('<input disabled class="one two">')
+    tree: Final = fromstring('<input disabled class="one two">')
     assert (dict(tree.attrib), tree.items(), tree.get("missing", "default")) == (
         {"disabled": "", "class": "one two"},
         [("disabled", ""), ("class", "one two")],
@@ -159,7 +236,7 @@ def test_element_tree_attributes_return_strings() -> None:
 
 
 def test_element_tree_attribute_mapping_popitem_keeps_class_flat() -> None:
-    tree: Final = etree.fromstring('<p class="one two">text</p>')
+    tree: Final = fromstring('<p class="one two">text</p>')
     assert (tree.attrib.get("class"), tree.attrib.popitem(), dict(tree.attrib)) == (
         "one two",
         ("class", "one two"),
@@ -168,5 +245,110 @@ def test_element_tree_attribute_mapping_popitem_keeps_class_flat() -> None:
 
 
 @pytest.fixture
+def mixed() -> ElementView:
+    return etree.fromstring("<div>start<a>A</a>one<!--note--><b>B</b>two<c>C</c>end</div>")
+
+
+@pytest.fixture
 def tree() -> ElementView:
-    return etree.fromstring('<div class="one two"><a data-value="149">first<i>nested</i></a><b>last</b></div>')
+    return fromstring('<div class="one two"><a data-value="149">first<i>nested</i></a><b>last</b></div>')
+
+
+def test_element_tree_positions_follow_edits_between_reads() -> None:
+    # a position is remembered to step on from; every edit of the child list has to drop what was remembered
+    tree: Final = fragment_fromstring("<ul><li>0</li>t<li>1</li><li>2</li><li>3</li></ul>")
+    assert [tree[2].text, tree[-2].text, tree.index(tree[3])] == ["2", "2", 3]
+    tree.insert(0, etree.Element("li"))
+    assert [tree[2].text, tree[-2].text, tree.index(tree[3])] == ["1", "2", 3]
+    tree[1].drop_tree()
+    assert [tree[2].text, tree[-2].text, tree.index(tree[3])] == ["2", "2", 3]
+    tree.node.children[-1].decompose()
+    assert [tree[2].text, tree[-1].text, tree.index(tree[1])] == ["2", "2", 1]
+    with pytest.raises(IndexError):
+        tree[3]
+
+
+def test_element_tree_positions_of_two_lists_read_in_turn() -> None:
+    markup: Final = f"<div><ul>{'<li>a</li>' * 5}</ul><ol>{'<li>b</li>' * 5}</ol></div>"
+    both: Final = fragment_fromstring(markup)
+    left, right = both[0], both[1]
+    order: Final = (0, 3, 1, 4, 4, 2)
+    pairs: Final = [(left[index].node, right[index].node) for index in order]
+    assert pairs == [(left.node.children[index], right.node.children[index]) for index in order]
+
+
+def test_element_tree_positions_read_in_reverse_order() -> None:
+    tree: Final = _numbered_items(6)
+    assert [tree[index].text for index in (5, 4, 2, 1, 0)] == ["5", "4", "2", "1", "0"]
+
+
+def _numbered_items(count: int) -> ElementView:
+    return fragment_fromstring(f"<ol>{''.join(f'<li>{number}</li>' for number in range(count))}</ol>")
+
+
+def test_element_tree_position_restarts_when_far_or_reversed() -> None:
+    tree: Final = _numbered_items(6)
+    assert [tree[4].text, tree[0].text, tree[-2].text, tree[1].text] == ["4", "0", "4", "1"]
+
+
+@pytest.mark.parametrize(
+    ("reads", "expected"),
+    [
+        pytest.param((4, 3), ("4", "3"), id="nearer-than-the-last-read"),
+        pytest.param((4, 0), ("4", "0"), id="farther-than-the-last-read"),
+        pytest.param((4, -2), ("4", "4"), id="other-direction"),
+    ],
+)
+def test_element_tree_position_steps_from_the_last_read_only_when_nearer(
+    reads: tuple[int, ...], expected: tuple[str, ...]
+) -> None:
+    tree: Final = _numbered_items(6)
+    assert tuple(tree[index].text for index in reads) == expected
+
+
+@pytest.mark.parametrize("index", [pytest.param(0, id="first"), pytest.param(-1, id="last")])
+def test_element_tree_subscript_of_a_childless_element_raises(index: int) -> None:
+    with pytest.raises(IndexError):
+        fromstring("<ul></ul>")[index]
+
+
+def test_element_tree_index_after_a_read_from_the_end() -> None:
+    tree: Final = _numbered_items(6)
+    second: Final = tree[1]
+    assert tree[-1].text == "5"
+    assert tree.index(second) == 1
+
+
+def test_element_tree_index_of_a_child_before_the_last_read_position() -> None:
+    tree: Final = _numbered_items(6)
+    before: Final = tree[3]
+    assert tree[4].text == "4"
+    assert tree.index(before) == 3
+
+
+@pytest.mark.parametrize(
+    ("index", "tag"),
+    [pytest.param(0, "i", id="first"), pytest.param(1, "s", id="second")],
+)
+def test_element_tree_position_of_a_child_unwrapped_out_of_its_parent(index: int, tag: str) -> None:
+    root: Final = etree.fromstring("<div><a href='http://c.org'><i>1</i><s>2</s></a><u>3</u></div>")
+    anchor: Final = root[0]
+    assert anchor[index].tag == tag
+    linkify_node(root.node, Linkify(callbacks=[lambda _link: None], process_existing=True))
+    with pytest.raises(IndexError):
+        anchor[index]
+
+
+def test_element_tree_index_after_an_edit_drops_the_read_position() -> None:
+    tree: Final = _numbered_items(6)
+    third: Final = tree[2]
+    tree.insert(0, etree.Element("li"))
+    assert tree.index(third) == 3
+
+
+def test_element_tree_reads_every_position_in_linear_steps(work_steps: WorkSteps) -> None:
+    def read_positions(count: int) -> Callable[[], object]:
+        tree: Final = fragment_fromstring(f"<ol>{'<li>a</li>' * count}</ol>")
+        return lambda: [tree.index(tree[index]) for index in range(count)]
+
+    work_steps.assert_linear(read_positions, (1_500, 6_000))

@@ -915,9 +915,11 @@ EXAMPLES = {
     "deck-maker": AppKind.CHAT,
     "player": AppKind.CHAT,
     "sheet-maker": AppKind.CHAT,
+    "shopper": AppKind.CHAT,
     # The home page's live demos (moved from the landing, 14 November 2026): chats on
     # example data that a visitor signed out may talk to, each its agent's variant.
     "demo-marketer": AppKind.CHAT,
+    "demo-shop": AppKind.CHAT,
     "demo-shopper": AppKind.CHAT,
     "demo-terra": AppKind.CHAT,
     "demo-voyager": AppKind.CHAT,

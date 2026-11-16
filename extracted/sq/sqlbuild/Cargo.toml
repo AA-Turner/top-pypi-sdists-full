@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sqlbuild-build-features", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-process-ownership", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-orchestration", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-project", "crates/sqlbuild-cli", "crates/sqlbuild-python"]
+members = ["crates/sqlbuild-build-features", "crates/sqlbuild-build-identity", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-process-ownership", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-orchestration", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-project", "crates/sqlbuild-cli", "crates/sqlbuild-python-base", "crates/sqlbuild-python"]
 resolver = "2"
 
 # Native crates from the bottom up: each crate may depend only on crates listed before it.
@@ -8,6 +8,7 @@ resolver = "2"
 [workspace.metadata.native-layers]
 order = [
     "sqlbuild-build-features",
+    "sqlbuild-build-identity",
     "sqlbuild-core",
     "sqlbuild-cursor",
     "sqlbuild-process-ownership",
@@ -29,9 +30,10 @@ order = [
     "sqlbuild-refactor",
     "sqlbuild-project",
     "sqlbuild-cli",
+    "sqlbuild-python-base",
     "sqlbuild-python",
 ]
-python-boundary = "sqlbuild-python"
+python-boundary = ["sqlbuild-python-base", "sqlbuild-python"]
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
@@ -53,8 +55,8 @@ tower-http = { version = "0.6", default-features = false, features = ["compressi
 fensu-policy = "=0.22.0"
 # Fensu's Python facts and core rules without their Python bindings: the default `python`
 # feature adds PyO3, rusqlite, flate2 and sha2.
-fensu-facts = { version = "=0.30.0", default-features = false }
-fensu-native = { version = "=0.30.0", default-features = false }
+fensu-facts = { version = "=0.31.0", default-features = false }
+fensu-native = { version = "=0.31.0", default-features = false }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # `sqb` names compute log captures with random ids, as `uuid.uuid4().hex`.
 getrandom = "0.4"
@@ -112,7 +114,7 @@ errno = "0.3"
 windows-sys = { version = "0.61", default-features = false, features = ["Win32_System_Diagnostics_Debug"] }
 # Recall's local store: SQLite compiled in, so every build has the same engine version.
 rusqlite = { version = "0.37", features = ["bundled", "column_decltype"] }
-rustix = { version = "1.1.4", default-features = false, features = ["fs", "process", "std", "termios"] }
+rustix = { version = "1.1.4", default-features = false, features = ["fs", "process", "std", "stdio", "termios"] }
 saphyr-parser = "0.1"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
@@ -136,6 +138,7 @@ utoipa = { version = "5", features = ["chrono", "uuid"] }
 sqlbuild-analysis = { path = "crates/sqlbuild-analysis" }
 sqlbuild-attachments = { path = "crates/sqlbuild-attachments" }
 sqlbuild-build-features = { path = "crates/sqlbuild-build-features" }
+sqlbuild-build-identity = { path = "crates/sqlbuild-build-identity" }
 sqlbuild-cache = { path = "crates/sqlbuild-cache" }
 sqlbuild-cli = { path = "crates/sqlbuild-cli" }
 sqlbuild-config = { path = "crates/sqlbuild-config" }
@@ -150,6 +153,7 @@ sqlbuild-model-config = { path = "crates/sqlbuild-model-config" }
 sqlbuild-orchestration = { path = "crates/sqlbuild-orchestration" }
 sqlbuild-process-ownership = { path = "crates/sqlbuild-process-ownership" }
 sqlbuild-project = { path = "crates/sqlbuild-project" }
+sqlbuild-python-base = { path = "crates/sqlbuild-python-base" }
 sqlbuild-pysource = { path = "crates/sqlbuild-pysource" }
 sqlbuild-recall = { path = "crates/sqlbuild-recall" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }

@@ -1,8 +1,23 @@
+"""The structural schedule of an FA4-style flash-attention body: nodes, barriers, SMEM.
+
+Role: planner.  ``build_fa4_schedule`` builds, from a ``FlashScheduleSpec``
+(head dim, KV depth, CTA count, the pipeline flags), the graph of a local
+schedule -- ``FlashNode`` / ``FlashEdge`` / ``FlashBarrier`` /
+``FlashMemoryRegion`` records in a ``FlashSchedule`` -- and
+``fa4_schedule_fits`` prices its shared memory against
+``FlashScheduleLimits``; ``build_fa4_alt_schedule`` is the
+alternating-warpgroup variant.  ``cute_flash`` and ``cute_flash_alt`` consult
+the schedule when they resolve a config's KV ring depth and staging;
+``FlashScheduleError`` is the refusal.  Pure planning: nothing is rendered
+here.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
 import dataclasses
 import enum
+import functools
 
 from .attention_plan import flash_pair_head_dims_supported
 
@@ -838,10 +853,15 @@ def fa4_schedule_fits(
     return _shared_memory_bytes(spec) <= limits.shared_memory_bytes
 
 
+@functools.lru_cache(maxsize=4096)
 def max_fa4_kv_depth(
     spec: FlashScheduleSpec, limits: FlashScheduleLimits | None = None
 ) -> int:
-    """Return the largest K/V depth allowed by the schedule's SMEM layout."""
+    """Return the largest K/V depth allowed by the schedule's SMEM layout.
+
+    Memoized on the frozen spec and limits: the flash resolver asks this for
+    every normalized config, and the search revisits a few hundred specs.
+    """
     if limits is None:
         limits = FlashScheduleLimits()
     if spec.uneven_kv_ring:

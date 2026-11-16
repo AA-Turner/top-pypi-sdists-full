@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: PyOTP
-Version: 2.11.2
+Version: 2.12.0
 Summary: Python One Time Password Library
 Project-URL: Homepage, https://github.com/pyauth/pyotp
 Project-URL: Documentation, https://github.com/pyauth/pyotp
@@ -19,17 +19,17 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: mypy; extra == 'test'
@@ -59,7 +59,8 @@ minimum, application implementers should follow this checklist:
 - Ensure HOTP/TOTP secret confidentiality by storing secrets in a controlled access database
 - Deny replay attacks by persisting the last accepted OTP counter for each credential and rejecting reused counters.
   For TOTP, use ``verify_and_get_timecode()`` as described in `Preventing replay attacks`_ below.
-- Throttle (rate limit) brute-force attacks against your application's login functionality (see RFC 4226, section 7.3)
+- Throttle (rate limit) brute-force attacks against your application's login functionality (see RFC 4226, section 7.3
+  and NIST SP 800-63B, section 3.2.2)
 - When implementing a "greenfield" application, consider supporting
   `FIDO U2F <https://en.wikipedia.org/wiki/Universal_2nd_Factor>`_/`WebAuthn <https://www.w3.org/TR/webauthn/>`_ in
   addition to or instead of HOTP/TOTP. U2F uses asymmetric cryptography to avoid using a shared secret design, which
@@ -68,11 +69,16 @@ minimum, application implementers should follow this checklist:
   of credentials to relying party IDs (application origin/domain names), U2F adds protection against phishing attacks.
   One implementation of FIDO U2F/WebAuthn is PyOTP's sister project, `PyWARP <https://github.com/pyauth/pywarp>`_.
 
-We also recommend that implementers read the
-`OWASP Authentication Cheat Sheet
-<https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Authentication_Cheat_Sheet.md>`_ and
-`NIST SP 800-63-3: Digital Authentication Guideline <https://pages.nist.gov/800-63-3/>`_ for a high level overview of
-authentication best practices.
+We also recommend that implementers read and follow the following resources:
+
+- `NIST SP 800-63 Digital Identity Guidelines <https://pages.nist.gov/800-63-4/>`_, including sections 3.1.4
+  (Single-Factor OTP) and 3.1.5 (Multi-Factor OTPs), for an in-depth discussion of authentication
+- The `OWASP Authentication Cheat Sheet
+  <https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Authentication_Cheat_Sheet.md>`_ for a high level
+  overview of authentication best practices
+- The `OWASP Multifactor Authentication Cheat Sheet
+  <https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Multifactor_Authentication_Cheat_Sheet.md>`_ for
+  an intermediate level practical architecture guide to MFA
 
 Quick overview of using One Time Passwords on your phone
 --------------------------------------------------------
@@ -98,15 +104,14 @@ Time-based OTPs
 .. code:: python
 
     import pyotp
-    import time
 
-    totp = pyotp.TOTP('base32secret3232')
-    totp.now() # => '492039'
+    totp = pyotp.TOTP('base32secret32323232323232')
+    totp.now()  # Current OTP; changes with the clock.
 
-    # OTP verified for current time
-    totp.verify('492039') # => True
-    time.sleep(30)
-    totp.verify('492039') # => False
+    # A fixed Unix timestamp makes these example outputs reproducible.
+    totp.at(1234567890) # => '763850'
+    totp.verify('763850', for_time=1234567890) # => True
+    totp.verify('763850', for_time=1234567920) # => False
 
 Preventing replay attacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,14 +164,14 @@ Counter-based OTPs
 
     import pyotp
     
-    hotp = pyotp.HOTP('base32secret3232')
-    hotp.at(0) # => '260182'
-    hotp.at(1) # => '055283'
-    hotp.at(1401) # => '316439'
+    hotp = pyotp.HOTP('base32secret32323232323232')
+    hotp.at(0) # => '995369'
+    hotp.at(1) # => '511453'
+    hotp.at(1401) # => '666948'
 
     # OTP verified with a counter
-    hotp.verify('316439', 1401) # => True
-    hotp.verify('316439', 1402) # => False
+    hotp.verify('666948', 1401) # => True
+    hotp.verify('666948', 1402) # => False
 
 Generating a Secret Key
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,13 +196,13 @@ the ability to generate provisioning URIs for use with the QR Code scanner built
 
 .. code:: python
 
-    pyotp.totp.TOTP('JBSWY3DPEHPK3PXP').provisioning_uri(name='alice@google.com', issuer_name='Secure App')
+    pyotp.totp.TOTP('JBSWY3DPEHPK3PXPJBSWY3DP').provisioning_uri(name='alice@google.com', issuer_name='Secure App')
 
-    >>> 'otpauth://totp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXP&issuer=Secure%20App'
+    >>> 'otpauth://totp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXPJBSWY3DP&issuer=Secure%20App'
 
-    pyotp.hotp.HOTP('JBSWY3DPEHPK3PXP').provisioning_uri(name="alice@google.com", issuer_name="Secure App", initial_count=0)
+    pyotp.hotp.HOTP('JBSWY3DPEHPK3PXPJBSWY3DP').provisioning_uri(name="alice@google.com", issuer_name="Secure App", initial_count=0)
 
-    >>> 'otpauth://hotp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXP&issuer=Secure%20App&counter=0'
+    >>> 'otpauth://hotp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXPJBSWY3DP&issuer=Secure%20App&counter=0'
 
 This URL can then be rendered as a QR Code (for example, using https://github.com/soldair/node-qrcode) which can then be
 scanned and added to the users list of OTP credentials.
@@ -206,27 +211,27 @@ Parsing these URLs is also supported:
 
 .. code:: python
 
-    pyotp.parse_uri('otpauth://totp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXP&issuer=Secure%20App')
+    pyotp.parse_uri('otpauth://totp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXPJBSWY3DP&issuer=Secure%20App')
 
     >>> <pyotp.totp.TOTP object at 0xFFFFFFFF>
 
-    pyotp.parse_uri('otpauth://hotp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXP&issuer=Secure%20App&counter=0'
+    pyotp.parse_uri('otpauth://hotp/Secure%20App:alice%40google.com?secret=JBSWY3DPEHPK3PXPJBSWY3DP&issuer=Secure%20App&counter=0')
 
-    >>> <pyotp.totp.HOTP object at 0xFFFFFFFF>
+    >>> <pyotp.hotp.HOTP object at 0xFFFFFFFF>
 
 Working example
 ~~~~~~~~~~~~~~~
 
 Scan the following barcode with your phone's OTP app (e.g. Google Authenticator):
 
-.. image:: https://quickchart.io/qr?size=250&text=otpauth%3A%2F%2Ftotp%2Falice%40google.com%3Fsecret%3DJBSWY3DPEHPK3PXP
+.. image:: https://quickchart.io/qr?size=250&text=otpauth%3A%2F%2Ftotp%2Falice%40google.com%3Fsecret%3DJBSWY3DPEHPK3PXPJBSWY3DP
 
 Now run the following and compare the output:
 
 .. code:: python
 
     import pyotp
-    totp = pyotp.TOTP("JBSWY3DPEHPK3PXP")
+    totp = pyotp.TOTP("JBSWY3DPEHPK3PXPJBSWY3DP")
     print("Current OTP:", totp.now())
 
 Third-party contributions
@@ -248,7 +253,7 @@ Links
 * `ROTP <https://github.com/mdp/rotp>`_ - Original Ruby OTP library by `Mark Percival <https://github.com/mdp>`_
 * `OTPHP <https://github.com/lelag/otphp>`_ - PHP port of ROTP by `Le Lag <https://github.com/lelag>`_
 * `OWASP Authentication Cheat Sheet <https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Authentication_Cheat_Sheet.md>`_
-* `NIST SP 800-63-3: Digital Authentication Guideline <https://pages.nist.gov/800-63-3/>`_
+* `NIST SP 800-63 Digital Identity Guidelines <https://pages.nist.gov/800-63-4/>`_
 
 For new applications:
 

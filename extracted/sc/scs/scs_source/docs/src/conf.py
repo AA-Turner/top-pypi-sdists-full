@@ -15,7 +15,6 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import subprocess
-import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
 
@@ -24,7 +23,7 @@ copyright = "2021, Brendan O'Donoghue"
 author = "Brendan O'Donoghue"
 
 # The full version, including alpha/beta/rc tags
-__version__ = "3.3.1"
+__version__ = "3.3.2"
 
 release = __version__
 version = __version__
@@ -35,9 +34,6 @@ version = __version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ["sphinx.ext.mathjax", "breathe", "sphinx_rtd_theme"]
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -59,9 +55,7 @@ pygments_style = "default"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-# html_theme = 'alabaster'
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 
 def setup(app):
@@ -72,7 +66,6 @@ html_logo = "_static/scs_logo_transparent.png"
 html_favicon = "_static/favicon.ico"
 html_theme_options = {
     "logo_only": True,
-    "display_version": True,
     #'github_banner': True,
     #'github_user': 'cvxgrp',
     #'github_repo': 'scs',
@@ -80,10 +73,17 @@ html_theme_options = {
     #'logo_name': False,
     #'github_button': False,
     #'github_type': 'star',
-    "analytics_id": "G-9CY7R8S5N2",
 }
 
-rst_epilog = ".. |version| replace:: %s" % __version__
+# Google Analytics (GA4). Previously configured with the sphinx_rtd_theme
+# "analytics_id" theme option, which the theme deprecated.
+html_js_files = [
+    (
+        "https://www.googletagmanager.com/gtag/js?id=G-9CY7R8S5N2",
+        {"async": "async"},
+    ),
+    "js/analytics.js",
+]
 
 # Breathe docs
 subprocess.call("doxygen Doxyfile", shell=True)

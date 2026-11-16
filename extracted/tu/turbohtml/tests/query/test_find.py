@@ -1,37 +1,34 @@
-"""find()/find_all(): the filter grammar (str/regex/bool/callable/list), class_, text, axes, and limit."""
-
 from __future__ import annotations
 
 import gc
+import itertools
 import re
 import sys
+from functools import partial
 from typing import TYPE_CHECKING, Final
 from weakref import finalize
 
 import pytest
 
-from turbohtml import Axis, Comment, Document, Element, Range, Text, parse, parse_xml
+from turbohtml import Axis, Comment, Document, Element, Range, Text, parse, parse_fragment, parse_xml
 from turbohtml.clean import collapse_whitespace_node
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import ModuleType
     from typing import TypeAlias
+
+    from work_steps import WorkSteps
 
     Filter: TypeAlias = "str | re.Pattern[str] | bool | Callable[[str | None], bool] | list[Filter]"
 
 
 # document order of elements: html, head, body, section, h2, p, p, a
-_DOC = '<section><h2 id="t">T</h2><p class="lead big">one</p><p class="big">two</p><a href="/x">l</a></section>'
-_LONG_NEEDLE: Final[str] = "a" * 65 + "ba"
-
-
-def _tags(elements: list[Element]) -> list[str]:
-    return [element.tag for element in elements]
-
-
-def _el(result: Element | None) -> Element:
-    assert result is not None
-    return result
+_DOC: Final[str] = (
+    '<section><h2 id="t">T</h2><p class="lead big">one</p><p class="big">two</p><a href="/x">l</a></section>'
+)
+_LONG_NEEDLE: Final[str] = f"{'a' * 65}ba"
+_WORD: Final[re.Pattern[str]] = re.compile(r"\w")
 
 
 def _raise(_value: str | None) -> bool:
@@ -51,6 +48,10 @@ def _raise(_value: str | None) -> bool:
 )
 def test_tag_filter(tag_filter: Filter, tags: list[str]) -> None:
     assert _tags(parse(_DOC).find_all(tag_filter)) == tags
+
+
+def _tags(elements: list[Element]) -> list[str]:
+    return [element.tag for element in elements]
 
 
 def test_tag_string_is_case_sensitive() -> None:
@@ -90,6 +91,11 @@ def test_tag_with_class_filter_uses_the_general_path(class_filter: Filter) -> No
 )
 def test_attr_matches_h2(id_filter: Filter) -> None:
     assert _el(parse(_DOC).find(id=id_filter)).tag == "h2"
+
+
+def _el(result: Element | None) -> Element:
+    assert result is not None
+    return result
 
 
 @pytest.mark.parametrize(
@@ -140,10 +146,13 @@ def test_class_finds_the_lead(class_filter: Filter) -> None:
     assert _el(parse(_DOC).find(class_=class_filter)).text == "one"
 
 
+_TEST_CLASS_REGEX_MATCHES_A_TOKEN_NOT_THE_WHOLE_VALUE_PATTERN: Final[re.Pattern[str]] = re.compile(r"^big$")
+
+
 def test_class_regex_matches_a_token_not_the_whole_value() -> None:
     # an anchored regex matches the "big" token of "lead big" but not the whole value
     doc = parse('<p class="lead big">x</p><p class="big">y</p>')
-    assert len(doc.find_all("p", class_=re.compile(r"^big$"))) == 2
+    assert len(doc.find_all("p", class_=_TEST_CLASS_REGEX_MATCHES_A_TOKEN_NOT_THE_WHOLE_VALUE_PATTERN)) == 2
 
 
 def test_class_false_is_absence() -> None:
@@ -179,6 +188,24 @@ def test_class_token_scan_handles_surrounding_whitespace() -> None:
 )
 def test_class_filter_no_match(html: str, class_filter: Filter) -> None:
     assert parse(html).find("p", class_=class_filter) is None
+
+
+@pytest.mark.parametrize(
+    ("class_filter", "found"), [pytest.param("hit", (201, 200), id="hit"), pytest.param("x", (0, 0), id="miss")]
+)
+def test_class_shared_long_value_answers(class_filter: str, found: tuple[int, int]) -> None:
+    document: Final = _recreated_long_class(200, "hit")
+    with_text: Final = document.find_all("u", class_=class_filter, text="v")
+    assert (len(document.find_all(class_=class_filter)), len(with_text)) == found
+
+
+def _recreated_long_class(count: int, last: str = "") -> Document:
+    # every <li> re-creates the open <u>, and each copy points at the class value of the original
+    return parse(f'<ul><li><u class="{"w " * count}{last}">{"<li>v" * count}')
+
+
+def test_class_shared_long_value_in_linear_time(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: partial(_recreated_long_class(count).find_all, class_="hit"), (250, 1000))
 
 
 @pytest.mark.parametrize(
@@ -232,6 +259,20 @@ def test_axis_preceding_excludes_ancestors() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "tags"),
+    [
+        pytest.param(lambda link: link.find_all(axis=Axis.PRECEDING), ["p", "p", "h2", "head"], id="structural"),
+        pytest.param(lambda link: link.find_all(text="T", axis=Axis.PRECEDING), ["h2"], id="text-scan"),
+        pytest.param(lambda link: link.find_all(text=_WORD, axis=Axis.PRECEDING), ["p", "p", "h2"], id="text-regex"),
+        pytest.param(lambda link: link.find_all(text=bool, axis=Axis.PRECEDING), ["p", "p", "h2"], id="text-callable"),
+    ],
+)
+def test_axis_preceding_skips_every_ancestor(query: Callable[[Element], list[Element]], tags: list[str]) -> None:
+    # nearest first; <section>, <body> and <html> all hold the text yet none of them precedes the link
+    assert _tags(query(_el(parse(_DOC).find("a")))) == tags
+
+
+@pytest.mark.parametrize(
     ("limit", "count"),
     [
         pytest.param(None, 2, id="none"),
@@ -281,7 +322,13 @@ def test_callable_error_propagates(id_filter: Filter) -> None:
         parse("<p>").find(id=id_filter)
 
 
-@pytest.mark.parametrize("query", [lambda doc: doc.find("p", id=_raise), lambda doc: doc.find_all("p", id=_raise)])
+@pytest.mark.parametrize(
+    "query",
+    [
+        pytest.param(lambda doc: doc.find("p", id=_raise), id="find"),
+        pytest.param(lambda doc: doc.find_all("p", id=_raise), id="find-all"),
+    ],
+)
 def test_indexed_tag_filter_error_propagates(query: Callable[[Document], object]) -> None:
     document = parse("<p>x</p>")
     document.find_all("p")
@@ -289,29 +336,77 @@ def test_indexed_tag_filter_error_propagates(query: Callable[[Document], object]
         query(document)
 
 
-@pytest.mark.parametrize(
-    ("target", "expected"),
-    [pytest.param("target", "target", id="match"), pytest.param("missing", None, id="miss")],
-)
-def test_find_filtered_on_warm_tree(target: str, expected: str | None) -> None:
+def test_find_filtered_on_warm_tree() -> None:
     document = parse("<p id='first'/><p id='target'/>")
     document.find_all("p")
-    match = document.find("p", id=target)
-    assert (match.attrs["id"] if match is not None else None) == expected
+    assert _el(document.find("p", id="target")).attrs["id"] == "target"
+
+
+def test_find_filtered_on_warm_tree_miss() -> None:
+    document = parse("<p id='first'/><p id='target'/>")
+    document.find_all("p")
+    assert document.find("p", id="missing") is None
+
+
+def test_find_without_warm_index_bucket() -> None:
+    document = parse("<custom id='target'/>")
+    document.find_all("div")
+    assert _el(document.find("custom")).attrs["id"] == "target"
+
+
+def test_find_without_warm_index_empty_bucket() -> None:
+    document = parse("<div/>")
+    document.find_all("div")
+    assert document.find("p") is None
 
 
 @pytest.mark.parametrize(
-    ("markup", "tag", "expected"),
+    ("victim", "expected"),
     [
-        pytest.param("<custom id='target'/>", "custom", "target", id="unknown-tag"),
-        pytest.param("<div/>", "p", None, id="empty-known-tag-bucket"),
+        pytest.param("c", (["d"], ["a", "b", "d"]), id="later-candidate"),
+        pytest.param("a", ([], ["a"]), id="current-candidate"),
     ],
 )
-def test_find_without_warm_index_bucket(markup: str, tag: str, expected: str | None) -> None:
-    document = parse(markup)
-    document.find_all("div")
-    match = document.find(tag)
-    assert (match.attrs["id"] if match is not None else None) == expected
+@pytest.mark.parametrize("requery", [pytest.param(False, id="index-dropped"), pytest.param(True, id="index-rebuilt")])
+@pytest.mark.parametrize(
+    "search",
+    [
+        pytest.param(lambda origin, filter_: [origin.find("p", id=filter_)], id="find"),
+        pytest.param(lambda origin, filter_: origin.find_all("p", id=filter_), id="find-all"),
+    ],
+)
+@pytest.mark.parametrize(
+    "scope",
+    [
+        pytest.param(lambda document: document, id="indexed"),
+        pytest.param(lambda document: _el(document.find("section")), id="subtree"),
+    ],
+)
+def test_tag_filter_edits_tree(
+    victim: str,
+    expected: tuple[list[str], list[str]],
+    search: Callable[[Document | Element, Callable[[str | None], bool]], list[Element | None]],
+    scope: Callable[[Document], Document | Element],
+    *,
+    requery: bool,
+) -> None:
+    document: Final = parse("<section><p id='a'></p><p id='b'></p><p id='c'></p><p id='d'></p></section>")
+    document.find_all("p")
+    origin: Final = scope(document)
+    seen: Final[list[str | None]] = []
+
+    def last(value: str | None) -> bool:
+        seen.append(value)
+        if len(seen) == 1:
+            target: Final = document.find(id=victim)
+            assert target is not None
+            target.extract()  # a structural edit drops the element index a document-wide query is reading
+            if requery:
+                document.find_all("p")  # and this rebuilds it, smaller, under that query
+        return value == "d"
+
+    matches: Final = search(origin, last)
+    assert ([element.attrs["id"] for element in matches if element is not None], seen) == expected
 
 
 def test_find_on_warm_subtree() -> None:
@@ -374,7 +469,7 @@ def test_type_errors(call: Callable[[], object]) -> None:
 # and -- because a regex/callable runs Python mid-walk -- the C side snapshots candidates
 # and their text under the per-tree lock before running the predicate.
 
-_TEXT_DOC = (
+_TEXT_DOC: Final[str] = (
     "<section>"
     '<button class="buy">Add to cart</button>'
     "<p>Price: $19</p>"
@@ -444,9 +539,12 @@ def test_text_matches_an_ancestor_whose_collected_text_equals_the_target() -> No
     assert _tags(_el(doc.find("body")).find_all(text="solo")) == ["div", "p"]
 
 
+_TEST_TEXT_FIND_RETURNS_FIRST_MATCH_PATTERN: Final[re.Pattern[str]] = re.compile(r"\$")
+
+
 def test_text_find_returns_first_match() -> None:
     section = _el(parse(_TEXT_DOC).find("section"))
-    assert _el(section.find(text=re.compile(r"\$"))).tag == "p"
+    assert _el(section.find(text=_TEST_TEXT_FIND_RETURNS_FIRST_MATCH_PATTERN)).tag == "p"
 
 
 def _first_text(root: Element) -> Text:
@@ -479,6 +577,9 @@ def _collapsed_text() -> Element:
     return root
 
 
+_TEST_TEXT_SCAN_COPIES_AN_EMPTY_TEXT_NODE_PATTERN: Final[re.Pattern[str]] = re.compile(r"x")
+
+
 @pytest.mark.parametrize(
     "build",
     [
@@ -490,7 +591,7 @@ def _collapsed_text() -> Element:
 )
 def test_text_scan_copies_an_empty_text_node(build: Callable[[], Element]) -> None:
     # the scan memcpys every Text node, so an empty one must not carry a NULL text pointer even at length 0
-    assert _tags(build().find_all(text=re.compile(r"x"))) == ["p"]
+    assert _tags(build().find_all(text=_TEST_TEXT_SCAN_COPIES_AN_EMPTY_TEXT_NODE_PATTERN)) == ["p"]
 
 
 @pytest.mark.parametrize(
@@ -513,8 +614,25 @@ def test_text_scan_over_an_empty_subtree(pattern: str, expected: list[str]) -> N
         pytest.param(lambda doc: doc.find_all("table", text="go"), [], id="no-candidate-find-all"),
     ],
 )
-def test_text_no_match(query: Callable[[Document], object], expected: object) -> None:
+def test_text_no_match(
+    query: Callable[[Document], Element | list[Element] | None], expected: list[Element] | None
+) -> None:
     assert query(parse(_TEXT_DOC)) == expected
+
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN: Final[re.Pattern[str]] = re.compile(r"^b")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_2: Final[re.Pattern[str]] = re.compile(r"go\d")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_3: Final[re.Pattern[str]] = re.compile(r"go\d")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_4: Final[re.Pattern[str]] = re.compile(r"^button$")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_5: Final[re.Pattern[str]] = re.compile(r"go\d")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_6: Final[re.Pattern[str]] = re.compile(r"go\d")
+
+_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_7: Final[re.Pattern[str]] = re.compile(r"go\d")
 
 
 @pytest.mark.parametrize(
@@ -529,7 +647,7 @@ def test_text_no_match(query: Callable[[Document], object], expected: object) ->
         ),
         pytest.param(
             "<button>go</button><bdo>go</bdo><div>go</div>",
-            lambda doc: doc.find_all(re.compile(r"^b"), text="go"),
+            lambda doc: doc.find_all(_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN, text="go"),
             ["button", "bdo"],
             id="tag-regex",
         ),
@@ -553,31 +671,34 @@ def test_text_no_match(query: Callable[[Document], object], expected: object) ->
         ),
         pytest.param(
             "<button>go9</button><p>go9</p>",
-            lambda doc: doc.find_all("button", text=re.compile(r"go\d")),
+            lambda doc: doc.find_all("button", text=_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_2),
             ["button"],
             id="plain-tag-prefilter",
         ),
         pytest.param(
             '<button class="buy">go9</button><button>go9</button>',
-            lambda doc: doc.find_all(class_="buy", text=re.compile(r"go\d")),
+            lambda doc: doc.find_all(class_="buy", text=_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_3),
             ["button"],
             id="plain-class-prefilter",
         ),
         pytest.param(
             "<button>go9</button><p>go9</p>",
-            lambda doc: doc.find_all(re.compile(r"^button$"), text=re.compile(r"go\d")),
+            lambda doc: doc.find_all(
+                _TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_4,
+                text=_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_5,
+            ),
             ["button"],
             id="regex-tag-rechecked",
         ),
         pytest.param(
             "<my-widget>go9</my-widget><my-widget>stop</my-widget>",
-            lambda doc: doc.find_all("my-widget", text=re.compile(r"go\d")),
+            lambda doc: doc.find_all("my-widget", text=_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_6),
             ["my-widget"],
             id="custom-element-tag-prefilter",
         ),
         pytest.param(
             "<p>go9</p>",
-            lambda doc: doc.find_all("table", text=re.compile(r"go\d")),
+            lambda doc: doc.find_all("table", text=_TEST_TEXT_COMPOSES_WITH_STRUCTURAL_FILTER_PATTERN_7),
             [],
             id="no-candidate",
         ),
@@ -597,8 +718,7 @@ def test_text_attribute_is_reserved_for_the_predicate() -> None:
 
 
 def test_text_on_children_axis() -> None:
-    doc = parse("<section><p>go</p><div><span>x</span></div></section>")
-    section = _el(doc.find("section"))
+    section = _el(parse("<section><p>go</p><div><span>x</span></div></section>").find("section"))
     assert _tags(section.find_all(text="go", axis=Axis.CHILDREN)) == ["p"]  # the <div> child collects "x"
     assert _tags(section.find_all(text="x")) == ["div", "span"]  # <div> and its <span> both collect "x"
 
@@ -615,6 +735,11 @@ def test_text_limit(limit: int | None, count: int) -> None:
     assert len(parse("<p>go</p><p>go</p><p>go</p>").find_all(text="go", limit=limit)) == count
 
 
+_TEST_TEXT_CALLABLE_ERROR_PROPAGATES_PATTERN: Final[re.Pattern[str]] = re.compile(r"g\w")
+
+_TEST_TEXT_CALLABLE_ERROR_PROPAGATES_PATTERN_2: Final[re.Pattern[str]] = re.compile(r"g\w")
+
+
 @pytest.mark.parametrize(
     "query",
     [
@@ -624,8 +749,14 @@ def test_text_limit(limit: int | None, count: int) -> None:
         # a structural callable raises during the snapshot pass, before the text predicate runs
         pytest.param(lambda doc: doc.find_all(text="go", id=_raise), id="structural-find-all"),
         pytest.param(lambda doc: doc.find(text="go", id=_raise), id="structural-find"),
-        pytest.param(lambda doc: doc.find_all(text=re.compile(r"g\w"), id=_raise), id="structural-find-all-regex"),
-        pytest.param(lambda doc: doc.find(text=re.compile(r"g\w"), id=_raise), id="structural-find-regex"),
+        pytest.param(
+            lambda doc: doc.find_all(text=_TEST_TEXT_CALLABLE_ERROR_PROPAGATES_PATTERN, id=_raise),
+            id="structural-find-all-regex",
+        ),
+        pytest.param(
+            lambda doc: doc.find(text=_TEST_TEXT_CALLABLE_ERROR_PROPAGATES_PATTERN_2, id=_raise),
+            id="structural-find-regex",
+        ),
     ],
 )
 def test_text_callable_error_propagates(query: Callable[[Document], object]) -> None:
@@ -639,8 +770,8 @@ def test_text_callable_error_propagates(query: Callable[[Document], object]) -> 
         pytest.param("a" * 400, _LONG_NEEDLE, 0, id="overlapping-miss"),
         pytest.param("a" * 10 + _LONG_NEEDLE + "c" * 200, _LONG_NEEDLE, 1, id="direct-late-match"),
         pytest.param("a" * 200 + _LONG_NEEDLE, _LONG_NEEDLE, 1, id="fallback-late-match"),
-        pytest.param("a" * 200 + "c" + "a" * 199, _LONG_NEEDLE, 0, id="late-miss"),
-        pytest.param("a" * 400, "a" * 65 + "b", 0, id="prefilter-miss"),
+        pytest.param(f"{'a' * 200}c{'a' * 199}", _LONG_NEEDLE, 0, id="late-miss"),
+        pytest.param("a" * 400, f"{'a' * 65}b", 0, id="prefilter-miss"),
         pytest.param("a" * 100, _LONG_NEEDLE, 0, id="short-hay-miss"),
         pytest.param("a" * 65, _LONG_NEEDLE, 0, id="needle-longer"),
         pytest.param(_LONG_NEEDLE, _LONG_NEEDLE, 1, id="exact-match"),
@@ -651,10 +782,15 @@ def test_text_literal_regex_long_search(text: str, pattern: str, count: int) -> 
     assert len(section.find_all(text=re.compile(pattern))) == count
 
 
+_TEST_TEXT_LITERAL_REGEX_FIND_RETURNS_FIRST_PATTERN: Final[re.Pattern[str]] = re.compile(r"now")
+
+_TEST_TEXT_LITERAL_REGEX_FIND_RETURNS_FIRST_PATTERN_2: Final[re.Pattern[str]] = re.compile(r"absent")
+
+
 def test_text_literal_regex_find_returns_first() -> None:
     section = _el(parse("<section><p>a</p><p>now</p></section>").find("section"))
-    assert _el(section.find(text=re.compile(r"now"))).tag == "p"
-    assert section.find(text=re.compile(r"absent")) is None
+    assert _el(section.find(text=_TEST_TEXT_LITERAL_REGEX_FIND_RETURNS_FIRST_PATTERN)).tag == "p"
+    assert section.find(text=_TEST_TEXT_LITERAL_REGEX_FIND_RETURNS_FIRST_PATTERN_2) is None
 
 
 def test_text_scan_descends_into_template_content() -> None:
@@ -669,10 +805,13 @@ def test_text_scan_skips_non_text_children() -> None:
     assert "div" in matches
 
 
+_TEST_TEXT_BYTES_PATTERN_RAISES_PATTERN: Final[re.Pattern[bytes]] = re.compile(rb"test")
+
+
 def test_text_bytes_pattern_raises() -> None:
     # a bytes pattern cannot search a str value; this matches the pre-existing behavior
     with pytest.raises(TypeError):
-        parse("<p>test</p>").find_all(text=re.compile(rb"test"))  # ty: ignore[invalid-argument-type]
+        parse("<p>test</p>").find_all(text=_TEST_TEXT_BYTES_PATTERN_RAISES_PATTERN)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
 def test_text_empty_string_matches_textless_element() -> None:
@@ -696,10 +835,153 @@ def test_text_scan_handles_programmatic_tree_beyond_parser_depth_cap() -> None:
     assert root.find(text="needle") is not None
 
 
+_TEST_TEXT_PYTHON_PATH_LIMIT_CAPS_RESULTS_PATTERN: Final[re.Pattern[str]] = re.compile(r"go\d")
+
+
 def test_text_python_path_limit_caps_results() -> None:
     # a non-literal regex exercises the snapshot path's own result cap
-    matches = parse("<p>go9</p><p>go9</p><p>go9</p>").find_all(text=re.compile(r"go\d"), limit=2)
+    matches = parse("<p>go9</p><p>go9</p><p>go9</p>").find_all(
+        text=_TEST_TEXT_PYTHON_PATH_LIMIT_CAPS_RESULTS_PATTERN, limit=2
+    )
     assert len(matches) == 2
+
+
+_TEST_TEXT_FILTER_ADDS_CANDIDATES_PATTERN: Final[re.Pattern[str]] = re.compile(r"q+")
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        pytest.param(
+            lambda document, keep: document.find("a", href=keep, text=_TEST_TEXT_FILTER_ADDS_CANDIDATES_PATTERN),
+            None,
+            id="find",
+        ),
+        pytest.param(
+            lambda document, keep: [element.attrs["href"] for element in document.find_all("a", href=keep, text=_WORD)],
+            ["/seed"] * 40,
+            id="find-all",
+        ),
+    ],
+)
+def test_text_python_path_filter_adds_candidates(
+    query: Callable[[Document, Callable[[str | None], bool]], object], expected: list[str] | None
+) -> None:
+    # the snapshot is sized before the structural filters run, and every call of this one adds another match
+    document: Final = parse("<a href='/seed'>z</a>" * 40)
+    body: Final = _el(document.find("body"))
+
+    def keep(value: str | None) -> bool:
+        assert value == "/seed"
+        body.append(Element("a", {"href": "/added"}, [Text("q")]))
+        return True
+
+    assert query(document, keep) == expected
+    assert len(document.find_all("a")) == 80
+
+
+_TEST_TEXT_NESTED_SNAPSHOT_PATTERN: Final[re.Pattern[str]] = re.compile(r"^warn\b")
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        pytest.param(lambda root, _leaf: root.find(text=_TEST_TEXT_NESTED_SNAPSHOT_PATTERN), id="find-regex"),
+        pytest.param(lambda root, _leaf: root.find_all(text=lambda value: value == "warn"), id="find-all-callable"),
+        pytest.param(lambda root, _leaf: root.find_all(text=[_TEST_TEXT_NESTED_SNAPSHOT_PATTERN]), id="find-all-list"),
+        pytest.param(
+            lambda _root, leaf: leaf.find(text=_TEST_TEXT_NESTED_SNAPSHOT_PATTERN, axis=Axis.ANCESTORS),
+            id="find-ancestors",
+        ),
+    ],
+)
+def test_text_predicate_snapshot_shares_nested_text(query: Callable[[Document, Element], object]) -> None:
+    # PyPy has no tracemalloc
+    tracing: Final[ModuleType] = pytest.importorskip("tracemalloc")
+    depth: Final = 1_500
+    document: Final = parse_xml(f"<list>{'<node>item' * depth}{'</node>' * depth}</list>")
+    leaf: Final = document.find_all("node")[-1]
+    tracing.start()
+    try:
+        assert not query(document, leaf)
+        peak: Final[int] = tracing.get_traced_memory()[1]
+    finally:
+        tracing.stop()
+    # each node collects the text of every node nested in it: a copy per candidate is about 4.5 MB here, while the
+    # snapshot holds the outermost node's 6,000 code points once and cuts the rest from it
+    assert peak < 512 * 1024
+
+
+@pytest.mark.parametrize("axis", list(Axis), ids=lambda axis: axis.name.lower())
+@pytest.mark.parametrize("tag", [pytest.param(None, id="any"), pytest.param("div", id="tag")])
+def test_text_predicate_receives_each_candidates_text(axis: Axis, tag: str | None) -> None:
+    # nested candidates share one copy of their text in the snapshot; each still reads as its own
+    document: Final = parse(
+        "<header>a<div>b<div>c</div><em>d</em></div></header>"
+        "<main>e<div>f<div>g<i>h</i></div><!--x-->i</div>j<br><div>k<b>l</b></div>m</main>"
+        "<footer>n<div>o<u>p</u></div>q</footer>"
+    )
+    origin: Final = _el(document.find("main"))
+    seen: Final[list[str | None]] = []
+
+    def record(value: str | None) -> bool:
+        seen.append(value)
+        return True
+
+    matches: Final = origin.find_all(tag, text=record, axis=axis)
+    assert matches == origin.find_all(tag, axis=axis)
+    assert seen == [element.text for element in matches]
+
+
+def test_text_predicate_receives_empty_text_of_textless_tree() -> None:
+    # no candidate has any text, so the snapshot holds no text at all
+    seen: Final[list[str | None]] = []
+
+    def record(value: str | None) -> bool:
+        seen.append(value)
+        return False
+
+    assert parse_xml("<r><a/><b/></r>").find_all(text=record) == []
+    assert seen == ["", "", ""]
+
+
+def test_text_predicate_runs_over_text_as_of_search_start() -> None:
+    # the candidates and their text are fixed before the first call, whatever a predicate edits
+    section: Final = _el(parse("<section><p>one</p><p>two</p></section>").find("section"))
+    last: Final = section.children[1]
+    assert isinstance(last, Element)
+    seen: Final[list[str | None]] = []
+
+    def edit(value: str | None) -> bool:
+        seen.append(value)
+        last.append(Text("!"))
+        section.append(Element("p", children=[Text("late")]))
+        return False
+
+    assert section.find_all(text=edit) == []
+    assert (seen, last.text) == (["one", "two"], "two!!")
+
+
+def test_text_predicate_keeps_text_as_of_search_start_when_a_filter_reorders_nested_candidates() -> None:
+    document: Final = parse_xml('<r><x k="1">a<x k="2">b</x><x k="3">c</x></x></r>')
+    outer, middle, _ = document.find_all("x")
+    seen: Final[list[str | None]] = []
+
+    def reorder(value: str | None) -> bool:
+        if value == "1":
+            middle.extract()
+            outer.append(middle)
+        return True
+
+    def record(value: str | None) -> bool:
+        seen.append(value)
+        return True
+
+    # the callable moves the middle candidate after the last one once the candidates are gathered, so each one keeps the
+    # text it had when the search started
+    matches: Final = document.find_all("x", k=reorder, text=record)
+    assert [element.attrs["k"] for element in matches] == ["1", "2", "3"]
+    assert seen == ["abc", "b", "c"]
 
 
 @pytest.mark.parametrize("tag", ["div", "DIV", "custom", "Custom"])
@@ -725,8 +1007,9 @@ def xml_case_document() -> Document:
     return parse_xml("<Root><div/><DIV/><custom/><Custom/></Root>")
 
 
-@pytest.mark.parametrize("present", [True, False], ids=["present", "absent"])
-@pytest.mark.parametrize("keyword", [True, False], ids=["keyword", "attrs"])
+@pytest.mark.parametrize(
+    ("present", "text"), [pytest.param(True, "present", id="present"), pytest.param(False, "absent", id="absent")]
+)
 @pytest.mark.parametrize(
     "attribute",
     [
@@ -736,12 +1019,28 @@ def xml_case_document() -> Document:
         pytest.param(f'custom="{"x" * 4096}"', id="long"),
     ],
 )
-def test_attribute_presence_ignores_value(attribute: str, *, present: bool, keyword: bool) -> None:
+def test_attribute_presence_ignores_value(attribute: str, *, present: bool, text: str) -> None:
     document: Final = parse(f"<p {attribute}>present</p><p>absent</p>")
-    matches: Final = (
-        document.find_all("p", custom=present) if keyword else document.find_all("p", attrs={"custom": present})
-    )
-    assert [node.text for node in matches] == ["present" if present else "absent"]
+    matches: Final = document.find_all("p", attrs={"custom": present})
+    assert [node.text for node in matches] == [text]
+
+
+@pytest.mark.parametrize(
+    ("present", "text"), [pytest.param(True, "present", id="present"), pytest.param(False, "absent", id="absent")]
+)
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        pytest.param("custom", id="valueless"),
+        pytest.param('custom=""', id="empty"),
+        pytest.param('custom="café😀"', id="unicode"),
+        pytest.param(f'custom="{"x" * 4096}"', id="long"),
+    ],
+)
+def test_attribute_presence_ignores_value_keyword(attribute: str, *, present: bool, text: str) -> None:
+    document: Final = parse(f"<p {attribute}>present</p><p>absent</p>")
+    matches: Final = document.find_all("p", custom=present)
+    assert [node.text for node in matches] == [text]
 
 
 @pytest.mark.parametrize(
@@ -783,11 +1082,29 @@ def test_text_exact_with_empty_text_node() -> None:
         pytest.param(40, id="above-count"),
     ],
 )
-@pytest.mark.parametrize("warm", [pytest.param(False, id="cold"), pytest.param(True, id="warm")])
-def test_find_all_result_order(count: int, limit: int | None, *, warm: bool) -> None:
+def test_find_all_result_order(count: int, limit: int | None) -> None:
     document: Final = parse("".join(f"<section><p id='{index}'></p><span></span></section>" for index in range(count)))
-    if warm:
-        document.find_all("span")
+    assert [element.attrs["id"] for element in document.find_all("p", limit=limit)] == [
+        str(index) for index in range(count)
+    ][:limit]
+
+
+@pytest.mark.parametrize("count", [pytest.param(0, id="empty"), pytest.param(1, id="one"), pytest.param(33, id="many")])
+@pytest.mark.parametrize(
+    "limit",
+    [
+        pytest.param(None, id="unlimited"),
+        pytest.param(0, id="zero"),
+        pytest.param(1, id="first"),
+        pytest.param(8, id="eight"),
+        pytest.param(9, id="nine"),
+        pytest.param(33, id="exact"),
+        pytest.param(40, id="above-count"),
+    ],
+)
+def test_find_all_result_order_warm(count: int, limit: int | None) -> None:
+    document: Final = parse("".join(f"<section><p id='{index}'></p><span></span></section>" for index in range(count)))
+    document.find_all("span")
     assert [element.attrs["id"] for element in document.find_all("p", limit=limit)] == [
         str(index) for index in range(count)
     ][:limit]
@@ -805,16 +1122,30 @@ def test_find_all_results_after_mutation() -> None:
 
 
 @pytest.mark.parametrize("limit", [0, 1, 2, 9])
-@pytest.mark.parametrize("present", [True, False], ids=["present", "absent"])
-@pytest.mark.parametrize("indexed", [True, False], ids=["indexed", "subtree"])
-def test_find_all_filtered_result_limit(limit: int, *, present: bool, indexed: bool) -> None:
+@pytest.mark.parametrize(
+    ("present", "expected"),
+    [pytest.param(True, ["a", "c"], id="present"), pytest.param(False, ["b", "d"], id="absent")],
+)
+def test_find_all_filtered_result_limit(limit: int, *, present: bool, expected: list[str]) -> None:
     document: Final = parse("<section><p id='a' data-x></p><p id='b'></p><p id='c' data-x></p><p id='d'></p></section>")
     document.find_all("span")
-    origin: Final = document if indexed else document.find("section")
-    assert origin is not None
-    assert [element.attrs["id"] for element in origin.find_all("p", attrs={"data-x": present}, limit=limit)] == (
-        ["a", "c"] if present else ["b", "d"]
-    )[:limit]
+    assert [element.attrs["id"] for element in document.find_all("p", attrs={"data-x": present}, limit=limit)] == (
+        expected[:limit]
+    )
+
+
+@pytest.mark.parametrize("limit", [0, 1, 2, 9])
+@pytest.mark.parametrize(
+    ("present", "expected"),
+    [pytest.param(True, ["a", "c"], id="present"), pytest.param(False, ["b", "d"], id="absent")],
+)
+def test_find_all_filtered_result_limit_subtree(limit: int, *, present: bool, expected: list[str]) -> None:
+    document: Final = parse("<section><p id='a' data-x></p><p id='b'></p><p id='c' data-x></p><p id='d'></p></section>")
+    document.find_all("span")
+    section: Final = _el(document.find("section"))
+    assert [element.attrs["id"] for element in section.find_all("p", attrs={"data-x": present}, limit=limit)] == (
+        expected[:limit]
+    )
 
 
 def test_find_all_filtered_result_after_attribute_mutation() -> None:
@@ -831,36 +1162,73 @@ def test_find_all_filtered_result_after_attribute_mutation() -> None:
     [
         pytest.param("hot", {"data-x": True}, id="plain-class"),
         pytest.param(re.compile(r"hot"), {"data-x": True}, id="regex-class"),
-        pytest.param(None, {"data-x": "two"}, id="attribute-value"),
-        pytest.param(None, {"data-x": True, "data-y": True}, id="two-attributes"),
     ],
 )
-def test_find_all_indexed_filtered_limit(
-    class_filter: str | re.Pattern[str] | None, attrs: dict[str, str | bool]
-) -> None:
+def test_find_all_indexed_filtered_limit(class_filter: str | re.Pattern[str], attrs: dict[str, str | bool]) -> None:
     document: Final = parse(
         "<p id='a' class='cold' data-x='one'></p>"
         "<p id='b' class='hot' data-x='two' data-y></p>"
         "<p id='c' class='hot' data-x='two' data-y></p>"
     )
     document.find_all("p")
-    matches: Final = (
-        document.find_all("p", attrs=attrs, limit=1)
-        if class_filter is None
-        else document.find_all("p", class_=class_filter, attrs=attrs, limit=1)
+    matches: Final = document.find_all("p", class_=class_filter, attrs=attrs, limit=1)
+    assert [element.attrs["id"] for element in matches] == ["b"]
+
+
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        pytest.param({"data-x": "two"}, id="attribute-value"),
+        pytest.param({"data-x": True, "data-y": True}, id="two-attributes"),
+    ],
+)
+def test_find_all_indexed_attribute_filtered_limit(attrs: dict[str, str | bool]) -> None:
+    document: Final = parse(
+        "<p id='a' class='cold' data-x='one'></p>"
+        "<p id='b' class='hot' data-x='two' data-y></p>"
+        "<p id='c' class='hot' data-x='two' data-y></p>"
     )
+    document.find_all("p")
+    matches: Final = document.find_all("p", attrs=attrs, limit=1)
     assert [element.attrs["id"] for element in matches] == ["b"]
 
 
 @pytest.mark.skipif(sys.implementation.name != "cpython", reason="CPython allocation-triggered collection")
 @pytest.mark.parametrize("offset", [0, 1, 2])
-@pytest.mark.parametrize("count", [pytest.param(0, id="clear"), pytest.param(33, id="replace")])
-def test_find_all_results_during_collection(offset: int, count: int) -> None:
+@pytest.mark.parametrize(
+    ("count", "expected"),
+    [
+        pytest.param(
+            0,
+            [],
+            id="clear",
+            marks=pytest.mark.skipif(sys.version_info >= (3, 12), reason="CPython 3.12 keeps results"),
+        ),
+        pytest.param(
+            0,
+            ["old"] * 32,
+            id="clear-3.12",
+            marks=pytest.mark.skipif(sys.version_info < (3, 12), reason="CPython before 3.12 reads cleared results"),
+        ),
+        pytest.param(
+            33,
+            ["new"] * 32,
+            id="replace",
+            marks=pytest.mark.skipif(sys.version_info >= (3, 12), reason="CPython 3.12 keeps results"),
+        ),
+        pytest.param(
+            33,
+            ["old"] * 32,
+            id="replace-3.12",
+            marks=pytest.mark.skipif(sys.version_info < (3, 12), reason="CPython before 3.12 reads cleared results"),
+        ),
+    ],
+)
+def test_find_all_results_during_collection(offset: int, count: int, expected: list[str]) -> None:
     thresholds: Final = gc.get_threshold()
-    restore_gc: Final = gc.enable if gc.isenabled() else gc.disable
     gc.disable()
     gc.collect()
-    document: Final = parse("<main>" + "<p id='old'>x</p>" * 33 + "</main>")
+    document: Final = parse(f"""<main>{"<p id='old'>x</p>" * 33}</main>""")
     document.find_all("p")
     main: Final = document.find("main")
     assert main is not None
@@ -885,9 +1253,8 @@ def test_find_all_results_during_collection(offset: int, count: int) -> None:
         gc.disable()
         gc.callbacks.remove(clear)
         gc.set_threshold(*thresholds)
-        restore_gc()
+        gc.enable()
         reserve.clear()
-    expected: Final = ["new"] * min(count, 32) if sys.version_info < (3, 12) else ["old"] * 32
     assert (changed, [element.attrs["id"] for element in result], main.inner_html) == (
         True,
         expected,
@@ -899,17 +1266,32 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-@pytest.mark.parametrize("all_matches", [pytest.param(False, id="find"), pytest.param(True, id="find-all")])
+def test_find_all_attribute_filters_survive_mapping_changes() -> None:
+    document: Final = parse('<p data-a="a" data-b="b">keep</p><p data-a="c" data-b="d">keep</p>')
+    calls: Final[list[str | None]] = []
+    attrs: Final[dict[str, Callable[[str | None], bool]]] = {}
+
+    def first(value: str | None) -> bool:
+        calls.append(value)
+        attrs.clear()
+        return True
+
+    attrs.update({"data-a": first, "data-b": lambda value: calls.append(value) or True})
+    finalize(attrs["data-b"], calls.append, "released")
+    matches = document.find_all("p", attrs=attrs)
+    gc.collect()
+    assert ([node.text for node in matches], calls) == (["keep"] * 2, ["a", "b", "c", "d", "released"])
+
+
 @pytest.mark.parametrize(
-    "text",
+    ("text", "expected_calls"),
     [
-        pytest.param(None, id="attributes"),
-        pytest.param("keep", id="literal-text"),
-        pytest.param(lambda value: value == "keep", id="callable-text"),
+        pytest.param("keep", ["a", "b", "c", "d"], id="literal-text"),
+        pytest.param(lambda value: value == "keep", ["a", "b", "c", "d"], id="callable-text"),
     ],
 )
-def test_attribute_filters_survive_mapping_changes(
-    text: str | Callable[[str | None], bool] | None, *, all_matches: bool
+def test_find_all_text_filter_survives_mapping_changes(
+    text: str | Callable[[str | None], bool], expected_calls: list[str]
 ) -> None:
     document: Final = parse('<p data-a="a" data-b="b">keep</p><p data-a="c" data-b="d">keep</p>')
     calls: Final[list[str | None]] = []
@@ -922,39 +1304,102 @@ def test_attribute_filters_survive_mapping_changes(
 
     attrs.update({"data-a": first, "data-b": lambda value: calls.append(value) or True})
     finalize(attrs["data-b"], calls.append, "released")
-    if all_matches:
-        matches = (
-            document.find_all("p", attrs=attrs, text=text) if text is not None else document.find_all("p", attrs=attrs)
-        )
-    else:
-        found: Final = (
-            document.find("p", attrs=attrs, text=text) if text is not None else document.find("p", attrs=attrs)
-        )
-        assert found is not None
-        matches = [found]
+    matches = document.find_all("p", attrs=attrs, text=text)
     gc.collect()
-    assert ([node.text for node in matches], calls) == (
-        ["keep"] * (2 if all_matches else 1),
-        (["a", "b", "c", "d"] if all_matches or callable(text) else ["a", "b"]) + ["released"],
-    )
+    assert ([node.text for node in matches], calls) == (["keep"] * 2, [*expected_calls, "released"])
 
 
-@pytest.mark.parametrize("all_matches", [pytest.param(False, id="find"), pytest.param(True, id="find-all")])
-def test_filter_cleanup_preserves_result_storage(*, all_matches: bool) -> None:
-    root: Final = parse('<main><p data-x="yes">original</p></main>').find("main")
-    assert root is not None
+def test_find_attribute_filters_survive_mapping_changes() -> None:
+    document: Final = parse('<p data-a="a" data-b="b">keep</p><p data-a="c" data-b="d">keep</p>')
+    calls: Final[list[str | None]] = []
+    attrs: Final[dict[str, Callable[[str | None], bool]]] = {}
+
+    def first(value: str | None) -> bool:
+        calls.append(value)
+        attrs.clear()
+        return True
+
+    attrs.update({"data-a": first, "data-b": lambda value: calls.append(value) or True})
+    finalize(attrs["data-b"], calls.append, "released")
+    found: Final = _el(document.find("p", attrs=attrs))
+    gc.collect()
+    assert (found.text, calls) == ("keep", ["a", "b", "released"])
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_calls"),
+    [
+        pytest.param("keep", ["a", "b"], id="literal-text"),
+        pytest.param(lambda value: value == "keep", ["a", "b", "c", "d"], id="callable-text"),
+    ],
+)
+def test_find_text_filter_survives_mapping_changes(
+    text: str | Callable[[str | None], bool], expected_calls: list[str]
+) -> None:
+    document: Final = parse('<p data-a="a" data-b="b">keep</p><p data-a="c" data-b="d">keep</p>')
+    calls: Final[list[str | None]] = []
+    attrs: Final[dict[str, Callable[[str | None], bool]]] = {}
+
+    def first(value: str | None) -> bool:
+        calls.append(value)
+        attrs.clear()
+        return True
+
+    attrs.update({"data-a": first, "data-b": lambda value: calls.append(value) or True})
+    finalize(attrs["data-b"], calls.append, "released")
+    found: Final = _el(document.find("p", attrs=attrs, text=text))
+    gc.collect()
+    assert (found.text, calls) == ("keep", [*expected_calls, "released"])
+
+
+def test_find_all_filter_cleanup_preserves_result_storage() -> None:
+    root: Final = _el(parse('<main><p data-x="yes">original</p></main>').find("main"))
     target: Final = Element("article")
     attrs: Final[dict[str, Callable[[str | None], bool]]] = {}
     attrs["data-x"] = lambda _: attrs.clear() or True
     finalize(attrs["data-x"], target.append, root)
-    if all_matches:
-        matches = root.find_all("p", attrs=attrs)
-    else:
-        found: Final = root.find("p", attrs=attrs)
-        assert found is not None
-        matches = [found]
+    matches = root.find_all("p", attrs=attrs)
     gc.collect()
     assert ([node.text for node in matches], target.text) == (["original"], "original")
+
+
+def test_find_filter_cleanup_preserves_result_storage() -> None:
+    root: Final = _el(parse('<main><p data-x="yes">original</p></main>').find("main"))
+    target: Final = Element("article")
+    attrs: Final[dict[str, Callable[[str | None], bool]]] = {}
+    attrs["data-x"] = lambda _: attrs.clear() or True
+    finalize(attrs["data-x"], target.append, root)
+    found: Final = _el(root.find("p", attrs=attrs))
+    gc.collect()
+    assert (found.text, target.text) == ("original", "original")
+
+
+@pytest.mark.parametrize(
+    "search",
+    [
+        pytest.param(lambda node, moves: [node.find(href=moves)], id="find"),
+        pytest.param(lambda node, moves: node.find_all(href=moves), id="find-all"),
+        pytest.param(lambda node, moves: [node.find(href=moves, text="2")], id="text-scan-find"),
+        pytest.param(lambda node, moves: node.find_all(href=moves, text="2"), id="text-scan-find-all"),
+        pytest.param(lambda node, moves: [node.find(href=moves, text=bool)], id="text-snapshot-find"),
+        pytest.param(lambda node, moves: node.find_all(href=moves, text=bool), id="text-snapshot-find-all"),
+        pytest.param(lambda node, moves: [node.find(href=True, text=moves)], id="text-predicate-find"),
+        pytest.param(lambda node, moves: node.find_all(href=True, text=moves), id="text-predicate-find-all"),
+    ],
+)
+def test_filter_moving_the_searched_node_to_another_tree_finishes_on_the_old_one(
+    search: Callable[[Element, Callable[[str | None], bool]], list[Element | None]],
+) -> None:
+    fragment: Final = parse_fragment('<p><a href="/1">1</a><a href="/2">2</a></p>')
+    host: Final = Element("div")
+
+    def moves(value: str | None) -> bool:
+        host.append(fragment)  # fragment is the only wrapper of its tree, so the move leaves the search its last owner
+        return value in {"/2", "2"}
+
+    matches: Final = [_el(match) for match in search(fragment, moves)]
+    assert [(match.attrs["href"], match.text) for match in matches] == [("/2", "2")]
+    assert fragment.parent == host
 
 
 def test_attribute_filter_snapshot_releases_on_error() -> None:
@@ -971,3 +1416,219 @@ def test_attribute_filter_snapshot_releases_on_error() -> None:
         parse('<p data-a="a" data-b="b"></p>').find_all("p", attrs=attrs)
     gc.collect()
     assert released == ["released"]
+
+
+# A candidate's text is a slice of each ancestor's, so reading every candidate from its own subtree reads a node once
+# per candidate around it. Once those reads have cost several walks of the tree, a str or literal-regex search takes
+# every element's verdict from one walk instead. _NEST nested elements are enough to get there.
+_NEST: Final[int] = 5_000
+_NEST_DOC: Final[str] = f"<r><s/>{'<li>' * _NEST}go{'</li>' * _NEST}<b>go</b><b>x<i/></b><e/></r>"
+_NESTED: Final[list[str]] = ["li"] * _NEST
+
+
+@pytest.mark.parametrize(
+    ("axis", "text_filter", "tags"),
+    [
+        pytest.param(Axis.DESCENDANTS, "go", [*_NESTED, "b"], id="descendants-exact"),
+        pytest.param(Axis.DESCENDANTS, re.compile(r"go"), ["r", *_NESTED, "b"], id="descendants-literal-regex"),
+        pytest.param(Axis.DESCENDANTS, "", ["s", "i", "e"], id="descendants-empty-exact"),
+        pytest.param(
+            Axis.DESCENDANTS, re.compile(r""), ["r", "s", *_NESTED, "b", "b", "i", "e"], id="descendants-empty-regex"
+        ),
+        pytest.param(Axis.DESCENDANTS, "x", ["b"], id="descendants-exact-after-nest"),
+        pytest.param(Axis.DESCENDANTS, "og", [], id="descendants-exact-same-length"),
+        pytest.param(Axis.DESCENDANTS, re.compile(r"og"), ["r"], id="descendants-needle-across-elements"),
+        pytest.param(Axis.DESCENDANTS, re.compile(r"gog"), ["r"], id="descendants-needle-overlapping-itself"),
+        pytest.param(Axis.ANCESTORS, "go", _NESTED[1:], id="ancestors-exact"),
+        pytest.param(Axis.ANCESTORS, re.compile(r"go"), [*_NESTED[1:], "r"], id="ancestors-literal-regex"),
+        pytest.param(Axis.FOLLOWING, "go", [*_NESTED, "b"], id="following-exact"),
+        pytest.param(Axis.FOLLOWING, re.compile(r"x"), ["b"], id="following-literal-regex"),
+        pytest.param(Axis.PRECEDING, "go", ["b", *_NESTED], id="preceding-exact"),
+        pytest.param(Axis.PRECEDING, re.compile(r"go"), ["b", *_NESTED], id="preceding-literal-regex"),
+    ],
+)
+def test_text_of_nested_candidates(axis: Axis, text_filter: Filter, tags: list[str]) -> None:
+    assert _tags(_nest_origin(axis).find_all(text=text_filter, axis=axis)) == tags
+
+
+def _nest_origin(axis: Axis) -> Document | Element:
+    document: Final = parse_xml(_NEST_DOC)
+    _el(document.find("i")).append(Text(""))  # an empty Text adds nothing to any element's text
+    if axis is Axis.ANCESTORS:
+        return document.find_all("li")[-1]
+    if axis is Axis.FOLLOWING:
+        return _el(document.find("s"))
+    if axis is Axis.PRECEDING:
+        return _el(document.find("e"))
+    return document
+
+
+@pytest.mark.parametrize(
+    "text_filter",
+    [
+        pytest.param("in stock", id="exact"),
+        pytest.param(re.compile(r"in stock"), id="literal-regex"),
+    ],
+)
+def test_text_of_nested_candidates_scales_linearly(text_filter: Filter, work_steps: WorkSteps) -> None:
+    # each nested read walks the chain below it again, so the steps grow with its square until the text_index takes over
+    work_steps.assert_linear(
+        lambda depth: partial(parse_xml(_section_chain(depth)).find_all, text=text_filter), (2_000, 8_000)
+    )
+
+
+def _section_chain(depth: int) -> str:
+    return f"<main>{'<section><hr/>' * depth}back order{'<hr/></section>' * depth}</main>"
+
+
+def test_text_of_many_short_candidates_scale_linearly(work_steps: WorkSteps) -> None:
+    # each candidate's first node is its text, so its read is one step and the reads never build a table
+    work_steps.assert_linear(
+        lambda n: partial(parse_xml(f"<main>{'<li>x</li>' * n}</main>").find_all, text="x"), (2_000, 8_000)
+    )
+
+
+_LATE_DOC: Final[str] = f"<r>{'<li>' * _NEST}go{'</li>' * _NEST}<b>x</b><b>x</b></r>"
+
+
+@pytest.mark.parametrize(
+    ("search", "tags"),
+    [
+        pytest.param(lambda document: [_el(document.find(text="x"))], ["b"], id="find"),
+        pytest.param(lambda document: document.find_all(text="x", limit=1), ["b"], id="find-all-limit"),
+        pytest.param(lambda document: document.find_all(text="x"), ["b", "b"], id="find-all"),
+    ],
+)
+def test_text_past_nested_candidates(search: Callable[[Document], list[Element]], tags: list[str]) -> None:
+    assert _tags(search(parse_xml(_LATE_DOC))) == tags
+
+
+def test_text_search_past_nested_candidates_raises_from_filter() -> None:
+    def fail_at_b(name: str | None) -> bool:
+        if name == "b":
+            raise LookupError
+        return True
+
+    with pytest.raises(LookupError):
+        parse_xml(_LATE_DOC).find_all(fail_at_b, text="x")
+
+
+def test_text_of_nested_candidates_moved_by_a_filter() -> None:
+    document: Final = parse_xml(f"<r><m/>{'<li>' * _NEST}go{'</li>' * _NEST}<t/><u/></r>")
+    present: Final = {element.tag for element in document.find_all(axis=Axis.DESCENDANTS)}
+    moved: Final = _el(document.find("m"))
+    target: Final = _el(document.find("t"))
+    dropped: Final = _el(document.find("u"))
+
+    def move_at_target(name: str | None) -> bool:
+        if name == "t":
+            target.append(moved)
+            dropped.extract()
+        return True
+
+    # the result of a search whose callable edits the tree is unspecified; m is judged before the callable moves it, so
+    # it stays in the result, and the search must still finish with elements the document held
+    tags: Final = _tags(document.find_all(move_at_target, text=""))
+    assert "m" in tags
+    assert set(tags) <= present
+
+
+def test_text_of_nested_ancestors_moved_by_a_filter() -> None:
+    document: Final = parse_xml(_NEST_DOC)
+    chain: Final = document.find_all("li")
+    present: Final = {element.tag for element in document.find_all(axis=Axis.DESCENDANTS)}
+    end: Final = _el(document.find("e"))
+    calls: Final = itertools.count(1)
+
+    def move_late(_name: str | None) -> bool:
+        if next(calls) == _NEST - 1_000:
+            end.append(chain[999])
+        return True
+
+    # the climb meets the moved element after the ancestors that were above it, so the result is unspecified here too;
+    # the nearest ancestor is judged before any move, so it stays in the result
+    tags: Final = _tags(chain[-1].find_all(move_late, text="go", axis=Axis.ANCESTORS))
+    assert tags[0] == "li"
+    assert set(tags) <= present
+
+
+@pytest.mark.parametrize(
+    "text_filter",
+    [pytest.param("tail", id="exact"), pytest.param(re.compile(r"tail"), id="literal-regex")],
+)
+def test_text_of_chain_after_a_filter_adds_an_element_scales_linearly(
+    text_filter: Filter, work_steps: WorkSteps
+) -> None:
+    # the element the filter adds is one the table does not hold, so the chain after it must be weighed again
+    work_steps.assert_linear(lambda depth: _chain_after_an_added_element(depth, text_filter), (2_000, 8_000))
+
+
+def _chain_after_an_added_element(depth: int, text_filter: Filter) -> Callable[[], object]:
+    document: Final = parse_xml(f"<r>{'<d>' * depth}tail{'</d>' * depth}<t/>{'<e>' * depth}tail{'</e>' * depth}</r>")
+    target: Final = _el(document.find("t"))
+
+    def add(name: str | None) -> bool:
+        if name == "t" and not target.children:
+            target.set_inner_html("<b>tail</b>")
+        return True
+
+    return partial(document.find_all, add, text=text_filter)
+
+
+@pytest.mark.parametrize(
+    "text_filter",
+    [pytest.param("tail", id="exact"), pytest.param(re.compile(r"tail"), id="literal-regex")],
+)
+def test_text_of_chain_detached_by_a_filter_scales_linearly(text_filter: Filter, work_steps: WorkSteps) -> None:
+    # the callable detaches the element it adds while the search is judging it, so its own chain is read in a table
+    work_steps.assert_linear(lambda depth: _chain_detached_by_a_filter(depth, text_filter), (2_000, 8_000))
+
+
+def _chain_detached_by_a_filter(depth: int, text_filter: Filter) -> Callable[[], object]:
+    document: Final = parse_xml(f"<r>{'<d>' * depth}tail{'</d>' * depth}<t/></r>")
+    target: Final = _el(document.find("t"))
+
+    def add_and_detach(name: str | None) -> bool:
+        if name == "t" and not target.children:
+            target.set_inner_html(f"<b>{'<f>' * depth}tail{'</f>' * depth}</b>")
+        if name == "b":
+            _el(document.find("b")).extract()
+        return True
+
+    return partial(document.find_all, add_and_detach, text=text_filter)
+
+
+_ADDED_DOC: Final[str] = f"<r>{'<li>' * _NEST}go{'</li>' * _NEST}<t/></r>"
+
+
+@pytest.mark.parametrize(
+    ("text_filter", "markup", "limit", "tags"),
+    [
+        pytest.param("go", "<b>go</b><c>go</c>", None, ["r", *_NESTED, "b", "c"], id="exact"),
+        pytest.param(re.compile(r"go"), "<b>go</b><c>go</c>", None, ["r", *_NESTED, "b", "c"], id="literal-regex"),
+        pytest.param("go", "<b>no</b><c>go</c>", None, ["r", *_NESTED, "c"], id="exact-added-fails"),
+        pytest.param("go", "<b>go</b><c>go</c>", _NEST + 2, ["r", *_NESTED, "b"], id="exact-limit-at-added"),
+    ],
+)
+def test_text_of_candidates_added_by_a_filter_past_the_nest(
+    text_filter: Filter, markup: str, limit: int | None, tags: list[str]
+) -> None:
+    document: Final = parse_xml(_ADDED_DOC)
+    # the table holds no verdict for an element added after it was built, so that element is read from its subtree
+    assert _tags(document.find_all(_add_at_target(document, markup), text=text_filter, limit=limit)) == tags
+
+
+def _add_at_target(document: Document, markup: str) -> Callable[[str | None], bool]:
+    target: Final = _el(document.find("t"))
+
+    def add(name: str | None) -> bool:
+        if name == "t" and not target.children:
+            target.set_inner_html(markup)
+        return name != "t"  # the table's verdict for t predates the edit, which leaves it unspecified
+
+    return add
+
+
+def test_first_text_match_added_by_a_filter_past_the_nest() -> None:
+    document: Final = parse_xml(_ADDED_DOC)
+    assert _el(document.find(_add_at_target(document, "<b>x</b>"), text="x")).tag == "b"

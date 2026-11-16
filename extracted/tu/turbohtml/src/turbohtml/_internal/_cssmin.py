@@ -22,13 +22,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from turbohtml._html import _minify_css, _minify_css_inline, _register_css_minify
-
-__all__ = [
-    "CSSMinify",
-    "minify_css",
-    "minify_css_inline",
-]
+from ._native import (
+    minify_css as _minify_css,
+)
+from ._native import (
+    minify_css_inline as _minify_css_inline,
+)
+from ._native import (
+    register_css_minify as _register_css_minify,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +43,8 @@ class CSSMinify:
     emits only long-interoperable syntax; ``2021`` additionally merges the shorthands that reached Baseline that year
     (``inset``, the flex ``gap``, the two-value ``overflow``). Every year is value-safe -- the year bounds only how new
     the output syntax may be, never the cascade it parses to.
+
+    :param baseline: the Baseline year the output may target, or ``None`` for long-interoperable syntax only.
     """
 
     baseline: int | None = None
@@ -74,3 +78,10 @@ def minify_css_inline(css: str, options: CSSMinify | None = None) -> str:
     :returns: the minified declaration list.
     """
     return _minify_css_inline(css, (options or CSSMinify()).baseline or 0)
+
+
+__all__ = [
+    "CSSMinify",
+    "minify_css",
+    "minify_css_inline",
+]

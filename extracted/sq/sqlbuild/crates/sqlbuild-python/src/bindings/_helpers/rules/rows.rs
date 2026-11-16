@@ -1,6 +1,6 @@
 //! Build and evaluate the built-in rules request natively from compiled-project rows.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -18,25 +18,23 @@ use sqlbuild_rules::constants::API_VERSION;
 use sqlbuild_rules::engine::main::build_models::build_models;
 use sqlbuild_rules::engine::main::evaluate_rows::evaluate_rows;
 use sqlbuild_rules::engine::main::finalize_rows::finalize_rows;
+use sqlbuild_rules::engine::main::json_grain_skipped_models::json_grain_skipped_models;
+use sqlbuild_rules::engine::main::json_grains::json_grains;
+use sqlbuild_rules::engine::main::needs_json_grains::needs_json_grains;
 use sqlbuild_rules::engine::main::project_model_rows::project_model_rows;
 use sqlbuild_rules::errors::RowsError;
 use sqlbuild_rules::models::{
-    Declaration, DeclarationMember, EvaluateRequest, Fault, Model, ModelRow, ModelRowsContext,
-    RowsEvaluation, RowsRequest, RulesConfig,
+    Declaration, DeclarationMember, EvaluateRequest, Fault, LineageColumn, Model, ModelRow,
+    ModelRowsContext, RowsEvaluation, RowsRequest, RulesConfig,
 };
 
-use crate::bindings::_helpers::boundary::keyword_request::Request;
-use crate::bindings::_helpers::boundary::panics::{compiler_guard, value_error};
-use crate::bindings::_helpers::boundary::python_calls::imported;
-use crate::bindings::_helpers::cache::native_store::current_code_identity;
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
 use crate::bindings::_helpers::compiled_project::values::plain_value;
 use crate::bindings::_helpers::compiled_views::audit_views::NativeCompiledAudit;
+use crate::bindings::_helpers::compiled_views::model_reads::native_model;
 use crate::bindings::_helpers::compiled_views::records::compiled_project_facts;
 use crate::bindings::_helpers::compiled_views::records::declaration_rows;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field;
-use crate::bindings::_helpers::records::ids::RecordId;
+use crate::bindings::_helpers::compiled_views::relation_keys::project_relation_keys;
 use crate::bindings::_helpers::rules::config_json::asdict_json;
 use crate::bindings::_helpers::rules::early_builtin_rules::EarlyBuiltinRules;
 use crate::bindings::_helpers::rules::fact_replay::{project_attribute, project_models};
@@ -45,8 +43,16 @@ use crate::bindings::_helpers::rules::rule_run::bulk_cache_file;
 use crate::bindings::_helpers::rules::selection::rules_error;
 use crate::bindings::_helpers::rules::sql_test_objects::{scenario_fact, sql_test_fact};
 use crate::bindings::_helpers::scopes::scope_reports::metadata_projection_value;
-use crate::bindings::_helpers::type_system::equality::types_equal;
-use crate::bindings::types::CompilerDetach;
+use sqlbuild_python_base::boundary::main::compiler_guard::compiler_guard;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::value_error::value_error;
+use sqlbuild_python_base::boundary::models::Request;
+use sqlbuild_python_base::cache::main::current_code_identity::current_code_identity;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field;
+use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_base::type_system::main::types_equal::types_equal;
+use sqlbuild_python_base::types::CompilerDetach;
 
 const DATACLASSES_MODULE: &str = "dataclasses";
 const NATIVE_RULES_CACHE_FILE: &str = "native.json";
@@ -292,10 +298,8 @@ fn built_request(
         Some(facts) => facts.clone(),
         None => compiled_project_facts(&project)?,
     };
-    let names: Vec<String> = project_models(&project)?
-        .into_iter()
-        .map(|model| model.name)
-        .collect();
+    let models = project_models(&project)?;
+    let names: Vec<String> = models.iter().map(|model| model.name.clone()).collect();
     let sql_tests: Vec<Bound<'_, PyAny>> = project_attribute(&project, "sql_tests")?
         .try_iter()?
         .collect::<PyResult<_>>()?;
@@ -319,12 +323,22 @@ fn built_request(
             .iter()
             .map(finding_fault)
             .collect::<PyResult<_>>()?;
-        let model_rows: Vec<ModelRow> =
+        let mut model_rows: Vec<ModelRow> =
             project_model_rows(facts.borrow().facts(), &names).map_err(value_error)?;
+        if needs_json_grains(&request).map_err(value_error)? {
+            let lineage: Vec<Option<Vec<LineageColumn>>> = models
+                .iter()
+                .map(|entry| model_lineage(&entry.model))
+                .collect::<PyResult<_>>()?;
+            let keys: BTreeMap<String, Vec<Vec<String>>> =
+                project_relation_keys(&project)?.into_iter().collect();
+            json_grains(&mut model_rows, lineage, &keys);
+        }
         request.models = built_models(&rows, &request, model_rows)?;
         let request: EvaluateRequest =
             crate::bindings::_helpers::compile_delta::rules_rows::whole_project_request(request)?;
-        let delta: bool = crate::bindings::_helpers::compile_context::delta::injection().is_some();
+        let delta: bool =
+            sqlbuild_python_base::compile_context::main::delta::injection::injection().is_some();
         let memo: Option<(String, PathBuf)> = rows
             .memo
             .take()
@@ -333,7 +347,7 @@ fn built_request(
         Ok(RowsRequest {
             request,
             memo,
-            retain: crate::bindings::_helpers::compile_context::delta::capturing(),
+            retain: sqlbuild_python_base::compile_context::main::delta::capturing::capturing(),
         })
     })
 }
@@ -363,6 +377,7 @@ fn evaluated<'py>(
     early: Option<(EarlyBuiltinRules, &AtomicBool)>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let request: RowsRequest = taken_rows(request)?;
+    let skipped: Vec<(String, String)> = json_grain_skipped_models(&request.request.models);
     let evaluation: Result<RowsEvaluation, RowsError> = match early {
         None => py
             .compiler_detach(|| Ok(evaluate_rows(request)))
@@ -374,9 +389,9 @@ fn evaluated<'py>(
         RowsError::Io(error) => PyOSError::new_err(error.to_string()),
     })?;
     if let Some(retained) = evaluation.retained.take() {
-        crate::bindings::_helpers::compile_context::delta::capture(|capture| {
+        sqlbuild_python_base::compile_context::main::delta::capture::capture(|capture| {
             capture.rules =
-                Some(crate::bindings::_helpers::compile_context::delta::CapturedRules { retained });
+                Some(sqlbuild_python_base::compile_context::models::CapturedRules { retained });
         });
     }
     let classes = FindingClasses::new(py)?;
@@ -405,6 +420,7 @@ fn evaluated<'py>(
             ),
             ("built_in_ms", evaluation.built_in_ms.into_bound_py_any(py)?),
             ("reused", evaluation.reused.into_bound_py_any(py)?),
+            ("skipped_models", PyTuple::new(py, skipped)?.into_any()),
         ],
     )
 }
@@ -518,6 +534,30 @@ fn built_models(
         fallback,
     );
     built.map_err(|message| python_error.take().unwrap_or_else(|| value_error(message)))
+}
+
+/// The model's lineage columns, or `None` when it has no kept lineage.
+fn model_lineage(model: &Bound<'_, PyAny>) -> PyResult<Option<Vec<LineageColumn>>> {
+    let Some(view) = native_model(model)? else {
+        return Ok(None);
+    };
+    let Some(rows) = view.lineage_rows(model.py())? else {
+        return Ok(None);
+    };
+    let mut columns: Vec<LineageColumn> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let aggregated: bool = row.aggregated();
+        let mut sources: Vec<(String, String)> = Vec::with_capacity(row.sources.len());
+        for (resource, name, _) in row.sources {
+            sources.push((resource, name));
+        }
+        columns.push(LineageColumn {
+            aggregated,
+            output: row.output_column,
+            sources,
+        });
+    }
+    Ok(Some(columns))
 }
 
 fn declarations(rows: Vec<DeclarationRowPy<'_>>) -> PyResult<Vec<Declaration>> {

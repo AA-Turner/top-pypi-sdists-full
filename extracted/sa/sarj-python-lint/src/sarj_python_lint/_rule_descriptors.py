@@ -9,6 +9,42 @@ from sarj_python_lint.rule_metadata import RuleDescriptor
 SCHEMA_VERSION = 1
 DESCRIPTORS: tuple[RuleDescriptor, ...] = (
     RuleDescriptor(
+        rule_id=RuleId("no-unscoped-async-client-factory"),
+        module="sarj_python_lint.rules.no_unscoped_async_client_factory",
+        class_name="NoUnscopedAsyncClientFactory",
+        code="SARJ577",
+        description="Inject an HTTPX client instead of hiding a never-closed one inside a returned object.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("psycopg-sql-format-field-mismatch"),
+        module="sarj_python_lint.rules.psycopg_sql_format_field_mismatch",
+        class_name="PsycopgSqlFormatFieldMismatch",
+        code="SARJ576",
+        description="Give psycopg SQL.format an argument for every replacement field.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("no-unobserved-task-exception"),
+        module="sarj_python_lint.rules.no_unobserved_task_exception",
+        class_name="NoUnobservedTaskException",
+        code="SARJ574",
+        description="Observe the outcome of every stored asyncio task.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("require-hidden-settings-input"),
+        module="sarj_python_lint.rules.require_hidden_settings_input",
+        class_name="RequireHiddenSettingsInput",
+        code="SARJ575",
+        description="Hide validation inputs on settings classes that load secrets.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
         rule_id=RuleId("prefer-semantic-temporal-types"),
         module="sarj_python_lint.rules.prefer_semantic_temporal_types",
         class_name="PreferSemanticTemporalTypes",

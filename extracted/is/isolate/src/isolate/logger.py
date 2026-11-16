@@ -9,6 +9,9 @@ from isolate.logs import LogLevel, LogSource
 _RESERVED_LABELS = frozenset(
     {
         "alloc_id",
+        "app",
+        "app_id",
+        "fal_app",
         "fal_job_id",
         "fal_node_id",
         "fal_user_id",

@@ -32,6 +32,7 @@ from ..ast_read_writes import dead_lane_loop_elimination
 from ..compile_environment import CompileEnvironment
 from ..device_ir import ForLoopGraphInfo
 from ..device_ir import control_flow_parent_entries
+from ..fx_side_effects import is_impure_node
 from ..reduction_strategy import PersistentReductionStrategy
 from ..tile_strategy import DeviceLoopState
 from ..variable_origin import BlockSizeOrigin
@@ -68,6 +69,7 @@ from .scalar_recipe import ScalarRecipe
 from .scalar_recipe import build_recipe
 from .scalar_recipe_cache import plan_scalar_recipe_cache
 from .scalar_recipe_rounding import preserve_fp32_multiply_rounding
+from .state import cute_codegen_state
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -395,7 +397,7 @@ def _is_effectful_or_control_flow(node: Node) -> bool:
         return False
     target = node.target
     return (
-        node.is_impure()
+        is_impure_node(node)
         or target is _tracing_ops._phi
         or target is _tracing_ops._if
         or _tracing_ops.is_for_loop_target(target)
@@ -1039,7 +1041,7 @@ def _mark_collective(
     grid_row_lane = None
     owned_synthetic_lanes = {
         site.synthetic_k_lane
-        for site in df.cute_state.collective_mma_sites
+        for site in df.cute_state.lanes.collective_mma_sites
         if site.synthetic_k_lane is not None
     }
     if synthetic_k_lane is not None:
@@ -1107,7 +1109,7 @@ def _mark_collective(
     graph = next(graph for graph in cg.codegen_graphs if graph.graph is node.graph)
     if not _enclosing_control_is_scalar(cg.codegen_graphs, graph):
         return None
-    sites = df.cute_state.collective_mma_sites
+    sites = df.cute_state.lanes.collective_mma_sites
     site = CollectiveMmaSite(
         len(sites),
         cg.index_var(m_block_id),
@@ -1133,7 +1135,7 @@ def _mark_collective(
     sites.append(site)
     if synthetic_dependencies:
         cg.allow_dead_assignments_owned_by_nodes((*synthetic_dependencies, acc_node))
-    cg.cute_uses_matmul = True
+    cute_codegen_state(cg).declare_matmul()
     return cast(
         "ast.expr",
         expr_from_string(
@@ -1457,7 +1459,7 @@ def _stored_tensor_names(body: list[ast.stmt]) -> set[str]:
                 continue
             func = ast.unparse(node.func)
             if (
-                func.startswith("cute.arch.atomic")
+                func.startswith(("cute.arch.atomic", "_cute_red_add_"))
                 or "atomic" in func.rsplit(".", 1)[-1]
             ):
                 for arg in node.args:
@@ -1656,7 +1658,7 @@ def _remove_dead_staged_operands(
     can never become eligible for deletion.
     """
     owned = (
-        df.cute_state.collective_mma_pure_stmt_ids
+        df.cute_state.lanes.collective_mma_pure_stmt_ids
         if pure_statement_ids is None
         else pure_statement_ids
     )
@@ -1689,7 +1691,7 @@ def _remove_dead_staged_operands(
     dead_lane_loop_elimination(cast("list[ast.AST]", body))
     synthetic_lanes = {
         site.synthetic_k_lane
-        for site in df.cute_state.collective_mma_sites
+        for site in df.cute_state.lanes.collective_mma_sites
         if site.synthetic_k_lane is not None
     }
     if any(
@@ -1753,7 +1755,7 @@ def _uniform_reuse_names(
 
 def _copy_tensor_facts(df: DeviceFunction) -> dict[str, CopyTensorFacts]:
     from ..device_function import TensorArg
-    from .memory_ops import runtime_tensor_has_specialized_alignment
+    from .memory_ops import tensor_has_specialized_base_alignment
 
     env = CompileEnvironment.current()
     strides = df.proven_tensor_stride_values()
@@ -1770,7 +1772,7 @@ def _copy_tensor_facts(df: DeviceFunction) -> dict[str, CopyTensorFacts]:
         values = tuple(strides.get((argument.name, dim)) for dim in range(tensor.ndim))
         if any(value is None for value in values):
             continue
-        if not runtime_tensor_has_specialized_alignment(env, tensor, 16):
+        if not tensor_has_specialized_base_alignment(env, tensor, 16):
             continue
         result[argument.name] = CopyTensorFacts(
             env.backend.dtype_str(tensor.dtype), cast("tuple[int, ...]", values), 16
@@ -1934,8 +1936,8 @@ def _lower_site(
         live_after = set(ReadWrites.from_list(list(k_parent[k_index + 1 :])).reads)
         if (k_writes & live_after) - {result_name}:
             reject("additional reduction-loop live-outs")
-    emitted_statement_ids = df.cute_state.collective_mma_emitted_stmt_ids
-    shared_results = df.cute_state.collective_mma_shared_results
+    emitted_statement_ids = df.cute_state.lanes.collective_mma_emitted_stmt_ids
+    shared_results = df.cute_state.lanes.collective_mma_shared_results
     dominating = [
         statement
         for part, index in path
@@ -2073,7 +2075,7 @@ def _lower_site(
         "load",
         tensor_names=tensor_names,
     )
-    marker_ids = {item.identity for item in df.cute_state.collective_mma_sites}
+    marker_ids = {item.identity for item in df.cute_state.lanes.collective_mma_sites}
     write_roots = _region_write_roots(
         region_body, marker_ids, emitted_statement_ids=emitted_statement_ids
     )
@@ -2126,7 +2128,7 @@ def _lower_site(
         )
         return m_loop, tid, ""
 
-    df.cute_state.collective_mma_pure_stmt_ids.update(pure_statement_ids)
+    df.cute_state.lanes.collective_mma_pure_stmt_ids.update(pure_statement_ids)
     flat = f"{prefix}_flat"
     m_parent, m_index = path[m_depth]
     insertion_body = (
@@ -2933,7 +2935,7 @@ def lower_collective_matmul(
             disjoint_pairs=disjoint_pairs,
             rename_groups=rename_groups,
         )
-    if not df.cute_state.collective_mma_sites:
+    if not df.cute_state.lanes.collective_mma_sites:
         if df.config.get("cute_collective_compute", "warp") == "tma_gather":
             raise exc.BackendUnsupported(
                 "cute", "gathered MMA requires an admitted collective contraction"
@@ -2943,7 +2945,16 @@ def lower_collective_matmul(
     # the same final renaming already applied to the generated function.
     module = ast.Module(body=body, type_ignores=[])
     ast_rename(module, rename_groups)
-    if df.config.get("cute_collective_compute", "warp") == "tma_gather":
+    # The gathered pipeline takes its operands' exact sizes and strides
+    # (``gathered_tensor_facts``); where the calls this code serves skip the
+    # binding's dispatch guards (Inductor's render of a dynamic graph), so
+    # that nothing proves those, the warp lowering below runs the
+    # contraction, as without the knob.  Elsewhere the gathered lowering
+    # proves them or refuses the config.
+    if (
+        df.config.get("cute_collective_compute", "warp") == "tma_gather"
+        and CompileEnvironment.current().dispatch_guards_enforced
+    ):
         from .gathered_mma_lowering import lower_gathered_matmul
 
         return lower_gathered_matmul(
@@ -2956,13 +2967,13 @@ def lower_collective_matmul(
     occupied = _bound_names(module) | boundary_names
     native_sites = [
         site
-        for site in df.cute_state.collective_mma_sites
+        for site in df.cute_state.lanes.collective_mma_sites
         if _native_site_enabled(site, df.config)
     ]
     if native_sites:
         if (
-            df.cute_state.matmul_plan is not None
-            or df.cute_state.matmul_fx_nodes
+            df.cute_state.tcgen05.matmul_plan is not None
+            or df.cute_state.tcgen05.matmul_fx_nodes
             or df.cute_state.has_tcgen05_fragment_epilogue_plan
         ):
             raise exc.BackendUnsupported(
@@ -2976,12 +2987,12 @@ def lower_collective_matmul(
         CollectiveOperandSmem(
             _fresh_prefix("collective_operands", occupied, df.new_var)
         )
-        if len(df.cute_state.collective_mma_sites) > 1
+        if len(df.cute_state.lanes.collective_mma_sites) > 1
         else None
     )
     lowered_sites = []
     native_lifetimes: list[NativeCollectiveLifetime] = []
-    for site in df.cute_state.collective_mma_sites:
+    for site in df.cute_state.lanes.collective_mma_sites:
         loop, tid, shared_result = _lower_site(
             body,
             site,
@@ -3025,11 +3036,11 @@ def lower_collective_matmul(
         raise exc.BackendUnsupported("cute", "unlowered collective MMA marker")
     # Record completion only after every admitted marker has been replaced.
     # Universal MMA and native wrapper plans retain their layout guards.
-    df.cute_state.collective_mma_static_layouts = (
+    df.cute_state.lanes.collective_mma_static_layouts = (
         df.config.get("cute_collective_compute", "warp") == "warp"
         and not native_sites
-        and df.cute_state.matmul_plan is None
-        and not df.cute_state.matmul_fx_nodes
+        and df.cute_state.tcgen05.matmul_plan is None
+        and not df.cute_state.tcgen05.matmul_fx_nodes
         and not df.cute_state.has_tcgen05_fragment_epilogue_plan
     )
     df.namespace._used_names.update(_bound_names(ast.Module(body, [])))

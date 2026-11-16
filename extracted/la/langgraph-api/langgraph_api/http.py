@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 
 import httpx
+from httpx._utils import get_environment_proxies
 from tenacity import (
     retry,
     retry_if_exception,
@@ -74,16 +75,41 @@ _http_client: JsonHttpClient | None = None
 _loopback_client: JsonHttpClient | None = None
 
 
+def environment_proxy_mounts(
+    *, retries: int, limits: httpx.Limits
+) -> dict[str, httpx.AsyncHTTPTransport | None]:
+    """Proxy-aware transports for an explicit-transport httpx client.
+
+    httpx only reads HTTP_PROXY / HTTPS_PROXY / NO_PROXY when no explicit
+    transport is given. Our clients pass one for ``retries``, so build one
+    transport per proxy pattern from the environment ourselves. NO_PROXY hosts
+    map to ``None`` so they fall through to the client's direct transport. With
+    no proxy variables set this is empty and the client is unchanged. Only
+    http(s) proxies are mounted: a SOCKS URL in ``ALL_PROXY`` needs the optional
+    ``socksio`` package, and it was ignored before this helper existed, so keep
+    ignoring it rather than failing at startup.
+    """
+    mounts: dict[str, httpx.AsyncHTTPTransport | None] = {}
+    for pattern, proxy in get_environment_proxies().items():
+        if proxy is None:
+            mounts[pattern] = None
+        elif proxy.startswith(("http://", "https://")):
+            mounts[pattern] = httpx.AsyncHTTPTransport(
+                retries=retries, limits=limits, proxy=httpx.Proxy(proxy)
+            )
+    return mounts
+
+
 async def start_http_client() -> JsonHttpClient:
     global _http_client
+    limits = httpx.Limits(max_keepalive_connections=10, keepalive_expiry=60.0)
     _http_client = JsonHttpClient(
         client=httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(
                 retries=2,  # this applies only to ConnectError, ConnectTimeout
-                limits=httpx.Limits(
-                    max_keepalive_connections=10, keepalive_expiry=60.0
-                ),
+                limits=limits,
             ),
+            mounts=environment_proxy_mounts(retries=2, limits=limits),
         ),
     )
     return _http_client

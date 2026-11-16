@@ -1,0 +1,1403 @@
+# Copyright 2021-2026 Zenauth Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Default SQL lowering for each plan operator.
+
+To add an operator, write a handler, register it in ``OPERATOR_FNS``, and add it to
+the operand tables below if it is unary or order-insensitive.
+"""
+
+import math
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from types import MappingProxyType
+from typing import Any, ClassVar, NoReturn
+
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    Integer,
+    Numeric,
+    String,
+    TypeDecorator,
+    and_,
+    case,
+    cast,
+    false,
+    func,
+    literal,
+    literal_column,
+    not_,
+    null,
+    or_,
+    true,
+    type_coerce,
+)
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql import operators
+from sqlalchemy.sql.expression import ColumnElement, Grouping
+from sqlalchemy.sql.functions import FunctionElement
+from sqlalchemy.sql.visitors import InternalTraversal
+
+from cerbos_sqlalchemy._regex import (
+    AllCharactersIn,
+    Literals,
+    NoNewline,
+    PrefixSuffix,
+    compile_regex,
+)
+from cerbos_sqlalchemy.errors import UnsupportedPlanError
+
+_LIKE_ESCAPE_CHAR = "\\"
+_RFC3339_TIMESTAMP = re.compile(
+    r"^((?!0000)\d{4})-(\d{2})-(\d{2})[Tt]"
+    r"(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d"
+    r"(?:\.(\d{1,9}))?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$"
+)
+_EXCESS_RFC3339_PRECISION = re.compile(r"(\.\d{6})\d+(?=(?:[Zz]|[+-]\d{2}:\d{2})$)")
+_MIN_CEL_TIMESTAMP = datetime(1, 1, 1, tzinfo=timezone.utc)
+_MAX_CEL_TIMESTAMP = datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+
+# -- symbolic values ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class IEEEConstant:
+    """A non-finite CEL double that must not be bound into dialect SQL."""
+
+    value: float
+
+
+@dataclass(frozen=True)
+class ConditionalValue:
+    """A ternary retained until comparison so non-finite arms can be folded."""
+
+    condition: Any
+    then_value: Any
+    else_value: Any
+
+
+#: Possibly non-finite numbers, folded by the enclosing comparison instead of bound into SQL.
+SYMBOLIC_NUMBERS = (IEEEConstant, ConditionalValue)
+
+
+@dataclass(frozen=True)
+class ShiftedInstant:
+    """A timestamp column plus a constant duration, kept until a comparison folds it.
+
+    ``col + d < T`` is rendered as ``col < T - d``, so no dialect's interval arithmetic
+    is needed. CEL raises when the sum leaves its timestamp range, so the comparison
+    is guarded to stay UNKNOWN for such a row.
+    """
+
+    instant: Any
+    delta: timedelta
+
+
+class _CharLength(FunctionElement):
+    """A string's length in characters, as CEL's ``size()`` counts it.
+
+    SQLite's and PostgreSQL's ``length()`` count characters; MySQL's counts bytes. SQLite's
+    stops at the first NUL, and its ``replace()`` cannot match one, so each NUL becomes a space
+    inside the string's JSON text, where it is the escape ``\\u0000``.
+    """
+
+    name = "cerbos_char_length"
+    type = Integer()
+    inherit_cache = True
+
+
+@compiles(_CharLength)
+def _char_length(element, compiler, **kw):
+    return f"length({compiler.process(element.clauses, **kw)})"
+
+
+@compiles(_CharLength, "sqlite")
+def _sqlite_char_length(element, compiler, **kw):
+    quoted = f"json_quote({compiler.process(element.clauses, **kw)})"
+    return (
+        f"length(json_extract(replace(replace(replace({quoted}, '\\\\', char(1)), "
+        r"'\u0000', ' '), char(1), '\\'), '$'))"
+    )
+
+
+@compiles(_CharLength, "mysql")
+@compiles(_CharLength, "mariadb")
+def _mysql_char_length(element, compiler, **kw):
+    return f"char_length({compiler.process(element.clauses, **kw)})"
+
+
+class _AsDouble(FunctionElement):
+    """An exact numeric column read as a double, as CEL reads every attribute number.
+
+    PostgreSQL multiplies an integer by the literal ``0.1`` in exact ``numeric``, so
+    ``3 * 0.1 == 0.3`` is true there and false in CEL. ``cast(x, Float)`` is no help:
+    SQLAlchemy skips a ``FLOAT`` cast on MySQL.
+    """
+
+    name = "cerbos_as_double"
+    type = Float(precision=53)
+    inherit_cache = True
+
+
+@compiles(_AsDouble)
+def _as_double_standard(element, compiler, **kw):
+    return f"CAST({compiler.process(element.clauses, **kw)} AS DOUBLE PRECISION)"
+
+
+@compiles(_AsDouble, "sqlite")
+def _as_double_sqlite(element, compiler, **kw):
+    return f"CAST({compiler.process(element.clauses, **kw)} AS REAL)"
+
+
+@compiles(_AsDouble, "mysql")
+@compiles(_AsDouble, "mariadb")
+def _as_double_mysql(element, compiler, **kw):
+    return f"CAST({compiler.process(element.clauses, **kw)} AS DOUBLE)"
+
+
+def _as_double(value: Any) -> Any:
+    """Read an exact numeric column as a double; leave anything else alone."""
+    type_ = _base_type(getattr(value, "type", None))
+    if isinstance(type_, Integer) or (
+        isinstance(type_, Numeric) and not isinstance(type_, Float)
+    ):
+        return _AsDouble(value)
+    return value
+
+
+class _ExactString(FunctionElement):
+    """A string read the way CEL compares strings: byte for byte.
+
+    MySQL's default ``utf8mb4_0900_ai_ci`` folds case and accents, so MySQL compares it under
+    ``utf8mb4_0900_bin``, which is byte-exact and NO PAD. An explicit COLLATE on one operand
+    decides the comparison.
+    """
+
+    name = "cerbos_exact_string"
+    type = String()
+    inherit_cache = True
+
+
+class _ExactOrdering(FunctionElement):
+    """A string ordered by code point: also ``"C"`` on PostgreSQL, whose linguistic collations
+    such as ``en_US.UTF-8`` sort ``"One"`` after ``"a"``."""
+
+    name = "cerbos_exact_ordering"
+    type = String()
+    inherit_cache = True
+
+
+class _ExactBound(FunctionElement):
+    """A bound string literal under the exact collation, whatever the connection's charset."""
+
+    name = "cerbos_exact_bound"
+    type = String()
+    inherit_cache = True
+
+
+class _ExactOrderedBound(FunctionElement):
+    """A bound string literal ordered by code point."""
+
+    name = "cerbos_exact_ordered_bound"
+    type = String()
+    inherit_cache = True
+
+
+@compiles(_ExactString)
+@compiles(_ExactOrdering)
+@compiles(_ExactBound)
+@compiles(_ExactOrderedBound)
+def _exact_default(element, compiler, **kw):
+    return compiler.process(element.clauses, **kw)
+
+
+@compiles(_ExactString, "mysql")
+@compiles(_ExactString, "mariadb")
+@compiles(_ExactOrdering, "mysql")
+@compiles(_ExactOrdering, "mariadb")
+def _exact_mysql(element, compiler, **kw):
+    return f"({compiler.process(element.clauses, **kw)} COLLATE utf8mb4_0900_bin)"
+
+
+@compiles(_ExactBound, "mysql")
+@compiles(_ExactBound, "mariadb")
+@compiles(_ExactOrderedBound, "mysql")
+@compiles(_ExactOrderedBound, "mariadb")
+def _exact_bound_mysql(element, compiler, **kw):
+    return (
+        f"(CONVERT({compiler.process(element.clauses, **kw)} USING utf8mb4) "
+        "COLLATE utf8mb4_0900_bin)"
+    )
+
+
+@compiles(_ExactOrdering, "postgresql")
+@compiles(_ExactOrderedBound, "postgresql")
+def _exact_ordering_postgresql(element, compiler, **kw):
+    return f'({compiler.process(element.clauses, **kw)} COLLATE "C")'
+
+
+def _is_text(value: Any) -> bool:
+    type_ = _base_type(getattr(value, "type", None))
+    return isinstance(type_, String) and not isinstance(type_, Enum)
+
+
+def exact(value: Any, *, ordering: bool = False) -> Any:
+    """Read a string operand byte for byte: a column under the exact collation, a literal
+    bound under it. Anything else is left alone."""
+    if isinstance(value, str):
+        return (_ExactOrderedBound if ordering else _ExactBound)(literal(value, String))
+    type_ = getattr(value, "type", None)
+    if isinstance(type_, _UpperAsciiString) or not isinstance(
+        _base_type(type_), String
+    ):
+        return value
+    wrapped = (
+        _ExactOrdering(value) if ordering and _is_text(value) else _ExactString(value)
+    )
+    return type_coerce(wrapped, type_)
+
+
+def _eq(left: Any, right: Any) -> Any:
+    left, right = exact_pair(left, right)
+    return left == right
+
+
+def _exact_in(needle: Any, members: list[Any]) -> Any:
+    wrapped = exact(needle)
+    if wrapped is not needle:
+        return wrapped.in_(members)
+    return needle.in_([exact(member) for member in members])
+
+
+def exact_pair(left: Any, right: Any, *, ordering: bool = False) -> tuple[Any, Any]:
+    """Both sides of a string comparison, with one explicit collation: the column's where
+    there is one, so a literal still binds against the column's own type."""
+    if isinstance(right, str) and exact(left, ordering=ordering) is not left:
+        return exact(left, ordering=ordering), right
+    if isinstance(left, str) and exact(right, ordering=ordering) is not right:
+        return left, exact(right, ordering=ordering)
+    return exact(left, ordering=ordering), exact(right, ordering=ordering)
+
+
+def _arithmetic(op_fn: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:
+    return lambda c, v: op_fn(_as_double(c), _as_double(v))
+
+
+def cel_literal_equal(left: Any, right: Any) -> bool:
+    """CEL's equality between two plan literals.
+
+    Values of different types are unequal rather than coerced (``1 == true`` is false),
+    while ints and doubles compare numerically.
+    """
+    if left is None or right is None:
+        return left is None and right is None
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left == right
+    if _is_number(left) or _is_number(right):
+        return _is_number(left) and _is_number(right) and left == right
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(
+            cel_literal_equal(a, b) for a, b in zip(left, right)
+        )
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            cel_literal_equal(value, right[key]) for key, value in left.items()
+        )
+    if isinstance(left, str) and isinstance(right, str):
+        return left == right
+    return False
+
+
+def _is_temporal_column(value: Any) -> bool:
+    return isinstance(_base_type(getattr(value, "type", None)), DateTime)
+
+
+def _shift(instant: Any, delta: timedelta) -> Any:
+    """A timestamp plus a duration: folded for a literal, kept symbolic for a column."""
+    if isinstance(instant, ShiftedInstant):
+        return ShiftedInstant(instant.instant, instant.delta + delta)
+    if isinstance(instant, datetime):
+        try:
+            shifted = instant + delta
+        except OverflowError as exc:
+            raise UnsupportedPlanError(
+                "a timestamp plus a duration leaves CEL's supported instant range"
+            ) from exc
+        if shifted < _MIN_CEL_TIMESTAMP or shifted > _MAX_CEL_TIMESTAMP:
+            raise UnsupportedPlanError(
+                "a timestamp plus a duration leaves CEL's supported instant range"
+            )
+        return shifted
+    if _is_temporal_column(instant):
+        return ShiftedInstant(instant, delta)
+    raise UnsupportedPlanError(
+        "a duration can only be added to a timestamp() value: SQL has no portable "
+        "interval arithmetic for anything else"
+    )
+
+
+def _additive(sign: int) -> Callable[[Any, Any], Any]:
+    """CEL's ``+``/``-``: numbers and strings in SQL, and literal lists and durations folded."""
+    numeric = _arithmetic((lambda c, v: c + v) if sign > 0 else (lambda c, v: c - v))
+
+    def apply(c: Any, v: Any) -> Any:
+        if c is None or v is None:
+            raise UnsupportedPlanError(
+                "arithmetic over a null constant has no CEL overload, and SQL would "
+                "carry it as NULL instead of an error"
+            )
+        if isinstance(c, timedelta) and isinstance(v, timedelta):
+            return c + v if sign > 0 else c - v
+        if isinstance(v, timedelta):
+            return _shift(c, v if sign > 0 else -v)
+        if isinstance(c, timedelta) and sign > 0:
+            return _shift(v, c)
+        if isinstance(c, (timedelta, ShiftedInstant)) or isinstance(
+            v, (timedelta, ShiftedInstant)
+        ):
+            raise UnsupportedPlanError(
+                "this timestamp and duration arithmetic has no SQL lowering: only "
+                "timestamp() plus or minus a constant duration is rewritten"
+            )
+        if isinstance(c, (list, dict)) or isinstance(v, (list, dict)):
+            if sign > 0 and isinstance(c, list) and isinstance(v, list):
+                return c + v
+            raise UnsupportedPlanError(
+                "list concatenation is folded only between list literals: SQL has no "
+                "ordered list value to concatenate a stored collection into"
+            )
+        return numeric(c, v)
+
+    return apply
+
+
+def _overloaded(
+    op_fn: Callable[[Any, Any], Any], concatenates: bool = False
+) -> Callable[[Any, Any], Any]:
+    """Refuse operands CEL's arithmetic has no overload for, which SQL would coerce."""
+
+    def apply(c: Any, v: Any) -> Any:
+        kinds = {scalar_kind(c), scalar_kind(v)}
+        shifts = isinstance(c, timedelta) or isinstance(v, timedelta)
+        if (
+            "bool" in kinds
+            or (not shifts and (_is_temporal_column(c) or _is_temporal_column(v)))
+            or ("string" in kinds and (not concatenates or "number" in kinds))
+        ):
+            raise UnsupportedPlanError(
+                "arithmetic over a string, boolean or bare timestamp operand is a CEL "
+                "no-overload error"
+            )
+        return op_fn(c, v)
+
+    return apply
+
+
+def _unknown() -> Any:
+    """SQL UNKNOWN typed as a boolean.
+
+    A bare ``NULL`` is untyped, and PostgreSQL resolves a ``CASE`` whose every arm is
+    one as ``text``, which it then refuses to mix with a boolean arm.
+    """
+    return func.nullif(true(), true())
+
+
+@dataclass(frozen=True)
+class Hierarchy:
+    value: Any
+    delimiter: str
+
+
+def _is_number(value: Any) -> bool:
+    """True for an int or float literal, never a bool."""
+    return not isinstance(value, bool) and isinstance(value, (int, float))
+
+
+def scalar_kind(value: Any) -> str:
+    if isinstance(value, str) or isinstance(getattr(value, "type", None), String):
+        return "string"
+    if isinstance(value, bool) or isinstance(getattr(value, "type", None), Boolean):
+        return "bool"
+    if isinstance(value, (int, float)) or isinstance(
+        getattr(value, "type", None), (Integer, Numeric)
+    ):
+        return "number"
+    return ""
+
+
+def _base_type(type_: Any) -> Any:
+    """Unwrap type decorators, including SQLAlchemy 1.4's ``Variant`` from ``with_variant()``."""
+    while isinstance(type_, TypeDecorator):
+        type_ = type_.impl
+    return type_
+
+
+# -- strings -----------------------------------------------------------------------------------
+
+
+def _escape_like_literal(needle: str) -> str:
+    """Escape LIKE metacharacters in a literal needle.
+
+    ``[`` is escaped too because SQL Server treats it as a character class.
+    """
+    return (
+        needle.replace(_LIKE_ESCAPE_CHAR, _LIKE_ESCAPE_CHAR * 2)
+        .replace("%", _LIKE_ESCAPE_CHAR + "%")
+        .replace("_", _LIKE_ESCAPE_CHAR + "_")
+        .replace("[", _LIKE_ESCAPE_CHAR + "[")
+    )
+
+
+def _escape_like_column(needle: Any) -> Any:
+    """Escape LIKE metacharacters in a column-valued needle at query time.
+
+    A NULL needle gives a NULL pattern, so the row is excluded, as CEL denies it.
+    """
+    escaped = func.replace(needle, _LIKE_ESCAPE_CHAR, _LIKE_ESCAPE_CHAR * 2)
+    escaped = func.replace(escaped, "%", _LIKE_ESCAPE_CHAR + "%")
+    escaped = func.replace(escaped, "_", _LIKE_ESCAPE_CHAR + "_")
+    return func.replace(escaped, "[", _LIKE_ESCAPE_CHAR + "[", type_=String)
+
+
+def _string_match(receiver: Any, needle: Any, *, prefix: bool, suffix: bool) -> Any:
+    """Translate CEL contains/startsWith/endsWith to an escaped LIKE.
+
+    Either side may be a constant or a column. CEL matching is case-sensitive, so
+    a case-insensitive LIKE (SQLite by default) must be configured to match.
+    """
+    if any(scalar_kind(value) not in ("", "string") for value in (receiver, needle)):
+        return null()
+    if any(isinstance(value, (list, dict)) for value in (receiver, needle)):
+        return null()
+    if isinstance(needle, str) and "\0" in needle:
+        raise UnsupportedPlanError(
+            "a string match whose needle holds a NUL character: PostgreSQL text cannot hold "
+            "one, and MySQL's LIKE stops reading the pattern at it"
+        )
+    if isinstance(receiver, str):
+        receiver = literal(receiver, String)
+    unescaped = literal(needle, String) if isinstance(needle, str) else needle
+    anchor = {
+        (True, True): "contains",
+        (True, False): "ends",
+        (False, True): "starts",
+        (False, False): "whole",
+    }[(prefix, suffix)]
+    if isinstance(needle, str):
+        pattern: Any = (
+            ("%" if prefix else "")
+            + _escape_like_literal(needle)
+            + ("%" if suffix else "")
+        )
+    else:
+        pattern = _escape_like_column(needle)
+        if prefix:
+            pattern = literal("%", String) + pattern
+        if suffix:
+            pattern = pattern + literal("%", String)
+    exact_receiver, pattern = exact_pair(receiver, pattern)
+    return _StringMatch(
+        exact_receiver.like(pattern, escape=_LIKE_ESCAPE_CHAR),
+        receiver,
+        unescaped,
+        anchor,
+    )
+
+
+class _StringMatch(ColumnElement):
+    """A string match: an escaped LIKE, except on SQLite, whose LIKE reads a string only up to
+    its first NUL. There ``instr()`` and ``=`` compare every byte, and ``hex()`` keeps a suffix
+    aligned to whole bytes; each is case-sensitive, as CEL is."""
+
+    type = Boolean()
+    inherit_cache = True
+    _traverse_internals: ClassVar = [
+        ("like", InternalTraversal.dp_clauseelement),
+        ("receiver", InternalTraversal.dp_clauseelement),
+        ("needle", InternalTraversal.dp_clauseelement),
+        ("anchor", InternalTraversal.dp_string),
+        ("negated", InternalTraversal.dp_boolean),
+    ]
+
+    def __init__(
+        self, like: Any, receiver: Any, needle: Any, anchor: str, negated: bool = False
+    ) -> None:
+        self.like = like
+        self.receiver = receiver
+        self.needle = needle
+        self.anchor = anchor
+        self.negated = negated
+
+    def self_group(self, against: Any = None) -> Any:
+        return Grouping(self)
+
+    def _negate(self) -> "_StringMatch":
+        return _StringMatch(
+            not_(self.like), self.receiver, self.needle, self.anchor, not self.negated
+        )
+
+
+@compiles(_StringMatch)
+def _string_match_like(element, compiler, **kw):
+    return compiler.process(element.like, **kw)
+
+
+@compiles(_StringMatch, "sqlite")
+def _sqlite_string_match(element, compiler, **kw):
+    receiver, needle = element.receiver, element.needle
+    position = func.instr(receiver, needle)
+    predicate = {
+        "contains": position > 0,
+        "starts": position == 1,
+        # hex() reads NULL as '', so NULL is propagated by hand.
+        "ends": case(
+            (
+                and_(receiver.is_not(None), needle.is_not(None)),
+                func.hex(receiver).like(literal("%", String) + func.hex(needle)),
+            )
+        ),
+        "whole": receiver == needle,
+    }[element.anchor]
+    return compiler.process(not_(predicate) if element.negated else predicate, **kw)
+
+
+def _matches(receiver: Any, pattern: Any) -> Any:
+    """CEL's ``matches()``, lowered through :func:`compile_regex` into exact string
+    predicates, never into the store's own regex dialect (none of which is RE2).
+
+    A NULL receiver is a missing attribute (or a null value, which has no ``matches()``):
+    CEL raises, so the predicate is UNKNOWN for it, even where a pattern matches every
+    string. A pattern RE2 rejects raises at evaluation too, so it is UNKNOWN for every row.
+    """
+    if not isinstance(pattern, str):
+        raise UnsupportedPlanError(
+            "matches() is lowered only with a constant pattern: a pattern read from a "
+            "column cannot be parsed before the query runs"
+        )
+    if isinstance(receiver, str):
+        receiver = literal(receiver, String)
+    kind = scalar_kind(receiver)
+    if kind and kind != "string":
+        return _unknown()
+    if not isinstance(receiver, (ColumnElement, InstrumentedAttribute)):
+        raise UnsupportedPlanError(
+            "matches() needs a string attribute or literal as its receiver"
+        )
+    plans = compile_regex(pattern)
+    if plans is None:
+        return _unknown()
+
+    def at_least(characters: int) -> list[Any]:
+        return [_CharLength(receiver) >= characters] if characters > 0 else []
+
+    def no_newline() -> Any:
+        return not_(_string_match(receiver, "\n", prefix=True, suffix=True))
+
+    conditions: list[Any] = []
+    for plan in plans:
+        if isinstance(plan, Literals):
+            if plan.kind == "equals":
+                conditions.append(_exact_in(receiver, list(plan.literals)))
+            else:
+                prefix, suffix = {
+                    "startsWith": (False, True),
+                    "endsWith": (True, False),
+                    "contains": (True, True),
+                }[plan.kind]
+                conditions.append(
+                    or_(
+                        *(
+                            _string_match(receiver, text, prefix=prefix, suffix=suffix)
+                            for text in plan.literals
+                        )
+                    )
+                )
+        elif isinstance(plan, AllCharactersIn):
+            # Count each allowed character's occurrences; together they must make up
+            # the whole string. A flat sum, not a nested REPLACE chain, which
+            # overflows SQLite's parser stack before 3.46.
+            counted = sum(
+                (
+                    _CharLength(receiver)
+                    - _CharLength(func.replace(receiver, character, ""))
+                    for character in plan.characters
+                ),
+                literal(0, Integer),
+            )
+            conditions.append(
+                and_(_CharLength(receiver) == counted, *at_least(plan.min))
+            )
+        elif isinstance(plan, NoNewline):
+            conditions.append(and_(no_newline(), *at_least(plan.min)))
+        elif isinstance(plan, PrefixSuffix):
+            conditions.append(
+                and_(
+                    or_(
+                        *(
+                            and_(
+                                _string_match(
+                                    receiver, prefix, prefix=False, suffix=True
+                                ),
+                                _string_match(
+                                    receiver, suffix, prefix=True, suffix=False
+                                ),
+                                *at_least(len(prefix) + plan.min + len(suffix)),
+                            )
+                            for prefix, suffix in plan.pairs
+                        )
+                    ),
+                    no_newline(),
+                )
+            )
+    matched = or_(*conditions) if conditions else false()
+    return case((receiver.isnot(None), matched))
+
+
+_ASCII_LOWER = "abcdefghijklmnopqrstuvwxyz"
+
+
+def _upper_ascii(value: Any, _: Any) -> Any:
+    """CEL's ``upperAscii()``: only ``a``-``z`` change, every other character is kept.
+
+    ``UPPER`` folds non-ASCII letters too (``é`` to ``É``) on PostgreSQL and MySQL, so
+    each ASCII letter is replaced on its own. ``REPLACE`` is exact on every dialect.
+    """
+    if isinstance(value, str):
+        return "".join(ch.upper() if ch in _ASCII_LOWER else ch for ch in value)
+    kind = scalar_kind(value)
+    if kind and kind != "string":
+        return null()
+    if not isinstance(value, (ColumnElement, InstrumentedAttribute)):
+        raise UnsupportedPlanError(
+            "upperAscii() needs a string attribute or literal as its receiver"
+        )
+    result: Any = value
+    for ch in _ASCII_LOWER:
+        result = func.replace(result, ch, ch.upper(), type_=String)
+    return type_coerce(result, _UpperAsciiString(value))
+
+
+def _replace_ascii_letters(value: Any, letters: str) -> Any:
+    result: Any = value
+    for ch in letters:
+        result = func.replace(result, ch, ch.upper(), type_=String)
+    return result
+
+
+def _upper_ascii_equals(receiver: Any, text: str) -> Any:
+    """``upperAscii(receiver) == text``, replacing only the letters ``text`` holds.
+
+    ``upperAscii()`` never yields a lowercase ASCII letter, so a ``text`` holding one
+    is unequal to every present value. Otherwise a lowercase letter ``text`` does not
+    hold in upper case cannot match whether or not it is replaced, so replacing only
+    ``text``'s own letters answers the same. That keeps the nesting shallow: SQLite
+    before 3.46 overflows its parser stack on all 26 nested ``REPLACE`` calls under a
+    subquery.
+    """
+    if any(ch in _ASCII_LOWER for ch in text):
+        return case((receiver.isnot(None), false()))
+    letters = "".join(sorted({ch.lower() for ch in text} & set(_ASCII_LOWER)))
+    return _eq(_replace_ascii_letters(receiver, letters), text)
+
+
+class _UpperAsciiString(String):
+    """The type of an ``upperAscii()`` result, which remembers its receiver.
+
+    Equality and membership against string literals, and the NULL tests, read the
+    receiver directly (see :func:`_upper_ascii_equals`); anything else compares the
+    full 26-letter ``REPLACE`` chain.
+    """
+
+    def __init__(self, receiver: Any) -> None:
+        super().__init__()
+        self.receiver = receiver
+
+    class comparator_factory(String.Comparator):
+        def operate(self, op: Any, *other: Any, **kwargs: Any) -> Any:
+            receiver = self.type.receiver
+            target = other[0] if other else None
+            if op is operators.eq and isinstance(target, str):
+                return _upper_ascii_equals(receiver, target)
+            if op is operators.ne and isinstance(target, str):
+                return not_(_upper_ascii_equals(receiver, target))
+            if (
+                op is operators.in_op
+                and isinstance(target, (list, tuple))
+                and target
+                and all(isinstance(member, str) for member in target)
+            ):
+                return or_(
+                    *(_upper_ascii_equals(receiver, member) for member in target)
+                )
+            if op in (operators.is_, operators.is_not) and target is None:
+                return (
+                    receiver.is_(None) if op is operators.is_ else receiver.isnot(None)
+                )
+            return super().operate(op, *other, **kwargs)
+
+
+def _string_size(value: Any, _: Any) -> Any:
+    if isinstance(_base_type(getattr(value, "type", None)), (JSON, ARRAY)):
+        # LENGTH() would measure the text, not count elements. Counting depends on
+        # the storage, so the caller must declare it.
+        raise UnsupportedPlanError(
+            "size() over a collection-typed column needs its storage declared: map the "
+            'attribute in collection_columns with storage "json" or "pgArray"'
+        )
+    if isinstance(value, ConditionalValue):
+        raise UnsupportedPlanError(
+            "size() over a ternary is not lowered: its branches are folded only by "
+            "list concatenation and equality with a literal"
+        )
+    kind = scalar_kind(value)
+    return null() if kind and kind != "string" else _CharLength(value)
+
+
+# -- casts -------------------------------------------------------------------------------------
+
+
+def _reject_numeric_cast(operator: str) -> NoReturn:
+    """Fail closed on CEL's int()/double().
+
+    CAST reads a numeric prefix (``'100%_done'`` is 100 on SQLite) where CEL denies,
+    and PostgreSQL and MySQL round where CEL truncates. See #311.
+    """
+    raise UnsupportedPlanError(
+        f"'{operator}()' cannot be lowered to SQL CAST: CAST reads a numeric prefix "
+        "where CEL requires the whole string and raises otherwise, and PostgreSQL and "
+        "MySQL round where CEL truncates toward zero"
+    )
+
+
+def _string_cast(c: Any) -> Any:
+    """CEL's ``string()``.
+
+    Numbers are refused: attribute numbers are doubles, which CEL prints in Go's
+    shortest ``%g`` form (``1e+06``, ``2``, ``-0``), where CAST prints ``1000000``
+    or ``2.0`` and SQL cannot keep the sign of a zero. Booleans use a CASE because
+    SQLite and MySQL cast them to ``'1'``/``'0'`` (#376, #418). A NULL boolean must
+    stay NULL, since CEL denies it. On MySQL the literals use the connection
+    collation, which must be case-sensitive.
+    """
+    type_ = _base_type(getattr(c, "type", None))
+    if isinstance(type_, (Integer, Numeric)) or _is_number(c):
+        raise UnsupportedPlanError(
+            "'string()' over a number cannot be lowered to SQL CAST: CEL formats a "
+            "double in Go's shortest %g form (1e+06, 2, -0), where CAST prints "
+            "1000000 or 2.0, and SQL does not keep the sign of a zero"
+        )
+    if isinstance(type_, Boolean):
+        return case(
+            (c.is_(None), null()),
+            (c, literal_column("'true'", String)),
+            else_=literal_column("'false'", String),
+        )
+    return cast(c, String)
+
+
+# -- arithmetic --------------------------------------------------------------------------------
+
+
+def _require_signed_zero(denominator: Any) -> None:
+    """Reject an integer zero denominator, whose sign is unknown.
+
+    ``n / -0.0`` and ``n / 0.0`` are opposite infinities. Over HTTP, ``-0.0``
+    arrives as ``-0``, which JSON decodes to the int ``0``, losing the sign.
+    gRPC keeps it as a float. See #312.
+    """
+    if isinstance(denominator, bool) or not isinstance(denominator, int):
+        return
+    if denominator != 0:
+        return
+    raise UnsupportedPlanError(
+        "division by a constant zero whose sign is indeterminate: the HTTP transport "
+        "renders -0.0 as `-0`, which JSON decodes to the integer 0, so the adapter "
+        "cannot tell +Infinity from -Infinity. Use the gRPC client, which preserves "
+        "the sign bit, or avoid a literal zero denominator"
+    )
+
+
+def _zero_divisor_is_nan(numerator: Any, denominator: Any) -> bool:
+    """True when a zero column divisor can only give NaN, which has no sign.
+
+    That holds when the numerator is the divisor itself or a constant zero.
+    """
+    if _is_number(numerator):
+        return numerator == 0.0
+    return isinstance(numerator, ColumnElement) and numerator.compare(denominator)
+
+
+def _float_div(c: Any, v: Any) -> Any:
+    """Divide as doubles, as CEL does. SQLite and PostgreSQL would truncate integer ``/``."""
+    if _is_number(c) and _is_number(v):
+        numerator = float(c)
+        denominator = float(v)
+        if denominator == 0.0:
+            if numerator == 0.0 or math.isnan(numerator):
+                # NaN has no sign, so an indeterminate zero cannot change the answer.
+                return IEEEConstant(math.nan)
+            _require_signed_zero(v)
+            sign = math.copysign(1.0, numerator) * math.copysign(1.0, denominator)
+            return IEEEConstant(math.copysign(math.inf, sign))
+        return numerator / denominator
+
+    numerator = float(c) if _is_number(c) else cast(c, Float)
+    denominator = float(v) if _is_number(v) else cast(v, Float)
+
+    # In CEL, x/0 is NaN or a signed infinity, not an error. SQL NULL would be
+    # wrong (`NaN != 1.0` is TRUE), so keep these arms symbolic for the enclosing
+    # comparison to fold. A NULL operand still makes the whole CASE NULL.
+    # NULLIF stops dialects that evaluate CASE arms eagerly from failing on /0.
+    # A constant denominator's sign is applied. SQL cannot read a column's zero
+    # sign, so a column divisor is accepted only where zero gives NaN. See #312.
+    denominator_sign = 1.0
+    if _is_number(v):
+        _require_signed_zero(v)
+        denominator_sign = math.copysign(1.0, float(v))
+    elif not _zero_divisor_is_nan(numerator, denominator):
+        raise UnsupportedPlanError(
+            "division by a column cannot be lowered: a zero divisor makes CEL's "
+            "quotient an infinity whose sign is the zero's, and SQL compares -0.0 "
+            "equal to 0.0 (SQLite stores it as 0.0), so the sign cannot be read"
+        )
+
+    return ConditionalValue(
+        condition=denominator == 0.0,
+        then_value=ConditionalValue(
+            condition=numerator == 0.0,
+            then_value=IEEEConstant(math.nan),
+            else_value=ConditionalValue(
+                condition=numerator > 0.0,
+                then_value=IEEEConstant(math.copysign(math.inf, denominator_sign)),
+                else_value=IEEEConstant(math.copysign(math.inf, -denominator_sign)),
+            ),
+        ),
+        else_value=numerator / func.nullif(denominator, 0.0),
+    )
+
+
+def arith_over_conditional(op_fn: Callable[[Any, Any], Any], left: Any, right: Any):
+    """Distribute a binary arithmetic operator across a retained ternary.
+
+    Keeps a NaN arm symbolic, since ``NULL + 1 != 2.0`` is UNKNOWN where CEL's
+    ``NaN + 1 != 2.0`` is TRUE. See #312.
+    """
+    if isinstance(left, ConditionalValue):
+        return ConditionalValue(
+            condition=left.condition,
+            then_value=arith_over_conditional(op_fn, left.then_value, right),
+            else_value=arith_over_conditional(op_fn, left.else_value, right),
+        )
+    if isinstance(right, ConditionalValue):
+        return ConditionalValue(
+            condition=right.condition,
+            then_value=arith_over_conditional(op_fn, left, right.then_value),
+            else_value=arith_over_conditional(op_fn, left, right.else_value),
+        )
+    if isinstance(left, IEEEConstant) or isinstance(right, IEEEConstant):
+        left_value = left.value if isinstance(left, IEEEConstant) else left
+        right_value = right.value if isinstance(right, IEEEConstant) else right
+        if not (_is_number(left_value) and _is_number(right_value)):
+            raise UnsupportedPlanError(
+                "arithmetic combines a non-finite value with a column, which SQL "
+                "cannot carry"
+            )
+        # A non-finite operand keeps the result non-finite under + - * /.
+        result = op_fn(float(left_value), float(right_value))
+        if isinstance(result, IEEEConstant):
+            return result
+        return IEEEConstant(float(result))
+    return op_fn(left, right)
+
+
+def _modulo(*_: Any) -> NoReturn:
+    """Fail closed on CEL's ``%``, which is defined only over integers.
+
+    Attribute numbers are doubles, where ``%`` is a no-such-overload error that
+    must stay denied under negation, and ``int()`` is refused, so no operand the
+    planner leaves unfolded has a faithful lowering.
+    """
+    raise UnsupportedPlanError(
+        "'%' cannot be lowered: CEL defines it only over integers, attribute numbers "
+        "are doubles (a no-such-overload error that must stay denied under negation), "
+        "and int() has no faithful SQL CAST"
+    )
+
+
+# -- comparisons -------------------------------------------------------------------------------
+
+
+def _apply_comparison(operator: str, left: Any, right: Any) -> Any:
+    upper = any(
+        isinstance(getattr(value, "type", None), _UpperAsciiString)
+        for value in (left, right)
+    )
+    if not upper and "string" in (scalar_kind(left), scalar_kind(right)):
+        ordering = operator not in ("eq", "ne")
+        left, right = exact_pair(left, right, ordering=ordering)
+    if operator == "eq":
+        return left == right
+    if operator == "ne":
+        return left != right
+    if operator == "lt":
+        return left < right
+    if operator == "gt":
+        return left > right
+    if operator == "le":
+        return left <= right
+    if operator == "ge":
+        return left >= right
+    raise KeyError(operator)
+
+
+def _compare_shifted(operator: str, left: Any, right: Any) -> Any:
+    """Compare ``col + d`` with a timestamp literal as ``col`` against ``T - d``."""
+    if isinstance(right, ShiftedInstant):
+        if isinstance(left, ShiftedInstant):
+            raise UnsupportedPlanError(
+                "comparing two shifted timestamp columns has no SQL lowering"
+            )
+        mirrored = MIRRORED_OPERATORS.get(operator, operator)
+        return _compare_shifted(mirrored, right, left)
+    if not isinstance(right, datetime):
+        raise UnsupportedPlanError(
+            "a timestamp shifted by a duration can only be compared with a timestamp "
+            "literal: SQL has no portable interval arithmetic over two columns"
+        )
+    try:
+        bound = right - left.delta
+    except OverflowError as exc:
+        raise UnsupportedPlanError(
+            "a timestamp minus a duration leaves CEL's supported instant range"
+        ) from exc
+    comparison = _apply_comparison(operator, left.instant, bound)
+    # CEL raises when `col + d` leaves its range: keep that row UNKNOWN.
+    try:
+        if left.delta > timedelta(0):
+            in_range = left.instant <= _MAX_CEL_TIMESTAMP - left.delta
+        elif left.delta < timedelta(0):
+            in_range = left.instant >= _MIN_CEL_TIMESTAMP - left.delta
+        else:
+            return comparison
+    except OverflowError:
+        # The shift is wider than the whole range, so every row's sum raises.
+        return _unknown()
+    return case((in_range, comparison))
+
+
+def _compare_leaf(operator: str, left: Any, right: Any) -> Any:
+    if isinstance(left, ShiftedInstant) or isinstance(right, ShiftedInstant):
+        return _compare_shifted(operator, left, right)
+    if isinstance(left, timedelta) or isinstance(right, timedelta):
+        if not (isinstance(left, timedelta) and isinstance(right, timedelta)):
+            raise UnsupportedPlanError(
+                "a duration can only be compared with a duration literal: SQL has no "
+                "portable interval type to compare a column with"
+            )
+        return _apply_comparison(operator, left, right)
+    if isinstance(left, (list, dict)) and isinstance(right, (list, dict)):
+        # Two literals, e.g. a list concatenation folded per ternary branch.
+        if operator not in ("eq", "ne"):
+            raise UnsupportedPlanError(
+                "CEL does not order lists or maps, so there is no comparison to lower"
+            )
+        equal = cel_literal_equal(left, right)
+        return true() if equal == (operator == "eq") else false()
+    left_kind, right_kind = scalar_kind(left), scalar_kind(right)
+    if isinstance(left, (list, dict)) or isinstance(right, (list, dict)):
+        # A scalar of known type against a list or map literal: CEL's == across
+        # types is false, and a missing attribute is still an error.
+        if not (left_kind or right_kind) or operator not in ("eq", "ne"):
+            raise UnsupportedPlanError(
+                "comparison with a list or map literal cannot be lowered: a SQL "
+                "column holds one scalar, and binding the literal as a parameter "
+                "would compare it by the driver's coercion rather than CEL's typed "
+                "equality"
+            )
+        left_kind, right_kind = left_kind or "list", right_kind or "list"
+    if left_kind and right_kind and left_kind != right_kind:
+        result = literal(operator == "ne") if operator in ("eq", "ne") else _unknown()
+        for value in (left, right):
+            if hasattr(value, "is_"):
+                result = case((value.isnot(None), result))
+        return result
+    left_is_ieee = isinstance(left, IEEEConstant)
+    right_is_ieee = isinstance(right, IEEEConstant)
+    if left_is_ieee or right_is_ieee:
+        left_value = left.value if left_is_ieee else left
+        right_value = right.value if right_is_ieee else right
+        left_is_nan = left_is_ieee and math.isnan(left_value)
+        right_is_nan = right_is_ieee and math.isnan(right_value)
+        if left_is_nan or right_is_nan:
+            # IEEE: NaN is unequal and unordered, even under NOT (as in Cerbos 0.55).
+            other = right_value if left_is_nan else left_value
+            if isinstance(other, (int, float)):
+                return operator == "ne"
+            if hasattr(other, "is_"):
+                # NULL stays UNKNOWN, as CEL errors on a missing attribute.
+                return case(
+                    (other.is_(None), null()),
+                    else_=(operator == "ne"),
+                )
+            raise UnsupportedPlanError(
+                "NaN can only be compared with numeric constants or SQLAlchemy "
+                "expressions"
+            )
+        if not isinstance(left_value, (int, float)) or not isinstance(
+            right_value, (int, float)
+        ):
+            raise UnsupportedPlanError(
+                "Non-finite numeric constants can only be compared with numeric "
+                "constants"
+            )
+        return _apply_comparison(operator, left_value, right_value)
+
+    if operator not in ("eq", "ne"):
+        # CEL orders bools, false before true, and so does SQL's boolean (SQLite and
+        # MySQL store 0/1). SQLAlchemy refuses to order against a bare Python bool, so
+        # bind it as a typed parameter instead.
+        if isinstance(left, bool):
+            left = literal(left, Boolean)
+        if isinstance(right, bool):
+            right = literal(right, Boolean)
+    return _apply_comparison(operator, left, right)
+
+
+def _compare(operator: str, left: Any, right: Any) -> Any:
+    """Compare values without leaking PostgreSQL's non-IEEE NaN ordering."""
+    if isinstance(left, ConditionalValue):
+        return case(
+            (left.condition, _compare(operator, left.then_value, right)),
+            (not_(left.condition), _compare(operator, left.else_value, right)),
+        )
+    if isinstance(right, ConditionalValue):
+        return case(
+            (right.condition, _compare(operator, left, right.then_value)),
+            (not_(right.condition), _compare(operator, left, right.else_value)),
+        )
+    return _compare_leaf(operator, left, right)
+
+
+def _comparison(operator: str) -> Callable[[Any, Any], Any]:
+    return lambda left, right: _compare(operator, left, right)
+
+
+def _in(c: Any, values: Any) -> Any:
+    """CEL membership, including explicit-null list elements.
+
+    A map haystack is its keys. A list or map member never equals a scalar column.
+    """
+    if isinstance(values, dict):
+        values = list(values)
+    members = values if isinstance(values, list) else [values]
+    non_nulls = [member for member in members if member is not None]
+    # `5 in ["5"]` is false in CEL. Drop members of another type rather than let
+    # the store coerce '5' to 5.
+    column_kind = scalar_kind(c)
+    if not column_kind and any(
+        isinstance(member, (list, dict)) for member in non_nulls
+    ):
+        raise UnsupportedPlanError(
+            "membership in a list holding a list or map literal cannot be lowered: "
+            "the needle's type is unknown, and such a member cannot be bound as one "
+            "SQL value"
+        )
+    comparable = [
+        member
+        for member in non_nulls
+        if not isinstance(member, (list, dict))
+        and (not column_kind or scalar_kind(member) in ("", column_kind))
+    ]
+    predicates = []
+    if comparable:
+        if any(isinstance(member, str) for member in comparable) and not isinstance(
+            getattr(c, "type", None), _UpperAsciiString
+        ):
+            predicates.append(_exact_in(c, comparable))
+        else:
+            predicates.append(c.in_(comparable))
+    elif non_nulls and hasattr(c, "isnot"):
+        # All members dropped: FALSE if present, NULL if absent, like `c IN (...)`.
+        predicates.append(case((c.isnot(None), false())))
+    if len(non_nulls) != len(members):
+        predicates.append(c.is_(None))
+    if not predicates:
+        return false()
+    return or_(*predicates)
+
+
+# -- timestamps --------------------------------------------------------------------------------
+
+
+def _parse_rfc3339(value: str) -> datetime:
+    match = _RFC3339_TIMESTAMP.fullmatch(value)
+    if match is None:
+        raise UnsupportedPlanError(f"Invalid RFC-3339 timestamp literal: {value}")
+    digits = match.group(4) or ""
+    if len(digits) > 6 and any(d != "0" for d in digits[6:]):
+        raise UnsupportedPlanError(
+            f"Timestamp literal precision exceeds the exact microsecond range: {value}"
+        )
+    try:
+        normalized = _EXCESS_RFC3339_PRECISION.sub(r"\1", value)
+        normalized = normalized.replace("t", "T")
+        normalized = normalized.replace("z", "+00:00").replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise UnsupportedPlanError(
+            f"Invalid RFC-3339 timestamp literal: {value}"
+        ) from exc
+
+
+def _timestamp(value: Any, _: Any) -> Any:
+    """Unwrap a temporal column or parse an RFC-3339 planner constant."""
+    if isinstance(getattr(value, "type", None), DateTime):
+        return value
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        parsed = _parse_rfc3339(value)
+    else:
+        raise UnsupportedPlanError(
+            "timestamp() requires an RFC-3339 literal or a SQLAlchemy DateTime column"
+        )
+    if parsed.tzinfo is None:
+        raise UnsupportedPlanError(f"Timestamp literal must include an offset: {value}")
+    try:
+        normalized = parsed.astimezone(timezone.utc)
+    except (OverflowError, ValueError) as exc:
+        raise UnsupportedPlanError(
+            f"Timestamp literal is outside CEL's supported instant range: {value}"
+        ) from exc
+    if normalized < _MIN_CEL_TIMESTAMP or normalized > _MAX_CEL_TIMESTAMP:
+        raise UnsupportedPlanError(
+            f"Timestamp literal is outside CEL's supported instant range: {value}"
+        )
+    return normalized
+
+
+_DURATION = re.compile(r"^(-)?(\d+)(?:\.(\d{1,9}))?s$")
+
+
+def _duration(value: Any, _: Any) -> timedelta:
+    """Parse a planner duration constant, e.g. ``86400s``, into an exact ``timedelta``."""
+    match = _DURATION.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        raise UnsupportedPlanError(
+            f"duration() requires a constant in seconds, e.g. '86400s', got {value!r}"
+        )
+    sign, seconds, fraction = match.groups()
+    fraction = (fraction or "").ljust(9, "0")
+    if fraction[6:] != "000":
+        raise UnsupportedPlanError(
+            f"Duration literal precision exceeds the exact microsecond range: {value}"
+        )
+    delta = timedelta(seconds=int(seconds), microseconds=int(fraction[:6]))
+    return -delta if sign else delta
+
+
+def _time_since(*_: Any) -> NoReturn:
+    raise UnsupportedPlanError(
+        "timeSince() measures from the PDP's evaluation clock, and the plan carries no "
+        "instant for it (the planner folds now() but leaves timeSince() unevaluated): "
+        "the database's clock would move the boundary"
+    )
+
+
+# -- hierarchies -------------------------------------------------------------------------------
+
+
+def _hierarchy(value: Any, delimiter: Any) -> Hierarchy:
+    delimiter = "." if delimiter is None else delimiter
+    if not isinstance(delimiter, str) or not delimiter:
+        raise UnsupportedPlanError("hierarchy() delimiter must be a non-empty string")
+    return Hierarchy(value, delimiter)
+
+
+def _matching_hierarchies(left: Any, right: Any) -> tuple[Hierarchy, Hierarchy]:
+    if not isinstance(left, Hierarchy) or not isinstance(right, Hierarchy):
+        raise UnsupportedPlanError("Hierarchy operator requires hierarchy() operands")
+    if left.delimiter != right.delimiter:
+        raise UnsupportedPlanError("Hierarchy operands must use the same delimiter")
+    return left, right
+
+
+def _ancestor_of(left: Any, right: Any) -> Any:
+    ancestor, descendent = _matching_hierarchies(left, right)
+    ancestor_value = ancestor.value
+    descendent_value = descendent.value
+    delimiter = ancestor.delimiter
+
+    if isinstance(ancestor_value, str) and isinstance(descendent_value, str):
+        return descendent_value.startswith(ancestor_value + delimiter)
+    if isinstance(descendent_value, str):
+        parts = descendent_value.split(delimiter)
+        prefixes = [delimiter.join(parts[:i]) for i in range(1, len(parts))]
+        if not prefixes:
+            return case((ancestor_value.isnot(None), false()))
+        return _exact_in(ancestor_value, prefixes)
+    if isinstance(ancestor_value, str):
+        return _string_match(
+            descendent_value,
+            ancestor_value + delimiter,
+            prefix=False,
+            suffix=True,
+        )
+    raise UnsupportedPlanError(
+        "Hierarchy comparison between two columns is not supported"
+    )
+
+
+def _descendent_of(left: Any, right: Any) -> Any:
+    return _ancestor_of(right, left)
+
+
+def _hierarchy_overlaps(left: Any, right: Any) -> Any:
+    left_hierarchy, right_hierarchy = _matching_hierarchies(left, right)
+    left_value = left_hierarchy.value
+    right_value = right_hierarchy.value
+    if isinstance(left_value, str) and isinstance(right_value, str):
+        return (
+            left_value == right_value
+            or _ancestor_of(left_hierarchy, right_hierarchy)
+            or _ancestor_of(right_hierarchy, left_hierarchy)
+        )
+    return or_(
+        _eq(left_value, right_value),
+        _ancestor_of(left_hierarchy, right_hierarchy),
+        _ancestor_of(right_hierarchy, left_hierarchy),
+    )
+
+
+# -- the registry ------------------------------------------------------------------------------
+
+# Read-only so no caller can change the defaults process-wide. Override per call.
+OPERATOR_FNS = MappingProxyType(
+    {
+        "eq": _comparison("eq"),
+        "ne": _comparison("ne"),
+        "lt": _comparison("lt"),
+        "gt": _comparison("gt"),
+        "le": _comparison("le"),
+        "ge": _comparison("ge"),
+        "in": _in,
+        # Arithmetic returns values, composed inside comparisons.
+        "add": _overloaded(_additive(1), concatenates=True),
+        "sub": _overloaded(_additive(-1)),
+        "mult": _overloaded(_arithmetic(lambda c, v: c * v)),
+        "div": _overloaded(_float_div),
+        "mod": _overloaded(_modulo),
+        # Receiver-style string matches. Operands arrive receiver first.
+        "contains": lambda c, v: _string_match(c, v, prefix=True, suffix=True),
+        "startsWith": lambda c, v: _string_match(c, v, prefix=False, suffix=True),
+        "endsWith": lambda c, v: _string_match(c, v, prefix=True, suffix=False),
+        "matches": _matches,
+        # int() and double() always throw. See _reject_numeric_cast.
+        "string": lambda c, _: _string_cast(c),
+        "double": lambda *_: _reject_numeric_cast("double"),
+        "int": lambda *_: _reject_numeric_cast("int"),
+        # String size only. Declared collections never reach this handler.
+        "size": _string_size,
+        "timestamp": _timestamp,
+        "duration": _duration,
+        "timeSince": _time_since,
+        "upperAscii": _upper_ascii,
+        "hierarchy": _hierarchy,
+        "ancestorOf": _ancestor_of,
+        "descendentOf": _descendent_of,
+        "overlaps": _hierarchy_overlaps,
+    }
+)
+
+#: Single-operand operators, called as ``handler(operand, None)``.
+UNARY_VALUE_OPERATORS = frozenset(
+    {
+        "string",
+        "double",
+        "int",
+        "size",
+        "timestamp",
+        "duration",
+        "timeSince",
+        "upperAscii",
+    }
+)
+
+#: Operators to mirror when a value comes first: `1 < R.attr.x` becomes `x > 1`. See #257.
+MIRRORED_OPERATORS: dict[str, str] = {"lt": "gt", "gt": "lt", "le": "ge", "ge": "le"}
+
+#: Operators normalised to column-first. All others keep source order, or
+#: `"const".contains(R.attr.x)` would swap haystack and needle.
+ORDER_INSENSITIVE_OPERATORS = frozenset({"eq", "ne", "in", "hasIntersection"})
+
+#: Macros that fold into a boolean over their per-element bodies. Others fail closed.
+FOLDABLE_COLLECTION_OPERATORS = frozenset({"exists", "all", "exists_one"})
+
+# What a default handler can lower: SQL, plan literals, and this module's symbolic
+# values. An override's intermediate value (e.g. a deferred tuple) must throw here,
+# or Python's `==` turns it into a bare False that silently filters. See #387.
+_LOWERABLE_OPERAND_TYPES = (
+    ColumnElement,
+    InstrumentedAttribute,
+    IEEEConstant,
+    ConditionalValue,
+    Hierarchy,
+    ShiftedInstant,
+    timedelta,
+    str,
+    bool,
+    int,
+    float,
+    list,
+    dict,
+    datetime,
+    type(None),
+)
+
+
+def _holds_collection(value: Any) -> bool:
+    if isinstance(value, ConditionalValue):
+        return _holds_collection(value.then_value) or _holds_collection(
+            value.else_value
+        )
+    return isinstance(value, (list, dict))
+
+
+#: Where a shifted timestamp or a duration may go: anywhere else it would be bound as-is.
+_TEMPORAL_OPERATORS = frozenset({"add", "sub", "eq", "ne", "lt", "le", "gt", "ge"})
+
+
+def require_lowerable(operator: str, operand: Any) -> None:
+    if (
+        isinstance(operand, (ShiftedInstant, timedelta))
+        and operator not in _TEMPORAL_OPERATORS
+    ):
+        raise UnsupportedPlanError(
+            f"`{operator}` cannot take a duration or a timestamp shifted by one: only "
+            "+, - and comparisons fold them"
+        )
+    if (
+        isinstance(operand, ConditionalValue)
+        and _holds_collection(operand)
+        and operator not in ("add", "eq", "ne")
+    ):
+        raise UnsupportedPlanError(
+            f"`{operator}` cannot take a ternary of list or map literals: only list "
+            "concatenation and equality with a literal fold it per branch"
+        )
+    if not isinstance(operand, _LOWERABLE_OPERAND_TYPES):
+        raise UnsupportedPlanError(
+            f"`{operator}` received an operand of type "
+            f"{type(operand).__name__!r}, which is not a SQL expression or a plan "
+            "literal: an operator override returning an intermediate value must be "
+            "consumed by an enclosing override, and no default handler can lower one"
+        )

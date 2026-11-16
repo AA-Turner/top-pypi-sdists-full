@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+import subprocess  # ruff:ignore[suspicious-subprocess-import]  # fixed interpreter and script
+import sys
+import textwrap
+import urllib.parse
 from typing import TYPE_CHECKING, Final
 
 import pytest
@@ -8,30 +13,23 @@ from turbohtml import parse_xml
 from turbohtml.validate import RelaxNG
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
-_NS: Final = 'xmlns="http://relaxng.org/ns/structure/1.0"'
-_FOO: Final = f'<element {_NS} name="foo"><empty/></element>'
-_LONG: Final = "p" * 260
-_START_FOO: Final = f'<grammar {_NS}><start><element name="foo"><empty/></element></start></grammar>'
-
-
-def _compile(directory: Path, files: dict[str, str], **options: str | Path) -> RelaxNG:
-    for name, text in files.items():
-        (directory / name).parent.mkdir(parents=True, exist_ok=True)
-        (directory / name).write_text(text)
-    return RelaxNG(files["main.rng"], base_url=str(directory / "main.rng"), **options)
-
-
-def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
-    return [schema.validate(parse_xml(document)).valid for document in documents]
+_NS: Final[str] = 'xmlns="http://relaxng.org/ns/structure/1.0"'
+_ELEMENT: Final[str] = f'<element {_NS} name="foo"><empty/></element>'
+_LONG: Final[str] = "p" * 260
+_OVERLONG: Final[str] = "dir/" * (32_767 // 4 + 1)
+_START_FOO: Final[str] = f'<grammar {_NS}><start><element name="foo"><empty/></element></start></grammar>'
+_EXTERNAL_REF: Final[str] = '<externalRef href="x"/>'
+_BASE_URI_LIMIT: Final[int] = 8192
 
 
 @pytest.mark.parametrize(
     ("files", "documents", "expected"),
     [
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="sub/x"/>', "sub/x": _FOO},
+            {"main.rng": f'<externalRef {_NS} href="sub/x"/>', "sub/x": _ELEMENT},
             ("<foo/>", "<bar/>"),
             [True, False],
             id="external-root",
@@ -39,7 +37,7 @@ def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
         pytest.param(
             {
                 "main.rng": f'<element {_NS} name="r"><externalRef xml:base="sub/y" href="x"/></element>',
-                "sub/x": _FOO,
+                "sub/x": _ELEMENT,
             },
             ("<r><foo/></r>", "<r><bar/></r>"),
             [True, False],
@@ -51,20 +49,44 @@ def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
                 '<externalRef href="x"/></group></group></group>',
                 "x": f'<element {_NS} name="bar"><empty/></element>',
                 "sub1/x": f'<element {_NS} name="bar"><empty/></element>',
-                "sub1/sub3/x": _FOO,
+                "sub1/sub3/x": _ELEMENT,
             },
             ("<foo/>", "<bar/>"),
             [True, False],
             id="xml-base-composed",
         ),
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="x" ns="urn:example"/>', "x": _FOO},
+            {
+                "main.rng": f'<choice {_NS} xml:base="sub1/"><externalRef href="x"/><choice xml:base="sub2/">'
+                '<externalRef href="x"/><externalRef href="y"/></choice><externalRef href="y"/></choice>',
+                "sub1/x": _ELEMENT,
+                "sub1/y": f'<element {_NS} name="bar"><empty/></element>',
+                "sub1/sub2/x": f'<element {_NS} name="baz"><empty/></element>',
+                "sub1/sub2/y": f'<element {_NS} name="qux"><empty/></element>',
+            },
+            ("<foo/>", "<bar/>", "<baz/>", "<qux/>", "<quux/>"),
+            [True, True, True, True, False],
+            id="xml-base-shared",
+        ),
+        pytest.param(
+            {
+                "main.rng": f'<group {_NS} xml:base="sub1/"><externalRef xml:base="sub2/" href="x">'
+                '<externalRef href="y"/></externalRef></group>',
+                "sub1/sub2/x": _ELEMENT,
+                "sub2/y": _ELEMENT,
+            },
+            ("<foo/>", "<bar/>"),
+            [True, False],
+            id="xml-base-detached",
+        ),
+        pytest.param(
+            {"main.rng": f'<externalRef {_NS} href="x" ns="urn:example"/>', "x": _ELEMENT},
             ('<foo xmlns="urn:example"/>', "<foo/>"),
             [True, False],
             id="external-ns-transferred",
         ),
         pytest.param(
-            {"main.rng": f'<group {_NS} ns="urn:example"><externalRef href="x"/></group>', "x": _FOO},
+            {"main.rng": f'<group {_NS} ns="urn:example"><externalRef href="x"/></group>', "x": _ELEMENT},
             ('<foo xmlns="urn:example"/>', "<foo/>"),
             [True, False],
             id="external-ns-inherited",
@@ -82,7 +104,7 @@ def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
             {
                 "main.rng": f'<externalRef {_NS} href="sub/x"/>',
                 "sub/x": f'<externalRef {_NS} href="sub/x"/>',
-                "sub/sub/x": _FOO,
+                "sub/sub/x": _ELEMENT,
             },
             ("<foo/>", "<bar/>"),
             [True, False],
@@ -97,7 +119,7 @@ def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
         pytest.param(
             {
                 "main.rng": f'<choice {_NS}><externalRef href="x"/><externalRef href="y"/></choice>',
-                "x": _FOO,
+                "x": _ELEMENT,
                 "y": f'<element {_NS} name="bar"><empty/></element>',
             },
             ("<foo/>", "<bar/>", "<baz/>"),
@@ -200,6 +222,17 @@ def test_relaxng_resources_accept(
     assert _verdicts(_compile(tmp_path, files, include_root=tmp_path), *documents) == expected
 
 
+def _verdicts(schema: RelaxNG, *documents: str) -> list[bool]:
+    return [schema.validate(parse_xml(document)).valid for document in documents]
+
+
+def _compile(directory: Path, files: dict[str, str], **options: str | Path) -> RelaxNG:
+    for name, text in files.items():
+        (directory / name).parent.mkdir(parents=True, exist_ok=True)
+        (directory / name).write_text(text)
+    return RelaxNG(files["main.rng"], base_url=str(directory / "main.rng"), **options)
+
+
 @pytest.mark.parametrize(
     ("files", "error", "match"),
     [
@@ -210,25 +243,31 @@ def test_relaxng_resources_accept(
             id="malformed-xml-base",
         ),
         pytest.param(
+            {"main.rng": f'<group {_NS} xml:base="http://["><externalRef xml:base="sub/" href="x"/></group>'},
+            ValueError,
+            "Invalid IPv6 URL",
+            id="malformed-outer-xml-base",
+        ),
+        pytest.param(
             {"main.rng": f'<externalRef {_NS} href="http://["/>'},
             ValueError,
             "Invalid IPv6 URL",
             id="malformed-href",
         ),
         pytest.param(
-            {"main.rng": f'<grammar {_NS}><include/><start><externalRef href="x"/></start></grammar>', "x": _FOO},
+            {"main.rng": f'<grammar {_NS}><include/><start><externalRef href="x"/></start></grammar>', "x": _ELEMENT},
             ValueError,
             "missing the required href attribute",
             id="include-without-href-beside-reference",
         ),
         pytest.param(
-            {"main.rng": f'<choice {_NS}><externalRef/><externalRef href="x"/></choice>', "x": _FOO},
+            {"main.rng": f'<choice {_NS}><externalRef/><externalRef href="x"/></choice>', "x": _ELEMENT},
             ValueError,
             "missing the required href attribute",
             id="external-without-href-beside-reference",
         ),
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="x#foo"/>', "x": _FOO},
+            {"main.rng": f'<externalRef {_NS} href="x#foo"/>', "x": _ELEMENT},
             ValueError,
             "must not contain a fragment identifier",
             id="fragment",
@@ -250,7 +289,7 @@ def test_relaxng_resources_accept(
             id="include-loop",
         ),
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="x"/>', "x": f"<start {_NS}>{_FOO}</start>"},
+            {"main.rng": f'<externalRef {_NS} href="x"/>', "x": f"<start {_NS}>{_ELEMENT}</start>"},
             ValueError,
             "externalRef target is not a pattern",
             id="external-not-pattern",
@@ -262,7 +301,7 @@ def test_relaxng_resources_accept(
             id="external-foreign-root",
         ),
         pytest.param(
-            {"main.rng": f'<grammar {_NS}><include href="x"/></grammar>', "x": _FOO},
+            {"main.rng": f'<grammar {_NS}><include href="x"/></grammar>', "x": _ELEMENT},
             ValueError,
             "include target is not a grammar",
             id="include-not-grammar",
@@ -270,7 +309,7 @@ def test_relaxng_resources_accept(
         pytest.param(
             {
                 "main.rng": f'<grammar {_NS}><include href="x"><start><ref name="foo"/></start></include></grammar>',
-                "x": f'<grammar {_NS}><define name="foo">{_FOO}</define></grammar>',
+                "x": f'<grammar {_NS}><define name="foo">{_ELEMENT}</define></grammar>',
             },
             ValueError,
             "overrides start, which the included grammar does not define",
@@ -279,8 +318,8 @@ def test_relaxng_resources_accept(
         pytest.param(
             {
                 "main.rng": f'<grammar {_NS}><start><ref name="foo"/></start><include href="x"><div>'
-                f'<define name="foo">{_FOO}</define></div></include></grammar>',
-                "x": f'<grammar {_NS}><start>{_FOO}</start><define name="bar">{_FOO}</define></grammar>',
+                f'<define name="foo">{_ELEMENT}</define></div></include></grammar>',
+                "x": f'<grammar {_NS}><start>{_ELEMENT}</start><define name="bar">{_ELEMENT}</define></grammar>',
             },
             ValueError,
             "overrides define 'foo', which the included grammar does not define",
@@ -299,10 +338,28 @@ def test_relaxng_resources_accept(
             id="remote-href",
         ),
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="sub"/>', "sub/x": _FOO},
+            {"main.rng": f'<externalRef {_NS} href="/%5Crelay/export/lib.rng"/>'},
+            ValueError,
+            "RELAX NG href must not resolve to a UNC path",
+            id="encoded-unc-href",
+        ),
+        pytest.param(
+            {"main.rng": f'<externalRef {_NS} href="sub"/>', "sub/x": _ELEMENT},
             ValueError,
             "RELAX NG target is not a regular file",
             id="directory-target",
+        ),
+        pytest.param(
+            {"main.rng": f"<choice {_NS}>{_EXTERNAL_REF * 1025}</choice>", "x": _ELEMENT},
+            ValueError,
+            "RELAX NG references exceed the limit of 1024 files",
+            id="too-many-references",
+        ),
+        pytest.param(
+            {"main.rng": f'<externalRef {_NS} href="x"/>', "x": _ELEMENT + " " * (8 << 20)},
+            ValueError,
+            "RELAX NG references exceed the limit of 8 MiB",
+            id="too-many-bytes",
         ),
         pytest.param(
             {"main.rng": f'<externalRef {_NS} href="missing"/>'},
@@ -317,19 +374,28 @@ def test_relaxng_resources_accept(
             id="malformed-target",
         ),
         pytest.param(
-            {"main.rng": f'<externalRef {_NS} href="x"/>', "x": f"<group {_NS}>" + "<group>" * 400 + "</group>" * 401},
+            {"main.rng": f'<externalRef {_NS} href="x"/>', "x": f"<group {_NS}>{'<group>' * 400}{'</group>' * 401}"},
             RecursionError,
             "schema compilation does not support trees nested 400 levels",
             id="deep-target",
         ),
         pytest.param(
             {
-                "main.rng": f"<group {_NS}>" + "<group>" * 200 + '<externalRef href="x"/>' + "</group>" * 201,
-                "x": f"<group {_NS}>" + "<group>" * 200 + "<empty/>" + "</group>" * 201,
+                "main.rng": f'<group {_NS}>{"<group>" * 200}<externalRef href="x"/>{"</group>" * 201}',
+                "x": f"<group {_NS}>{'<group>' * 200}<empty/>{'</group>' * 201}",
             },
             RecursionError,
             "schema compilation does not support trees nested 400 levels",
             id="deep-graft",
+        ),
+        pytest.param(
+            {
+                "main.rng": f'<element {_NS} name="doc"><externalRef href="x"/><externalRef href="x"/></element>',
+                "x": f'<attribute {_NS} name="id"/>',
+            },
+            ValueError,
+            "attributes whose names overlap",
+            id="external-attribute-twice",
         ),
     ],
 )
@@ -337,6 +403,43 @@ def test_relaxng_resources_reject(tmp_path: Path, files: dict[str, str], error: 
     root: Final = tmp_path / "root"
     with pytest.raises(error, match=match):
         _compile(root, files, include_root=root)
+
+
+def test_relaxng_resources_join_shared_xml_base_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # every reference below an xml:base joined it again, so one long base cost time per reference
+    joined: Final[list[str]] = []
+    urljoin: Final = urllib.parse.urljoin
+
+    def record(base: str, url: str) -> str:
+        joined.append(url)
+        return urljoin(base, url)
+
+    monkeypatch.setattr(urllib.parse, "urljoin", record)
+    files: Final = {
+        "main.rng": f'<choice {_NS} xml:base="sub1/"><choice xml:base="sub2/">{_EXTERNAL_REF * 50}</choice></choice>',
+        "sub1/sub2/x": _ELEMENT,
+    }
+    assert _verdicts(_compile(tmp_path, files), "<foo/>", "<bar/>") == [True, False]
+    assert (joined.count("sub1/"), joined.count("sub2/"), joined.count("x")) == (1, 1, 50)
+
+
+def test_relaxng_resources_xml_base_at_limit_compiles(tmp_path: Path) -> None:
+    files: Final = _length_limit_files(tmp_path, _BASE_URI_LIMIT)
+    assert _verdicts(_compile(tmp_path, files), "<foo/>", "<bar/>") == [True, False]
+
+
+def _length_limit_files(tmp_path: Path, length: int) -> dict[str, str]:
+    # a query is appended to the document URI unchanged, so the joined base is exactly length characters
+    document: Final = (tmp_path / "main.rng").resolve().as_uri()
+    query: Final = f"?{'q' * (length - len(document) - 1)}"
+    return {"main.rng": f'<choice {_NS} xml:base="{query}">{_EXTERNAL_REF * 2}</choice>', "x": _ELEMENT}
+
+
+def test_relaxng_resources_xml_base_past_limit_rejected(tmp_path: Path) -> None:
+    files: Final = _length_limit_files(tmp_path, _BASE_URI_LIMIT + 1)
+    message: Final = f"RELAX NG xml:base gives a base URI longer than {_BASE_URI_LIMIT} characters"
+    with pytest.raises(ValueError, match=message):
+        _compile(tmp_path, files)
 
 
 def test_relaxng_resources_need_base_url() -> None:
@@ -347,21 +450,45 @@ def test_relaxng_resources_need_base_url() -> None:
 def test_relaxng_resources_symlink_escape(tmp_path: Path) -> None:
     root: Final = tmp_path / "root"
     root.mkdir()
-    (tmp_path / "outside.rng").write_text(_FOO)
+    (tmp_path / "outside.rng").write_text(_ELEMENT)
     (root / "link.rng").symlink_to(tmp_path / "outside.rng")
     with pytest.raises(ValueError, match="RELAX NG path escapes include_root"):
         RelaxNG(f'<externalRef {_NS} href="link.rng"/>', base_url=str(root / "main.rng"), include_root=root)
 
 
+@pytest.mark.parametrize(
+    ("reference", "href"),
+    [
+        pytest.param("externalRef", "link.rng", id="external-link-inside-root"),
+        pytest.param("externalRef", "../elsewhere/link.rng", id="external-link-outside-root"),
+        pytest.param("include", "link.rng", id="include-link-inside-root"),
+    ],
+)
+def test_relaxng_resources_escape_names_href_not_symlink_target(tmp_path: Path, reference: str, href: str) -> None:
+    root: Final = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "elsewhere").mkdir()
+    (tmp_path / "target.rng").write_text(_ELEMENT)
+    (root / href).symlink_to(tmp_path / "target.rng")
+    source: Final = {
+        "externalRef": f'<externalRef {_NS} href="{href}"/>',
+        "include": f'<grammar {_NS}><include href="{href}"/></grammar>',
+    }[reference]
+    with pytest.raises(ValueError, match="RELAX NG path escapes include_root") as rejection:
+        RelaxNG(source, base_url=str(root / "main.rng"), include_root=root)
+    assert str(rejection.value).endswith("link.rng")
+    assert "target.rng" not in str(rejection.value)
+
+
 def test_relaxng_resources_without_root_follow_symlinks(tmp_path: Path) -> None:
-    (tmp_path / "x").write_text(_FOO)
+    (tmp_path / "x").write_text(_ELEMENT)
     (tmp_path / "link.rng").symlink_to(tmp_path / "x")
     schema: Final = RelaxNG(f'<externalRef {_NS} href="link.rng"/>', base_url=str(tmp_path / "main.rng"))
     assert _verdicts(schema, "<foo/>", "<bar/>") == [True, False]
 
 
 def test_relaxng_resources_file_urls(tmp_path: Path) -> None:
-    (tmp_path / "x y").write_text(_FOO)
+    (tmp_path / "x y").write_text(_ELEMENT)
     schema: Final = RelaxNG(
         parse_xml(f'<externalRef {_NS} href="{(tmp_path / "x y").as_uri()}"/>'),
         base_url=(tmp_path / "main.rng").as_uri(),
@@ -413,8 +540,76 @@ def test_relaxng_start_combine_checks_every_start() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("href", "base_url"),
+    [
+        pytest.param(f"{_OVERLONG}x", "main.rng", id="href"),
+        pytest.param("x", f"{_OVERLONG}main.rng", id="base_url"),
+    ],
+)
+@pytest.mark.parametrize(
+    "confinement",
+    [pytest.param(lambda path: path, id="include-root"), pytest.param(lambda _: None, id="unconfined")],
+)
+def test_relaxng_resources_reject_overlong_path(
+    tmp_path: Path, href: str, base_url: str, confinement: Callable[[Path], Path | None]
+) -> None:
+    with pytest.raises(OSError, match="too long"):
+        RelaxNG(
+            f'<externalRef {_NS} href="{href}"/>',
+            base_url=str(tmp_path / base_url),
+            include_root=confinement(tmp_path),
+        )
+
+
 def test_relaxng_resources_reject_missing_include_root(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         RelaxNG(
             f'<externalRef {_NS} href="x"/>', base_url=str(tmp_path / "main.rng"), include_root=tmp_path / "missing"
         )
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param(
+            {
+                "main.rng": f'<externalRef {_NS} href="x"/>',
+                "x": f"<element {_NS}><name>r</name><value>word</value></element>",
+            },
+            id="external",
+        ),
+        pytest.param(
+            {
+                "main.rng": f'<grammar {_NS}><include href="x"/></grammar>',
+                "x": f"<grammar {_NS}><start><element><name>r</name><value>word</value></element></start></grammar>",
+            },
+            id="include",
+        ),
+    ],
+)
+def test_relaxng_resources_keep_source_until_text_is_copied(tmp_path: Path, files: dict[str, str]) -> None:
+    # A referenced file's text nodes borrow its source until the graft copies them. The debug allocator overwrites a
+    # block as it is freed, so a source released before the copy turns the name and the value into filler.
+    for name, text in files.items():
+        (tmp_path / name).write_text(text)
+    script: Final = textwrap.dedent("""
+        import sys
+        from pathlib import Path
+
+        from turbohtml import parse_xml
+        from turbohtml.validate import RelaxNG
+
+        main = Path(sys.argv[1])
+        schema = RelaxNG(main.read_text(), base_url=str(main))
+        print([schema.is_valid(parse_xml(document)) for document in sys.argv[2:]])
+    """)
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # fixed interpreter and script
+        [sys.executable, "-c", script, str(tmp_path / "main.rng"), "<r>word</r>", "<r>other</r>", "<s>word</s>"],
+        env={**os.environ, "PYTHONMALLOC": "debug"},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert (result.returncode, result.stdout.strip()) == (0, "[True, False, False]"), result.stderr

@@ -18,20 +18,12 @@ use sqlbuild_rules::rule_cache::main::file_rule_key::file_rule_key;
 use sqlbuild_rules::rule_results::main::duplicate_literal_hints::duplicate_literal_hints;
 use sqlbuild_rules::rule_results::models::RuleFinding;
 
-use crate::bindings::_helpers::boundary::keyword_request::Request;
-use crate::bindings::_helpers::boundary::python_calls::{imported, keywords};
 use crate::bindings::_helpers::compile_attachment::sql_expansion_context::ExpansionVars;
 use crate::bindings::_helpers::compiled_views::compiled_model_view::{
     NativeCompiledModel, SqlRuleInputs, SqlRuleKey,
 };
 use crate::bindings::_helpers::compiled_views::model_reads::output_proven;
 use crate::bindings::_helpers::compiled_views::relation_keys::project_relation_keys;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::mapping_get;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::rules::constants::SAFE_RULE_FIX_CODES;
 use crate::bindings::_helpers::rules::constants::SQL_RULE_PREFIX;
 use crate::bindings::_helpers::rules::early_sql_lint::{
@@ -51,6 +43,16 @@ use crate::bindings::_helpers::rules::rule_cache::{
     ModelRuleRow, StoredEntries, cached_rule_findings, encoded_findings, model_rule_keys,
     settings_lint_key, stored_entries, write_rule_cache,
 };
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::models::Request;
+use sqlbuild_python_base::records::main::construct::error_class::error_class;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 const DATACLASSES_MODULE: &str = "dataclasses";
 const JSON_MODULE: &str = "json";
@@ -152,7 +154,7 @@ pub(crate) fn run_planned_sql_rules<'py>(
     let project_files: Option<Vec<LintFile>> = if !identities.is_empty()
         && run.prepared().is_none()
         && !run.model_selection
-        && crate::bindings::_helpers::compile_context::delta::injection().is_none()
+        && sqlbuild_python_base::compile_context::main::delta::injection::injection().is_none()
     {
         Some(lint_sources(&run.project_dir, None, None)?)
     } else {
@@ -389,7 +391,7 @@ fn linted_files(
     let py: Python<'_> = run.project.py();
     let project_dir: &Path = &run.project_dir;
     let prepared = prepared_result(run, py);
-    if crate::bindings::_helpers::compile_context::delta::injection().is_some() {
+    if sqlbuild_python_base::compile_context::main::delta::injection::injection().is_some() {
         return crate::bindings::_helpers::compile_delta::lint_hooks::changed_files(project_dir);
     }
     Ok(match prepared {

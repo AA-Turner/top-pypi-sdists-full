@@ -10,6 +10,7 @@
 #include "problems/dense_qp.h"
 #include "problems/hs21_tiny_qp.h"
 #include "problems/infeasible_lp.h"
+#include "problems/issue_499.h"
 #include "problems/infeasible_socp.h"
 #include "problems/infeasible_tiny_qp.h"
 #include "problems/lp_update.h"
@@ -20,6 +21,7 @@
 #include "problems/test_exp_cone.h"
 #include "problems/test_inaccurate.h"
 #include "problems/test_mixed_cones.h"
+#include "problems/test_non_psd_p.h"
 #include "problems/test_normalize_roundtrip.h"
 #include "problems/test_power_cone.h"
 #include "problems/test_root_plus.h"
@@ -33,14 +35,21 @@
 #include "problems/unbounded_tiny_qp.h"
 
 int tests_run = 0;
+int tests_failed = 0;
+int tests_skipped = 0;
+const char *failed_tests[MU_MAX_FAILED_TESTS];
+const char *skipped_tests[MU_MAX_FAILED_TESTS];
+const char *const mu_skipped = "skipped";
 
-/* decrement tests_run since mu_unit will increment it, so this cancels */
+/* Number of mu_run_test calls in all_tests() below. A build flag can compile a
+ * test out, in which case _SKIP replaces it with a stub that reports itself
+ * as skipped, and main() checks that run + skipped == MU_TOTAL_TESTS. A build
+ * that silently loses tests therefore fails instead of printing ALL TESTS
+ * PASSED. Bump this when adding a test. */
+#define MU_TOTAL_TESTS 78
+
 #define _SKIP(problem)                                                         \
-  char *problem(void) {                                                        \
-    scs_printf("skipped\n");                                                   \
-    tests_run--;                                                               \
-    return 0;                                                                  \
-  }
+  static const char *problem(void) { return mu_skipped; }
 
 #if NO_VALIDATE == 0
 #include "problems/test_validation.h"
@@ -53,23 +62,41 @@ _SKIP(test_validation)
 #include "problems/complex_PSD.h"
 #include "problems/sd_and_complex_sd.h"
 #include "problems/test_psd_metric.h"
+#include "problems/test_psd_parallel.h"
+#include "problems/test_psd_scale_updates.h"
 #else
 _SKIP(complex_PSD)
 _SKIP(sd_and_complex_sd)
 _SKIP(test_psd_metric)
+_SKIP(test_psd_parallel)
+_SKIP(test_psd_parallel_solve)
+_SKIP(test_psd_scale_updates)
 #endif
 
 /* solve SDPs from data files, requires blas / lapack */
 #if defined(USE_LAPACK) && NO_READ_WRITE == 0
-#include "problems/random_prob.h"
 #include "problems/rob_gauss_cov_est.h" /* tests writing to data file */
 #else
-_SKIP(random_prob)
 _SKIP(rob_gauss_cov_est)
 #endif
 
-/* solve SDPs with spectral cones, requires blas / lapack */
-#if defined(USE_SPECTRAL_CONES)
+/* The problems stored in test/problems store their floats as doubles, and
+ * SCS(read_data) refuses a file whose float size differs from the build's, so
+ * single-precision builds cannot load them. */
+#if defined(USE_LAPACK) && NO_READ_WRITE == 0 && !defined(SFLOAT)
+#include "problems/issue_220.h"
+#include "problems/random_prob.h"
+#else
+_SKIP(issue_220)
+_SKIP(random_prob)
+#endif
+
+/* solve SDPs with spectral cones, requires blas / lapack. Not in single
+ * precision: the inner Newton and interior-point solvers of these cones use
+ * fixed tolerances of 1e-7 to 1e-14, which float arithmetic cannot reach, so
+ * they run to their iteration limits inside every cone projection. Some
+ * problems then fail and the rest take minutes. */
+#if defined(USE_SPECTRAL_CONES) && !defined(SFLOAT)
 #include "spectral_cones_problems/exp_design.h"
 #include "spectral_cones_problems/graph_partitioning.h"
 #include "spectral_cones_problems/robust_pca.h"
@@ -78,6 +105,7 @@ _SKIP(rob_gauss_cov_est)
 #include "spectral_cones_problems/several_sum_largest.h"
 #include "spectral_cones_problems/test_ell1_cone.h"
 #include "spectral_cones_problems/test_ell1_and_nuc.h"
+#include "spectral_cones_problems/test_spectral_metric_updates.h"
 #else
 _SKIP(exp_design)
 _SKIP(robust_pca)
@@ -87,22 +115,30 @@ _SKIP(several_nuc_cone)
 _SKIP(several_logdet_cones)
 _SKIP(test_ell1_cone)
 _SKIP(test_ell1_and_nuc)
+_SKIP(test_spectral_metric_updates)
 #endif
 
 /* solves problems from data files */
 #if NO_READ_WRITE == 0
 #include "problems/hs21_tiny_qp_rw.h"
 #include "problems/test_rw_settings.h"
-#include "problems/max_ent.h"
-#include "problems/mpc_bug.h"
 #else
 _SKIP(hs21_tiny_qp_rw)
 _SKIP(test_rw_settings)
+#endif
+
+/* stored as doubles too, see above */
+#if NO_READ_WRITE == 0 && !defined(SFLOAT)
+#include "problems/issue_140.h"
+#include "problems/max_ent.h"
+#include "problems/mpc_bug.h"
+#else
+_SKIP(issue_140)
 _SKIP(max_ent)
 _SKIP(mpc_bug)
 #endif
 
-static const char *all_tests(void) {
+static void all_tests(void) {
   mu_run_test(test_validation);
   mu_run_test(degenerate);
   mu_run_test(dense_qp);
@@ -113,6 +149,9 @@ static const char *all_tests(void) {
   mu_run_test(complex_PSD);
   mu_run_test(sd_and_complex_sd);
   mu_run_test(test_psd_metric);
+  mu_run_test(test_psd_parallel);
+  mu_run_test(test_psd_parallel_solve);
+  mu_run_test(test_psd_scale_updates);
   mu_run_test(hs21_tiny_qp);
   mu_run_test(hs21_tiny_qp_rw);
   mu_run_test(test_rw_settings);
@@ -126,6 +165,9 @@ static const char *all_tests(void) {
   mu_run_test(random_prob);
   mu_run_test(max_ent);
   mu_run_test(mpc_bug);
+  mu_run_test(issue_140);
+  mu_run_test(issue_220);
+  mu_run_test(issue_499);
   mu_run_test(test_exp_cone);
   mu_run_test(test_dual_exp_cone);
   mu_run_test(test_power_cone);
@@ -133,6 +175,8 @@ static const char *all_tests(void) {
   mu_run_test(test_dual_power_cone);
   mu_run_test(test_multi_power);
   mu_run_test(test_power_cone_infeasible);
+  mu_run_test(test_power_cone_small_scale);
+  mu_run_test(test_power_cone_proj_tiny_component);
   mu_run_test(test_soc_size1);
   mu_run_test(test_soc_size2);
   mu_run_test(test_soc_size3);
@@ -160,6 +204,7 @@ static const char *all_tests(void) {
   mu_run_test(test_time_limit_secs);
   mu_run_test(test_warm_start);
   mu_run_test(test_mixed_cones);
+  mu_run_test(test_non_psd_p);
   mu_run_test(test_root_plus_equivalence);
   mu_run_test(test_normalize_roundtrip_lp);
   mu_run_test(test_normalize_roundtrip_qp);
@@ -171,17 +216,37 @@ static const char *all_tests(void) {
   mu_run_test(several_logdet_cones);
   mu_run_test(test_ell1_cone);
   mu_run_test(test_ell1_and_nuc);
-  return 0;
+  mu_run_test(test_spectral_metric_updates);
 }
 int main(void) {
-  const char *result = all_tests();
-  if (result != 0) {
-    scs_printf("%s\n", result);
+  int i;
+  /* line buffer so that a slow or stuck test is visible in a piped CI log */
+  setvbuf(stdout, NULL, _IOLBF, 0);
+  all_tests();
+  scs_printf("Tests run: %d, skipped: %d, total: %d\n", tests_run, tests_skipped,
+             MU_TOTAL_TESTS);
+  if (tests_skipped > 0) {
+    scs_printf("Skipped (compiled out by build flags):");
+    for (i = 0; i < tests_skipped && i < MU_MAX_FAILED_TESTS; ++i) {
+      scs_printf(" %s", skipped_tests[i]);
+    }
+    scs_printf("\n");
+  }
+  if (tests_run + tests_skipped != MU_TOTAL_TESTS) {
+    scs_printf("TEST COUNT MISMATCH: %d run + %d skipped != %d expected "
+               "(update MU_TOTAL_TESTS in test/run_tests.c)\n",
+               tests_run, tests_skipped, MU_TOTAL_TESTS);
+    tests_failed++;
+  }
+  if (tests_failed > 0) {
+    scs_printf("%d TEST(S) FAILED:\n", tests_failed);
+    for (i = 0; i < tests_failed && i < MU_MAX_FAILED_TESTS; ++i) {
+      scs_printf("  %s\n", failed_tests[i]);
+    }
     scs_printf("TEST FAILED!\n");
   } else {
     scs_printf("ALL TESTS PASSED\n");
   }
-  scs_printf("Tests run: %d\n", tests_run);
 
-  return result != 0;
+  return tests_failed != 0;
 }

@@ -16,17 +16,19 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final
 
-__all__ = ["generate"]
-
-_TAG_HASH_COEFFICIENTS: Final = (845, 797, 163, 777)
-_TAG_HASH_MASK: Final = 1023
+_TAG_HASH_COEFFICIENTS: Final[tuple[int, ...]] = (845, 797, 163, 777)
+_TAG_HASH_MASK: Final[int] = 1023
+_TAG_KEY_MULTIPLIER: Final[int] = 0x81EB9B20A3A2D823
+_TAG_KEY_BITS: Final[int] = 10
+_TAG_KEY_BYTES: Final[int] = 8
 
 # Element categories the tree-construction algorithm tests against, in the HTML
 # namespace. The foreign-content insertion mode handles MathML/SVG scoping
 # markers separately.
-SPECIAL = frozenset([
+_SPECIAL: Final[frozenset[str]] = frozenset([
     "address",
     "applet",
     "area",
@@ -114,7 +116,7 @@ SPECIAL = frozenset([
     "wbr",
     "xmp",
 ])
-FORMATTING = frozenset([
+_FORMATTING: Final[frozenset[str]] = frozenset([
     "a",
     "b",
     "big",
@@ -132,14 +134,25 @@ FORMATTING = frozenset([
 ])
 # Elements that form a scope boundary (the "default" scope marker set; select
 # joined it with the customizable-select parsing change).
-SCOPING = frozenset(["applet", "caption", "html", "marquee", "object", "select", "table", "td", "th", "template"])
+_SCOPING: Final[frozenset[str]] = frozenset([
+    "applet",
+    "caption",
+    "html",
+    "marquee",
+    "object",
+    "select",
+    "table",
+    "td",
+    "th",
+    "template",
+])
 # Start tags that switch the tokenizer's content model (tree construction owns this).
-RAWTEXT = frozenset(["style", "xmp", "iframe", "noembed", "noframes", "noscript"])
-RCDATA = frozenset(["title", "textarea"])
+_RAWTEXT: Final[frozenset[str]] = frozenset(["style", "xmp", "iframe", "noembed", "noframes", "noscript"])
+_RCDATA: Final[frozenset[str]] = frozenset(["title", "textarea"])
 
 # MathML / SVG element names the foreign-content insertion mode special-cases
 # (text integration points, HTML integration points, name adjustments).
-FOREIGN = frozenset([
+_FOREIGN: Final[frozenset[str]] = frozenset([
     "mi",
     "mo",
     "mn",
@@ -156,7 +169,7 @@ FOREIGN = frozenset([
 
 # Extra commonly-seen names so frequent elements get a stable atom even when not
 # in a special category (keeps the intern hit-rate high for real documents).
-EXTRA = frozenset([
+_EXTRA: Final[frozenset[str]] = frozenset([
     "abbr",
     "address",
     "b",
@@ -204,13 +217,13 @@ EXTRA = frozenset([
     "svg",
 ])
 
-CATEGORY_FLAGS = {
-    "TH_TAG_SPECIAL": SPECIAL,
-    "TH_TAG_FORMATTING": FORMATTING,
-    "TH_TAG_SCOPING": SCOPING,
-    "TH_TAG_RAWTEXT": RAWTEXT,
-    "TH_TAG_RCDATA": RCDATA,
-}
+_CATEGORY_FLAGS: Final[MappingProxyType[str, frozenset[str]]] = MappingProxyType({
+    "TH_TAG_SPECIAL": _SPECIAL,
+    "TH_TAG_FORMATTING": _FORMATTING,
+    "TH_TAG_SCOPING": _SCOPING,
+    "TH_TAG_RAWTEXT": _RAWTEXT,
+    "TH_TAG_RCDATA": _RCDATA,
+})
 
 
 def _tag_hash_rows(names: list[str]) -> str:
@@ -227,20 +240,39 @@ def _tag_hash_rows(names: list[str]) -> str:
     return ", ".join(f"{index}u" for index in slots)
 
 
+def _tag_key(name: str) -> int:
+    # Pack a name of at most 8 bytes little-endian into an integer, the way the tokenizer loads it; 0 for a longer name.
+    return int.from_bytes(name.encode().ljust(_TAG_KEY_BYTES, b"\0"), "little") if len(name) <= _TAG_KEY_BYTES else 0
+
+
+def _tag_key_rows(names: list[str]) -> str:
+    slots = [0] * (1 << _TAG_KEY_BITS)
+    for index, name in enumerate(names, start=1):
+        if key := _tag_key(name):
+            slot = ((key * _TAG_KEY_MULTIPLIER) & ((1 << 64) - 1)) >> (64 - _TAG_KEY_BITS)
+            if slots[slot]:
+                msg = f"tag key hash collision between {names[slots[slot] - 1]!r} and {name!r}"
+                raise RuntimeError(msg)
+            slots[slot] = index
+    return ", ".join(f"{index}u" for index in slots)
+
+
 def generate(out_path: Path) -> None:
-    """Write the generated tag-atom C header to *out_path*."""
-    names = sorted(SPECIAL | FORMATTING | SCOPING | RAWTEXT | RCDATA | FOREIGN | EXTRA)
+    # Write the generated tag-atom C header to *out_path*.
+    names = sorted(_SPECIAL | _FORMATTING | _SCOPING | _RAWTEXT | _RCDATA | _FOREIGN | _EXTRA)
     atoms = [f"TH_TAG_{name.upper().replace('-', '_')}" for name in names]
 
-    flag_bits = {flag: 1 << i for i, flag in enumerate(CATEGORY_FLAGS)}
+    flag_bits = {flag: 1 << i for i, flag in enumerate(_CATEGORY_FLAGS)}
     flag_defs = "\n".join(f"#define {flag} {bit}u" for flag, bit in flag_bits.items())
 
     enum_lines = "\n".join(f"    {atom}," for atom in atoms)
 
     table_lines = []
     wide_names = []
+    flags_by_atom = []
     for name, atom in zip(names, atoms, strict=True):
-        flags = " | ".join(flag for flag, members in CATEGORY_FLAGS.items() if name in members) or "0"
+        flags = " | ".join(flag for flag, members in _CATEGORY_FLAGS.items() if name in members) or "0"
+        flags_by_atom.append(flags)
         table_lines.append(f'    {{"{name}", {len(name)}u, {atom}, {flags}, {len(wide_names)}u}},')
         wide_names.extend(map(ord, name))
 
@@ -263,7 +295,9 @@ def generate(out_path: Path) -> None:
         "/* HTML element atoms and the tree-construction category bitmasks. */\n\n"
         "#ifndef TURBOHTML_TAG_ATOM_H\n"
         "#define TURBOHTML_TAG_ATOM_H\n\n"
-        "#include <stdint.h>\n\n"
+        "#include <stddef.h>\n"
+        "#include <stdint.h>\n"
+        "#include <string.h>\n\n"
         "/* TH_TAG_UNKNOWN (0) is every name not in the table; atoms are otherwise\n"
         "   assigned in sorted name order so the first-byte buckets are contiguous. */\n"
         "enum th_tag {\n"
@@ -293,9 +327,69 @@ def generate(out_path: Path) -> None:
         "static const uint8_t th_tag_hash[TH_TAG_HASH_MASK + 1] = {\n"
         f"    {_tag_hash_rows(names)}\n"
         "};\n\n"
+        "/* A second collision-free index over the names of at most 8 bytes, keyed on the name packed little-endian "
+        "into\n"
+        "   a uint64: th_tag_keys[atom] is that key (0 for a longer name and for TH_TAG_UNKNOWN), and the slot is the\n"
+        "   key times TH_TAG_KEY_MULTIPLIER shifted right by TH_TAG_KEY_SHIFT. One compare of the keys verifies the\n"
+        "   spelling, so a lookup loops over no bytes. */\n"
+        f"#define TH_TAG_KEY_MULTIPLIER 0x{_TAG_KEY_MULTIPLIER:x}ull\n"
+        f"#define TH_TAG_KEY_SHIFT {64 - _TAG_KEY_BITS}u\n"
+        "static const uint64_t th_tag_keys[] = {\n"
+        f"    0ull, {', '.join(f'0x{_tag_key(name):x}ull' for name in names)}\n"
+        "};\n"
+        f"static const uint8_t th_tag_key_hash[{1 << _TAG_KEY_BITS}] = {{\n"
+        f"    {_tag_key_rows(names)}\n"
+        "};\n\n"
         "static const uint32_t th_tag_wide_names[] = {\n"
         f"    {', '.join(f'{char}u' for char in wide_names)}\n"
         "};\n\n"
+        "/* th_tag_atom_flags[atom] is the atom's category bitmask, 0 for TH_TAG_UNKNOWN. */\n"
+        "static const uint8_t th_tag_atom_flags[] = {\n"
+        f"    0u, {', '.join(flags_by_atom)}\n"
+        "};\n\n"
+        "static const uint64_t th_tag_key_masks[9] = {\n"
+        f"    {', '.join(f'0x{(1 << (8 * size)) - 1:x}ull' for size in range(9))}\n"
+        "};\n\n"
+        "/* A lowercased ASCII tag name of `len` bytes (at least one) packed little-endian into one word "
+        "as th_tag_keys\n"
+        "   holds it, so two names compare as one integer, or 0 for a longer name; the bytes past the name are "
+        "masked off.\n"
+        "   `str` must have 8 readable bytes: the tokenizer reserves 16 for its name buffer up front and never "
+        "shrinks it. */\n"
+        "static inline uint64_t th_tag_key(const unsigned char *str, ptrdiff_t len) {\n"
+        "    if (len > 8) {\n"
+        "        return 0;\n"
+        "    }\n"
+        "    uint64_t key;\n"
+        "    memcpy(&key, str, sizeof(key));\n"
+        "#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__\n"
+        "    key = __builtin_bswap64(key);\n"
+        "#endif\n"
+        "    return key & th_tag_key_masks[len];\n"
+        "}\n\n"
+        "/* The atom of a name th_tag_key packed, TH_TAG_UNKNOWN for one outside the table. */\n"
+        "static inline uint16_t th_tag_key_atom(uint64_t key) {\n"
+        "    uint8_t atom = th_tag_key_hash[(key * TH_TAG_KEY_MULTIPLIER) >> TH_TAG_KEY_SHIFT];\n"
+        "    return th_tag_keys[atom] == key ? atom : 0; /* an empty slot "
+        "holds atom 0, whose key 0 no name packs to */\n"
+        "}\n\n"
+        "/* The atom of a lowercased ASCII tag name of `len` bytes (at least one) through th_tag_hash. */\n"
+        "static inline uint16_t th_tag_hash_atom(const unsigned char *str, ptrdiff_t len) {\n"
+        "    size_t slot = ((size_t)len * TH_TAG_HASH_LENGTH + (size_t)str[0] * TH_TAG_HASH_FIRST +\n"
+        "                   (size_t)str[len - 1] * TH_TAG_HASH_LAST + (size_t)str[len > 1] * TH_TAG_HASH_SECOND) &\n"
+        "                  TH_TAG_HASH_MASK;\n"
+        "    uint16_t atom = th_tag_hash[slot];\n"
+        "    if (atom == 0 || th_tag_table[atom - 1].name_len != len) {\n"
+        "        return 0;\n"
+        "    }\n"
+        "    const char *name = th_tag_table[atom - 1].name;\n"
+        "    for (ptrdiff_t pos = 0; pos < len; pos++) {\n"
+        "        if (str[pos] != (unsigned char)name[pos]) {\n"
+        "            return 0;\n"
+        "        }\n"
+        "    }\n"
+        "    return atom;\n"
+        "}\n\n"
         "static inline const uint32_t *th_tag_wide_name(uint16_t atom) {\n"
         "    return th_tag_wide_names + th_tag_table[atom - 1].wide_offset;\n"
         "}\n\n"
@@ -309,6 +403,9 @@ def generate(out_path: Path) -> None:
         encoding="utf-8",
     )
     print(f"wrote {out_path}: {len(names)} atoms")
+
+
+__all__ = []
 
 
 if __name__ == "__main__":

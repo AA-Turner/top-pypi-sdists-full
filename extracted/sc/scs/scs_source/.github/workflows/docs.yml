@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - master
+  # Build (but do not deploy) on pull requests, so that changes to the docs or
+  # to the docs build are validated before they reach master and the published
+  # site. Every other workflow in this directory already runs on pull_request.
+  pull_request:
 
 jobs:
   build-and-deploy:
@@ -13,17 +17,27 @@ jobs:
         uses: actions/checkout@v7
       - name: Install OS dependencies
         run: |
-          sudo apt-get install doxygen
+          sudo apt-get update && sudo apt-get install -y doxygen liblapack-dev libblas-dev
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
       - name: Install Python dependencies
         run: |
-          pip install sphinx sphinx-rtd-theme breathe docutils
+          pip install -r docs/src/requirements.txt
+          # `make docs` runs the C and Python examples to generate the captured
+          # output shown on the example pages, so those need to be installed too.
+          pip install scs numpy scipy cvxpy
       - name: Build docs
         run: |
           cd docs/src && make docs && touch ../.nojekyll
+      # Deploying needs a writable GITHUB_TOKEN, which forks do not get by
+      # default, and a fork publishing its own copy of the docs is not wanted
+      # anyway -- so restrict the deploy to a push on the canonical repo. On
+      # pull requests and on forks the job stops after the build above.
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@v4.8.0
+        if: github.event_name == 'push' && !github.event.repository.fork
+        uses: JamesIves/github-pages-deploy-action@v4.9.0
         with:
           branch: gh-pages # The branch the action should deploy to.
           folder: docs # The folder the action should deploy.

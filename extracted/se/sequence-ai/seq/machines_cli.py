@@ -20,7 +20,6 @@ from typing import Any, Callable
 from sequence_ai._core.names import segment
 
 from seq.deployments_cli import _call
-from seq.robot_cli import RECORD_DAYS
 
 Echo = Callable[[str], Any] | None
 
@@ -114,18 +113,15 @@ def robot_show(name: str, *, out: str | None = None, base_url: str | None = None
     read from `live` alone, a robot on teleop alone read "no connection"), then what the worker of each other connection
     holds of it now, its cameras' newest frames (saved
     to `out` as JPEG files, <session>-<camera>.jpg), its episode, its step, its link over its recent acts (_link_said)
-    and its latest actions and plans; its header says whether it records and, when it does, for how many days what it keeps
-    stays. Returns what the platform answered: {robot, live}."""
+    and its latest actions and plans; its header says whether its Record is on - its steps may be recorded (seq robot
+    record) - or off. Returns what the platform answered: {robot, live}."""
     detail = _call("GET", f"/v1/robots/{segment(name, 'robot')}", base_url) or {}
     robot = detail.get("robot") or {}
     policies = robot.get("policies") or sorted(
         {str(c.get("policy")) for c in robot.get("connections") or [] if c.get("policy")})
 
-    record = "off"
-    if robot.get("record"):
-        days = robot.get("record_retention_days")
-        n = days if days is not None else RECORD_DAYS
-        record = f"on, kept {n} day{'' if n == 1 else 's'}"
+
+    record = "on" if robot.get("record") else "off"
     _say(echo, f"{robot.get('name') or name} · {', '.join(policies) if policies else 'no policy'} · record {record}")
     live = [c for c in detail.get("live") or [] if isinstance(c, dict)]
 

@@ -1,6 +1,6 @@
 """GLM-5.2 text renderer using its checkpoint-owned template."""
 
-from river_client.renderers.base import ParsedResponse, SamplePrompt, ToolSpec
+from river_client.renderers.base import ParsedResponse, ToolSpec
 from river_client.renderers.checkpoint_text import CheckpointTextRenderer
 from river_client.renderers.glm53 import GLM_VALUE_ENDS, parse_glm53_content_blocks
 
@@ -10,6 +10,7 @@ class Glm52Renderer(CheckpointTextRenderer):
     reasoning_efforts = ("high", "max")
     empty_reasoning_field = True
     value_ends = GLM_VALUE_ENDS
+    literal_text = True
 
     def __init__(
         self,
@@ -41,12 +42,10 @@ class Glm52Renderer(CheckpointTextRenderer):
         return ["<|observation|>", "<|user|>", "<|endoftext|>"]
 
     def build_continuation_prompt(self, messages, *, last_stop):
-        suffix = self._observation_suffix(messages)
-        if last_stop in ("<|observation|>", "<|user|>") and suffix.startswith(
-            last_stop
-        ):
-            suffix = suffix[len(last_stop) :]
-        return SamplePrompt(suffix, [], [])
+        suffix = self._observation_prompt(messages)
+        if last_stop in ("<|observation|>", "<|user|>"):
+            suffix = suffix.removeprefix(last_stop)
+        return self._sample_prompt(suffix)
 
     def parse_response(
         self, text: str, *, tools: list[ToolSpec] | None = None

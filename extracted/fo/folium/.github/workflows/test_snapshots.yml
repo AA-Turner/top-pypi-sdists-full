@@ -1,5 +1,8 @@
 name: Run Snapshot Tests
 
+# no permissions by default
+permissions: {}
+
 on:
   pull_request:
   push:
@@ -9,13 +12,21 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    permissions:
+      actions: write
 
     steps:
     - name: Checkout Folium
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
 
     - name: Setup Micromamba env
-      uses: mamba-org/setup-micromamba@v2
+      uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39  # v3.2.1
       with:
         environment-name: TEST
         create-args: >-
@@ -24,30 +35,27 @@ jobs:
           --file requirements-dev.txt
 
     - name: Install pytest plugins and pixelmatch
-      shell: bash -l {0}
       run: |
         pip install pixelmatch pytest-github-actions-annotate-failures pytest-rerunfailures
 
     - name: Install folium from source
-      shell: bash -l {0}
       run: |
         python -m pip install -e . --no-deps --force-reinstall
 
     - name: Test with pytest
-      shell: bash -l {0}
       run: |
         coverage run -p -m pytest tests/snapshots -s --junit-xml=test-results.xml
 
     - name: Surface failing tests
       if: always()
-      uses: pmeier/pytest-results-action@main
+      uses: pmeier/pytest-results-action@fdc7f18d9934e38aca411ca9557e6577bd25ca9c  # v0.9.0
       with:
         path: test-results.xml
         fail-on-empty: false
 
     - name: Upload screenshots
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
       with:
         name: screenshots
         path: |
@@ -56,8 +64,9 @@ jobs:
 
     - name: Upload coverage
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
       with:
         name: coverage-test-snapshots
         path: |
           .coverage*
+        include-hidden-files: true

@@ -25,8 +25,8 @@ typedef struct {
     int signed_zero;
 } calc_parser;
 
-/* The sole caller (rat_set) passes a strictly positive denominator as right, so right is already positive and the
-   resulting gcd is always >= 1. */
+/* The sole caller (rat_set) passes a numerator above LLONG_MIN as left, so its negation is representable, and a
+   strictly positive denominator as right, so right is already positive and the resulting gcd is always >= 1. */
 static long long css_gcd(long long left, long long right) {
     left = left < 0 ? -left : left;
     while (right != 0) {
@@ -39,8 +39,14 @@ static long long css_gcd(long long left, long long right) {
 
 /* The denominator is always strictly positive here: css_num_to_rat builds it as a power of ten, rat_mul/rat_add
    multiply already-positive denominators, and division bails on a zero divisor and sign-normalizes the inverse before
-   multiplying (calc_parse_product), so neither a zero nor a negative denominator can reach this point. */
+   multiplying (calc_parse_product), so neither a zero nor a negative denominator can reach this point. The checked
+   arithmetic accepts LLONG_MIN as a numerator, but it has no negation: css_gcd would hand back a negative divisor
+   (LLONG_MIN / -1 traps) and the sign flips on a stored coefficient would wrap, so it stays unfolded like an
+   overflow. */
 static int rat_set(crat *out, long long num, long long den) {
+    if (num == LLONG_MIN) {
+        return 0;
+    }
     long long divisor = css_gcd(num, den);
     out->num = num / divisor;
     out->den = den / divisor;
@@ -220,10 +226,11 @@ static void calc_parse_value(calc_parser *parser, csum *out) {
         calc_parse_sum(parser, out);
         css_nesting_leave(parser->vec);
         calc_skip_ws(parser);
+        /* a group still open when its range ends is closed there, as the renderer closes an unclosed group */
         if (parser->pos < parser->end && parser->vec->items[parser->pos].kind == CSS_DELIM &&
             parser->vec->items[parser->pos].delim == ')') {
             parser->pos++;
-        } else {
+        } else if (parser->pos < parser->end) {
             out->ok = 0;
         }
     }
@@ -595,8 +602,28 @@ CSS_NOINLINE static void css_refold_color(css_buf *pool, Py_ssize_t *out_off, Py
         *out_off = off;
         *out_len = len;
     }
-    css_free(tokens.items);
+    css_token_vec_free(&tokens);
     cbuf_free(&call);
+}
+
+/* Append a value folded from a whole function call. The call's own parentheses separated it from its neighbors, so a
+   space goes in where the folded text would read as one token with the text before it or with the token at next (a
+   number is spaced by its own rendering, so NUM is left to the caller). */
+static void css_put_folded(css_buf *out, const css_char *text, Py_ssize_t len, token_vec *vec, Py_ssize_t next,
+                           Py_ssize_t end) {
+    if (out->len > 0 && out->data[out->len - 1] != '(' && out->data[out->len - 1] != ',' &&
+        css_would_merge(out->data[out->len - 1], 0, text, len)) {
+        cbuf_putc(out, ' ');
+    }
+    cbuf_put_run(out, text, len);
+    if (next >= end) {
+        return;
+    }
+    const css_token *token = &vec->items[next];
+    if ((token->kind == CSS_IDENT || token->kind == CSS_URL || token->kind == CSS_URANGE || token->kind == CSS_DELIM) &&
+        css_would_merge(text[len - 1], 0, token->text, token->text_len)) {
+        cbuf_putc(out, ' ');
+    }
 }
 
 /* Render a function value, first trying to simplify a calc()/fold an rgb()/hsl() color, else the generic form. kind is
@@ -626,15 +653,17 @@ static void css_emit_function(css_buf *pool, token_vec *vec, Py_ssize_t name_ind
 }
 
 /* Minify a function's argument list into out, recursing for nested functions. var()
-   keeps its raw fallback; calc/min/max/clamp keep their spaced operators. */
+   keeps its raw fallback; calc/min/max/clamp keep their spaced operators. When the comma token at split is reached,
+   split_len receives the length of out before that comma is written. */
 static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *name,
-                                 Py_ssize_t name_len, css_buf *out, int *raw_fallback) {
+                                 Py_ssize_t name_len, css_buf *out, int *raw_fallback, Py_ssize_t split,
+                                 Py_ssize_t *split_len) {
     int is_var = css_run_ieq(name, name_len, "var");
     int keep_ws = css_is_math_func(name, name_len);
     int is_color = css_run_ieq(name, name_len, "rgb") || css_run_ieq(name, name_len, "rgba") ||
                    css_run_ieq(name, name_len, "hsl") || css_run_ieq(name, name_len, "hsla");
     int pending_ws = 0;
-    int escaped_space = 0;
+    int after_hash = 0;
     Py_ssize_t index = start;
     while (index < end) {
         css_token *token = &vec->items[index];
@@ -644,11 +673,19 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             index++;
             continue;
         }
+        /* a folded color is a hash, which a number written straight after it would extend; the name tokens that merge
+           are separated by css_put_folded */
+        if (after_hash && token->kind == CSS_NUM) {
+            pending_ws = 1;
+        }
+        after_hash = 0;
         if (token->kind == CSS_DELIM && token->delim == ',') {
             css_rtrim(out);
+            if (index == split) {
+                *split_len = out->len;
+            }
             cbuf_putc(out, ',');
             pending_ws = 0;
-            escaped_space = 0;
             index++;
             continue;
         }
@@ -666,16 +703,16 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 vec->items[after].kind != CSS_WS) {
                 const css_char *source = vec->items[start - 1].text + 1;
                 /* Synthetic end-tag whitespace precedes a slash, so it cannot end this argument range. */
-                const css_token *last = &vec->items[end - 1];
                 out->len = 0;
-                cbuf_put_run(out, source, last->text + last->text_len + last->unit_len - source);
+                cbuf_put_run(out, source, css_raw_end(vec, start, end) - source);
                 *raw_fallback = 1;
                 return;
             }
         }
         /* a lone '-' tokenizes as an identifier, never a delim, so only '+' appears as a delim operator here */
         if (!is_var && keep_ws && token->kind == CSS_DELIM && token->delim == '+') {
-            if (out->len > 0 && out->data[out->len - 1] != ' ') {
+            if (out->len > 0 &&
+                (out->data[out->len - 1] != ' ' || (vec->escapes && css_ends_in_escape(out->data, out->len)))) {
                 cbuf_putc(out, ' ');
             }
             cbuf_putc(out, token->delim);
@@ -685,18 +722,17 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             }
             cbuf_putc(out, ' ');
             pending_ws = 0;
-            escaped_space = 0;
             index++;
             continue;
         }
-        /* a leading space is kept only between two value pieces, never after '(' or ',' */
-        /* A space consumed by a hex escape cannot also separate the next token. */
-        if (pending_ws && out->len > 0 && (out->data[out->len - 1] != ' ' || escaped_space) &&
-            out->data[out->len - 1] != ',' && out->data[out->len - 1] != '(') {
+        /* a leading space is kept only between two value pieces, never after '(' or ','; a space, `(` or `,` that ends
+           a name through an escape cannot also separate the next token */
+        if (pending_ws && out->len > 0 &&
+            ((out->data[out->len - 1] != ' ' && out->data[out->len - 1] != ',' && out->data[out->len - 1] != '(') ||
+             (vec->escapes && css_ends_in_escape(out->data, out->len)))) {
             cbuf_putc(out, ' ');
         }
         pending_ws = 0;
-        escaped_space = 0;
         if (token->kind == CSS_IDENT && index + 1 < end && vec->items[index + 1].kind == CSS_DELIM &&
             vec->items[index + 1].delim == '(') {
             Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
@@ -709,11 +745,12 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 css_calc_context context = {substitution ? name : NULL, substitution ? name_len : 0, 0, keep_ws};
                 css_emit_function(pool, vec, index, close_index, &context, &off, &len, &kind);
                 css_nesting_leave(vec);
-                cbuf_put_run(out, pool->data + off, len);
+                css_put_folded(out, pool->data + off, len, vec, close_index + 1, end);
+                after_hash = kind == CK_HASH;
             } else {
                 /* past the nesting cap the nested call goes out as its source text, which reparses to the same value */
-                const css_token *close = &vec->items[close_index < vec->len ? close_index : vec->len - 1];
-                cbuf_put_run(out, token->text, close->text + close->text_len + close->unit_len - token->text);
+                Py_ssize_t span_end = close_index < vec->len ? close_index + 1 : vec->len;
+                cbuf_put_run(out, token->text, css_raw_end(vec, index, span_end) - token->text);
                 if (close_index == vec->len) {
                     css_close_raw_blocks(vec, index + 1, close_index, out);
                 }
@@ -733,13 +770,14 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 /* dropping a sign or unit (e.g. +0/-0/0px -> 0) can glue the number onto the token before it to read as
                    one different token (CSS Syntax 3 §9.1), including a second adjacent number in an invalid calc, so
                    keep a boundary as the declaration-value path does; a negative number after a unitless one starts
-                   no unit (§4.3.3), so `1-1` stays two numbers */
+                   no unit (§4.3.3), so `1-1` stays two numbers; a name ending in an escape runs on into a number that
+                   starts with a name code point, as an ident token does */
                 const css_token *before = &vec->items[index - 1];
                 int negative_after_number =
                     (signed_zero || pool->data[off] == '-') && before->kind == CSS_NUM && before->unit_len == 0;
                 if (out->len > 0 && !negative_after_number &&
-                    css_would_merge(out->data[out->len - 1], 0, signed_zero ? (const css_char *)"-" : pool->data + off,
-                                    signed_zero ? 1 : len)) {
+                    css_would_merge(out->data[out->len - 1], vec->escapes && css_ends_in_escape(out->data, out->len),
+                                    signed_zero ? (const css_char *)"-" : pool->data + off, signed_zero ? 1 : len)) {
                     cbuf_putc(out, ' ');
                 }
                 if (signed_zero) {
@@ -760,7 +798,6 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             }
         } else {
             cbuf_put_run(out, token->text, token->text_len);
-            escaped_space = token->kind == CSS_IDENT && css_is_ws(token->text[token->text_len - 1]);
         }
         index++;
     }

@@ -164,6 +164,19 @@ def get_current() -> ProcessTee | None:
     return tee if tee is not None and tee.is_usable else None
 
 
+def print_status(line: str) -> None:
+    """Probe's own status ``line`` (a waiting finish's progress) on stderr, outside the log: it is not the
+    script's output, so it never lands in a run's saved log, nor makes a version of "printed after the run
+    finished". Never raises: a closed stderr never stops a wait."""
+    tee = get_current()
+    write = getattr(tee.tee, "write_to_terminal", None) if tee is not None else None
+    try:
+        if write is None or not write((line + "\n").encode("utf-8", "replace")):
+            print(line, file=sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def start_at_import() -> None:
     """Called by ``import probe``: start a held tee when :func:`should_start_at_import`. Never raises, never
     blocks a script on a failure: a run then starts its own tee at ``probe.init()``, as before."""

@@ -36,6 +36,7 @@ KNOWN_ATTRIBUTES = (
     'is_default',
     'mac_address',
     'max_prefixlen',
+    'metadata_enabled',
     'min_prefixlen',
     'name',
     'network_id',
@@ -96,6 +97,7 @@ KNOWN_EXTENSIONS = (
     'enable-default-route-ecmp',
     'enable-default-route-bfd',
     'empty-string-filtering',
+    'evpn-l2',
     'expose-l3-conntrack-helper',
     'expose-port-forwarding-in-fip',
     'ext-gw-mode',
@@ -109,7 +111,6 @@ KNOWN_EXTENSIONS = (
     'floating-ip-port-forwarding',
     'floating-ip-port-forwarding-description',
     'floating-ip-router-writable',
-    'floatingip-autodelete-internal',
     'floatingip-pools',
     'ip-substring-filtering',
     'l3-agent-scheduler-ha-chassis-priority',
@@ -155,12 +156,12 @@ KNOWN_EXTENSIONS = (
     'port-numa-affinity-policy-socket',
     'rbac-address-group',
     'rbac-address-scope',
-    'rbac-bgpvpn',
     'rbac-policies',
     'rbac-security-groups',
     'rbac-subnetpool',
     'router',
     'router_availability_zone',
+    'router-availability-zone-hints-writable',
     'security-group',
     'security-groups-default-statefulness',
     'segment',
@@ -178,7 +179,6 @@ KNOWN_EXTENSIONS = (
     'subnet_dns_publish_fixed_ip',
     'subnet_onboard',
     'subnetpool-prefix-ops',
-    'subnet-segmentid-enforce',
     'subnet-segmentid-writable',
     'tag',
     'tag-creation',
@@ -202,14 +202,11 @@ KNOWN_EXTENSIONS = (
     'vpn-endpoint-groups',
     'vpn-flavors',
 
-    # https://opendev.org/openstack/networking-sfc:
-    'flow_classifier',
-    'sfc',
-
     # https://opendev.org/openstack/tap-as-a-service
     'taas',
     'tap-mirror',
     'tap-mirror-both-direction',
+    'tap-mirror-lport',
     'taas-vlan-filter',
 )
 

@@ -67,6 +67,7 @@ class StatementPlan:
         self.result_types: Tuple[Any, ...] = tuple(col[3] for col in result_columns)
         self.result_processors: Optional[List[ResultProcessor]] = None
         self.processed_columns: Tuple[Tuple[str, Callable[[Any], Any]], ...] = ()
+        self.processed_positions: Tuple[Tuple[int, Callable[[Any], Any]], ...] = ()
         self.row_class = row_class_for(result_columns=result_columns)
         self.returning = bool(compiled.effective_returning)
         self.is_insert = bool(compiled.isinsert)
@@ -213,6 +214,11 @@ class DefaultContext:
         return self.current_parameters
 
 
+#: execution option marking a statement reused on every call (ormar's cached
+#: write templates), whose plan is kept even without a SQLAlchemy cache key
+TEMPLATE_OPTION = "ormar_template"
+
+
 class NativeCompiler:
     """
     Turns statements into ``BoundStatement`` / ``BoundBatch`` objects for one
@@ -224,6 +230,12 @@ class NativeCompiler:
 
         compiler.bind(select(users).where(users.c.id == 5))  # compiles
         compiler.bind(select(users).where(users.c.id == 7))  # reuses the plan
+
+    Statements SQLAlchemy cannot cache (no cache key, e.g. every INSERT with
+    ``ON CONFLICT`` / ``ON DUPLICATE KEY``) are compiled every time, except
+    ormar's write templates (marked with the ``TEMPLATE_OPTION`` execution
+    option): they are the same object on every call, so they keep their plan
+    per statement object in a second LRU cache of the same size.
     """
 
     def __init__(self, dialect: Dialect, max_plans: int = 2048) -> None:
@@ -236,6 +248,10 @@ class NativeCompiler:
         self.dialect = dialect
         self.max_plans = max_plans
         self._plans: "OrderedDict[Any, StatementPlan]" = OrderedDict()
+        # by id() of the statement, kept in the entry so the id stays its own
+        self._plans_by_statement: "OrderedDict[int, Tuple[Any, StatementPlan]]" = (
+            OrderedDict()
+        )
 
     def bind(
         self, stmt: Executable, params: Optional[Mapping[str, Any]] = None
@@ -329,9 +345,10 @@ class NativeCompiler:
 
     def _plan(self, stmt: Executable, key: Any) -> StatementPlan:
         """
-        Return the cached plan for the statement shape, compiling it on a miss.
-        Statements SQLAlchemy cannot cache (no cache key) are compiled every time;
-        past ``max_plans`` the least recently used plan is dropped.
+        Return the cached plan for the statement shape, compiling it on a miss;
+        past ``max_plans`` the least recently used plan is dropped. Statements
+        SQLAlchemy cannot cache (no cache key) reuse the plan of the same
+        statement object: one object always compiles to the same SQL and values.
 
         :param stmt: statement to plan
         :type stmt: Executable
@@ -341,6 +358,8 @@ class NativeCompiler:
         :rtype: StatementPlan
         """
         if key is None:
+            if stmt.get_execution_options().get(TEMPLATE_OPTION):
+                return self._plan_of_statement(stmt=stmt)
             return self._compile(stmt=stmt, key=key)
         plan = self._plans.get(key.key)
         if plan is not None:
@@ -350,6 +369,27 @@ class NativeCompiler:
         self._plans[key.key] = plan
         if len(self._plans) > self.max_plans:
             self._plans.popitem(last=False)
+        return plan
+
+    def _plan_of_statement(self, stmt: Executable) -> StatementPlan:
+        """
+        Return the plan of a template SQLAlchemy cannot cache, reused for the
+        same statement object: one object always compiles to the same SQL and
+        values. Past ``max_plans`` the least recently used plan is dropped.
+
+        :param stmt: statement without a cache key
+        :type stmt: Executable
+        :return: plan of the statement
+        :rtype: StatementPlan
+        """
+        entry = self._plans_by_statement.get(id(stmt))
+        if entry is not None and entry[0] is stmt:
+            self._plans_by_statement.move_to_end(id(stmt))
+            return entry[1]
+        plan = self._compile(stmt=stmt, key=None)
+        self._plans_by_statement[id(stmt)] = (stmt, plan)
+        if len(self._plans_by_statement) > self.max_plans:
+            self._plans_by_statement.popitem(last=False)
         return plan
 
     def _compile(self, stmt: Executable, key: Any) -> StatementPlan:
@@ -673,15 +713,22 @@ def resolve_result_processors(
     :param coltypes: driver-reported column types (or None per column)
     :type coltypes: Sequence[Any]
     """
-    plan.result_processors = [
+    result_processors = [
         type_._cached_result_processor(dialect=dialect, coltype=coltype)
         for type_, coltype in zip(plan.result_types, coltypes)
     ]
-    plan.processed_columns = tuple(
-        (key, processor)
-        for key, processor in zip(plan.result_keys, plan.result_processors)
+    processed_positions = tuple(
+        (position, processor)
+        for position, processor in enumerate(result_processors)
         if processor is not None
     )
+    plan.processed_positions = processed_positions
+    plan.processed_columns = tuple(
+        (plan.result_keys[position], processor)
+        for position, processor in processed_positions
+    )
+    # set last: a plan with result_processors is treated as fully resolved
+    plan.result_processors = result_processors
 
 
 def row_to_dict(plan: StatementPlan, values: Sequence[Any]) -> Dict[str, Any]:
@@ -702,3 +749,25 @@ def row_to_dict(plan: StatementPlan, values: Sequence[Any]) -> Dict[str, Any]:
     for key, processor in plan.processed_columns:
         row[key] = processor(row[key])
     return row  # type: ignore[no-any-return]
+
+
+def row_to_tuple(plan: StatementPlan, values: Sequence[Any]) -> Tuple[Any, ...]:
+    """
+    Convert one driver row into a tuple of values in select order, running
+    each value through the same result processor ``row_to_dict`` uses::
+
+        (1, '{"a": 1}')  # -> (1, {"a": 1}) on SQLite
+
+    :param plan: plan of the executed statement, with resolved processors
+    :type plan: StatementPlan
+    :param values: row values in result column order
+    :type values: Sequence[Any]
+    :return: row values in result column order
+    :rtype: Tuple[Any, ...]
+    """
+    if not plan.processed_positions:
+        return tuple(values)
+    row = list(values)
+    for position, processor in plan.processed_positions:
+        row[position] = processor(row[position])
+    return tuple(row)

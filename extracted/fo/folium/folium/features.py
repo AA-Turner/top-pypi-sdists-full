@@ -7,15 +7,10 @@ import functools
 import json
 import operator
 import warnings
+from collections.abc import Callable, Iterable, Sequence
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
     Optional,
-    Sequence,
-    Tuple,
     Union,
     get_args,
 )
@@ -37,7 +32,7 @@ from branca.utilities import color_brewer
 from folium.elements import JSCSSMixin
 from folium.folium import Map
 from folium.map import Class, FeatureGroup, Icon, Layer, Marker, Popup, Tooltip
-from folium.template import Template
+from folium.template import Template, _to_escaped_json
 from folium.utilities import (
     JsCode,
     TypeBoundsReturn,
@@ -85,16 +80,14 @@ class RegularPolygonMarker(JSCSSMixin, Marker):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = new L.RegularPolygonMarker(
                 {{ this.location|tojson }},
                 {{ this.options|tojavascript }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -109,8 +102,8 @@ class RegularPolygonMarker(JSCSSMixin, Marker):
         number_of_sides: int = 4,
         rotation: int = 0,
         radius: int = 15,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
         **kwargs: TypePathOptions,
     ):
         super().__init__(location, popup=popup, tooltip=tooltip)
@@ -165,10 +158,10 @@ class Vega(JSCSSMixin):
     def __init__(
         self,
         data: Any,
-        width: Union[int, str, None] = None,
-        height: Union[int, str, None] = None,
-        left: Union[int, str] = "0%",
-        top: Union[int, str] = "0%",
+        width: int | str | None = None,
+        height: int | str | None = None,
+        left: int | str = "0%",
+        top: int | str = "0%",
         position: str = "relative",
     ):
         super().__init__()
@@ -195,24 +188,16 @@ class Vega(JSCSSMixin):
         self.json = json.dumps(self.data)
 
         self._parent.html.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
             <div id="{{this.get_name()}}"></div>
-            """
-                ).render(this=self, kwargs=kwargs)
-            ),
+            """).render(this=self, kwargs=kwargs)),
             name=self.get_name(),
         )
 
         self._parent.script.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
             vega_parse({{this.json}},{{this.get_name()}});
-            """
-                ).render(this=self)
-            ),
+            """).render(this=self)),
             name=self.get_name(),
         )
 
@@ -222,9 +207,7 @@ class Vega(JSCSSMixin):
         ), "You cannot render this Element if it is not in a Figure."
 
         figure.header.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
             <style> #{{this.get_name()}} {
                 position : {{this.position}};
                 width : {{this.width[0]}}{{this.width[1]}};
@@ -232,9 +215,7 @@ class Vega(JSCSSMixin):
                 left: {{this.left[0]}}{{this.left[1]}};
                 top: {{this.top[0]}}{{this.top[1]}};
             </style>
-            """
-                ).render(this=self, **kwargs)
-            ),
+            """).render(this=self, **kwargs)),
             name=self.get_name(),
         )
 
@@ -282,10 +263,10 @@ class VegaLite(MacroElement):
     def __init__(
         self,
         data: Any,
-        width: Union[int, str, None] = None,
-        height: Union[int, str, None] = None,
-        left: Union[int, str] = "0%",
-        top: Union[int, str] = "0%",
+        width: int | str | None = None,
+        height: int | str | None = None,
+        left: int | str = "0%",
+        top: int | str = "0%",
         position: str = "relative",
     ):
         super(self.__class__, self).__init__()
@@ -316,13 +297,9 @@ class VegaLite(MacroElement):
             )
 
         parent.html.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
             <div id="{{this.get_name()}}"></div>
-            """
-                ).render(this=self, kwargs=kwargs)
-            ),
+            """).render(this=self, kwargs=kwargs)),
             name=self.get_name(),
         )
 
@@ -332,9 +309,7 @@ class VegaLite(MacroElement):
         ), "You cannot render this Element if it is not in a Figure."
 
         figure.header.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
             <style> #{{this.get_name()}} {
                 position : {{this.position}};
                 width : {{this.width[0]}}{{this.width[1]}};
@@ -342,18 +317,17 @@ class VegaLite(MacroElement):
                 left: {{this.left[0]}}{{this.left[1]}};
                 top: {{this.top[0]}}{{this.top[1]}};
             </style>
-            """
-                ).render(this=self, **kwargs)
-            ),
+            """).render(this=self, **kwargs)),
             name=self.get_name(),
         )
 
-        embed_mapping: Dict[Optional[int], Callable] = {
+        embed_mapping = {
             1: self._embed_vegalite_v1,
             2: self._embed_vegalite_v2,
             3: self._embed_vegalite_v3,
             4: self._embed_vegalite_v4,
             5: self._embed_vegalite_v5,
+            6: self._embed_vegalite_v6,  # noqa
         }
 
         # Version 2 is assumed as the default, if no version is given in the schema.
@@ -363,13 +337,27 @@ class VegaLite(MacroElement):
         embed_vegalite(figure=figure, parent=parent)
 
     @property
-    def vegalite_major_version(self) -> Optional[int]:
+    def vegalite_major_version(self) -> int | None:
         if "$schema" not in self.data:
             return None
 
         schema = self.data["$schema"]
 
         return int(schema.split("/")[-1].split(".")[0].lstrip("v"))
+
+    def _embed_vegalite_v6(self, figure: Figure, parent: TypeContainer) -> None:
+        self._vega_embed(parent=parent)
+
+        figure.header.add_child(
+            JavascriptLink("https://cdn.jsdelivr.net/npm/vega@5"), name="vega"
+        )
+        figure.header.add_child(
+            JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@6"), name="vega-lite"
+        )
+        figure.header.add_child(
+            JavascriptLink("https://cdn.jsdelivr.net/npm/vega-embed@6"),
+            name="vega-embed",
+        )
 
     def _embed_vegalite_v5(self, figure: Figure, parent: TypeContainer) -> None:
         self._vega_embed(parent=parent)
@@ -429,23 +417,17 @@ class VegaLite(MacroElement):
 
     def _vega_embed(self, parent: TypeContainer) -> None:
         parent.script.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
                     vegaEmbed({{this.get_name()}}, {{this.json}})
                         .then(function(result) {})
                         .catch(console.error);
-                """
-                ).render(this=self)
-            ),
+                """).render(this=self)),
             name=self.get_name(),
         )
 
     def _embed_vegalite_v1(self, figure: Figure, parent: TypeContainer) -> None:
         parent.script.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
                     var embedSpec = {
                         mode: "vega-lite",
                         spec: {{this.json}}
@@ -453,9 +435,7 @@ class VegaLite(MacroElement):
                     vg.embed(
                         {{this.get_name()}}, embedSpec, function(error, result) {}
                     );
-                """
-                ).render(this=self)
-            ),
+                """).render(this=self)),
             name=self.get_name(),
         )
 
@@ -555,10 +535,13 @@ class GeoJson(Layer):
     ... }
     >>> GeoJson(geojson, style_function=style_function)
 
+    See Also
+    --------
+    For information about coordinate ordering differences between Leaflet and GeoJSON,
+    see :doc:`/user_guide/geojson/coordinate_ordering`
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         {%- if this.style %}
         function {{ this.get_name() }}_styler(feature) {
@@ -602,6 +585,13 @@ class GeoJson(Layer):
         {%- endif %}
 
         function {{this.get_name()}}_onEachFeature(feature, layer) {
+            (function propagate(parent){
+                if (typeof parent.eachLayer !== "function") {return;}
+                parent.eachLayer(function (child) {
+                    if (child.feature === undefined) { child.feature = feature; }
+                    propagate(child);
+                })
+            })(layer)
             {%- if this.on_each_feature %}
             ({{this.on_each_feature}})(feature, layer);
             {%- endif %}
@@ -682,32 +672,31 @@ class GeoJson(Layer):
         {%- endif %}
 
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     def __init__(
         self,
         data: Any,
-        style_function: Optional[Callable] = None,
-        highlight_function: Optional[Callable] = None,
+        style_function: Callable | None = None,
+        highlight_function: Callable | None = None,
         popup_keep_highlighted: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
-        smooth_factor: Optional[float] = None,
+        smooth_factor: float | None = None,
         tooltip: Union[str, Tooltip, "GeoJsonTooltip", None] = None,
         embed: bool = True,
         popup: Optional["GeoJsonPopup"] = None,
         zoom_on_click: bool = False,
-        on_each_feature: Optional[JsCode] = None,
-        marker: Union[Circle, CircleMarker, Marker, None] = None,
+        on_each_feature: JsCode | None = None,
+        marker: Circle | CircleMarker | Marker | None = None,
         **kwargs: Any,
     ):
         super().__init__(name=name, overlay=overlay, control=control, show=show)
         self._name = "GeoJson"
         self.embed = embed
-        self.embed_link: Optional[str] = None
+        self.embed_link: str | None = None
         self.json = None
         self.parent_map = None
         self.smooth_factor = smooth_factor
@@ -767,8 +756,10 @@ class GeoJson(Layer):
             else:  # This is a filename
                 if not self.embed:
                     self.embed_link = data
-                with open(data) as f:
-                    return json.loads(f.read())
+                # Read bytes so json can detect the encoding (UTF-8 per RFC 7946)
+                # instead of decoding with the platform's locale encoding.
+                with open(data, "rb") as f:
+                    return json.load(f)
         elif hasattr(data, "__geo_interface__"):
             self.embed = True
             if hasattr(data, "to_crs"):
@@ -839,7 +830,11 @@ class GeoJson(Layer):
                     if isinstance(feat["properties"].get(key, None), (str, int))
                 }
                 if len(unique_values) == len(feats):
-                    return f"feature.properties.{key}"
+                    if key.isidentifier():
+                        return f"feature.properties.{key}"
+                    # Keys like "Time (UTC)" or "@id" need bracket notation
+                    # to be valid Javascript.
+                    return f"feature.properties[{_to_escaped_json(key)}]"
         # We add an 'id' field with a unique value to the data.
         if self.embed:
             for i, feature in enumerate(feats):
@@ -851,7 +846,7 @@ class GeoJson(Layer):
             "field to your geojson data or set `embed=True`. "
         )
 
-    def _get_self_bounds(self) -> List[List[Optional[float]]]:
+    def _get_self_bounds(self) -> list[list[float | None]]:
         """
         Computes the bounds of the object itself (not including it's children)
         in the form [[lat_min, lon_min], [lat_max, lon_max]].
@@ -871,7 +866,7 @@ class GeoJson(Layer):
         super().render()
 
 
-TypeStyleMapping = Dict[str, Union[str, List[Union[str, int]]]]
+TypeStyleMapping = dict[str, str | list[str | int]]
 
 
 class GeoJsonStyleMapper:
@@ -918,10 +913,15 @@ class GeoJsonStyleMapper:
         self._set_default_key(mapping)
         return mapping
 
-    def get_feature_id(self, feature: dict) -> Union[str, int]:
+    def get_feature_id(self, feature: dict) -> str | int:
         """Return a value identifying the feature."""
-        fields = self.feature_identifier.split(".")[1:]
-        value = functools.reduce(operator.getitem, fields, feature)
+        prefix = "feature.properties["
+        if self.feature_identifier.startswith(prefix):
+            key = json.loads(self.feature_identifier[len(prefix) : -1])
+            value = feature["properties"][key]
+        else:
+            fields = self.feature_identifier.split(".")[1:]
+            value = functools.reduce(operator.getitem, fields, feature)
         assert isinstance(value, (str, int))
         return value
 
@@ -960,7 +960,7 @@ class TopoJson(JSCSSMixin, Layer):
         A function mapping a TopoJson geometry to a style dict.
     name : string, default None
         The name of the Layer, as it will appear in LayerControls
-    overlay : bool, default False
+    overlay : bool, default True
         Adds the layer as an optional overlay (True) or the base layer (False).
     control : bool, default True
         Whether the Layer will be included in LayerControls.
@@ -973,6 +973,9 @@ class TopoJson(JSCSSMixin, Layer):
     tooltip: GeoJsonTooltip, Tooltip or str, default None
         Display a text when hovering over the object. Can utilize the data,
         see folium.GeoJsonTooltip for info on how to do that.
+    popup: GeoJsonPopup, Popup or str, default None
+        Show a popup when clicking on the object. Pass a GeoJsonPopup to show
+        a different popup for each feature.
 
     Examples
     --------
@@ -995,8 +998,7 @@ class TopoJson(JSCSSMixin, Layer):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }}_data = {{ this.data|tojson }};
             var {{ this.get_name() }} = L.geoJson(
@@ -1014,8 +1016,7 @@ class TopoJson(JSCSSMixin, Layer):
                 return feature.properties.style;
             });
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     default_js = [
         (
@@ -1028,13 +1029,14 @@ class TopoJson(JSCSSMixin, Layer):
         self,
         data: Any,
         object_path: str,
-        style_function: Optional[Callable] = None,
-        name: Optional[str] = None,
+        style_function: Callable | None = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
-        smooth_factor: Optional[float] = None,
-        tooltip: Union[str, Tooltip, None] = None,
+        smooth_factor: float | None = None,
+        tooltip: str | Tooltip | None = None,
+        popup: str | Tooltip | None = None,
     ):
         super().__init__(name=name, overlay=overlay, control=control, show=show)
         self._name = "TopoJson"
@@ -1062,9 +1064,21 @@ class TopoJson(JSCSSMixin, Layer):
             self.add_child(tooltip)
         elif tooltip is not None:
             self.add_child(Tooltip(tooltip))
+        if isinstance(popup, (GeoJsonPopup, Popup)):
+            self.add_child(popup)
+        elif popup is not None:
+            self.add_child(Popup(popup))
 
     def style_data(self) -> None:
         """Applies self.style_function to each feature of self.data."""
+
+        for feature in self._get_geometries():
+            feature.setdefault("properties", {}).setdefault("style", {}).update(
+                self.style_function(feature)
+            )  # noqa
+
+    def _get_geometries(self) -> list:
+        """Return the selected TopoJSON object as a list of geometries."""
 
         def recursive_get(data, keys):
             if len(keys):
@@ -1072,13 +1086,8 @@ class TopoJson(JSCSSMixin, Layer):
             else:
                 return data
 
-        geometries = recursive_get(self.data, self.object_path.split("."))[
-            "geometries"
-        ]  # noqa
-        for feature in geometries:
-            feature.setdefault("properties", {}).setdefault("style", {}).update(
-                self.style_function(feature)
-            )  # noqa
+        geometry = recursive_get(self.data, self.object_path.split("."))
+        return geometry["geometries"] if "geometries" in geometry else [geometry]
 
     def render(self, **kwargs):
         """Renders the HTML representation of the element."""
@@ -1161,10 +1170,10 @@ class GeoJsonDetail(MacroElement):
     def __init__(
         self,
         fields: Sequence[str],
-        aliases: Optional[Sequence[str]] = None,
+        aliases: Sequence[str] | None = None,
         labels: bool = True,
         localize: bool = False,
-        style: Optional[str] = None,
+        style: str | None = None,
         class_name: str = "geojsondetail",
     ):
         super().__init__()
@@ -1191,12 +1200,24 @@ class GeoJsonDetail(MacroElement):
             # noqa outside of type checking.
             self.style = style
 
+    def _geojson_features(self) -> list:
+        """Return the parent GeoJson's features, whatever form its data has."""
+        assert isinstance(self._parent, GeoJson)
+        data = self._parent.data
+        if data.get("type") == "FeatureCollection":
+            return data["features"]
+        if "geometry" in data:
+            # A single Feature.
+            return [data]
+        # A bare geometry has no properties.
+        return []
+
     def warn_for_geometry_collections(self) -> None:
         """Checks for GeoJson GeometryCollection features to warn user about incompatibility."""
         assert isinstance(self._parent, GeoJson)
         geom_collections = [
             feature.get("properties") if feature.get("properties") is not None else key
-            for key, feature in enumerate(self._parent.data["features"])
+            for key, feature in enumerate(self._geojson_features())
             if feature["geometry"]
             and feature["geometry"]["type"] == "GeometryCollection"
         ]
@@ -1212,19 +1233,13 @@ class GeoJsonDetail(MacroElement):
         """Renders the HTML representation of the element."""
         figure = self.get_root()
         if isinstance(self._parent, GeoJson):
+            features = self._geojson_features()
             keys = tuple(
-                self._parent.data["features"][0]["properties"].keys()
-                if self._parent.data["features"]
-                else []
+                (features[0].get("properties") or {}).keys() if features else []
             )
             self.warn_for_geometry_collections()
         elif isinstance(self._parent, TopoJson):
-            obj_name = self._parent.object_path.split(".")[-1]
-            keys = tuple(
-                self._parent.data["objects"][obj_name]["geometries"][0][
-                    "properties"
-                ].keys()
-            )
+            keys = tuple(self._parent._get_geometries()[0]["properties"].keys())
         else:
             raise TypeError(
                 f"You cannot add a {self._name} to anything other than a "
@@ -1236,9 +1251,7 @@ class GeoJsonDetail(MacroElement):
                 value in keys
             ), f"The field {value} is not available in the data. Choose from: {keys}."
         figure.header.add_child(
-            Element(
-                Template(
-                    """
+            Element(Template("""
                     <style>
                         .{{ this.class_name }} {
                             {{ this.style }}
@@ -1253,9 +1266,7 @@ class GeoJsonDetail(MacroElement):
                             padding: 2px; padding-right: 8px;
                         }
                     </style>
-            """
-                ).render(this=self)
-            ),
+            """).render(this=self)),
             name=self.get_name() + "tablestyle",
         )
 
@@ -1289,7 +1300,7 @@ class GeoJsonTooltip(GeoJsonDetail):
         Whether the tooltip should follow the mouse.
     **kwargs: Assorted.
         These values will map directly to the Leaflet Options. More info
-        available here: https://leafletjs.com/reference.html#tooltip
+        available here: https://leafletjs.com/reference-1.9.4.html#tooltip
 
     Examples
     --------
@@ -1320,10 +1331,10 @@ class GeoJsonTooltip(GeoJsonDetail):
     def __init__(
         self,
         fields: Sequence[str],
-        aliases: Optional[Sequence[str]] = None,
+        aliases: Sequence[str] | None = None,
         labels: bool = True,
         localize: bool = False,
-        style: Optional[str] = None,
+        style: str | None = None,
         class_name: str = "foliumtooltip",
         sticky: bool = True,
         **kwargs: TypeJsonValue,
@@ -1356,7 +1367,7 @@ class GeoJsonPopup(GeoJsonDetail):
         instead of the keys of `fields`.
     labels: bool, default True.
         Set to False to disable displaying the field names or aliases.
-    localize: bool, default False.
+    localize: bool, default True.
         This will use JavaScript's .toLocaleString() to format 'clean' values
         as strings for the user's location; i.e. 1,000,000.00 comma separators,
         float truncation, etc.
@@ -1388,7 +1399,7 @@ class GeoJsonPopup(GeoJsonDetail):
     def __init__(
         self,
         fields: Sequence[str],
-        aliases: Optional[Sequence[str]] = None,
+        aliases: Sequence[str] | None = None,
         labels: bool = True,
         style: str = "margin: auto;",
         class_name: str = "foliumpopup",
@@ -1409,7 +1420,8 @@ class GeoJsonPopup(GeoJsonDetail):
 
 
 class Choropleth(FeatureGroup):
-    """Apply a GeoJSON overlay to the map.
+    """
+    Apply a GeoJSON overlay to the map.
 
     Plot a GeoJSON overlay on the base map. There is no requirement
     to bind data (passing just a GeoJSON plots a single-color overlay),
@@ -1458,6 +1470,9 @@ class Choropleth(FeatureGroup):
         or if you are binding data, one of the following color brewer palettes:
         'BuGn', 'BuPu', 'GnBu', 'OrRd', 'PuBu', 'PuBuGn', 'PuRd', 'RdPu',
         'YlGn', 'YlGnBu', 'YlOrBr', and 'YlOrRd'.
+        You can also pass any colormap name supported by branca such as
+        'viridis', 'plasma', 'magma', 'Blues' etc. For all available options see:
+        https://python-visualization.github.io/branca/colormap.html
     nan_fill_color: string, default 'black'
         Area fill color for nan or missing values.
         Can pass a hex code, color name.
@@ -1525,24 +1540,24 @@ class Choropleth(FeatureGroup):
     def __init__(
         self,
         geo_data: Any,
-        data: Optional[Any] = None,
-        columns: Optional[Sequence[Any]] = None,
-        key_on: Optional[str] = None,
-        bins: Union[int, Sequence[float]] = 6,
-        fill_color: Optional[str] = None,
+        data: Any | None = None,
+        columns: Sequence[Any] | None = None,
+        key_on: str | None = None,
+        bins: int | Sequence[float] = 6,
+        fill_color: str | None = None,
         nan_fill_color: str = "black",
         fill_opacity: float = 0.6,
-        nan_fill_opacity: Optional[float] = None,
+        nan_fill_opacity: float | None = None,
         line_color: str = "black",
         line_weight: float = 1,
         line_opacity: float = 1,
-        name: Optional[str] = None,
+        name: str | None = None,
         legend_name: str = "",
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
-        topojson: Optional[str] = None,
-        smooth_factor: Optional[float] = None,
+        topojson: str | None = None,
+        smooth_factor: float | None = None,
         highlight: bool = False,
         use_jenks: bool = False,
         **kwargs,
@@ -1673,7 +1688,7 @@ class Choropleth(FeatureGroup):
             return {"weight": line_weight + 2, "fillOpacity": fill_opacity + 0.2}
 
         if topojson:
-            self.geojson: Union[TopoJson, GeoJson] = TopoJson(
+            self.geojson: TopoJson | GeoJson = TopoJson(
                 geo_data,
                 topojson,
                 style_function=style_function,
@@ -1692,7 +1707,7 @@ class Choropleth(FeatureGroup):
             self.add_child(self.color_scale)
 
     @classmethod
-    def _get_by_key(cls, obj: Union[dict, list], key: str) -> Union[float, str, None]:
+    def _get_by_key(cls, obj: dict | list, key: str) -> float | str | None:
         key_parts = key.split(".")
         first_key_part = key_parts[0]
         if first_key_part.isdigit():
@@ -1741,24 +1756,22 @@ class DivIcon(MacroElement):
     html : string
         A custom HTML code to put inside the div element.
 
-    See https://leafletjs.com/reference.html#divicon
+    See https://leafletjs.com/reference-1.9.4.html#divicon
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.divIcon({{ this.options|tojavascript }});
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     def __init__(
         self,
-        html: Optional[str] = None,
-        icon_size: Optional[Tuple[int, int]] = None,
-        icon_anchor: Optional[Tuple[int, int]] = None,
-        popup_anchor: Optional[Tuple[int, int]] = None,
+        html: str | None = None,
+        icon_size: tuple[int, int] | None = None,
+        icon_anchor: tuple[int, int] | None = None,
+        popup_anchor: tuple[int, int] | None = None,
         class_name: str = "empty",
     ):
         super().__init__()
@@ -1779,8 +1792,7 @@ class LatLngPopup(MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) %}
                 var {{this.get_name()}} = L.popup();
                 function latLngPop(e) {
@@ -1792,8 +1804,7 @@ class LatLngPopup(MacroElement):
                     }
                 {{this._parent.get_name()}}.on('click', latLngPop);
             {% endmacro %}
-            """
-    )  # noqa
+            """)  # noqa
 
     def __init__(self):
         super().__init__()
@@ -1820,8 +1831,7 @@ class ClickForMarker(MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) %}
                 function newMarker(e){
                     var new_mark = L.marker().setLatLng(e.latlng).addTo({{this._parent.get_name()}});
@@ -1833,10 +1843,9 @@ class ClickForMarker(MacroElement):
                     };
                 {{this._parent.get_name()}}.on('click', newMarker);
             {% endmacro %}
-            """
-    )  # noqa
+            """)  # noqa
 
-    def __init__(self, popup: Union[IFrame, Html, str, None] = None):
+    def __init__(self, popup: IFrame | Html | str | None = None):
         super().__init__()
         self._name = "ClickForMarker"
 
@@ -1864,8 +1873,7 @@ class ClickForLatLng(MacroElement):
         Whether there should be an alert when something has been copied to clipboard.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) %}
                 function getLatLng(e){
                     var lat = e.latlng.lat.toFixed(6),
@@ -1876,10 +1884,9 @@ class ClickForLatLng(MacroElement):
                     };
                 {{this._parent.get_name()}}.on('click', getLatLng);
             {% endmacro %}
-            """
-    )  # noqa
+            """)  # noqa
 
-    def __init__(self, format_str: Optional[str] = None, alert: bool = True):
+    def __init__(self, format_str: str | None = None, alert: bool = True):
         super().__init__()
         self._name = "ClickForLatLng"
         self.format_str = format_str or 'lat + "," + lng'
@@ -1901,7 +1908,8 @@ class CustomIcon(Icon):
         * Otherwise a string will be assumed to be JSON and embedded.
         * If array-like, it will be converted to PNG base64 string and embedded.
     icon_size : tuple of 2 int, optional
-        Size of the icon image in pixels.
+        Size of the icon image in pixels. If not given, the image is shown
+        at its natural size.
     icon_anchor : tuple of 2 int, optional
         The coordinates of the "tip" of the icon
         (relative to its top left corner).
@@ -1921,23 +1929,21 @@ class CustomIcon(Icon):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         var {{ this.get_name() }} = L.icon({{ this.options|tojavascript }});
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     def __init__(
         self,
         icon_image: Any,
-        icon_size: Optional[Tuple[int, int]] = None,
-        icon_anchor: Optional[Tuple[int, int]] = None,
+        icon_size: tuple[int, int] | None = None,
+        icon_anchor: tuple[int, int] | None = None,
         shadow_image: Any = None,
-        shadow_size: Optional[Tuple[int, int]] = None,
-        shadow_anchor: Optional[Tuple[int, int]] = None,
-        popup_anchor: Optional[Tuple[int, int]] = None,
+        shadow_size: tuple[int, int] | None = None,
+        shadow_anchor: tuple[int, int] | None = None,
+        popup_anchor: tuple[int, int] | None = None,
     ):
         super(Icon, self).__init__()
         self._name = "icon"
@@ -1985,10 +1991,10 @@ class ColorLine(FeatureGroup):
         self,
         positions: TypeLine,
         colors: Iterable[float],
-        colormap: Union[ColorMap, Sequence[Any], None] = None,
+        colormap: ColorMap | Sequence[Any] | None = None,
         nb_steps: int = 12,
-        weight: Optional[int] = None,
-        opacity: Optional[float] = None,
+        weight: int | None = None,
+        opacity: float | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -2016,7 +2022,7 @@ class ColorLine(FeatureGroup):
                 f"Unexpected type for argument `colormap`: {type(colormap)}"
             )
 
-        out: Dict[str, List[List[List[float]]]] = {}
+        out: dict[str, list[list[list[float]]]] = {}
         for (lat1, lng1), (lat2, lng2), color in zip(coords[:-1], coords[1:], colors):
             out.setdefault(cm(color), []).append([[lat1, lng1], [lat2, lng2]])
         for key, val in out.items():
@@ -2047,8 +2053,7 @@ class Control(JSCSSMixin, Class):
     >>> Control("Zoom", position="topleft").add_to(m)
     """
 
-    _template = Template(
-        """
+    _template = Template("""
       {% macro script(this, kwargs) %}
           var {{ this.get_name() }} = new L.Control.{{this._name}}(
               {% for arg in this.args %}
@@ -2057,14 +2062,13 @@ class Control(JSCSSMixin, Class):
               {{ this.options|tojavascript }}
           ).addTo({{ this._parent.get_name() }});
       {% endmacro %}
-    """
-    )
+    """)
 
     def __init__(
         self,
-        control: Optional[str] = None,
+        control: str | None = None,
         *args,
-        position: Optional[TypePosition] = None,
+        position: TypePosition | None = None,
         **kwargs,
     ):
         super().__init__()
@@ -2073,8 +2077,8 @@ class Control(JSCSSMixin, Class):
 
         if position is not None:
             position = position.lower()  # type: ignore
-            if position not in (args := get_args(TypePosition)):
-                raise TypeError(f"position must be one of {args}")
+            if position not in (positions := get_args(TypePosition)):
+                raise TypeError(f"position must be one of {positions}")
             kwargs["position"] = position
 
         self.args = args

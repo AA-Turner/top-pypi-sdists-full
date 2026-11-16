@@ -6,15 +6,15 @@ use pyo3::prelude::{
 };
 use pyo3::types::PyDict;
 use pyo3::{pyfunction, wrap_pyfunction};
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use sqlbuild_rules::rules::main::selected_codes::selected_codes_json;
 use sqlbuild_rules::rules::main::selected_sql_codes::selected_sql_codes;
 
-use crate::bindings::_helpers::boundary::panics::compiler_guard;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as record_field;
-use crate::bindings::_helpers::records::ids::ErrorId;
 use crate::bindings::_helpers::rules::config_json::{asdict_json, dumped_json};
 use crate::bindings::_helpers::rules::constants::RULES_NATIVE_API_VERSION;
+use sqlbuild_python_base::boundary::main::compiler_guard::compiler_guard;
+use sqlbuild_python_base::records::main::fields::field::field as record_field;
+use sqlbuild_python_base::records::types::ErrorId;
 
 const DATACLASSES_MODULE: &str = "dataclasses";
 const JSON_MODULE: &str = "json";
@@ -99,11 +99,7 @@ pub(crate) fn rule_selected(config: &Bound<'_, PyAny>, code: &str) -> PyResult<b
 
 /// `RulesError(message)`, caused by `cause` when given.
 pub(crate) fn rules_error(py: Python<'_>, message: &str, cause: Option<PyErr>) -> PyErr {
-    let raised = || -> PyResult<PyErr> {
-        let error: Bound<'_, PyAny> = error_class(py, ErrorId::Rules)?.call1((message,))?;
-        Ok(PyErr::from_value(error))
-    };
-    let error: PyErr = raised().unwrap_or_else(|error| error);
+    let error: PyErr = new_plain_error(py, ErrorId::Rules, message);
     if let Some(cause) = cause {
         error.set_cause(py, Some(cause));
     }

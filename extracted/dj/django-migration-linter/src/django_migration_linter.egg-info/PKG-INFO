@@ -1,44 +1,37 @@
 Metadata-Version: 2.4
 Name: django-migration-linter
-Version: 6.0.0
+Version: 7.0.0
 Summary: Detect backward incompatible migrations for your django project
-Author-email: 3YOURMIND GmbH <fb@3yourmind.com>
+Author-email: David Wobrock <david.wobrock@gmail.com>, 3YOURMIND GmbH <fb@3yourmind.com>
 Maintainer-email: David Wobrock <david.wobrock@gmail.com>
 License: Apache-2.0
-Project-URL: Changelog, https://github.com/3YOURMIND/django-migration-linter/blob/main/CHANGELOG.md
-Project-URL: Repository, https://github.com/3YOURMIND/django-migration-linter
+Project-URL: Changelog, https://github.com/David-Wobrock/django-migration-linter/blob/main/CHANGELOG.md
+Project-URL: Repository, https://github.com/David-Wobrock/django-migration-linter
 Keywords: django,migration,lint,linter,database,backward,compatibility
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: django>=2.2
+Requires-Dist: django>=5.2
 Requires-Dist: appdirs>=1.4.3
-Requires-Dist: toml>=0.10.2
 Provides-Extra: test
-Requires-Dist: tox>=4.30.3; extra == "test"
-Requires-Dist: mysqlclient>=2.1.1; extra == "test"
-Requires-Dist: psycopg2>=2.9.6; extra == "test"
-Requires-Dist: django_add_default_value>=0.4.0; extra == "test"
+Requires-Dist: tox>=4.61.4; extra == "test"
+Requires-Dist: mysqlclient>=2.2.8; extra == "test"
+Requires-Dist: psycopg2>=2.9.13; extra == "test"
+Requires-Dist: django_add_default_value>=0.10.0; extra == "test"
 Dynamic: license-file
 
 # Django migration linter
@@ -46,11 +39,8 @@ Dynamic: license-file
 Detect backward incompatible migrations for your Django project.
 It will save you time by making sure migrations will not break with a older codebase.
 
-[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2F3YOURMIND%2Fdjango-migration-linter%2Fbadge%3Fref%3Dmain&style=flat)](https://actions-badge.atrox.dev/3YOURMIND/django-migration-linter/goto?ref=main)
 [![PyPI](https://img.shields.io/pypi/v/django-migration-linter.svg)](https://pypi.python.org/pypi/django-migration-linter/)
-[![PR_Welcome](https://img.shields.io/badge/PR-welcome-green.svg)](https://github.com/3YOURMIND/django-migration-linter/pulls)
-[![3YD_Hiring](https://img.shields.io/badge/3YOURMIND-Hiring-brightgreen.svg)](https://www.3yourmind.com/career)
-[![GitHub_Stars](https://img.shields.io/github/stars/3YOURMIND/django-migration-linter.svg?style=social&label=Stars)](https://github.com/3YOURMIND/django-migration-linter/stargazers)
+[![GitHub_Stars](https://img.shields.io/github/stars/David-Wobrock/django-migration-linter.svg?style=social&label=Stars)](https://github.com/David-Wobrock/django-migration-linter/stargazers)
 
 ## Quick installation
 
@@ -155,4 +145,6 @@ Some implementation details [can be found in the ./docs/internals/ folder](./doc
 
 *django-migration-linter* is released under the [Apache 2.0 License](./LICENSE).
 
-##### Maintained by [David Wobrock](https://github.com/David-Wobrock)
+Maintained by [David](https://github.com/David-Wobrock).
+
+Created originally at [3YOURMIND](https://www.3yourmind.com/).

@@ -1,7 +1,8 @@
-import pytest
 import asyncio
 
-from aiostream import stream, pipe
+import pytest
+
+from aiostream import pipe, stream
 from aiostream.test_utils import add_resource
 
 
@@ -68,3 +69,20 @@ async def test_chunks(assert_run, assert_cleanup):
     with assert_cleanup():
         xs = stream.count(interval=1) | add_resource.pipe(1) | pipe.chunks(3)
         await assert_run(xs[:1], [[0, 1, 2]])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("n", [0, -1])
+@pytest.mark.parametrize("items", [[], [1, 2]])
+async def test_chunks_rejects_nonpositive_size(n, items):
+    consumed = []
+
+    async def source():
+        for item in items:
+            consumed.append(item)
+            yield item
+
+    with pytest.raises(ValueError, match="size must be greater than zero"):
+        await stream.list(stream.chunks(source(), n))
+
+    assert consumed == []

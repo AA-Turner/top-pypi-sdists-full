@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: djlint
-Version: 1.50.3
+Version: 1.50.4
 Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Mustache, Liquid, Go templates, Angular, Tera, Askama, Mako)
 Project-URL: changelog, https://github.com/djlint/djLint/blob/master/CHANGELOG.md
 Project-URL: documentation, https://djlint.com
@@ -194,7 +194,7 @@ Or use `pre-commit` to reformat, then lint!
 ```yaml
 repos:
   - repo: https://github.com/djlint/djLint
-    rev: v1.50.3 # use the latest version instead
+    rev: v1.50.4 # use the latest version instead
     hooks:
       - id: djlint-reformat
       - id: djlint

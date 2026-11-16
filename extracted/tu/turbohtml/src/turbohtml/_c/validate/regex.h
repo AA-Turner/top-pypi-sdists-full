@@ -10,6 +10,8 @@
 #ifndef TURBOHTML_VALIDATE_REGEX_H
 #define TURBOHTML_VALIDATE_REGEX_H
 
+#include "core/work_steps.h"
+
 #include "data/xsd_digit_table.h"
 #include "data/xsd_category_table.h"
 #include "data/xsd_block_table.h"
@@ -34,9 +36,16 @@ enum {
     RX_FAIL_ESCAPE,
     RX_FAIL_GROUP,
     RX_FAIL_QUANTIFIER,
-    RX_FAIL_BRACKET
+    RX_FAIL_BRACKET,
+    RX_FAIL_STACK
 };
+/* Shared by all patterns of one schema: their NFAs stay in the schema arena for as long as the schema lives. */
 #define RX_MAX_STATES 2000000
+/* Matching steps every live NFA state once per character, and a counted repeat keeps many states live without
+   lengthening the pattern. The state visits of one validate() call are therefore budgeted, as the XPath regex steps
+   are: a base, plus a share for each character matched (see rx_share). */
+#define RX_BUDGET_BASE 100000000
+#define RX_BUDGET_PER_CHAR 1000
 #define RX_CATEGORY_ALL ((UINT64_C(1) << 30) - 1)
 
 enum {
@@ -94,6 +103,7 @@ typedef struct {
     int has_extended;
     Py_ssize_t fail_pos, fail_end; /* the span a nesting or bound error points at */
     int depth;                     /* open groups on the recursion path, capped at RX_MAX_GROUP_DEPTH */
+    uintptr_t stack_floor;         /* the lowest frame address the parse may run at; see core/stack.h */
 } rparser;
 
 static rnode *rx_node(rparser *parser, int type) {
@@ -134,6 +144,33 @@ static int rx_range_push(rparser *parser, rclass *cls, Py_UCS4 lo, Py_UCS4 hi) {
     cls->ranges[cls->range_count].hi = hi;
     cls->range_count++;
     return 0;
+}
+
+static int rx_range_order(const void *left, const void *right) {
+    const Py_UCS4 first = ((const rrange *)left)->lo, second = ((const rrange *)right)->lo;
+    return (first > second) - (first < second);
+}
+
+/* Sorted, disjoint ranges let rx_class_match bisect them; a class spelling many members would otherwise cost its
+   length for every character it is matched against. */
+static void rx_class_finish(rclass *cls) {
+    if (cls->range_count < 2) {
+        return;
+    }
+    qsort(cls->ranges, (size_t)cls->range_count, sizeof(rrange), rx_range_order);
+    Py_ssize_t kept = 0;
+    for (Py_ssize_t index = 1; index < cls->range_count; index++) {
+        rrange *last = &cls->ranges[kept];
+        const rrange *next = &cls->ranges[index];
+        if (next->lo <= last->hi + 1) {
+            if (next->hi > last->hi) {
+                last->hi = next->hi;
+            }
+        } else {
+            cls->ranges[++kept] = *next;
+        }
+    }
+    cls->range_count = kept + 1;
 }
 
 /* Map a class escape letter to its builtin flag, or 0 when it is not one. */
@@ -368,6 +405,7 @@ static rnode *rx_parse_class(rparser *parser) {
         parser->fail_pos = start;
         return NULL;
     }
+    rx_class_finish(cls);
     parser->pos++;
     return node;
 }
@@ -433,6 +471,7 @@ static rnode *rx_parse_atom(rparser *parser) {
             if (rx_parse_property(parser, property->cls, letter) < 0) {
                 return NULL;
             }
+            rx_class_finish(property->cls);
             return property;
         }
         if (!rx_is_single_escape(letter)) {
@@ -465,8 +504,7 @@ static rnode *rx_parse_atom(rparser *parser) {
 }
 
 /* Read a run of decimal digits as a quantifier count, saturating at the state budget: a larger count can never compile
-   within it, and saturating keeps the arithmetic from overflowing and an empty-atom repeat such as (){999999999999}
-   from looping without creating states. Returns the digit count. */
+   within it, and saturating keeps the arithmetic from overflowing. Returns the digit count. */
 static Py_ssize_t rx_parse_count(rparser *parser, int *count) {
     Py_ssize_t digits = 0;
     int value = 0;
@@ -510,6 +548,9 @@ static int rx_parse_bound(rparser *parser, int *rmin, int *rmax) {
     return 1;
 }
 
+/* A piece that matches only the empty string compiles to no NFA state, so the state budget cannot bound the copies
+   rx_compile_repeat makes of it, and nested repeats of such a piece multiply. Folding it here keeps every copy paid for
+   by a state. x{1} folds to x so that a chain of single repeats is not walked once per level for every copy. */
 static rnode *rx_parse_quant(rparser *parser) {
     rnode *atom = rx_parse_atom(parser);
     if (atom == NULL || parser->pos >= parser->len) { /* GCOVR_EXCL_BR_LINE: NULL only on unforceable arena OOM */
@@ -519,6 +560,9 @@ static rnode *rx_parse_quant(rparser *parser) {
     int type = quant == '?' ? RN_QUEST : (quant == '*' ? RN_STAR : (quant == '+' ? RN_PLUS : -1));
     if (type != -1) {
         parser->pos++;
+        if (atom->type == RN_EMPTY) {
+            return atom;
+        }
         rnode *node = rx_node(parser, type);
         if (node != NULL) { /* GCOVR_EXCL_BR_LINE: node is NULL only on unforceable arena OOM */
             node->a = atom;
@@ -528,6 +572,12 @@ static rnode *rx_parse_quant(rparser *parser) {
     if (quant == '{') {
         int rmin, rmax;
         if (rx_parse_bound(parser, &rmin, &rmax)) {
+            if (atom->type == RN_EMPTY || (rmin == 1 && rmax == 1)) {
+                return atom;
+            }
+            if (rmax == 0) {
+                return rx_node(parser, RN_EMPTY);
+            }
             rnode *node = rx_node(parser, RN_REPEAT);
             if (node != NULL) { /* GCOVR_EXCL_BR_LINE: node is NULL only on unforceable arena OOM */
                 node->a = atom;
@@ -547,6 +597,9 @@ static rnode *rx_parse_concat(rparser *parser) {
         if (piece == NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on unforceable arena OOM */
             return NULL;     /* GCOVR_EXCL_LINE */
         }
+        if (piece->type == RN_EMPTY) {
+            continue; /* see rx_parse_quant */
+        }
         if (left == NULL) {
             left = piece;
         } else {
@@ -563,6 +616,11 @@ static rnode *rx_parse_concat(rparser *parser) {
 }
 
 static rnode *rx_parse_alt(rparser *parser) {
+    if (TH_FRAME_ADDRESS() < parser->stack_floor) {
+        parser->failed = RX_FAIL_STACK;
+        parser->fail_pos = parser->pos;
+        return NULL;
+    }
     rnode *left = rx_parse_concat(parser);
     while (parser->pos < parser->len && parser->pattern[parser->pos] == '|') {
         parser->pos++;
@@ -581,13 +639,14 @@ static rnode *rx_parse_alt(rparser *parser) {
 typedef struct {
     arena *mem;
     size_t count;
+    size_t limit;
     int failed;
     rstate sink; /* absorbs writes once the pattern is refused, so no caller dereferences NULL */
 } rcompiler;
 
 static rstate *rx_state(rcompiler *compiler, int kind) {
     rstate *state = NULL;
-    if (compiler->count >= RX_MAX_STATES) {
+    if (compiler->count >= compiler->limit) {
         compiler->failed = RX_FAIL_STATES;
     } else if ((state = arena_alloc(compiler->mem, sizeof(rstate))) == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM */
         compiler->failed = RX_FAIL_MEMORY;                                     /* GCOVR_EXCL_LINE */
@@ -605,8 +664,9 @@ static rstate *rx_state(rcompiler *compiler, int kind) {
 static rstate *rx_compile(rcompiler *compiler, rnode *node, rstate *out);
 
 /* Compile `node->a{rmin,rmax}` (rmax -1 for unbounded) iteratively, so a huge repeat count grows the NFA without
-   growing the C stack; rx_state's budget bounds the memory, and the loops stop once it trips. An inverted bound such
-   as {5,2} compiles as {5,}, as the recursive construction always did. */
+   growing the C stack; rx_state's budget bounds the memory, and the loops stop once it trips. Every copy moves towards
+   it, because rx_parse_quant leaves no atom that compiles to nothing. An inverted bound such as {5,2} compiles as
+   {5,}, as the recursive construction always did. */
 static rstate *rx_compile_repeat(rcompiler *compiler, rnode *node, int rmin, int rmax, rstate *out) {
     if (rmax < rmin) {
         rmax = -1;
@@ -625,6 +685,7 @@ static rstate *rx_compile_repeat(rcompiler *compiler, rnode *node, int rmin, int
         cur = split;
     }
     for (int required = 0; required < rmin && !compiler->failed; required++) {
+        TH_WORK_STEP();
         cur = rx_compile(compiler, node->a, cur);
     }
     return cur;
@@ -731,13 +792,22 @@ static int rx_digit_match(Py_UCS4 codepoint) {
     return (TH_DIGIT_MIXED_BITS[kind - 2][(codepoint / 64) % 4] & (UINT64_C(1) << (codepoint % 64))) != 0;
 }
 
-static int rx_class_match(const rclass *cls, Py_UCS4 codepoint) {
-    int inside = 0;
-    for (Py_ssize_t index = 0; index < cls->range_count; index++) {
-        if (codepoint >= cls->ranges[index].lo && codepoint <= cls->ranges[index].hi) {
-            inside = 1;
+static int rx_ranges_contain(const rclass *cls, Py_UCS4 codepoint) {
+    Py_ssize_t low = 0, high = cls->range_count;
+    while (low < high) {
+        TH_WORK_STEP();
+        const Py_ssize_t middle = low + (high - low) / 2;
+        if (cls->ranges[middle].hi < codepoint) {
+            low = middle + 1;
+        } else {
+            high = middle;
         }
     }
+    return low < cls->range_count && cls->ranges[low].lo <= codepoint;
+}
+
+static int rx_class_match(const rclass *cls, Py_UCS4 codepoint) {
+    int inside = rx_ranges_contain(cls, codepoint);
     int is_d = (cls->builtins & (RX_BD | RX_ND)) != 0 && rx_digit_match(codepoint);
     int is_w = (cls->builtins & (RX_BW | RX_NW)) != 0 && rx_word_match(codepoint);
     int is_s = (cls->builtins & (RX_BS | RX_NS)) != 0 && is_xml_space(codepoint);
@@ -831,32 +901,84 @@ typedef struct rpattern {
     Py_ssize_t len;
     rstate *start;
     size_t count;
+    int64_t share; /* state visits one character of a value adds to the budget, see rx_share */
     int has_extended;
-    struct rpattern *next;
+    int duplicate; /* an earlier pattern of the schema has the same text and holds the compiled form */
 } rpattern;
 
-static int regex_cache_add(th_schema *schema, const Py_UCS4 *text, Py_ssize_t len) {
-    for (rpattern *cached = schema->regex_patterns; cached != NULL; cached = cached->next) {
-        if (u_eq_u(text, len, cached->text, cached->len)) {
-            return 0;
+/* The state visits one character of a value adds to the budget: twice the states the pattern spells out, which covers
+   a pattern without a counted repeat, plus RX_BUDGET_PER_CHAR for the copies a counted repeat keeps live. */
+static int64_t rx_share(const rpattern *pattern) {
+    const size_t spelled = pattern->count < (size_t)pattern->len + 1 ? pattern->count : (size_t)pattern->len + 1;
+    return 2 * (int64_t)spelled + RX_BUDGET_PER_CHAR;
+}
+
+/* A total order on pattern texts. The schema's distinct patterns are sorted by it once, so looking one up by its text
+   is a binary search: a linear scan made a type with P pattern facets cost P * P steps for every value it checked. */
+static int rx_text_order(const Py_UCS4 *left, Py_ssize_t left_len, const Py_UCS4 *right, Py_ssize_t right_len) {
+    if (left_len != right_len) {
+        return left_len < right_len ? -1 : 1;
+    }
+    return left_len == 0 ? 0 : memcmp(left, right, (size_t)left_len * sizeof(Py_UCS4));
+}
+
+/* Equal texts order by position in regex_patterns, so each run of duplicates opens with the first in document order. */
+static int rpattern_order(const void *left, const void *right) {
+    const rpattern *first = *(const rpattern *const *)left;
+    const rpattern *second = *(const rpattern *const *)right;
+    const int order = rx_text_order(first->text, first->len, second->text, second->len);
+    return order != 0 ? order : (first > second) - (first < second);
+}
+
+static int regex_cache_push(th_schema *schema, const Py_UCS4 *text, Py_ssize_t len) {
+    if (schema->regex_count == schema->regex_cap) {
+        size_t capacity, bytes;
+        const int fits =
+            th_grow_cap(schema->regex_count + 1, schema->regex_cap, 8, sizeof(rpattern), &capacity, &bytes);
+        if (!fits) {          /* GCOVR_EXCL_BR_LINE: allocation size overflow */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+            return -1;        /* GCOVR_EXCL_LINE */
         }
+        rpattern *patterns = arena_alloc(&schema->mem, bytes);
+        if (patterns == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM is unforceable */
+            return -1;          /* GCOVR_EXCL_LINE */
+        }
+        if (schema->regex_count > 0) {
+            memcpy(patterns, schema->regex_patterns, schema->regex_count * sizeof(rpattern));
+        }
+        schema->regex_patterns = patterns;
+        schema->regex_cap = capacity;
     }
-    rpattern *pattern = arena_alloc(&schema->mem, sizeof(*pattern));
-    if (pattern == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM is unforceable */
-        return -1;         /* GCOVR_EXCL_LINE */
-    }
-    rparser parser = {.pattern = text, .len = len, .mem = &schema->mem};
+    schema->regex_patterns[schema->regex_count++] = (rpattern){.text = text, .len = len};
+    return 0;
+}
+
+static int regex_cache_add(th_schema *schema, rpattern *pattern) {
+    const Py_UCS4 *text = pattern->text;
+    const Py_ssize_t len = pattern->len;
+#ifdef TH_STACK_FLOOR
+    const uintptr_t floor = th_stack_floor();
+#else
+    const uintptr_t floor = 0;
+#endif
+    rparser parser = {.pattern = text, .len = len, .mem = &schema->mem, .stack_floor = floor};
     rnode *ast = rx_parse_alt(&parser);
     if (!parser.failed && parser.pos < len) {
         parser.failed = RX_FAIL_GROUP;
         parser.fail_pos = parser.pos;
     }
-    rcompiler compiler = {.mem = &schema->mem};
+    rcompiler compiler = {.mem = &schema->mem, .limit = RX_MAX_STATES - schema->regex_states};
     rstate *start = parser.failed ? NULL : rx_compile(&compiler, ast, rx_state(&compiler, RS_ACCEPT));
     const int failed = parser.failed ? parser.failed : compiler.failed;
     if (failed == RX_FAIL_MEMORY) { /* GCOVR_EXCL_BR_LINE: arena OOM */
         PyErr_NoMemory();           /* GCOVR_EXCL_LINE */
         return -1;                  /* GCOVR_EXCL_LINE */
+    }
+    if (failed == RX_FAIL_STACK) {
+        PyErr_SetString(PyExc_RecursionError,
+                        "schema pattern nests groups deeper than this thread's C stack holds; run the compile on a "
+                        "thread with a larger stack");
+        return -1;
     }
     if (failed == RX_FAIL_NESTING) {
         PyErr_Format(PyExc_ValueError,
@@ -910,32 +1032,35 @@ static int regex_cache_add(th_schema *schema, const Py_UCS4 *text, Py_ssize_t le
         }
         return -1;
     }
-    if (failed == RX_FAIL_STATES) {
-        PyErr_Format(PyExc_ValueError,
-                     "schema pattern needs more than %d NFA states; lower its repeat counts or split it into "
-                     "several patterns",
+    if (failed == RX_FAIL_STATES && schema->regex_states == 0) {
+        PyErr_Format(PyExc_ValueError, "schema pattern needs more than %d NFA states; lower its repeat counts",
                      RX_MAX_STATES);
         return -1;
     }
-    pattern->text = text;
-    pattern->len = len;
+    if (failed == RX_FAIL_STATES) {
+        /* the pattern had only what the earlier ones left, so splitting one into several would not have helped */
+        PyErr_Format(PyExc_ValueError,
+                     "schema patterns need more than %d NFA states between them; lower their repeat counts",
+                     RX_MAX_STATES);
+        return -1;
+    }
     pattern->start = start;
     pattern->has_extended = parser.has_extended;
     pattern->count = compiler.count;
+    pattern->share = rx_share(pattern);
+    schema->regex_states += compiler.count;
     if (compiler.count > schema->regex_max_states) {
         schema->regex_max_states = compiler.count;
     }
-    pattern->next = schema->regex_patterns;
-    schema->regex_patterns = pattern;
     return 0;
 }
 
-static int regex_cache_schema(th_schema *schema, th_node *node) {
+static int regex_cache_collect_at(th_schema *schema, th_node *node) {
     if (schema->kind == 0 && is_schema_el(schema, node, XSD_NS, "pattern")) {
         const th_node_attr *value = attr_exact(schema->tree, node, "value", 5);
         if (value != NULL) {
-            if (regex_cache_add(schema, value->value, value->value_len) < 0) {
-                return -1;
+            if (regex_cache_push(schema, value->value, value->value_len) < 0) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+                return -1;                                                      /* GCOVR_EXCL_LINE */
             }
         }
     } else if (schema->kind != 0 && is_schema_el(schema, node, RNG_NS, "param")) {
@@ -946,21 +1071,66 @@ static int regex_cache_schema(th_schema *schema, th_node *node) {
             if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: lazy text OOM */
                 return -1;          /* GCOVR_EXCL_LINE: allocation failure */
             }
-            if (regex_cache_add(schema, text, len) < 0) {
-                return -1;
+            if (regex_cache_push(schema, text, len) < 0) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+                return -1;                                 /* GCOVR_EXCL_LINE */
             }
         }
     }
-    for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
-        if (child->type == TH_NODE_ELEMENT) {
-            if (regex_cache_schema(schema, child) < 0) { /* GCOVR_EXCL_BR_LINE: arena OOM */
-                return -1;                               /* GCOVR_EXCL_LINE */
+    return 0;
+}
+
+static int regex_cache_collect(th_schema *schema, th_node *root) {
+    for (th_node *node = root; node != NULL; node = schema_walk_next(root, node)) {
+        if (node->type == TH_NODE_ELEMENT) {
+            if (regex_cache_collect_at(schema, node) < 0) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+                return -1;                                  /* GCOVR_EXCL_LINE */
             }
-        } else if (is_chardata(child) && child->text_len > 0) {
+        } else if (is_chardata(node) && node->text_len > 0) {
             /* Lazy definitions must not realize shared schema spans during validation. */
-            if (th_node_realize_text(schema->tree, child) == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-                return -1;                                           /* GCOVR_EXCL_LINE */
+            if (th_node_realize_text(schema->tree, node) == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;                                          /* GCOVR_EXCL_LINE */
             }
+        }
+    }
+    return 0;
+}
+
+/* Compile each distinct pattern of the schema once. The walk lists the patterns in document order; sorting pointers to
+   them brings equal texts together, and the first of each run is compiled, still in document order so the schema's
+   first invalid pattern is the one reported. The sorted pointers that remain are what regex_full_match searches. */
+static int regex_cache_schema(th_schema *schema, th_node *node) {
+    if (regex_cache_collect(schema, node) < 0) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+        return -1;                               /* GCOVR_EXCL_LINE */
+    }
+    if (schema->regex_count == 0) {
+        return 0;
+    }
+    rpattern **sorted = arena_alloc(&schema->mem, schema->regex_count * sizeof(rpattern *));
+    if (sorted == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM is unforceable */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    for (size_t index = 0; index < schema->regex_count; index++) {
+        sorted[index] = &schema->regex_patterns[index];
+    }
+    qsort(sorted, schema->regex_count, sizeof(rpattern *), rpattern_order);
+    size_t distinct = 1;
+    for (size_t index = 1; index < schema->regex_count; index++) {
+        const rpattern *kept = sorted[distinct - 1];
+        if (rx_text_order(kept->text, kept->len, sorted[index]->text, sorted[index]->len) == 0) {
+            sorted[index]->duplicate = 1;
+        } else {
+            sorted[distinct++] = sorted[index];
+        }
+    }
+    schema->regex_sorted = sorted;
+    schema->regex_distinct = distinct;
+    for (size_t index = 0; index < schema->regex_count; index++) {
+        if (schema->regex_patterns[index].duplicate) {
+            continue;
+        }
+        TH_WORK_STEP();
+        if (regex_cache_add(schema, &schema->regex_patterns[index]) < 0) {
+            return -1;
         }
     }
     return 0;
@@ -977,6 +1147,7 @@ typedef struct rscratch {
     const rstate **lists, **stack;
     size_t *visited;
     size_t gen;
+    int64_t budget; /* state visits the call may still spend; negative once a match ran out of them */
 } rscratch;
 
 static rscratch *rx_scratch(th_schema *schema) {
@@ -989,7 +1160,7 @@ static rscratch *rx_scratch(th_schema *schema) {
             return NULL;                                           /* GCOVR_EXCL_LINE */
         }
         memset(visited, 0, states * sizeof(size_t));
-        *scratch = (rscratch){lists, lists + states * 2, visited, 0};
+        *scratch = (rscratch){lists, lists + states * 2, visited, 0, RX_BUDGET_BASE};
         schema->regex_scratch = scratch;
     }
     return schema->regex_scratch;
@@ -1004,12 +1175,14 @@ static void rx_push(rscratch *scratch, size_t *top, const rstate *state) {
 
 /* Add every state reachable from start through split states. The iterative compiler builds long split chains, such as
    the one for a|a|a..., so walking them by recursion overflows a small thread stack; an explicit stack, as in RE2's
-   NFA, holds at most one entry per state because a state is marked when pushed. */
+   NFA, holds at most one entry per state because a state is marked when pushed. The states walked are charged to the
+   budget. */
 static void rx_add(rlist *list, const rstate *start, rscratch *scratch) {
-    size_t top = 0;
+    size_t top = 0, walked = 0;
     rx_push(scratch, &top, start);
     while (top > 0) {
         const rstate *state = scratch->stack[--top];
+        walked++;
         if (state->kind == RS_SPLIT) {
             rx_push(scratch, &top, state->out1);
             rx_push(scratch, &top, state->out);
@@ -1017,11 +1190,14 @@ static void rx_add(rlist *list, const rstate *start, rscratch *scratch) {
             list->items[list->len++] = state;
         }
     }
+    scratch->budget -= (int64_t)walked;
 }
 
 static Py_NO_INLINE rlist rx_match_extended(rscratch *scratch, rlist current, rlist next, const Py_UCS4 *value,
                                             Py_ssize_t len) {
-    for (Py_ssize_t index = 0; index < len; index++) {
+    /* each state a character steps was reached by a walk that rx_add already charged, so checking the budget per
+       character bounds the match */
+    for (Py_ssize_t index = 0; index < len && scratch->budget >= 0; index++) {
         scratch->gen++;
         next.len = 0;
         for (size_t state = 0; state < current.len; state++) {
@@ -1044,7 +1220,7 @@ static Py_NO_INLINE rlist rx_match_extended(rscratch *scratch, rlist current, rl
 
 static Py_NO_INLINE rlist rx_match_regular(rscratch *scratch, rlist current, rlist next, const Py_UCS4 *value,
                                            Py_ssize_t len) {
-    for (Py_ssize_t index = 0; index < len; index++) {
+    for (Py_ssize_t index = 0; index < len && scratch->budget >= 0; index++) { /* as in rx_match_extended */
         scratch->gen++;
         next.len = 0;
         for (size_t state = 0; state < current.len; state++) {
@@ -1060,16 +1236,42 @@ static Py_NO_INLINE rlist rx_match_regular(rscratch *scratch, rlist current, rli
     return current;
 }
 
+static const rpattern *regex_cache_find(const th_schema *schema, const Py_UCS4 *text, Py_ssize_t len) {
+    size_t low = 0, high = schema->regex_distinct;
+    while (low < high) { /* GCOVR_EXCL_BR_LINE: the pattern is always present, so the loop exits by return */
+        const size_t middle = low + (high - low) / 2;
+        const rpattern *pattern = schema->regex_sorted[middle];
+        TH_WORK_STEP();
+        const int order = rx_text_order(pattern->text, pattern->len, text, len);
+        if (order == 0) {
+            return pattern;
+        }
+        if (order < 0) {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
+    return NULL; /* GCOVR_EXCL_LINE: regex_cache_schema compiled every facet's pattern, so the search never misses */
+}
+
+/* Whether a pattern check of this validate() call ran out of budget. Its mismatch is then no verdict, so the entry
+   raises instead of reporting it. */
+static int regex_exhausted(const th_schema *schema) {
+    return schema->regex_scratch != NULL && schema->regex_scratch->budget < 0;
+}
+
 static int regex_full_match(th_schema *schema, const Py_UCS4 *text, Py_ssize_t text_len, const Py_UCS4 *value,
                             Py_ssize_t len) {
-    const rpattern *pattern = schema->regex_patterns;
-    while (!u_eq_u(text, text_len, pattern->text, pattern->len)) {
-        pattern = pattern->next;
-    }
+    const rpattern *pattern = regex_cache_find(schema, text, text_len);
     rscratch *scratch = rx_scratch(schema);
     if (scratch == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM; validate() raises the MemoryError */
         return 0;          /* GCOVR_EXCL_LINE: fail closed, the value does not match */
     }
+    if (scratch->budget < 0) {
+        return 0; /* the call already fails, so the rest of the document is not worth matching */
+    }
+    scratch->budget += ((int64_t)len + 1) * pattern->share;
     rlist current = {scratch->lists, 0};
     rlist next = {scratch->lists + schema->regex_max_states, 0};
     scratch->gen++;

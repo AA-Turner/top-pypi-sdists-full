@@ -222,7 +222,8 @@ class GridSampler(BaseSampler):
         if len(target_grids) == 0:
             study.stop()
         elif len(target_grids) == 1:
-            grid_id = study._storage.get_trial_system_attrs(trial._trial_id)["grid_id"]
+            # Enqueued trials have no grid_id and must not stop the remaining grid.
+            grid_id = study._storage.get_trial_system_attrs(trial._trial_id).get("grid_id")
             if grid_id == target_grids[0]:
                 study.stop()
 
@@ -273,6 +274,8 @@ class GridSampler(BaseSampler):
         return (value1 == value2) or (value1_is_nan and value2_is_nan)
 
     def _same_search_space(self, search_space: Mapping[str, Sequence[GridValueType]]) -> bool:
+        if search_space == self._search_space:
+            return True
         if set(search_space.keys()) != set(self._search_space.keys()):
             return False
 

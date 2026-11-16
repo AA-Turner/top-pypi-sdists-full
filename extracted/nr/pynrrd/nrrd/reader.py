@@ -353,6 +353,9 @@ def read_data(header: NRRDHeader, fh: Optional[IO] = None, filename: Optional[st
         raise NRRDError(f'Number of elements in sizes does not match dimension. Dimension: {header["dimension"]}, '
                         f'len(sizes): {len(header["sizes"])}')
 
+    if header['dimension'] < 1 or np.any(header['sizes'] <= 0):
+        raise NRRDError('Dimension and sizes must be positive')
+
     # Determine the data type from the header
     dtype = _determine_datatype(header)
 
@@ -392,7 +395,6 @@ def read_data(header: NRRDHeader, fh: Optional[IO] = None, filename: Optional[st
 
         raise NRRDError('Invalid lineskip, allowed values are greater than or equal to 0')
 
-    # Skip the requested number of bytes or seek backward, and then parse the data using NumPy
     if byte_skip < -1:
         # Must close the file because if the file was opened above from detached filename, there is no "with" block to
         # close it for us
@@ -400,15 +402,16 @@ def read_data(header: NRRDHeader, fh: Optional[IO] = None, filename: Optional[st
             fh.close()
 
         raise NRRDError('Invalid byteskip, allowed values are greater than or equal to -1')
-    elif byte_skip >= 0:
-        fh.seek(byte_skip, os.SEEK_CUR)
-    elif byte_skip == -1 and header['encoding'] not in ['gzip', 'gz', 'bzip2', 'bz2']:
-        fh.seek(-dtype.itemsize * total_data_points, os.SEEK_END)
-    else:
-        # The only case left should be: byte_skip == -1 and header['encoding'] == 'gzip'
+
+    # A byte skip of -1 means the data is at the end of the file, so convert to a negative offset of the data size
+    if byte_skip == -1:
         byte_skip = -dtype.itemsize * total_data_points
 
-    # If a compression encoding is used, then byte skip AFTER decompressing
+    # For uncompressed encodings, skip bytes in the file (backwards from the end if negative)
+    # For compressed encodings, bytes are skipped AFTER decompression (see below)
+    if header['encoding'] not in ['gzip', 'gz', 'bzip2', 'bz2']:
+        fh.seek(byte_skip, os.SEEK_END if byte_skip < 0 else os.SEEK_CUR)
+
     if header['encoding'] == 'raw':
         if isinstance(fh, io.BytesIO):
             raw_data = bytearray(fh.read(total_data_points * dtype.itemsize))
@@ -459,6 +462,11 @@ def read_data(header: NRRDHeader, fh: Optional[IO] = None, filename: Optional[st
         # Delete the compressed data since we do not need it anymore
         # This could potentially be using a lot of memory
         del compressed_data
+
+        if not decompobj.eof:
+            if data_filename is not None:
+                fh.close()
+            raise NRRDError('Data ended before reaching the end of the compressed stream')
 
         # Byte skip is applied AFTER the decompression. Skip first x bytes of the decompressed data and parse it using
         # NumPy

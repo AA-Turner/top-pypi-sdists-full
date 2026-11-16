@@ -169,4 +169,4 @@ MockTarget = Literal["output", "input"]
 # "recorded" is the original trace's own value; "override" is one the caller
 # supplied via ``mock_override`` / ``register_mock_override``. Deliberately not
 # "dynamic": an override value may be a flat constant.
-MockSource = Literal["recorded", "override"]
+MockSource = Literal["recorded", "override", "sandbox"]

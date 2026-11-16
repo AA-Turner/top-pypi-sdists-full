@@ -24,6 +24,7 @@ from .env_config import EnvConfig
 from .esm_widget import EsmWidget
 from .excalidraw import Excalidraw
 from .fader import Fader
+from .fit_progress import FitProgress
 from .floating_panel import FloatingPanel
 from .formula_animation import FormulaAnimation
 from .formula_dag import FormulaDAG
@@ -48,11 +49,13 @@ from .neo4j_widget import Neo4jWidget
 from .nested_table import NestedTable
 from .observable_plot import ObservablePlot
 from .paint import Paint
+from .pair_plot import PairPlot
 from .parallel_coords import ParallelCoordinates
 from .pip import Pip
 from .play_slider import PlaySlider
 from .ridgeline_chart import RidgelineChart
 from .scatter_log import ScatterLog
+from .shape_display import shape_display
 from drawdata import ScatterWidget
 from .slider2d import Slider2D
 from .spline_draw import SplineDraw
@@ -66,6 +69,7 @@ from .treemap import Treemap
 from .three_widget import ThreeWidget
 from .trace_view import TraceView
 from .widget_dag import WidgetDAG
+from .widget_flow import WidgetFlow
 from .utils import forecast_chart
 from .webcam_capture import WebcamCapture
 
@@ -97,6 +101,7 @@ __all__ = [
     "EsmWidget",
     "Excalidraw",
     "Fader",
+    "FitProgress",
     "FloatingPanel",
     "FormulaAnimation",
     "FormulaDAG",
@@ -118,12 +123,14 @@ __all__ = [
     "NestedTable",
     "ObservablePlot",
     "Paint",
+    "PairPlot",
     "ParallelCoordinates",
     "Pip",
     "PlaySlider",
     "RidgelineChart",
     "ScatterLog",
     "ScatterWidget",
+    "shape_display",
     "Slider2D",
     "SplineDraw",
     "StateViewer",
@@ -139,6 +146,7 @@ __all__ = [
     "ThreeWidget",
     "TraceView",
     "WidgetDAG",
+    "WidgetFlow",
     "WebcamCapture",
     "HoverSlider",
     "HoverZoom",

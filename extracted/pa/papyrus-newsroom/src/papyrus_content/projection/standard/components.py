@@ -7,6 +7,7 @@ import html
 
 from .config import FooterColumn, NavLink
 from .entries import StandardEntry
+from .editions import hreflang_value
 
 
 def esc(value) -> str:
@@ -55,8 +56,20 @@ def translation_notice(strings, original: dict) -> str:
     before, found, after = strings[TRANSLATION_LABEL_KEY].partition(ORIGINAL_PLACEHOLDER)
     if not found:
         raise ValueError(f"{TRANSLATION_LABEL_KEY} must contain {ORIGINAL_PLACEHOLDER}, where the link to the original goes.")
-    link = f'<a href="{esc(original["url"])}" hreflang="{esc(original["tag"])}">{esc(strings[TRANSLATION_ORIGINAL_KEY])}</a>'
+    link = f'<a href="{esc(original["url"])}" hreflang="{esc(hreflang_value(original["tag"]))}">{esc(strings[TRANSLATION_ORIGINAL_KEY])}</a>'
     return f'<p class="markus-translation">{esc(before)}{link}{esc(after)}</p>'
+
+
+def untranslated_notice(strings, original: dict) -> str:
+    """The line on a language's home or listing that has no Story yet: it says so in the page's language and links to the same listing in the original
+    language. ``original`` is ``{tag, url}`` of that page. The page is not indexed (``noindex``) until it lists something."""
+    from .interface_strings import ORIGINAL_PLACEHOLDER, UNTRANSLATED_LABEL_KEY, UNTRANSLATED_ORIGINAL_KEY
+
+    before, found, after = strings[UNTRANSLATED_LABEL_KEY].partition(ORIGINAL_PLACEHOLDER)
+    if not found:
+        raise ValueError(f"{UNTRANSLATED_LABEL_KEY} must contain {ORIGINAL_PLACEHOLDER}, where the link to the original language's page goes.")
+    link = f'<a href="{esc(original["url"])}" hreflang="{esc(hreflang_value(original["tag"]))}">{esc(strings[UNTRANSLATED_ORIGINAL_KEY])}</a>'
+    return f'<p class="markus-untranslated" role="note">{esc(before)}{link}{esc(after)}</p>'
 
 
 def _same_route(href: str, current: str) -> bool:
@@ -229,9 +242,17 @@ def section_index_html(view, render_card) -> str:
     )
 
 
-def home_sections_html(name: str, description: str, blocks, render_card, *, lead: bool) -> str:
+def home_heading(name: str, description: str, quiet: bool) -> tuple[str, str]:
+    """The home page's heading and intro. A quiet home (layout.column single) says the site's name only to assistive technology and has no intro:
+    the masthead already says it."""
+    if quiet:
+        return f'<h1 class="papyrus-visually-hidden">{esc(name)}</h1>', ""
+    return f"<h1>{esc(name)}</h1>", (f"<p>{esc(description)}</p>" if description else "")
+
+
+def home_sections_html(name: str, description: str, blocks, render_card, *, lead: bool, quiet: bool = False) -> str:
     """The home of sections: one block per section with its label, description, newest entries and a link to its index page."""
-    intro = f"<p>{esc(description)}</p>" if description else ""
+    heading_html, intro = home_heading(name, description, quiet)
     rendered = []
     for block in blocks:
         section = block.section
@@ -247,4 +268,4 @@ def home_sections_html(name: str, description: str, blocks, render_card, *, lead
             f'<h2 id="{esc(heading)}"><a href="{esc(block.href)}">{esc(section.label)}</a></h2>{about}{grid}'
             f'{_more_link(block.href, "More " + section.label)}</section>'
         )
-    return f'<div class="markus-document markus-home-sections"><h1>{esc(name)}</h1>{intro}{"".join(rendered)}</div>'
+    return f'<div class="markus-document markus-home-sections">{heading_html}{intro}{"".join(rendered)}</div>'

@@ -2,21 +2,17 @@
 
 use sqlbuild_host::entries::models::{AdapterHost, ExecutorHost};
 
-use crate::bindings::_helpers::boundary::python_calls::keywords;
 use crate::bindings::_helpers::compile_driver::project::build_compiled_project;
-use crate::bindings::_helpers::native_host::connections::connection_failure;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
 use std::time::Instant;
 
 use pyo3::IntoPyObject;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
 use pyo3::types::{PyBool, PyDict, PyDictMethods};
 
-use crate::bindings::_helpers::boundary::python_calls::{call_with, within};
 use crate::bindings::_helpers::build_progress::progress_reporters::{
     ConnectionProgressReporter, PlanningProgressReporter,
-};
-use crate::bindings::_helpers::build_progress::transient_status::{
-    TransientStatusReporter, status_reporter,
 };
 use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_adapter_connection_context;
@@ -25,10 +21,14 @@ use crate::bindings::_helpers::janitor::janitor_planning::{
     JanitorSettings, RelationScope, build_plan,
 };
 use crate::bindings::_helpers::janitor::janitor_usage::{UsageSettings, check_janitor_usage};
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::ErrorId;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::within::within;
+use sqlbuild_python_base::build_progress::main::transient_status::status_reporter::status_reporter;
+use sqlbuild_python_base::build_progress::models::TransientStatusReporter;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::error_class::error_class;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
 
 const UNKNOWN_VIEW_CODE: &str = "C503";
 const UNKNOWN_VIEW_HELP: &str =
@@ -67,7 +67,7 @@ fn lifecycle<'py>(py: Python<'py>, (kind, name): (&str, &str)) -> PyResult<Bound
     let options: Bound<'py, PyDict> = PyDict::new(py);
     options.set_item("operation_kind", kind)?;
     options.set_item("operation_name", name)?;
-    host::entry(py, ExecutorHost::OperationLifecycle)?.call((), Some(&options))
+    host_entry(py, ExecutorHost::OperationLifecycle)?.call((), Some(&options))
 }
 
 /// Compile for the janitor or `--as` target and resolve the active target connection.
@@ -242,7 +242,7 @@ pub(crate) fn build_janitor_execution_plan<'py>(
         &lifecycle(py, ("janitor", "janitor_candidate_planning"))?,
         |lifecycle| {
             let catalog: Bound<'py, PyAny> = call_with(
-                &host::entry(py, AdapterHost::OpenInspectionCatalog)?,
+                &host_entry(py, AdapterHost::OpenInspectionCatalog)?,
                 &[
                     ("adapter", compiled.adapter.clone()),
                     ("connection", connection.clone()),
@@ -362,7 +362,7 @@ pub(crate) fn execute_janitor_cleanup<'py>(
     )?
     .into_any();
     call_with(
-        &host::entry(py, ExecutorHost::ExecuteJanitorPlan)?,
+        &host_entry(py, ExecutorHost::ExecuteJanitorPlan)?,
         &[
             ("plan", plan.clone()),
             ("adapter", compiled.adapter.clone()),

@@ -5,8 +5,9 @@ import pickle  # ruff:ignore[suspicious-pickle-import]  # round-tripping our own
 import random
 import re
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from threading import Barrier
-from typing import Final, TypedDict
+from typing import TYPE_CHECKING, Final, TypedDict
 
 import pytest
 
@@ -22,12 +23,15 @@ from turbohtml.clean import (
     linkify,
 )
 
-_US: Final = PhoneNumbers(regions=("US",))
-_WORKERS: Final = 8
+if TYPE_CHECKING:
+    from work_steps import WorkSteps
+
+_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
+_WORKERS: Final[int] = 8
 
 
 def _fullwidth(text: str) -> str:
-    """Built from ASCII so the source carries no look-alike fullwidth literals."""
+    # Built from ASCII so the source carries no look-alike fullwidth literals.
     return "".join(chr(0xFF10 + int(char)) if char.isdigit() else "\uff0b" if char == "+" else char for char in text)
 
 
@@ -36,10 +40,6 @@ class _Policy(TypedDict, total=False):
     bare_domains: bool
     tlds: list[str]
     schemes: list[str]
-
-
-def _urls(text: str, policy: _Policy | None = None) -> list[str]:
-    return [span.url for span in LinkDetector(phones=_US, **(policy or {})).find(text)]
 
 
 def test_acceptance_span() -> None:
@@ -71,7 +71,7 @@ def test_phone_is_none_for_the_other_kinds() -> None:
 
 def test_written_tel_uri_carries_its_number_through_tel_authority_form() -> None:
     assert [
-        (span.text, span.url, span.phone.e164 if span.phone else None)
+        (span.text, span.url, span.phone and span.phone.e164)
         for span in LinkDetector(phones=_US).find("tel://+16502530000")
     ] == [("tel://+16502530000", "tel:+16502530000", "+16502530000")]
 
@@ -84,7 +84,7 @@ def test_no_phones_leaves_digits_alone() -> None:
     ("text", "start", "end"),
     [
         pytest.param("Call 650-253-0000 now", 5, 17, id="ucs1"),
-        pytest.param("\u30b3\u30fc\u30eb " + _fullwidth("650-253-0000") + " now", 4, 16, id="ucs2-fullwidth"),
+        pytest.param(f"\u30b3\u30fc\u30eb {_fullwidth('650-253-0000')} now", 4, 16, id="ucs2-fullwidth"),
         pytest.param("\U0001f600 call 650-253-0000", 7, 19, id="ucs4-emoji-prefix"),
     ],
 )
@@ -106,7 +106,15 @@ def test_has_link_sees_phones(phones: PhoneNumbers | None, text: str, *, expecte
 
 
 def test_has_link_exits_early_on_a_long_tail() -> None:
-    assert LinkDetector(phones=_US).has_link("650-253-0000 " + "tail " * 45_000) is True
+    assert LinkDetector(phones=_US).has_link(f"650-253-0000 {'tail ' * 45000}") is True
+
+
+def test_extension_with_many_space_runs_keeps_the_number() -> None:
+    gap = f"{' ' * 34}\t"
+    text = f"44 20 7946 0958{gap * 140}x10958"
+    assert [span.url for span in LinkDetector(phones=PhoneNumbers(regions=("GB",))).find(text)] == [
+        "tel:+442079460958;ext=10958"
+    ]
 
 
 def test_span_repr_shows_the_phone() -> None:
@@ -168,6 +176,10 @@ def test_written_forms(text: str, expected: list[str]) -> None:
     assert _urls(text) == expected
 
 
+def _urls(text: str, policy: _Policy | None = None) -> list[str]:
+    return [span.url for span in LinkDetector(phones=_US, **(policy or {})).find(text)]
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -221,15 +233,15 @@ def test_poisoned_groups_do_not_block_the_rest(text: str, expected: list[str]) -
 
 
 def test_a_long_run_of_groups_is_bounded() -> None:
-    assert _urls(" ".join(["1234"] * 30) + " 650-253-0000") == ["tel:+16502530000"]
+    assert _urls(f"{' '.join(['1234'] * 30)} 650-253-0000") == ["tel:+16502530000"]
 
 
 def test_a_group_over_twenty_digits_ends_the_run() -> None:
-    assert _urls("1" * 21 + " 650-253-0000") == ["tel:+16502530000"]
+    assert _urls(f"{'1' * 21} 650-253-0000") == ["tel:+16502530000"]
 
 
 def test_a_run_over_250_code_points_is_cut() -> None:
-    assert _urls("1 " * 130 + "650-253-0000") == ["tel:+16502530000"]
+    assert _urls(f"{'1 ' * 130}650-253-0000") == ["tel:+16502530000"]
 
 
 @pytest.mark.parametrize(
@@ -280,6 +292,38 @@ def test_a_run_over_250_code_points_is_cut() -> None:
 )
 def test_emails_and_domains_keep_winning(text: str, kwargs: _Policy, expected: list[str]) -> None:
     assert _urls(text, kwargs) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("213-373-4253-mysite.org", ["tel:+12133734253", "http://mysite.org"], id="domain-after-a-number"),
+        pytest.param(
+            "213-373-4253-p.213-373-4253-q.r.invalidtld", ["tel:+12133734253"] * 2, id="refused-for-its-suffix"
+        ),
+        pytest.param("213-373-4253-p.213-373-4253-q.r_s.com", ["tel:+12133734253"] * 2, id="refused-for-an-underscore"),
+        pytest.param(
+            "213-373-4253-p.r.s_-213-373-4253-t.com",
+            ["tel:+12133734253", "tel:+12133734253", "http://t.com"],
+            id="last-two-labels-still-start-a-host",
+        ),
+        pytest.param(
+            "213-373-4253-p.213-373-4253-q.r.invalidtld 213-373-4253-u.org",
+            ["tel:+12133734253"] * 3 + ["http://u.org"],
+            id="next-run-is-read",
+        ),
+    ],
+)
+def test_a_label_hyphenated_onto_a_number_starts_a_host(text: str, expected: list[str]) -> None:
+    assert _urls(text) == expected
+
+
+def test_a_refused_run_leaves_the_domain_before_it() -> None:
+    assert _urls("10.0.0.99 650.253 0000.com", {"tlds": ["99"]}) == ["http://10.0.0.99", "http://0000.com"]
+
+
+def test_numbers_hyphenated_onto_one_run_of_labels_scan_in_linear_time(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: partial(_urls, "213-373-4253-p." * n), (1000, 4000))
 
 
 @pytest.mark.parametrize(
@@ -383,13 +427,7 @@ def test_possible_mode_accepts_local_only_lengths() -> None:
     assert LinkDetector(phones=_US).find("253-0000") == []
 
 
-_PHONE_EXTENSIONS_US: Final = PhoneNumbers(regions=("US",))
-
-
-def _find(text: str, phones: PhoneNumbers = _PHONE_EXTENSIONS_US) -> list[tuple[str, str | None]]:
-    return [
-        (span.text, span.phone.extension if span.phone else None) for span in LinkDetector(phones=phones).find(text)
-    ]
+_PHONE_EXTENSIONS_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
 
 
 @pytest.mark.parametrize(
@@ -426,40 +464,46 @@ def _find(text: str, phones: PhoneNumbers = _PHONE_EXTENSIONS_US) -> list[tuple[
     ],
 )
 def test_extension_forms(tail: str) -> None:
-    text = "650-253-0000" + tail
+    text = f"650-253-0000{tail}"
     assert _find(text) == [(text, "123")]
+
+
+def _find(text: str, phones: PhoneNumbers = _PHONE_EXTENSIONS_US) -> list[tuple[str, str | None]]:
+    return [
+        (span.text, span.phone.extension if span.phone else None) for span in LinkDetector(phones=phones).find(text)
+    ]
 
 
 @pytest.mark.parametrize(
     ("tail", "extension"),
     [
-        pytest.param(";ext=" + "1" * 20, "1" * 20, id="rfc-twenty"),
-        pytest.param(" ext " + "1" * 20, "1" * 20, id="explicit-twenty"),
-        pytest.param(" x" + "1" * 9, "1" * 9, id="ambiguous-nine"),
+        pytest.param(f";ext={'1' * 20}", "1" * 20, id="rfc-twenty"),
+        pytest.param(f" ext {'1' * 20}", "1" * 20, id="explicit-twenty"),
+        pytest.param(f" x{'1' * 9}", "1" * 9, id="ambiguous-nine"),
     ],
 )
 def test_extension_digit_caps(tail: str, extension: str) -> None:
-    text = "650-253-0000" + tail
+    text = f"650-253-0000{tail}"
     assert _find(text) == [(text, extension)]
 
 
 @pytest.mark.parametrize(
     ("tail", "expected"),
     [
-        pytest.param(";ext=" + "1" * 21, [("650-253-0000;ext=" + "1" * 20, "1" * 20)], id="rfc-keeps-twenty"),
-        pytest.param(" ext " + "1" * 21, [("650-253-0000 ext " + "1" * 20, "1" * 20)], id="explicit-keeps-twenty"),
+        pytest.param(f";ext={'1' * 21}", [(f"650-253-0000;ext={'1' * 20}", "1" * 20)], id="rfc-keeps-twenty"),
+        pytest.param(f" ext {'1' * 21}", [(f"650-253-0000 ext {'1' * 20}", "1" * 20)], id="explicit-keeps-twenty"),
         pytest.param(" - 123#", [("650-253-0000", None)], id="american-hash-outside-the-candidate"),
         pytest.param("- 123#", [("650-253-0000", None)], id="american-without-a-space"),
-        pytest.param(" - " + "1" * 7 + "#", [("650-253-0000", None)], id="american-over"),
+        pytest.param(f" - {'1' * 7}#", [("650-253-0000", None)], id="american-over"),
         pytest.param(" 123#", [("650-253-0000", None)], id="hash-without-separator"),
     ],
 )
 def test_extension_shapes_the_matcher_cuts(tail: str, expected: list[tuple[str, str | None]]) -> None:
-    assert _find("650-253-0000" + tail) == expected
+    assert _find(f"650-253-0000{tail}") == expected
 
 
 def test_ambiguous_form_over_nine_digits_reads_as_a_second_number() -> None:
-    assert _find("650-253-0000 x" + "1" * 10) == [("650-253-0000", None)]
+    assert _find(f"650-253-0000 x{'1' * 10}") == [("650-253-0000", None)]
 
 
 def test_match_end_covers_the_extension() -> None:
@@ -484,10 +528,10 @@ def test_extension_digits_are_folded_in_the_href() -> None:
     )
 
 
-_ALL: Final = (PhoneGrouping.ANY, PhoneGrouping.STRICT, PhoneGrouping.EXACT)
-_LOOSE: Final = (PhoneGrouping.ANY, PhoneGrouping.STRICT)
-_NONE: Final = (PhoneGrouping.ANY,)
-_UNBROKEN: Final = (PhoneGrouping.ANY, PhoneGrouping.EXACT)
+_ALL: Final[tuple[PhoneGrouping, ...]] = (PhoneGrouping.ANY, PhoneGrouping.STRICT, PhoneGrouping.EXACT)
+_LOOSE: Final[tuple[PhoneGrouping, ...]] = (PhoneGrouping.ANY, PhoneGrouping.STRICT)
+_NONE: Final[tuple[PhoneGrouping, ...]] = (PhoneGrouping.ANY,)
+_UNBROKEN: Final[tuple[PhoneGrouping, ...]] = (PhoneGrouping.ANY, PhoneGrouping.EXACT)
 
 
 @pytest.mark.parametrize(
@@ -561,10 +605,6 @@ def test_grouping_applies_inside_prose() -> None:
     ] == ["(415) 666-7777"]
 
 
-def _phone_paths_urls(text: str, regions: tuple[str, ...] = ("US",), *, valid: bool = True) -> list[str]:
-    return [span.url for span in LinkDetector(phones=PhoneNumbers(regions=regions, require_valid=valid)).find(text)]
-
-
 @pytest.mark.parametrize(
     ("text", "regions", "expected"),
     [
@@ -612,9 +652,9 @@ def _phone_paths_urls(text: str, regions: tuple[str, ...] = ("US",), *, valid: b
         pytest.param("650-253-0000 \uff5e123", ("US",), ["tel:+16502530000;ext=123"], id="fullwidth-tilde-marker"),
         pytest.param("650-253-0000 ext 12 34", ("US",), ["tel:+16502530000;ext=12"], id="extension-digits-then-more"),
         pytest.param(
-            "650-253-0000 ext " + "1" * 25,
+            f"650-253-0000 ext {'1' * 25}",
             ("US",),
-            ["tel:+16502530000;ext=" + "1" * 20],
+            [f"tel:+16502530000;ext={'1' * 20}"],
             id="extension-cap-inside-a-run",
         ),
         pytest.param("650\u00ad253\u00ad0000", ("US",), ["tel:+16502530000"], id="soft-hyphen-separator"),
@@ -679,6 +719,10 @@ def _phone_paths_urls(text: str, regions: tuple[str, ...] = ("US",), *, valid: b
 )
 def test_readings_reach_each_rule(text: str, regions: tuple[str, ...], expected: list[str]) -> None:
     assert _phone_paths_urls(text, regions) == expected
+
+
+def _phone_paths_urls(text: str, regions: tuple[str, ...] = ("US",), *, valid: bool = True) -> list[str]:
+    return [span.url for span in LinkDetector(phones=PhoneNumbers(regions=regions, require_valid=valid)).find(text)]
 
 
 @pytest.mark.parametrize(
@@ -765,11 +809,11 @@ def test_a_single_group_past_the_card_length() -> None:
 
 
 def test_a_run_of_full_groups_stops_at_the_length_cap() -> None:
-    assert _phone_paths_urls(" ".join(["12345678901234567890"] * 14) + " 650-253-0000") == ["tel:+16502530000"]
+    assert _phone_paths_urls(f"{' '.join(['12345678901234567890'] * 14)} 650-253-0000") == ["tel:+16502530000"]
 
 
 def test_a_group_over_twenty_digits_at_the_end() -> None:
-    assert _phone_paths_urls("650-253-0000 " + "1" * 21) == ["tel:+16502530000"]
+    assert _phone_paths_urls(f"650-253-0000 {'1' * 21}") == ["tel:+16502530000"]
 
 
 @pytest.mark.parametrize(
@@ -783,7 +827,7 @@ def test_a_group_over_twenty_digits_at_the_end() -> None:
         pytest.param("+a650-253-0000", [2], False, id="letter-after-the-lead"),
     ],
 )
-def test_lead_groups(text: str, starts: list[int], valid: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_lead_groups(text: str, starts: list[int], valid: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     assert [
         span.start for span in LinkDetector(phones=PhoneNumbers(regions=("US",), require_valid=valid)).find(text)
     ] == starts
@@ -810,9 +854,9 @@ def test_value_check_rejects_a_routed_region_whose_plan_rejects(
 def test_leading_zeros_are_capped_at_ten() -> None:
     assert [
         span.phone.national_number
-        for span in LinkDetector(phones=PhoneNumbers(require_valid=False)).find("+62 " + "0" * 12 + "12345")
+        for span in LinkDetector(phones=PhoneNumbers(require_valid=False)).find(f"+62 {'0' * 12}12345")
         if span.phone
-    ] == ["0" * 10 + "12345"]
+    ] == [f"{'0' * 10}12345"]
 
 
 def test_all_zero_number_in_possible_mode() -> None:
@@ -833,7 +877,7 @@ def test_general_only_number_in_possible_mode_reports_its_region() -> None:
 
 def test_value_check_rejects_leading_zeros_past_the_cap() -> None:
     with pytest.raises(ValueError, match="no number"):
-        PhoneNumber(62, "0" * 12 + "12345", None, "ID", PhoneType.UNKNOWN)
+        PhoneNumber(62, f"{'0' * 12}12345", None, "ID", PhoneType.UNKNOWN)
 
 
 def test_value_check_rejects_a_char_below_zero() -> None:
@@ -841,8 +885,10 @@ def test_value_check_rejects_a_char_below_zero() -> None:
         PhoneNumber(1, "650-530000", None, "US", PhoneType.FIXED_LINE_OR_MOBILE)
 
 
-_PHONE_RUNS_US: Final = PhoneNumbers(regions=("US",))
-_US_POSSIBLE: Final = PhoneNumbers(regions=("US",), require_valid=False)
+_PHONE_RUNS_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
+
+
+_US_POSSIBLE: Final[PhoneNumbers] = PhoneNumbers(regions=("US",), require_valid=False)
 
 
 @pytest.mark.parametrize(
@@ -957,12 +1003,12 @@ _US_POSSIBLE: Final = PhoneNumbers(regions=("US",), require_valid=False)
             id="tel-authority-is-not-a-url",
         ),
         pytest.param(
-            "-".join(["1" * 20] * 11 + ["1" * 18, "1" * 20]) + " call 650-253-0000 now",
+            f"{'-'.join(['1' * 20] * 11 + ['1' * 18, '1' * 20])} call 650-253-0000 now",
             _PHONE_RUNS_US,
             [("650-253-0000", "tel:+16502530000")],
             id="run-holding-258-digits-then-a-phone",
         ),
-        pytest.param("tel:1;phone-context=+" + "1" * 500, _PHONE_RUNS_US, [], id="tel-uri-with-an-overlong-context"),
+        pytest.param(f"tel:1;phone-context=+{'1' * 500}", _PHONE_RUNS_US, [], id="tel-uri-with-an-overlong-context"),
         pytest.param(
             "tel:+1-650-253-0000;ext=12",
             _PHONE_RUNS_US,
@@ -1094,6 +1140,47 @@ def test_long_address_chains_scan_in_bounded_time(text: str, count: int) -> None
     assert len(LinkDetector(phones=_PHONE_RUNS_US).find(text)) == count
 
 
+def test_a_chain_of_tel_uris_without_a_number_scans_in_linear_time(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: partial(LinkDetector(phones=_PHONE_RUNS_US).find, "tel:=" * n), (1000, 4000))
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(f"tel:{'-' * 238}+16502530000 {'x' * 300}", [(0, 254)], id="payload-at-the-parse-limit"),
+        pytest.param(f"tel:{'-' * 239}+16502530000 {'x' * 300}", [(243, 255)], id="payload-over-the-parse-limit"),
+        pytest.param(f"tel:+16502530000{'.' * 300}x", [(0, 16)], id="punctuation-past-the-parse-limit"),
+        pytest.param(f"tel:+16502530000({'a' * 300})", [(0, 16)], id="bracket-closed-past-the-parse-limit"),
+    ],
+)
+def test_written_tel_uri_reads_its_payload_within_the_parse_limit(text: str, expected: list[tuple[int, int]]) -> None:
+    assert [(span.start, span.end) for span in LinkDetector(phones=_PHONE_RUNS_US).find(text)] == expected
+
+
+@pytest.mark.parametrize(
+    ("detector", "text", "expected"),
+    [
+        pytest.param(
+            LinkDetector(schemes=("bitcoin",), phones=_PHONE_RUNS_US),
+            f"bitcoin:{'a' * 300}",
+            [(0, 308)],
+            id="another-scheme-reads-past-the-parse-limit",
+        ),
+        pytest.param(
+            LinkDetector(schemes=("tel",)),
+            f"tel:{'a' * 300}",
+            [(0, 304)],
+            id="tel-without-phones-reads-past-the-parse-limit",
+        ),
+        pytest.param(LinkDetector(phones=_PHONE_RUNS_US), f":{'a' * 300}", [], id="colon-without-a-scheme"),
+    ],
+)
+def test_scheme_less_urls_read_past_the_parse_limit(
+    detector: LinkDetector, text: str, expected: list[tuple[int, int]]
+) -> None:
+    assert [(span.start, span.end) for span in detector.find(text)] == expected
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -1127,7 +1214,7 @@ def test_registered_tel_scheme_links_the_authority_form() -> None:
         pytest.param(Linkify(phones=_PHONE_RUNS_US), id="linkify"),
     ],
 )
-def test_settings_pickle_and_copy(value: object) -> None:
+def test_settings_pickle_and_copy(value: PhoneNumbers | Linkify) -> None:
     assert pickle.loads(pickle.dumps(value)) == value  # ruff:ignore[suspicious-pickle-usage]  # this test's own bytes
     assert copy.deepcopy(value) == value
 
@@ -1150,11 +1237,7 @@ def test_other_schemes_keep_their_payloads() -> None:
     ] == [("bitcoin:1abc", "bitcoin:1abc"), ("sms:123", "sms:123")]
 
 
-_PHONE_UNICODE_US: Final = PhoneNumbers(regions=("US",))
-
-
-def _phone_unicode_urls(text: str, phones: PhoneNumbers = _PHONE_UNICODE_US) -> list[str]:
-    return [span.url for span in LinkDetector(phones=phones).find(text)]
+_PHONE_UNICODE_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
 
 
 def _in_script(zero: int, text: str = "650-253-0000") -> str:
@@ -1168,12 +1251,16 @@ def _in_script(zero: int, text: str = "650-253-0000") -> str:
         pytest.param(_in_script(0x0966), id="devanagari"),
         pytest.param(_in_script(0xFF10), id="fullwidth"),
         pytest.param(_in_script(0x1D7CE), id="mathematical-bold-astral"),
-        pytest.param("650-" + _in_script(0x0660, "253") + "-" + _in_script(0xFF10, "0000"), id="mixed-scripts"),
+        pytest.param(f"650-{_in_script(1632, '253')}-{_in_script(65296, '0000')}", id="mixed-scripts"),
         pytest.param(_in_script(0x11F50), id="kawi-added-in-unicode-15"),
     ],
 )
 def test_digits_of_every_script(text: str) -> None:
     assert _phone_unicode_urls(text) == ["tel:+16502530000"]
+
+
+def _phone_unicode_urls(text: str, phones: PhoneNumbers = _PHONE_UNICODE_US) -> list[str]:
+    return [span.url for span in LinkDetector(phones=phones).find(text)]
 
 
 @pytest.mark.parametrize(
@@ -1237,14 +1324,16 @@ def test_offsets_count_code_points_not_bytes() -> None:
     assert (span.start, span.end) == (3, 15)
 
 
-_CH: Final = PhoneNumbers(regions=("CH",))
-_CH_COLLAPSED: Final = PhoneNumbers(regions=("CH",), collapse_whitespace=True)
-_PHONE_WHITESPACE_US: Final = PhoneNumbers(regions=("US",))
-_US_COLLAPSED: Final = PhoneNumbers(regions=("US",), collapse_whitespace=True)
+_CH: Final[PhoneNumbers] = PhoneNumbers(regions=("CH",))
 
 
-def _found(phones: PhoneNumbers, text: str) -> list[str]:
-    return [span.url for span in LinkDetector(phones=phones).find(text)]
+_CH_COLLAPSED: Final[PhoneNumbers] = PhoneNumbers(regions=("CH",), collapse_whitespace=True)
+
+
+_PHONE_WHITESPACE_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
+
+
+_US_COLLAPSED: Final[PhoneNumbers] = PhoneNumbers(regions=("US",), collapse_whitespace=True)
 
 
 @pytest.mark.parametrize(
@@ -1261,6 +1350,10 @@ def _found(phones: PhoneNumbers, text: str) -> list[str]:
 )
 def test_collapse_whitespace_reads_a_run_as_one_space(text: str) -> None:
     assert _found(_CH_COLLAPSED, text) == ["tel:+41794343254"]
+
+
+def _found(phones: PhoneNumbers, text: str) -> list[str]:
+    return [span.url for span in LinkDetector(phones=phones).find(text)]
 
 
 @pytest.mark.parametrize(
@@ -1302,7 +1395,7 @@ def test_collapse_whitespace_measures_a_run_as_it_renders() -> None:
 
 
 def test_grouping_rejects_oversized_candidate() -> None:
-    text = "\uff10 \u0666\u0665   \u0662\u0665  \u0662\u0665\u0663" + " " * 389 + "x   \u0661\u0662"
+    text = f"\uff10 \u0666\u0665   \u0662\u0665  \u0662\u0665\u0663{' ' * 389}x   \u0661\u0662"
     phones = PhoneNumbers(
         regions=("GB", "DE"),
         require_valid=True,
@@ -1347,25 +1440,18 @@ def test_collapse_whitespace_survives_a_pickle_and_a_copy() -> None:
 
 
 # numbers, dates, an address, an extension and prose, the pieces a run of whitespace can end up gluing together
-_PIECES: Final = (
+_PIECES: Final[tuple[str, ...]] = (
     "+41", "79434", "3254", "079", "434", "32", "54", "650", "253", "0000", "(650)", "-", ".", "/", "x12", "Order",
     "Tel:", "abc", "+1", "20250901", "10:30", "4111", "1111", "pages", "1-5", "(3", "pages)", "2001:db8::8888", "020",
     "7946", "0958", "#", ",", "]", "ext.", "~", "[", "\u00a0", "\u3000",
 )  # fmt: skip
-_SEPARATORS: Final = (" ", "  ", "     ", "\n", "\t", "\r\n", " \n ", "\f", "")
-_RUNS: Final = re.compile(r"[ \t\n\f\r]+")
 
 
-def _corpus() -> list[str]:
-    """Glue the pieces with every run of whitespace the knob has to read as one space."""
-    rng = random.Random(20260901)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed corpus
-    return [
-        "".join(rng.choice(_PIECES) + rng.choice(_SEPARATORS) for _ in range(rng.randint(2, 7))) for _ in range(20_000)
-    ]
+_RUNS: Final[re.Pattern[str]] = re.compile(r"[ \t\n\f\r]+")
 
 
 def test_collapse_whitespace_matches_the_text_as_it_renders() -> None:
-    """The rule the knob promises: a run reads as the one space HTML paints, whatever it holds."""
+    # The rule the knob promises: a run reads as the one space HTML paints, whatever it holds.
     regions = ("CH", "US", "GB")
     collapsed = LinkDetector(phones=PhoneNumbers(regions=regions, collapse_whitespace=True))
     rendered = LinkDetector(phones=PhoneNumbers(regions=regions))
@@ -1373,6 +1459,15 @@ def test_collapse_whitespace_matches_the_text_as_it_renders() -> None:
         assert [(span.url, _RUNS.sub(" ", span.text)) for span in collapsed.find(text)] == [
             (span.url, span.text) for span in rendered.find(_RUNS.sub(" ", text))
         ], text
+
+
+def _corpus() -> list[str]:
+    # Glue the pieces with every run of whitespace the knob has to read as one space.
+    rng = random.Random(20260901)  # ruff:ignore[suspicious-non-cryptographic-random-usage]  # a fixed corpus
+    separators = (" ", "  ", "     ", "\n", "\t", "\r\n", " \n ", "\f", "")
+    return [
+        "".join(rng.choice(_PIECES) + rng.choice(separators) for _ in range(rng.randint(2, 7))) for _ in range(20_000)
+    ]
 
 
 def test_one_linker_and_one_detector_shared_across_threads() -> None:

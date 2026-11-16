@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import pickle  # ruff:ignore[suspicious-pickle-import]  # round-tripping this test's own bytes
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -25,6 +27,8 @@ from turbohtml import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from work_steps import WorkSteps
+
 
 def test_text_carries_its_data() -> None:
     text = Text("a & b")
@@ -38,8 +42,7 @@ def test_text_serializes_escaped() -> None:
 
 def test_comment_carries_its_data_and_serializes() -> None:
     comment = Comment("a note")
-    assert comment.data == "a note"
-    assert comment.html == "<!--a note-->"
+    assert (comment.data, comment.html) == ("a note", "<!--a note-->")
 
 
 @pytest.mark.parametrize(
@@ -150,6 +153,27 @@ def test_xml_processing_instruction_data_cannot_end_it_early(render: Callable[[N
     assert parse_xml(render(root)).select("i") == []
 
 
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        # XML output drops a character XML cannot hold, which must not bring a `?` and a `>` together
+        pytest.param("a?\x01><i>y</i>", "<?t a? ><i>y</i>?>", id="across-control"),
+        pytest.param("a?\x01\ufffe><i>y</i>", "<?t a? ><i>y</i>?>", id="across-two-dropped"),
+        pytest.param("a?\x01?><i>y</i>", "<?t a?? ><i>y</i>?>", id="question-run"),
+        pytest.param("a?\x01b>c?", "<?t a?b>c??>", id="apart-unchanged"),
+        pytest.param("a?\x01", "<?t a??>", id="question-then-dropped-at-end"),
+    ],
+)
+def test_xml_processing_instruction_data_cannot_end_it_early_across_a_dropped_character(
+    data: str, expected: str
+) -> None:
+    root = parse_xml("<r/>").select_one("r")
+    assert root is not None
+    root.append(ProcessingInstruction("t", data))
+    assert (root.serialize(Html(xml=True)), root.canonicalize().decode()) == (f"<r>{expected}</r>",) * 2
+    assert parse_xml(root.serialize(Html(xml=True))).select("i") == []
+
+
 def test_empty_nodes() -> None:
     assert not Text("").data  # empty data round-trips as the empty string
     assert not Text("").html
@@ -162,11 +186,10 @@ def test_data_is_keyword() -> None:
 
 
 def test_constructed_node_matches_structurally() -> None:
-    match Text("hi"):
-        case Text(data):
-            assert data == "hi"
-        case _:  # pragma: no cover - a Text always matches Text
-            pytest.fail("did not match")
+    node = Text("hi")
+    assert Text.__match_args__ == ("data",)
+    assert isinstance(node, Text)
+    assert node.data == "hi"
 
 
 @pytest.mark.parametrize(
@@ -180,8 +203,7 @@ def test_data_must_be_a_str(node_type: type[Text | Comment]) -> None:
 
 def test_element_bare() -> None:
     div = Element("div")
-    assert div.tag == "div"
-    assert div.html == "<div></div>"
+    assert (div.tag, div.html) == ("div", "<div></div>")
     assert div.parent is None
 
 
@@ -192,8 +214,10 @@ def test_element_tag_is_lowercased() -> None:
 def test_element_with_attributes() -> None:
     anchor = Element("a", {"href": "/x", "class": "btn lg"})
     assert anchor.html == '<a href="/x" class="btn lg"></a>'  # attributes in insertion order
-    assert anchor.attrs["href"] == "/x"
-    assert anchor.attrs["class"] == ["btn", "lg"]  # the class token list reads back as a list
+    assert (anchor.attrs["href"], anchor.attrs["class"]) == (
+        "/x",
+        ["btn", "lg"],
+    )  # the class token list reads back as a list
 
 
 def test_element_list_valued_attribute_joins_on_space() -> None:
@@ -250,6 +274,90 @@ def test_element_attribute_names_folding_together_keep_the_first(attrs: dict[str
 
 def test_element_attribute_names_folding_together_count_once() -> None:
     assert len(Element("div", {"ID": "a", "id": "b"}).attrs) == 1
+
+
+@pytest.mark.parametrize(
+    "count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted"), pytest.param(200, id="sorted-long")]
+)
+def test_element_with_many_attribute_names_folding_together_keeps_the_first(count: int) -> None:
+    attrs = _folding_attrs(count)
+    expected: dict[str, str] = {}
+    for name, value in attrs.items():
+        expected.setdefault(name.lower(), value)
+    assert list(Element("div", attrs).attrs.items()) == list(expected.items())
+
+
+def _folding_attrs(count: int) -> dict[str, str]:
+    # classes of three spellings laid out one spelling after another, so each class's first spelling comes first
+    classes = count // 3
+    names = [f"{spelling}{index}" for spelling in ("data-", "Data-", "DATA-") for index in range(classes)]
+    names += [f"pad{index}" for index in range(count - len(names))]
+    return {name: f"v{position}" for position, name in enumerate(names)}
+
+
+@pytest.mark.parametrize("count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted")])
+def test_element_repeated_attribute_name_value_is_not_read(count: int) -> None:
+    attrs: dict[str, int | str] = {f"data-{index}": "v" for index in range(count)}
+    attrs["DATA-0"] = 5  # folds onto the kept data-0, so its value is never converted
+    element = Element("div", attrs)  # ty: ignore[invalid-argument-type]  # a repeat's value is ignored
+    assert dict(element.attrs) == {f"data-{index}": "v" for index in range(count)}
+
+
+@pytest.mark.parametrize("count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted")])
+def test_element_kept_attribute_value_must_be_a_str(count: int) -> None:
+    attrs: dict[str, int | str] = {f"data-{index}": "v" for index in range(count)}
+    attrs["data-0"] = 5
+    with pytest.raises(TypeError, match="attribute value must be a str"):
+        Element("div", attrs)  # ty: ignore[invalid-argument-type]  # a deliberately wrong value
+
+
+@pytest.mark.parametrize("count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted")])
+def test_element_attribute_name_must_be_a_str(count: int) -> None:
+    attrs: dict[str | int, str] = {f"data-{index}": "v" for index in range(count)}
+    attrs[1] = "v"
+    with pytest.raises(TypeError, match="attribute name must be a str"):
+        Element("div", attrs)  # ty: ignore[invalid-argument-type]  # a deliberately wrong name
+
+
+@pytest.mark.parametrize("count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted")])
+def test_element_attribute_name_with_whitespace_is_rejected_at_either_size(count: int) -> None:
+    attrs: dict[str, str] = {f"data-{index}": "v" for index in range(count)}
+    attrs["bad name"] = "v"
+    with pytest.raises(ValueError, match="contains an invalid character"):
+        Element("div", attrs)
+
+
+@pytest.mark.parametrize("count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted")])
+def test_element_mapping_lookup_failure_propagates_at_either_size(count: int) -> None:
+    class FailingLookup:
+        def __getitem__(self, key: str) -> str:
+            raise KeyError(key)
+
+        def keys(self) -> list[str]:  # ruff:ignore[no-self-use]  # a mapping protocol method must be an instance method
+            return [f"data-{index}" for index in range(count)]
+
+    with pytest.raises(KeyError, match="data-0"):
+        Element("div", FailingLookup())  # ty: ignore[invalid-argument-type]  # a deliberately broken mapping
+
+
+def test_xml_element_with_many_attributes_unpickles_its_names() -> None:
+    # an unpickled XML element is built without folding, so its names keep their case
+    attributes = " ".join(f'Attr-{index}="{index}"' for index in range(40))
+    root = parse_xml(f"<r {attributes}/>").root
+    assert root is not None
+    restored = pickle.loads(pickle.dumps(root))  # ruff:ignore[suspicious-pickle-usage]  # this test's own bytes
+    assert list(restored.attrs.items()) == list(root.attrs.items())
+    assert next(iter(restored.attrs)) == "Attr-0"
+
+
+def test_element_with_many_attributes_builds_in_linear_steps(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda count: partial(Element, "div", {f"data-{index}": "1" for index in range(count)}), (2000, 8000)
+    )
+
+
+def test_element_with_many_folding_attribute_names_builds_in_linear_steps(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: partial(Element, "div", _folding_attrs(count)), (2000, 8000))
 
 
 @pytest.mark.parametrize(
@@ -313,8 +421,7 @@ def test_attribute_name_the_parser_produces_can_be_set_again(markup: str) -> Non
 
 @pytest.mark.parametrize("name", [pytest.param('a"b', id="quote"), pytest.param("a<b", id="less-than")])
 def test_element_accepts_a_parser_producible_attribute_name(name: str) -> None:
-    element = Element("div", {name: "x"})
-    reparsed = parse(element.html).select_one("div")
+    reparsed = parse(Element("div", {name: "x"}).html).select_one("div")
     assert reparsed is not None
     assert dict(reparsed.attrs) == {name: "x"}
 
@@ -326,7 +433,7 @@ def test_element_accepts_a_parser_producible_attribute_name(name: str) -> None:
         pytest.param({1: "x"}, "attribute name", id="non-str-name"),
     ],
 )
-def test_element_rejects_non_str_attribute(attrs: dict[object, object], message: str) -> None:
+def test_element_rejects_non_str_attribute(attrs: dict[int | str, int | str], message: str) -> None:
     with pytest.raises(TypeError, match=message):
         Element("div", attrs)  # ty: ignore[invalid-argument-type]  # name and value must be str/list/None
 
@@ -336,8 +443,8 @@ def test_element_list_member_must_be_str() -> None:
         Element("div", {"class": [1, 2]})  # ty: ignore[invalid-argument-type]  # members must be str
 
 
-@pytest.mark.parametrize("attrs", [5, [("a", "b")]], ids=["int", "list"])
-def test_element_attrs_must_be_a_mapping(attrs: object) -> None:
+@pytest.mark.parametrize("attrs", [pytest.param(5, id="int"), pytest.param([("a", "b")], id="list")])
+def test_element_attrs_must_be_a_mapping(attrs: int | list[tuple[str, str]]) -> None:
     # a value without keys() is not a mapping; report that as a TypeError, not the raw AttributeError
     with pytest.raises(TypeError, match="attrs must be a mapping"):
         Element("div", attrs)  # ty: ignore[invalid-argument-type]  # attrs must be a mapping
@@ -345,11 +452,11 @@ def test_element_attrs_must_be_a_mapping(attrs: object) -> None:
 
 def test_element_mapping_getitem_failure_propagates() -> None:
     class BadMapping:
-        def keys(self) -> list[str]:  # ruff:ignore[no-self-use]  # a mapping protocol method must be an instance method
-            return ["x"]
-
         def __getitem__(self, key: str) -> str:
             raise KeyError(key)
+
+        def keys(self) -> list[str]:  # ruff:ignore[no-self-use]  # a mapping protocol method must be an instance method
+            return ["x"]
 
     with pytest.raises(KeyError):
         Element("div", BadMapping())  # ty: ignore[invalid-argument-type]  # a deliberately broken mapping
@@ -422,12 +529,6 @@ def test_copy_preserves_doctype_identifiers(duplicate: Callable[[Doctype], Docty
     assert (clone.public_id, clone.system_id) == ('pub"lic', 'sys"tem')
 
 
-def _doctype(markup: str) -> Doctype:
-    node = parse(markup).children[0]  # the doctype is the document's first child
-    assert isinstance(node, Doctype)
-    return node
-
-
 @pytest.mark.parametrize(
     ("markup", "public_id", "system_id"),
     [
@@ -472,32 +573,32 @@ def _doctype(markup: str) -> Doctype:
 )
 def test_doctype_identifiers(markup: str, public_id: str | None, system_id: str | None) -> None:
     doctype = _doctype(markup)
-    assert doctype.name == "html"
-    assert doctype.public_id == public_id
-    assert doctype.system_id == system_id
+    assert (doctype.name, doctype.public_id, doctype.system_id) == ("html", public_id, system_id)
+
+
+def _doctype(markup: str) -> Doctype:
+    node = parse(markup).children[0]  # the doctype is the document's first child
+    assert isinstance(node, Doctype)
+    return node
 
 
 def test_doctype_matches_on_name() -> None:
-    match _doctype("<!DOCTYPE html>"):
-        case Doctype(name):
-            assert name == "html"
-        case _:  # pragma: no cover - the doctype always matches
-            pytest.fail("doctype did not match")
+    doctype = _doctype("<!DOCTYPE html>")
+    assert Doctype.__match_args__ == ("name",)
+    assert doctype.name == "html"
 
 
 def test_document_matches_on_root() -> None:
-    match parse("<title>t</title>"):
-        case Document(Element(tag)):
-            assert tag == "html"
-        case _:  # pragma: no cover - a parsed document always has an html root
-            pytest.fail("document did not match")
+    document = parse("<title>t</title>")
+    assert isinstance(document, Document)
+    assert Document.__match_args__ == ("root",)
+    assert isinstance(document.root, Element)
+    assert document.root.tag == "html"
 
 
 def test_pi_carries_target_and_data() -> None:
     pi = ProcessingInstruction("xml-stylesheet", 'href="a.css"')
-    assert pi.target == "xml-stylesheet"
-    assert pi.data == 'href="a.css"'
-    assert pi.html == '<?xml-stylesheet href="a.css">'
+    assert (pi.target, pi.data, pi.html) == ("xml-stylesheet", 'href="a.css"', '<?xml-stylesheet href="a.css">')
     assert pi.parent is None
 
 
@@ -517,12 +618,10 @@ def test_pi_repr() -> None:
 
 
 def test_pi_matches_structurally() -> None:
-    match ProcessingInstruction("xml", "v=1"):
-        case ProcessingInstruction(target, data):
-            assert target == "xml"
-            assert data == "v=1"
-        case _:  # pragma: no cover - a PI always matches
-            pytest.fail("did not match")
+    pi = ProcessingInstruction("xml", "v=1")
+    assert ProcessingInstruction.__match_args__ == ("target", "data")
+    assert isinstance(pi, ProcessingInstruction)
+    assert (pi.target, pi.data) == ("xml", "v=1")
 
 
 @pytest.mark.parametrize(
@@ -538,15 +637,14 @@ def test_pi_rejects_bad_target(target: str) -> None:
     ("target", "data"),
     [pytest.param(1, "d", id="target"), pytest.param("t", 1, id="data")],
 )
-def test_pi_rejects_non_str_field(target: object, data: object) -> None:
+def test_pi_rejects_non_str_field(target: int | str, data: int | str) -> None:
     with pytest.raises(TypeError):
         ProcessingInstruction(target, data)  # ty: ignore[invalid-argument-type]  # target and data must be str
 
 
 def test_cdata_carries_data() -> None:
     cdata = CData("x < y & z")
-    assert cdata.data == "x < y & z"
-    assert cdata.html == "<![CDATA[x < y & z]]>"  # content is verbatim, not escaped
+    assert (cdata.data, cdata.html) == ("x < y & z", "<![CDATA[x < y & z]]>")  # content is verbatim, not escaped
     assert cdata.parent is None
 
 
@@ -559,11 +657,10 @@ def test_cdata_repr() -> None:
 
 
 def test_cdata_matches_structurally() -> None:
-    match CData("payload"):
-        case CData(data):
-            assert data == "payload"
-        case _:  # pragma: no cover - a CData always matches
-            pytest.fail("did not match")
+    cdata = CData("payload")
+    assert CData.__match_args__ == ("data",)
+    assert isinstance(cdata, CData)
+    assert cdata.data == "payload"
 
 
 def test_cdata_data_is_settable() -> None:
@@ -588,8 +685,7 @@ def test_pi_adopts_across_trees_keeping_both_halves() -> None:
     box.append(ProcessingInstruction("xml", 'version="1.0"'))  # adopt must preserve the packed target/data split
     held = box.children[0]
     assert isinstance(held, ProcessingInstruction)
-    assert held.target == "xml"
-    assert held.data == 'version="1.0"'
+    assert (held.target, held.data) == ("xml", 'version="1.0"')
 
 
 def test_pi_and_cdata_serialize_pretty() -> None:
@@ -614,9 +710,8 @@ def test_leaf_node_accessors(
 ) -> None:
     data, text, serialized = expected
     node = first_of_type(html, node_type)
-    assert node.data == data  # ty: ignore[unresolved-attribute]  # Text and Comment both expose .data
-    assert node.text == text  # .text counts Text descendants only, so a comment contributes nothing
-    assert node.html == serialized
+    # .text counts Text descendants only, so a comment contributes nothing
+    assert (node.data, node.text, node.html) == (data, text, serialized)  # ty: ignore[missing-attribute]  # Text and Comment both expose .data
 
 
 @pytest.mark.parametrize(
@@ -628,5 +723,4 @@ def test_leaf_node_accessors(
 )
 def test_doctype_name(first_of_type: Callable[[str, type[Node]], Node], doctype: str, name: str) -> None:
     node = first_of_type(doctype, Doctype)
-    assert node.name == name  # ty: ignore[unresolved-attribute]  # node is a Doctype here
-    assert node.html == f"<!DOCTYPE {name}>"
+    assert (node.name, node.html) == (name, f"<!DOCTYPE {name}>")  # ty: ignore[missing-attribute]  # node is a Doctype here

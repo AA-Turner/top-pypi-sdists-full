@@ -176,6 +176,7 @@ from sarj_python_lint.rules.prefer_walrus_comprehension_filter import (
 from sarj_python_lint.rules.prefer_walrus_regex_match import PreferWalrusRegexMatch
 from sarj_python_lint.rules.prefer_walrus_stream_loop import PreferWalrusStreamLoop
 from sarj_python_lint.rules.production_derived_test_cases import ProductionDerivedTestCases
+from sarj_python_lint.rules.psycopg_sql_format_field_mismatch import PsycopgSqlFormatFieldMismatch
 from sarj_python_lint.rules.pytest_fixture_returns_bare_tuple import PytestFixtureReturnsBareTuple
 from sarj_python_lint.rules.redundant_class_docstring import RedundantClassDocstring
 from sarj_python_lint.rules.redundant_docstring import RedundantDocstring
@@ -261,6 +262,8 @@ from sarj_python_lint.rules.no_shared_mutable_default import NoSharedMutableDefa
 from sarj_python_lint.rules.no_slash_collection_root_under_prefix import NoSlashCollectionRootUnderPrefix
 from sarj_python_lint.rules.no_sys_path_mutation import NoSysPathMutation
 from sarj_python_lint.rules.no_unknown_pydantic_validator_field import NoUnknownPydanticValidatorField
+from sarj_python_lint.rules.no_unobserved_task_exception import NoUnobservedTaskException
+from sarj_python_lint.rules.no_unscoped_async_client_factory import NoUnscopedAsyncClientFactory
 from sarj_python_lint.rules.no_work_verb_get_route import NoWorkVerbGetRoute
 from sarj_python_lint.rules.numeric_literal_separators import NumericLiteralSeparators
 from sarj_python_lint.rules.prefer_application_model_joins import PreferApplicationModelJoins
@@ -289,6 +292,7 @@ from sarj_python_lint.rules.pytest_fixture_returns_closed_resource import Pytest
 from sarj_python_lint.rules.redundant_test_constructor_forwarder import RedundantTestConstructorForwarder
 from sarj_python_lint.rules.repeated_unimplemented_test_contract import RepeatedUnimplementedTestContract
 from sarj_python_lint.rules.require_exp_on_jwt_decode import RequireExpOnJwtDecode
+from sarj_python_lint.rules.require_hidden_settings_input import RequireHiddenSettingsInput
 from sarj_python_lint.rules.service_singleton_delegates_to_bulk import ServiceSingletonDelegatesToBulk
 from sarj_python_lint.rules.store_field_update_reuses_upsert import StoreFieldUpdateReusesUpsert
 from sarj_python_lint.rules.store_insert_requires_explicit_conflict_policy import (
@@ -300,6 +304,10 @@ from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOr
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        NoUnscopedAsyncClientFactory.id: NoUnscopedAsyncClientFactory,
+        PsycopgSqlFormatFieldMismatch.id: PsycopgSqlFormatFieldMismatch,
+        NoUnobservedTaskException.id: NoUnobservedTaskException,
+        RequireHiddenSettingsInput.id: RequireHiddenSettingsInput,
         PreferSemanticTemporalTypes.id: PreferSemanticTemporalTypes,
         PreferExplicitValueModelConstruction.id: PreferExplicitValueModelConstruction,
         PreferOutcomeVariants.id: PreferOutcomeVariants,

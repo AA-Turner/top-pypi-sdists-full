@@ -2,8 +2,9 @@
    dom/element.c and dom/node.c).
 
    A table is read into a dense cell grid: every <tr> belonging to the table (rows inside a nested table are excluded,
-   they belong to that table) contributes its <td>/<th> cells left to right, and a rowspan or colspan fills each spanned
-   slot with the cell's text so the result is rectangular and a scraper never has to resolve spans by hand.
+   they belong to that table, and rows inside a cell are that cell's content) contributes its <td>/<th> cells left to
+   right, and a rowspan or colspan fills each spanned slot with the cell's text so the result is rectangular and a
+   scraper never has to resolve spans by hand.
    rows() returns the grid as list[list[str]]; records() keys the first row as the header over the rest as list[dict];
    tables() returns rows() for every table in the subtree, nested tables included as their own entries.
 
@@ -22,6 +23,15 @@
 
 #define TABLE_COLSPAN_LIMIT 1000
 #define TABLE_ROWSPAN_LIMIT 65534
+/* Code points of cell text one tables() call may copy for tables nested inside two or more of its other tables.
+   Tables nested inside exactly one other table are pairwise disjoint, so together they copy no more text than the
+   document holds; only deeper nesting repeats text at each level, and the tree builder's depth cap admits over a
+   hundred levels. */
+#define TABLE_NESTED_TEXT_LIMIT 16000000
+/* Grid slots one call may add on top of one per <td>/<th>. A span fills a rowspan x colspan rectangle and every row is
+   padded to the widest, so without a bound a few kilobytes of markup multiply into gigabytes of grid; a table's own
+   cells always fit, whatever their number. */
+#define TABLE_SPARE_SLOT_LIMIT 4000000
 
 typedef struct grid_text {
     Py_ssize_t len;
@@ -92,9 +102,24 @@ static Py_ssize_t parse_span(th_node *cell, uint32_t name_atom, Py_ssize_t limit
     return digits ? number : -1;
 }
 
-/* Grow row so column index `needed - 1` is addressable, zero-initializing the new slots. -1 on allocation failure. */
-static int ensure_columns(grid_row *row, Py_ssize_t needed) {
+/* Take `count` grid slots out of the call's allowance. -1 with ValueError set when fewer are left. */
+static int spend_slots(Py_ssize_t *spare, Py_ssize_t count) {
+    if (count > *spare) {
+        PyErr_Format(PyExc_ValueError, "table spans and row padding add more than %d cells to the grid",
+                     TABLE_SPARE_SLOT_LIMIT);
+        return -1;
+    }
+    *spare -= count;
+    return 0;
+}
+
+/* Grow row so column index `needed - 1` is addressable, zero-initializing the new slots and charging the added width
+   to `spare`. -1 on allocation failure, or with ValueError set once the allowance is spent. */
+static int ensure_columns(grid_row *row, Py_ssize_t needed, Py_ssize_t *spare) {
     if (needed > row->width) {
+        if (spend_slots(spare, needed - row->width) < 0) {
+            return -1;
+        }
         row->width = needed;
     }
     if (needed <= row->cap) {
@@ -103,12 +128,14 @@ static int ensure_columns(grid_row *row, Py_ssize_t needed) {
     size_t cap;
     size_t bytes;
     int grew = th_grow_cap((size_t)needed, (size_t)row->cap, 8, sizeof(grid_text *), &cap, &bytes);
-    if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a table no allocation could hold */
-        return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a table no allocation could hold */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        return -1;        /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
     }
     grid_text **cells = PyMem_Realloc(row->cells, bytes);
-    if (cells == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (cells == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     for (Py_ssize_t index = row->cap; index < (Py_ssize_t)cap; index++) {
         cells[index] = NULL;
@@ -121,8 +148,11 @@ static int ensure_columns(grid_row *row, Py_ssize_t needed) {
 /* Place a row's <td>/<th> cells into the grid, honoring spans: each cell takes the next free column, and a rowspan or
    colspan shares one text snapshot across its covered slots. group_remaining is the number of rows from row_index to
    the end of this row's row group (thead/tbody/tfoot): the WHATWG table model ends every rowspan there, and a
-   rowspan=0 cell grows exactly that far. -1 on allocation failure. */
-static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_node *tr, Py_ssize_t group_remaining) {
+   rowspan=0 cell grows exactly that far. The slots a cell's spans add beyond its own are drawn from `spare`.
+   nested_text is NULL, or for a table nested inside two or more other tables of the call what is left of
+   TABLE_NESTED_TEXT_LIMIT. -1 on allocation failure, or with ValueError set once either allowance is spent. */
+static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_node *tr, Py_ssize_t group_remaining,
+                    Py_ssize_t *spare, Py_ssize_t *nested_text) {
     Py_ssize_t column = 0;
     for (th_node *child = tr->first_child; child != NULL; child = child->next_sibling) {
         if (child->type != TH_NODE_ELEMENT || (child->atom != TH_TAG_TD && child->atom != TH_TAG_TH)) {
@@ -142,8 +172,9 @@ static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_no
         }
         Py_ssize_t text_len;
         Py_UCS4 *raw = th_node_text(tree, child, &text_len);
-        if (raw == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return -1;     /* GCOVR_EXCL_LINE: allocation-failure path */
+        if (raw == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         Py_ssize_t start = 0;
         Py_ssize_t end = text_len;
@@ -153,10 +184,22 @@ static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_no
         while (end > start && is_space(raw[end - 1])) {
             end--;
         }
+        if (nested_text != NULL) {
+            if (end - start > *nested_text) {
+                PyMem_Free(raw);
+                PyErr_Format(PyExc_ValueError,
+                             "nested tables repeat more than %d characters of cell text; read the tables one at a "
+                             "time with rows()",
+                             TABLE_NESTED_TEXT_LIMIT);
+                return -1;
+            }
+            *nested_text -= end - start;
+        }
         grid_text *text = PyMem_Malloc(sizeof(grid_text) + (size_t)(end - start) * sizeof(Py_UCS4));
-        if (text == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
-            PyMem_Free(raw); /* GCOVR_EXCL_LINE: allocation failure */
-            return -1;       /* GCOVR_EXCL_LINE: allocation failure */
+        if (text == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyMem_Free(raw);  /* GCOVR_EXCL_LINE: allocation failure */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation failure */
+            return -1;        /* GCOVR_EXCL_LINE: allocation failure */
         }
         *text = (grid_text){end - start, NULL, grid->texts};
         memcpy(text->data, &raw[start], (size_t)(end - start) * sizeof(Py_UCS4));
@@ -164,8 +207,8 @@ static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_no
         grid->texts = text;
         for (Py_ssize_t row_offset = 0; row_offset < rowspan; row_offset++) {
             grid_row *target = &grid->rows[row_index + row_offset];
-            if (ensure_columns(target, column + colspan) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-                return -1;                                      /* GCOVR_EXCL_LINE: allocation failure */
+            if (ensure_columns(target, column + colspan, spare) < 0) {
+                return -1;
             }
             for (Py_ssize_t col_offset = 0; col_offset < colspan; col_offset++) {
                 target->cells[column + col_offset] = text;
@@ -177,21 +220,31 @@ static int fill_row(th_tree *tree, table_grid *grid, Py_ssize_t row_index, th_no
 }
 
 /* Collect the <tr> elements that belong to `table` in document order, skipping any nested table's subtree so its rows
-   are not stolen. *rows is a PyMem array grown as needed. -1 on allocation failure. */
-static int collect_table_rows(th_node *table, th_node ***rows, Py_ssize_t *count, Py_ssize_t *cap) {
+   are not stolen, and any cell's: a <tr> below a <td>/<th> with no table between them (the parser nests them that way
+   inside <svg>, <math> and <template>) is cell content, and reading it as a row would copy its text once more for
+   every cell around it. The cells of one table are therefore disjoint subtrees. *rows is a PyMem array grown as
+   needed. Each cell of a collected row is credited to `spare` here, in the same walk, so every cell brings its own slot
+   before any span is charged: where a spanning cell sits among the real ones does not decide whether the table fits.
+   -1 on allocation failure. */
+static int collect_table_rows(th_node *table, th_node ***rows, Py_ssize_t *count, Py_ssize_t *cap, Py_ssize_t *spare) {
     th_node *current = table->first_child;
     while (current != NULL) {
-        int nested_table = current->type == TH_NODE_ELEMENT && current->atom == TH_TAG_TABLE;
+        int opaque = current->type == TH_NODE_ELEMENT &&
+                     (current->atom == TH_TAG_TABLE || current->atom == TH_TAG_TD || current->atom == TH_TAG_TH);
+        *spare += current->type == TH_NODE_ELEMENT && (current->atom == TH_TAG_TD || current->atom == TH_TAG_TH) &&
+                  current->parent->atom == TH_TAG_TR;
         if (current->type == TH_NODE_ELEMENT && current->atom == TH_TAG_TR) {
             if (*count == *cap) {
                 size_t new_cap;
                 size_t bytes;
                 int grew = th_grow_cap((size_t)(*count + 1), (size_t)*cap, 8, sizeof(th_node *), &new_cap, &bytes);
-                if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-                    return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+                if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+                    PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+                    return -1;        /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
                 }
                 th_node **resized = PyMem_Realloc(*rows, bytes);
                 if (resized == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                    PyErr_NoMemory();  /* GCOVR_EXCL_LINE: allocation-failure path */
                     return -1;         /* GCOVR_EXCL_LINE: allocation-failure path */
                 }
                 *rows = resized;
@@ -199,7 +252,7 @@ static int collect_table_rows(th_node *table, th_node ***rows, Py_ssize_t *count
             }
             (*rows)[(*count)++] = current;
         }
-        if (!nested_table && current->first_child != NULL) {
+        if (!opaque && current->first_child != NULL) {
             current = current->first_child;
             continue;
         }
@@ -236,6 +289,7 @@ static int group_run_lengths(th_node *table, th_node **rows, Py_ssize_t count, P
     if (groups == NULL || run == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         PyMem_Free(groups);              /* GCOVR_EXCL_LINE: allocation-failure path */
         PyMem_Free(run);                 /* GCOVR_EXCL_LINE: allocation-failure path */
+        PyErr_NoMemory();                /* GCOVR_EXCL_LINE: allocation-failure path */
         return -1;                       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     th_node **ordered_rows = groups + count;
@@ -262,18 +316,33 @@ static int group_run_lengths(th_node *table, th_node **rows, Py_ssize_t count, P
     return 0;
 }
 
-/* Snapshot `table` into `grid` under the caller's critical section: gather its rows, then fill the dense grid. -1 on
-   allocation failure (the partially built grid is left for free_grid to release). */
-static int build_grid_locked(th_tree *tree, th_node *table, table_grid *grid) {
+/* The number of columns the widest row reaches; the rectangular width every row is padded to. A row's rightmost slot is
+   always filled (cells are placed and spans grow the row left to right), so its width is simply its allocated cap. */
+static Py_ssize_t grid_width(const table_grid *grid) {
+    Py_ssize_t width = 0;
+    for (Py_ssize_t row = 0; row < grid->row_count; row++) {
+        if (grid->rows[row].width > width) {
+            width = grid->rows[row].width;
+        }
+    }
+    return width;
+}
+
+/* Snapshot `table` into `grid` under the caller's critical section: gather its rows, then fill the dense grid. The
+   slots its spans and the padding to a rectangle add are drawn from `spare`; nested_text is as in fill_row. -1 on
+   allocation failure, or with ValueError set once either allowance is spent (the partially built grid is left for
+   free_grid to release). */
+static int build_grid_locked(th_tree *tree, th_node *table, table_grid *grid, Py_ssize_t *spare,
+                             Py_ssize_t *nested_text) {
     th_node **rows = NULL;
     Py_ssize_t count = 0;
     Py_ssize_t cap = 0;
     grid->rows = NULL;
     grid->row_count = 0;
     grid->texts = NULL;
-    if (collect_table_rows(table, &rows, &count, &cap) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        PyMem_Free(rows);                                     /* GCOVR_EXCL_LINE: allocation-failure path */
-        return -1;                                            /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (collect_table_rows(table, &rows, &count, &cap, spare) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyMem_Free(rows);                                            /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;                                                   /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t *group_remaining = NULL;
     if (group_run_lengths(table, rows, count, &group_remaining) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
@@ -287,31 +356,27 @@ static int build_grid_locked(th_tree *tree, th_node *table, table_grid *grid) {
             grid->row_count = 0;         /* GCOVR_EXCL_LINE: allocation-failure path */
             PyMem_Free(rows);            /* GCOVR_EXCL_LINE: allocation-failure path */
             PyMem_Free(group_remaining); /* GCOVR_EXCL_LINE: allocation-failure path */
+            PyErr_NoMemory();            /* GCOVR_EXCL_LINE: allocation-failure path */
             return -1;                   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
     for (Py_ssize_t index = 0; index < count; index++) {
-        if (fill_row(tree, grid, index, rows[index], group_remaining[index]) < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
-            PyMem_Free(rows);                                                       /* GCOVR_EXCL_LINE: OOM path */
-            PyMem_Free(group_remaining);                                            /* GCOVR_EXCL_LINE: OOM path */
-            return -1;                                                              /* GCOVR_EXCL_LINE: OOM path */
+        if (fill_row(tree, grid, index, rows[index], group_remaining[index], spare, nested_text) < 0) {
+            PyMem_Free(rows);
+            PyMem_Free(group_remaining);
+            return -1;
         }
     }
     PyMem_Free(rows);
     PyMem_Free(group_remaining);
-    return 0;
-}
-
-/* The number of columns the widest row reaches; the rectangular width every row is padded to. A row's rightmost slot is
-   always filled (cells are placed and spans grow the row left to right), so its width is simply its allocated cap. */
-static Py_ssize_t grid_width(const table_grid *grid) {
-    Py_ssize_t width = 0;
-    for (Py_ssize_t row = 0; row < grid->row_count; row++) {
-        if (grid->rows[row].width > width) {
-            width = grid->rows[row].width;
+    /* grid_to_rows and grid_to_records materialize every row at the table width, so the padding is charged as well */
+    Py_ssize_t width = grid_width(grid);
+    for (Py_ssize_t index = 0; index < count; index++) {
+        if (spend_slots(spare, width - grid->rows[index].width) < 0) {
+            return -1;
         }
     }
-    return width;
+    return 0;
 }
 
 /* The text at (row, col) as a str: the trimmed cell text, or "" for an empty or never-filled slot. */
@@ -370,6 +435,7 @@ static PyObject *grid_to_records(const table_grid *grid) {
     PyObject **headers = PyMem_Calloc((size_t)(width > 0 ? width : 1), sizeof(PyObject *));
     if (headers == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         Py_DECREF(result); /* GCOVR_EXCL_LINE: allocation-failure path */
+        PyErr_NoMemory();  /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     int failed = 0;
@@ -423,13 +489,14 @@ static PyObject *grid_to_records(const table_grid *grid) {
 /* Element.rows() -> list[list[str]]. Snapshot the table under the per-tree lock, then materialize the grid. */
 PyObject *turbohtml_element_table_rows(PyObject *owner, th_tree *tree, th_node *table) {
     table_grid grid = {0};
+    Py_ssize_t spare = TABLE_SPARE_SLOT_LIMIT;
     int failed;
     PyObject *handle = turbohtml_node_handle(owner);
     (void)handle;                      /* only the per-tree lock on free-threaded builds; a no-op argument otherwise */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock: no concurrent mutation mid-walk */
-    failed = build_grid_locked(tree, table, &grid) < 0;
+    failed = build_grid_locked(tree, table, &grid, &spare, NULL) < 0;
     Py_END_CRITICAL_SECTION();
-    PyObject *result = failed ? NULL : grid_to_rows(&grid); /* GCOVR_EXCL_BR_LINE: build only fails on OOM */
+    PyObject *result = failed ? NULL : grid_to_rows(&grid);
     free_grid(&grid);
     return result;
 }
@@ -437,28 +504,50 @@ PyObject *turbohtml_element_table_rows(PyObject *owner, th_tree *tree, th_node *
 /* Element.records() -> list[dict[str, str]]. Same snapshot, keyed by the first row. */
 PyObject *turbohtml_element_table_records(PyObject *owner, th_tree *tree, th_node *table) {
     table_grid grid = {0};
+    Py_ssize_t spare = TABLE_SPARE_SLOT_LIMIT;
     int failed;
     PyObject *handle = turbohtml_node_handle(owner);
     (void)handle;                      /* only the per-tree lock on free-threaded builds; a no-op argument otherwise */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock: no concurrent mutation mid-walk */
-    failed = build_grid_locked(tree, table, &grid) < 0;
+    failed = build_grid_locked(tree, table, &grid, &spare, NULL) < 0;
     Py_END_CRITICAL_SECTION();
-    PyObject *result = failed ? NULL : grid_to_records(&grid); /* GCOVR_EXCL_BR_LINE: build only fails on OOM */
+    PyObject *result = failed ? NULL : grid_to_records(&grid);
     free_grid(&grid);
     return result;
 }
 
+/* Only an element carries a tag atom, so the atom alone tells a table. */
+static th_node *next_counting_tables(th_node *current, th_node *root, Py_ssize_t *enclosing) {
+    if (current->first_child != NULL) {
+        *enclosing += current->atom == TH_TAG_TABLE;
+        return current->first_child;
+    }
+    while (current->next_sibling == NULL) {
+        current = current->parent;
+        if (current == root) {
+            return NULL;
+        }
+        *enclosing -= current->atom == TH_TAG_TABLE;
+    }
+    return current->next_sibling;
+}
+
 /* Node.tables() -> list[list[list[str]]]. Snapshot every table in the subtree (nested tables included as their own
-   entries) under one critical section, then materialize each as rows(). */
+   entries) under one critical section, then materialize each as rows(). The grids are all alive at once, so they share
+   one slot allowance and the tables nested two or more deep one text allowance. */
 PyObject *turbohtml_node_tables(PyObject *owner, th_tree *tree, th_node *root) {
     table_grid *grids = NULL;
     Py_ssize_t grid_count = 0;
     Py_ssize_t grid_cap = 0;
+    Py_ssize_t spare = TABLE_SPARE_SLOT_LIMIT;
+    Py_ssize_t nested_text = TABLE_NESTED_TEXT_LIMIT;
+    Py_ssize_t enclosing = 0; /* tables below root that contain current */
     int failed = 0;
     PyObject *handle = turbohtml_node_handle(owner);
     (void)handle;                      /* only the per-tree lock on free-threaded builds; a no-op argument otherwise */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock: no concurrent mutation mid-walk */
-    for (th_node *current = root->first_child; current != NULL; current = preorder_next(current, root)) {
+    for (th_node *current = root->first_child; current != NULL;
+         current = next_counting_tables(current, root, &enclosing)) {
         if (current->type != TH_NODE_ELEMENT || current->atom != TH_TAG_TABLE) {
             continue;
         }
@@ -466,27 +555,29 @@ PyObject *turbohtml_node_tables(PyObject *owner, th_tree *tree, th_node *root) {
             size_t cap;
             size_t bytes;
             int grew = th_grow_cap((size_t)(grid_count + 1), (size_t)grid_cap, 4, sizeof(table_grid), &cap, &bytes);
-            if (!grew) {    /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-                failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-                break;      /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+                PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+                failed = 1;       /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+                break;            /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
             }
             table_grid *resized = PyMem_Realloc(grids, bytes);
             if (resized == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                PyErr_NoMemory();  /* GCOVR_EXCL_LINE: allocation-failure path */
                 failed = 1;        /* GCOVR_EXCL_LINE: allocation-failure path */
                 break;             /* GCOVR_EXCL_LINE: allocation-failure path */
             }
             grids = resized;
             grid_cap = (Py_ssize_t)cap;
         }
-        failed = build_grid_locked(tree, current, &grids[grid_count]) < 0;
+        failed = build_grid_locked(tree, current, &grids[grid_count], &spare, enclosing > 1 ? &nested_text : NULL) < 0;
         grid_count++;
-        if (failed) { /* GCOVR_EXCL_BR_LINE: build only fails on OOM; the partial grid is counted so it is freed */
-            break;    /* GCOVR_EXCL_LINE: allocation-failure path */
+        if (failed) { /* the partial grid is counted so it is freed */
+            break;
         }
     }
     Py_END_CRITICAL_SECTION();
     PyObject *result = NULL;
-    if (!failed) { /* GCOVR_EXCL_BR_LINE: failed is set only on an allocation failure */
+    if (!failed) {
         result = PyList_New(grid_count);
         if (result != NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             for (Py_ssize_t index = 0; index < grid_count; index++) {

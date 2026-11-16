@@ -27,15 +27,13 @@ class Fullscreen(JSCSSMixin, MacroElement):
     See https://github.com/brunob/leaflet.fullscreen for more information.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             L.control.fullscreen(
                 {{ this.options|tojavascript }}
             ).addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     default_js = [
         (
@@ -56,7 +54,7 @@ class Fullscreen(JSCSSMixin, MacroElement):
         title="Full Screen",
         title_cancel="Exit Full Screen",
         force_separate_button=False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "Fullscreen"
@@ -65,5 +63,5 @@ class Fullscreen(JSCSSMixin, MacroElement):
             title=title,
             title_cancel=title_cancel,
             force_separate_button=force_separate_button,
-            **kwargs
+            **kwargs,
         )

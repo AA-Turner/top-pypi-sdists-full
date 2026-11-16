@@ -6,9 +6,17 @@
    the free-threaded build. These sources use only public, version-portable
    APIs, so they build on CPython 3.11 through 3.15. */
 
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
+
 #include "core/common.h"
+#include "core/hash.h"
 #include "core/vec.h"
 
+#include "css/cssom/cssom.h"
 #include "tokenizer/binding.h"
 
 /* Drive th_grow_cap directly so a test covers its size-overflow guards. Every reserve site shares
@@ -27,6 +35,18 @@ static PyObject *turbohtml_grow_probe(PyObject *module, PyObject *args) {
     size_t bytes = 0;
     int grew = th_grow_cap((size_t)needed, (size_t)current, (size_t)initial, (size_t)elem_size, &cap, &bytes);
     return Py_BuildValue("(iKK)", grew, (unsigned long long)cap, (unsigned long long)bytes);
+}
+
+/* Drive th_css_deep_memo_limit directly so a test covers its product and doubling overflow arms, which no
+   stylesheet and tree can reach. */
+static PyObject *turbohtml_deep_memo_limit_probe(PyObject *module, PyObject *args) {
+    (void)module;
+    unsigned long long rules;
+    unsigned long long nodes;
+    if (!PyArg_ParseTuple(args, "KK", &rules, &nodes)) {
+        return NULL;
+    }
+    return PyLong_FromUnsignedLongLong(th_css_deep_memo_limit((size_t)rules, (size_t)nodes));
 }
 
 PyDoc_STRVAR(escape_doc, "escape(s, quote=True)\n--\n\n"
@@ -178,6 +198,7 @@ static PyMethodDef html_methods[] = {
     {"_register_xpath_string", turbohtml_register_xpath_string, METH_O, NULL},
     {"_register_links", turbohtml_register_links, METH_O, NULL},
     {"_register_selector_error", turbohtml_register_selector_error, METH_O, NULL},
+    {"_register_xpath_depth_error", turbohtml_register_xpath_depth_error, METH_O, NULL},
     {"_query_unique", turbohtml_query_unique, METH_O, NULL},
     {"_query_siblings", turbohtml_query_siblings, METH_VARARGS, NULL},
     {"_query_parents", turbohtml_query_parents, METH_VARARGS, NULL},
@@ -215,10 +236,12 @@ static PyMethodDef html_methods[] = {
     {"_sax_dispatch", turbohtml_sax_dispatch, METH_VARARGS, NULL},
     {"_parse_into", turbohtml_parse_into, METH_VARARGS, NULL},
     {"_rewrite", turbohtml_rewrite, METH_VARARGS, NULL},
+    {"_builder_reads_attr", turbohtml_builder_reads_attr, METH_VARARGS, NULL},
     {"_tree_verify", turbohtml_tree_verify, METH_O, NULL},
     {"_parse_tree", turbohtml_parse_tree, METH_VARARGS, NULL},
     {"_parse_fragment", turbohtml_parse_fragment, METH_VARARGS, NULL},
     {"_parse_only", turbohtml_parse_only, METH_O, NULL},
+    {"_minify_document", turbohtml_minify_document, METH_VARARGS, NULL},
     {"_xpath_parse", turbohtml_xpath_parse, METH_O, NULL},
     {"_css_to_xpath", turbohtml_css_to_xpath, METH_VARARGS, NULL},
     {"_xpath_literal", turbohtml_xpath_literal, METH_O, NULL},
@@ -278,6 +301,7 @@ static PyMethodDef html_methods[] = {
     {"_url_percent_encode", turbohtml_url_percent_encode, METH_VARARGS, NULL},
     {"_url_percent_decode", turbohtml_url_percent_decode, METH_O, NULL},
     {"_url_join", turbohtml_url_join, METH_VARARGS, NULL},
+    {"_url_join_link", turbohtml_url_join_link, METH_VARARGS, NULL},
     {"_url_is_tracker", turbohtml_url_is_tracker, METH_O, NULL},
     {"_url_remove_dot_segments", turbohtml_url_remove_dot_segments, METH_O, NULL},
     {"_url_scrub", turbohtml_url_scrub, METH_O, NULL},
@@ -293,15 +317,241 @@ static PyMethodDef html_methods[] = {
 
     {"_sanitize_policy", turbohtml_sanitize_policy, METH_VARARGS, NULL},
     {"_grow_probe", turbohtml_grow_probe, METH_VARARGS, NULL},
+    {"_deep_memo_limit_probe", turbohtml_deep_memo_limit_probe, METH_VARARGS, NULL},
     {"_schema_compile", turbohtml_schema_compile, METH_VARARGS, NULL},
     {"_schema_validate", (PyCFunction)(void (*)(void))turbohtml_schema_validate, METH_VARARGS | METH_KEYWORDS, NULL},
     {"_conformance_check", turbohtml_conformance_check, METH_O, NULL},
     {"_conformance_filter", turbohtml_conformance_filter, METH_VARARGS, NULL},
+#ifdef TH_WORK_STEPS
+    {"_work_steps", turbohtml_work_steps, METH_NOARGS, NULL},
+#endif
+#ifdef TH_COVERAGE_FLUSH
+    {"_coverage_flush", turbohtml_coverage_flush, METH_NOARGS, NULL},
+#endif
     {NULL, NULL, 0, NULL},
 };
 
+/* The key core/hash.h hashes every name under, so a document cannot precompute attribute names that
+   cluster in the tokenizer's or the tree's table. Python's randomized bytes hash supplies both halves,
+   as it does for the XML parser's salt (th_tree_parse_xml): it draws from the OS per process yet
+   collapses to a fixed value under PYTHONHASHSEED, so the C coverage and CodSpeed gates stay
+   reproducible while production stays unpredictable. The hash secret is process-wide, so every
+   interpreter that executes the module stores the same key. */
+uint64_t th_name_hash_key[2];
+
+static inline uint64_t sip_rotate(uint64_t word, int bits) {
+    return (word << bits) | (word >> (64 - bits));
+}
+
+static inline void sip_round(uint64_t state[4]) {
+    state[0] += state[1];
+    state[1] = sip_rotate(state[1], 13) ^ state[0];
+    state[0] = sip_rotate(state[0], 32);
+    state[2] += state[3];
+    state[3] = sip_rotate(state[3], 16) ^ state[2];
+    state[0] += state[3];
+    state[3] = sip_rotate(state[3], 21) ^ state[0];
+    state[2] += state[1];
+    state[1] = sip_rotate(state[1], 17) ^ state[2];
+    state[2] = sip_rotate(state[2], 32);
+}
+
+TH_NOINLINE uint32_t th_name_hash(const void *data, Py_ssize_t len) {
+    const unsigned char *bytes = data;
+    uint64_t state[4] = {
+        th_name_hash_key[0] ^ UINT64_C(0x736F6D6570736575),
+        th_name_hash_key[1] ^ UINT64_C(0x646F72616E646F6D),
+        th_name_hash_key[0] ^ UINT64_C(0x6C7967656E657261),
+        th_name_hash_key[1] ^ UINT64_C(0x7465646279746573),
+    };
+    Py_ssize_t whole = len - len % 8;
+    for (Py_ssize_t index = 0; index < whole; index += 8) {
+        uint64_t word;
+        memcpy(&word, bytes + index, sizeof(word));
+        state[3] ^= word;
+        sip_round(state);
+        state[0] ^= word;
+    }
+    uint64_t last = (uint64_t)len << 56; /* the final word carries the length above the leftover bytes */
+    for (Py_ssize_t index = whole; index < len; index++) {
+        last |= (uint64_t)bytes[index] << (8 * (index - whole));
+    }
+    state[3] ^= last;
+    sip_round(state);
+    state[0] ^= last;
+    state[2] ^= 0xFF;
+    sip_round(state);
+    sip_round(state);
+    sip_round(state);
+    return (uint32_t)(state[0] ^ state[1] ^ state[2] ^ state[3]);
+}
+
+static int name_hash_key_status;
+
+static void name_hash_key_compute(void) {
+    static const char *const salts[2] = {"turbohtml:name-hash:0", "turbohtml:name-hash:1"};
+    for (int index = 0; index < 2; index++) {
+        PyObject *salt = PyBytes_FromString(salts[index]);
+        if (salt == NULL) {            /* GCOVR_EXCL_BR_LINE: bytes allocation cannot be forced from a test */
+            name_hash_key_status = -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+            return;                    /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        th_name_hash_key[index] = (uint64_t)PyObject_Hash(salt);
+        Py_DECREF(salt);
+    }
+}
+
+#if defined(_WIN32)
+static INIT_ONCE name_hash_key_once = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK name_hash_key_compute_once(PINIT_ONCE once, PVOID parameter, PVOID *context) {
+    (void)once;
+    (void)parameter;
+    (void)context;
+    name_hash_key_compute();
+    return TRUE;
+}
+#else
+static pthread_once_t name_hash_key_once = PTHREAD_ONCE_INIT;
+#endif
+
+/* Every interpreter that executes the module runs this, possibly on another thread. The first computes the key, the
+   rest wait for it, and the once primitive publishes the words to all of them; nothing writes the key after. */
+static int name_hash_key_init(void) {
+#if defined(_WIN32)
+    InitOnceExecuteOnce(&name_hash_key_once, name_hash_key_compute_once, NULL, NULL);
+#else
+    pthread_once(&name_hash_key_once, name_hash_key_compute);
+#endif
+    return name_hash_key_status;
+}
+
+static int publish_native_names(PyObject *module) {
+    static const char *const names[] = {
+        "minify_css",
+        "minify_css_inline",
+        "markup_escape",
+        "markup_escape_silent",
+        "markup_soft_str",
+        "register_markup",
+        "register_xpath_string",
+        "register_links",
+        "register_selector_error",
+        "register_xpath_depth_error",
+        "query_unique",
+        "query_siblings",
+        "query_parents",
+        "query_children",
+        "query_closest",
+        "query_text",
+        "query_attr",
+        "query_has_class",
+        "query_add_class",
+        "query_remove_class",
+        "query_toggle_class",
+        "linkify_nofollow",
+        "linkify_target_blank",
+        "microdata_as_dict",
+        "register_structured_data",
+        "register_feed",
+        "register_article",
+        "register_locations",
+        "register_js_minify",
+        "register_css_minify",
+        "register_render_configs",
+        "register_mutation_record",
+        "build_document",
+        "build_element",
+        "sax_events",
+        "sax_dispatch",
+        "parse_into",
+        "rewrite",
+        "css_to_xpath",
+        "xpath_literal",
+        "matches_many",
+        "select_many",
+        "select_limited",
+        "xslt_resolve_imports",
+        "xslt_compile",
+        "xslt_transform",
+        "css_specificity",
+        "css_parse_declarations",
+        "css_declaration_index",
+        "css_declaration_text",
+        "css_parse_rules",
+        "css_computed_style",
+        "css_escape_identifier",
+        "minify_js",
+        "decode",
+        "boilerplate",
+        "detect",
+        "detect_rank",
+        "detect_language",
+        "codec_label",
+        "normalize",
+        "collapse_whitespace",
+        "is_normalized",
+        "linkify_find",
+        "linkify_has",
+        "linkify_apply",
+        "phone_config_compile",
+        "phone_number_check",
+        "phone_number_format",
+        "phone_e164",
+        "phone_regions",
+        "linkify_fold",
+        "phone_parse",
+        "url_normalize",
+        "url_clean",
+        "sanitize",
+        "bleach_attributes",
+        "bleach_allow_relative",
+        "sanitize_policy",
+        "schema_compile",
+        "schema_validate",
+        "conformance_check",
+        "conformance_filter",
+        "elementtree_document_fromstring",
+        "elementtree_fromstring",
+        "elementtree_fragment_fromstring",
+        "elementtree_context",
+        "elementtree_element",
+        "elementtree_subelement",
+        "elementtree_strip_tags",
+        "elementtree_strip_elements",
+        "elementtree_tostring",
+        "elementtree_from_lxml",
+        "elementtree_to_lxml",
+        "elementtree_to_lxml_html",
+        "DetectStream",
+        "ElementXPath",
+        "RewriteHandle",
+        NULL,
+    };
+    for (int index = 0; names[index] != NULL; index++) {
+        PyObject *legacy_name = th_str_format("_%s", names[index]);
+        if (legacy_name == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;             /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        PyObject *value = PyObject_GetAttr(module, legacy_name);
+        Py_DECREF(legacy_name);
+        if (value == NULL) { /* GCOVR_EXCL_BR_LINE: module initialization allocation failure */
+            return -1;       /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        int result = PyObject_SetAttrString(module, names[index], value);
+        Py_DECREF(value);
+        if (result < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;    /* GCOVR_EXCL_LINE: allocation failure */
+        }
+    }
+    return 0;
+}
+
 static int html_exec(PyObject *module) {
     module_state *state = PyModule_GetState(module);
+    if (name_hash_key_init() < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;                  /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     if (token_register(module, state) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;                           /* GCOVR_EXCL_LINE: allocation-failure path */
     }
@@ -333,7 +583,10 @@ static int html_exec(PyObject *module) {
     if (elementtree_register(module, state) < 0) { /* GCOVR_EXCL_BR_LINE: module-init allocation failure */
         return -1;                                 /* GCOVR_EXCL_LINE: allocation failure */
     }
-    return observe_register(module, state);
+    if (observe_register(module, state) < 0) { /* GCOVR_EXCL_BR_LINE: module initialization allocation failure */
+        return -1;                             /* GCOVR_EXCL_LINE: allocation failure */
+    }
+    return publish_native_names(module);
 }
 
 static int html_traverse(PyObject *module, visitproc visit, void *arg) {
@@ -393,6 +646,7 @@ static int html_traverse(PyObject *module, visitproc visit, void *arg) {
     Py_VISIT(state->xpath_string_type);      /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->xpath_type);             /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->selector_error);         /* GCOVR_EXCL_BR_LINE: same */
+    Py_VISIT(state->xpath_depth_error);      /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->link_type);              /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->json_ld_parser);         /* GCOVR_EXCL_BR_LINE: same */
     Py_VISIT(state->microdata_item_type);    /* GCOVR_EXCL_BR_LINE: same */
@@ -480,6 +734,7 @@ static int html_clear(PyObject *module) {
     Py_CLEAR(state->xpath_string_type);
     Py_CLEAR(state->xpath_type);
     Py_CLEAR(state->selector_error);
+    Py_CLEAR(state->xpath_depth_error);
     Py_CLEAR(state->link_type);
     Py_CLEAR(state->json_ld_parser);
     Py_CLEAR(state->microdata_item_type);

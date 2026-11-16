@@ -593,7 +593,8 @@ class TPESampler(BaseSampler):
                 self._gamma = default_gamma
             else:
                 self._gamma = default_gamma_multiobjective
-        n = sum(trial.state != TrialState.RUNNING for trial in trials)  # Ignore running trials.
+        # Ignore running trials. See https://github.com/optuna/optuna/pull/4073.
+        n = sum(trial.state != TrialState.RUNNING for trial in trials)
 
         below_trials, above_trials = _split_trials(
             study,
@@ -673,7 +674,7 @@ class TPESampler(BaseSampler):
     @staticmethod
     @_deprecated.deprecated_func("4.9.0", "6.0.0")
     def hyperopt_parameters() -> dict[str, Any]:
-        """Return the the default parameters of hyperopt (v0.1.2).
+        """Return the default parameters of hyperopt (v0.1.2).
 
         :class:`~optuna.samplers.TPESampler` can be instantiated with the parameters returned
         by this method.

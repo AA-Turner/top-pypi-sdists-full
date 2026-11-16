@@ -22,9 +22,10 @@ use sqlbuild_cache::digest::types::ContentDigest;
 use sqlbuild_core::constants::PANIC_MESSAGE;
 use sqlbuild_core::panics::main::catch_compiler_panic::catch_compiler_panic;
 
-use crate::bindings::_helpers::cache::native_parse_store::{NativeParseStore, parse_key};
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
 use crate::bindings::_helpers::input_loops::model_loop_prepass::spawned;
+use sqlbuild_python_base::cache::main::parse_key::parse_key;
+use sqlbuild_python_base::cache::models::NativeParseStore;
 
 use crate::bindings::_helpers::input_loops::model_loop::{
     LoopContext, NativeModelLoop, compile_error,
@@ -32,9 +33,11 @@ use crate::bindings::_helpers::input_loops::model_loop::{
 use crate::bindings::_helpers::input_loops::model_loop_inputs::{HOOK_KEYS, present};
 use crate::bindings::_helpers::project_assembly::resources::{syntax_error_message, syntax_valid};
 use crate::bindings::_helpers::project_assembly::syntax_validation::sql_entry_label;
-use crate::bindings::_helpers::records::construct::{new_helped_error, new_record_with};
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use sqlbuild_python_base::records::main::construct::new_helped_error::new_helped_error;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 const OPT_OUT_KEYS: [&str; 2] = ["sql_analysis", "sql_validation"];
 const CURSOR_TYPE_KEY: &str = "cursor_type";

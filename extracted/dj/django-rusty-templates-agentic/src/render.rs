@@ -5,9 +5,11 @@ pub mod filters;
 pub mod inheritance;
 mod l10n;
 mod language_cache;
+pub(crate) mod live;
 pub(crate) use language_cache::CatalogCache;
 pub mod humanize;
 pub mod lorem;
+mod stack;
 mod stock;
 pub mod tags;
 mod timesince;
@@ -109,24 +111,7 @@ pub trait Evaluate {
         py: Python<'_>,
         template: TemplateString<'_>,
         context: &mut Context,
-    ) -> Option<bool>;
-}
-
-impl<T> Evaluate for Option<T>
-where
-    T: Evaluate,
-{
-    fn evaluate(
-        &self,
-        py: Python<'_>,
-        template: TemplateString<'_>,
-        context: &mut Context,
-    ) -> Option<bool> {
-        match self {
-            Some(inner) => inner.evaluate(py, template, context),
-            None => Some(false),
-        }
-    }
+    ) -> Result<bool, PyRenderError>;
 }
 
 /// All resolvable template elements can be rendered

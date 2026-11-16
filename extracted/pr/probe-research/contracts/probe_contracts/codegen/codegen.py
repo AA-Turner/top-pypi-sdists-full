@@ -1,5 +1,5 @@
 """Codegen: render every client view of the records, the event and surface catalogs, the client-message,
-transcript-switch, settings, pane API and pin vocabularies, the sample and live-event contracts, then write it or check
+transcript-switch, settings, pane API and pin vocabularies, the sample, live-event and trace-protocol contracts, then write it or check
 it is current.
 
     python -m probe_contracts.codegen           # write every target
@@ -23,8 +23,7 @@ from .events import (
     render_server_events,
     render_server_surfaces,
 )
-from .live import DESTINATION as LIVE_DESTINATION
-from .live import list_live_files, make_live_copy_render
+from .folder_copy import LIVE, TRACES
 from .pane_api import render_pane_api_python, render_pane_api_typescript
 from .pins import render_pins_agent, render_pins_server, render_pins_typescript
 from .python import render_python
@@ -83,7 +82,9 @@ TARGETS = (
     *(Target(f"{SAMPLES_DESTINATION}/{name}", make_sample_copy_render(name)) for name in list_sample_files()),
     Target(f"{SAMPLES_DESTINATION}/record.py", render_record_copy),
     # The live events contract for the SDK and CLI (rl-next W52): the same files, no TypeScript until the dashboard.
-    *(Target(f"{LIVE_DESTINATION}/{name}", make_live_copy_render(name)) for name in list_live_files()),
+    *(Target(f"{LIVE.destination}/{name}", LIVE.make_render(name)) for name in LIVE.list_files()),
+    # The trace client protocol for `probe client check` (vespper-fixes PR8): the models the traces route validates with.
+    *(Target(f"{TRACES.destination}/{name}", TRACES.make_render(name)) for name in TRACES.list_files()),
 )
 
 

@@ -20,8 +20,8 @@ class Event(StrEnum):
     WIZARD_CONFIGURE_STARTED = "wizard.configure_started"
     #: A sign-in finished. The wizard: `outcome`, `grants_needed`. An agent's `sign-in --wait` sends
     #: it at every end: `outcome` (`AgentRunOutcome`), `reason` (`AgentInstallReason`, null on
-    #: success), `account_changed`, `team_changed`, `duration_seconds`, plus the agent-install
-    #: stamp.
+    #: success), `account_changed`, `team_changed`, `duration_seconds` and `wall_seconds` (the wall
+    #: clock beside it: more is time the computer slept), plus the agent-install stamp.
     WIZARD_SIGNED_IN = "wizard.signed_in"
     #: One coding agent's configure ended (`agent`): `outcome`, `tracking_newly_installed`,
     #: `tracking_already_present`, `capture_newly_installed`, `capture_already_present` (a run with
@@ -220,9 +220,17 @@ class Event(StrEnum):
     #: PR34), the agents Probe is set up in, `agents_before` and `agents`, and this chat's
     #: recording, `chat_recording` (bool) and `chat_recording_reason` (`this_chat`'s word), so one
     #: event says the whole install (#probe-usage, PR41). `stage_seconds` says what each stage took
-    #: (`agents`, `who_records`), and `unapplied` names each setting it read back otherwise
-    #: (`incomplete_settings`, fixes-1108b). The agents installed and added are on
-    #: `wizard.install_settled`, each agent's plugins, MCP and hooks on
+    #: (`plugin_downloads`, `agents`, `who_records`, `this_chat`), `plugin_prefetch` where the
+    #: sign-in's plugin downloads were when the install came to them (`none`, `running` (waited
+    #: for), `done`, `stopped`, `stale`), `plugin_prefetch_ready` the parts that arrived (`mirror`,
+    #: `tarball`) and `plugin_prefetch_seconds` what they took (plan I-F3), `stage` the last stage
+    #: it started (recorded as each starts, so a run the launcher stopped still names it; a
+    #: `run_again` between stages names the one it stopped before), `stopped_by_sigterm` that a
+    #: SIGTERM ended it (most often the launcher's at the agent's time limit),
+    #: `daemon_libraries_seconds` what building the daemon's AI libraries took, `wall_seconds` the
+    #: wall clock beside `duration_seconds` (more is time the computer slept), and `unapplied` names
+    #: each setting it read back otherwise (`incomplete_settings`, fixes-1108b). The agents
+    #: installed and added are on `wizard.install_settled`, each agent's plugins, MCP and hooks on
     #: `wizard.configure_completed`, all in its `session_id`.
     AGENT_INSTALL_CONFIGURED = "agent_install.configured"
     #: The install started recording the chat it ran in (`ok`), or why not (`reason`, `this_chat`'s

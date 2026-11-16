@@ -10,7 +10,7 @@ from piptools.resolver import RequirementSummary, combine_install_requirements
 
 @pytest.mark.parametrize(
     ("input", "expected", "prereleases", "unsafe_constraints"),
-    (
+    tuple(
         (tup + (False, set())[len(tup) - 2 :])
         for tup in [
             (["Django"], ["django==1.8"]),
@@ -208,7 +208,7 @@ def test_resolver(
 
 @pytest.mark.parametrize(
     ("input", "expected", "prereleases"),
-    (
+    tuple(
         (tup + (False,))[:3]
         for tup in [
             (
@@ -448,7 +448,7 @@ def test_combine_install_requirements_with_paths(from_line, make_package):
 def test_combine_install_requirements_for_one_package_with_multiple_extras(
     from_line,
 ):
-    """Regression test for https://github.com/jazzband/pip-tools/pull/1512"""
+    """Regression test for https://github.com/pypa/pip-tools/pull/1512"""
     pkg1 = from_line("ray[default]==1.1.1")
     pkg2 = from_line("ray[tune]==1.1.1")
     combined = combine_install_requirements([pkg1, pkg2])

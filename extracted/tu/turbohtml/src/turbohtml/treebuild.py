@@ -23,14 +23,9 @@ from __future__ import annotations
 
 from typing import Protocol, TypeVar, cast
 
-from ._html import _parse_into
+from ._html import parse_into as _parse_into
 
-__all__ = [
-    "TreeBuilder",
-    "parse_into",
-]
-
-H = TypeVar("H")
+H = TypeVar("H")  # simplint: ignore[single-letter-name,module-variable-prefix]  # preserve generic metadata
 """The builder's node handle: whatever :class:`TreeBuilder` returns for a node and takes back in ``append``."""
 
 
@@ -44,25 +39,69 @@ class TreeBuilder(Protocol[H]):
     """
 
     def create_document(self) -> H:
-        """Create the document root and return its handle; :func:`parse_into` returns this handle."""
+        """
+        Create the document root and return its handle; :func:`parse_into` returns this handle.
+
+        :returns: the handle of the new document root.
+        """
 
     def create_doctype(self, name: str, public_id: str | None, system_id: str | None) -> H:
-        """Create a doctype node; ``public_id``/``system_id`` are None when the source omits them."""
+        """
+        Create a doctype node; ``public_id``/``system_id`` are None when the source omits them.
+
+        :param name: the document type name, e.g. ``html``.
+        :param public_id: the public identifier, or None when the source omits it.
+        :param system_id: the system identifier, or None when the source omits it.
+
+        :returns: the handle of the new doctype node.
+        """
 
     def create_element(self, name: str, namespace: str, attrs: tuple[tuple[str, str | None], ...]) -> H:
-        """Create an element ``name`` in ``namespace`` (a URI) with ``attrs`` (each a ``(name, value)`` pair)."""
+        """
+        Create an element ``name`` in ``namespace`` (a URI) with ``attrs`` (each a ``(name, value)`` pair).
+
+        :param name: the element's tag name.
+        :param namespace: the element's namespace URI.
+        :param attrs: the attributes, each a ``(name, value)`` pair with ``value`` None for a valueless attribute.
+
+        :returns: the handle of the new element.
+        """
 
     def create_text(self, data: str) -> H:
-        """Create a text node holding ``data``."""
+        """
+        Create a text node holding ``data``.
+
+        :param data: the text.
+
+        :returns: the handle of the new text node.
+        """
 
     def create_comment(self, data: str) -> H:
-        """Create a comment node holding ``data``."""
+        """
+        Create a comment node holding ``data``.
+
+        :param data: the comment body.
+
+        :returns: the handle of the new comment node.
+        """
 
     def create_pi(self, target: str, data: str) -> H:
-        """Create a node for an HTML instruction whose target is not reserved for XML."""
+        """
+        Create a node for an HTML instruction whose target is not reserved for XML.
+
+        :param target: the ASCII target, preserving source case.
+        :param data: the text after leading whitespace and before the closing delimiter.
+
+        :returns: the handle of the new instruction node.
+        """
 
     def append(self, parent: H, child: H) -> None:
-        """Append the ``child`` handle under the ``parent`` handle, in document order."""
+        """
+        Append the ``child`` handle under the ``parent`` handle, in document order.
+
+        :param parent: the handle to append under.
+        :param child: the handle to append.
+        """
 
 
 def parse_into(html: str, builder: TreeBuilder[H]) -> H:
@@ -80,3 +119,9 @@ def parse_into(html: str, builder: TreeBuilder[H]) -> H:
     :raises AttributeError: if ``builder`` is missing one of the :class:`TreeBuilder` methods.
     """
     return cast("H", _parse_into(html, builder))
+
+
+__all__ = [
+    "TreeBuilder",
+    "parse_into",
+]

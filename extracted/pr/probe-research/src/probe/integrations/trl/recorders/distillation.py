@@ -11,11 +11,11 @@ import functools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from probe.generated.samples import CaptureField
+from probe.generated.samples import MESSAGE_FIELDS, CaptureField
 
 from ..live import LiveBatch
 from ..recorder import Recorder
-from ..rows import TOOL_FIELDS, build_completion, has_response_schema, render_prompt, to_ints
+from ..rows import NO_SERVING_GPU, TOOL_FIELDS, build_completion, has_response_schema, render_prompt, to_ints
 
 #: What DistillationTrainer cannot give a sample (`plan(unsupported=)`), and why.
 NO_TOOLS = ("DistillationTrainer was given no tools, so it never parses a completion (`_generate`, :1442): each stays "
@@ -48,10 +48,12 @@ class DistillationRecorder(Recorder):
         call ids are Probe's, and a tool's files cannot reach their sample."""
         trainer = self.trainer
         if not getattr(trainer, "tools", None):
-            return dict.fromkeys(CaptureField, NO_TOOLS)
-        if not has_response_schema(getattr(trainer, "_tokenizer", None) or self.tracker.get_tokenizer()):
-            return {**dict.fromkeys(TOOL_FIELDS, NO_SCHEMA), CaptureField.REASONING: NO_SCHEMA}
-        return {CaptureField.TOOL_CALL_IDS: NUMBERED_IDS, CaptureField.ENVIRONMENT_FILES: SHARED_TOOLS}
+            unsupported = dict.fromkeys(MESSAGE_FIELDS, NO_TOOLS)
+        elif not has_response_schema(getattr(trainer, "_tokenizer", None) or self.tracker.get_tokenizer()):
+            unsupported = {**dict.fromkeys(TOOL_FIELDS, NO_SCHEMA), CaptureField.REASONING: NO_SCHEMA}
+        else:
+            unsupported = {CaptureField.TOOL_CALL_IDS: NUMBERED_IDS, CaptureField.ENVIRONMENT_FILES: SHARED_TOOLS}
+        return {**unsupported, CaptureField.GPU_READINGS: NO_SERVING_GPU}
 
     def install(self) -> None:
         trainer = self.trainer

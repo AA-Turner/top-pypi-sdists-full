@@ -14,6 +14,7 @@ from typing import Callable
 from typing import cast
 
 import torch
+from torch.fx.experimental.symbolic_shapes import free_unbacked_symbols
 
 from ... import exc
 from ..._compat import num_compute_units
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from ...runtime.kernel import BoundKernel
     from ...runtime.settings import DotPrecision
     from ..aten_lowering import Lowering
+    from ..autotuner_heuristics.registry import AutotunerHeuristicType
     from ..device_function import Argument
     from ..device_ir import GraphInfo
     from ..host_function import HostFunction
@@ -275,6 +277,26 @@ class PallasBackend(Backend):
     def name(self) -> str:
         return "pallas"
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Filled by ``build_launcher_args``; the launcher returns these tensors.
+        self._output_only_names: list[str] = []
+        self._cacheable_output_only_names: list[str] = []
+
+    def output_only_names(self) -> list[str]:
+        return self._output_only_names
+
+    def cacheable_output_only_names(self) -> list[str]:
+        return self._cacheable_output_only_names
+
+    @property
+    def supports_autotune_multi(self) -> bool:
+        return True
+
+    @property
+    def lowers_mask_select(self) -> bool:
+        return True
+
     @property
     def state(self) -> BackendState:
         return BackendState.BETA
@@ -303,9 +325,9 @@ class PallasBackend(Backend):
 
     @property
     def requires_shape_specialized_module(self) -> bool:
-        # Pallas modules hold monomorphic, shape-specific cached state
-        # (output-meta descriptor, launcher cache, ds-pad decision, signature
-        # lock), so each static-shape specialization needs its own module.
+        # Static-shape output-meta slots are fixed for an input specialization,
+        # so those bindings need separate modules. Other output metadata is
+        # rebuilt per call; launcher entries separately key actual geometry.
         return True
 
     def max_reduction_threads(self) -> int | None:
@@ -476,6 +498,10 @@ class PallasBackend(Backend):
     def supports_config_key(self, key: str) -> bool:
         return key in self._PALLAS_SUPPORTED_KEYS
 
+    def flattened_tile_shares_one_index(self) -> bool:
+        # A flattened loop flattens the grid only; each tile keeps its block.
+        return False
+
     def program_id_expr(self, dim: int, *, index_dtype: str) -> str:
         return f"pl.program_id({dim})"
 
@@ -544,10 +570,26 @@ class PallasBackend(Backend):
             return f"{host_str}.reshape(1)"
         if isinstance(arg, (SymbolArgument, TensorSizeArg, TensorStrideArg)):
             from ..compile_environment import CompileEnvironment
+            from ..device_function import DeviceFunction
 
-            if tensor_host_args:
-                device_expr = f"{tensor_host_args[0]}.device"
-            elif CompileEnvironment.current().settings.pallas_interpret:
+            env = CompileEnvironment.current()
+            input_storages = {id(t.untyped_storage()) for t in env.input_sources}
+            # Body outputs can be retargeted to meta placeholders after this
+            # call. Use the same input-storage provenance as output classification
+            # so scalar data is allocated on a real input's device instead.
+            input_arg = next(
+                (
+                    candidate
+                    for candidate in DeviceFunction.current().sorted_args()
+                    if isinstance(candidate, TensorArg)
+                    and candidate.host_str() in tensor_host_args
+                    and id(candidate.fake_value.untyped_storage()) in input_storages
+                ),
+                None,
+            )
+            if input_arg is not None:
+                device_expr = f"{input_arg.host_str()}.device"
+            elif env.settings.pallas_interpret:
                 device_expr = "'cpu'"
             else:
                 device_expr = "'tpu'"
@@ -559,9 +601,7 @@ class PallasBackend(Backend):
             # The kernel dereferences the scalar with ``name[0]`` (see
             # ``scalar_arg_preamble``).
             if isinstance(arg, (TensorSizeArg, TensorStrideArg)):
-                from ..compile_environment import CompileEnvironment
-
-                idx_dtype = CompileEnvironment.current().index_dtype
+                idx_dtype = env.index_dtype
                 return f"torch.tensor([{host_str}], dtype={idx_dtype!r}, device={device_expr})"
             return f"torch.tensor([{host_str}], dtype=torch.float32 if isinstance({host_str}, float) else torch.int32, device={device_expr})"
         return host_str
@@ -924,6 +964,11 @@ class PallasBackend(Backend):
             if outer_spec is not None:
                 outer_spec.update_min(spec.min_size)
 
+    def autotuner_heuristics(self) -> tuple[AutotunerHeuristicType, ...]:
+        from ..autotuner_heuristics.pallas import PALLAS_HEURISTICS
+
+        return PALLAS_HEURISTICS
+
     def tunable_fragments(self) -> dict[str, ConfigSpecFragment]:
         return {}
 
@@ -1187,11 +1232,19 @@ class PallasBackend(Backend):
                     continue
                 dims_info = device_fn.pallas_pad_info.get(id(arg.fake_value))
                 if dims_info is not None:
-                    for dim, (block_id, extra_pad) in dims_info.items():
-                        bsi = env.block_sizes[block_id]
-                        bs = bsi.from_config(config)
-                        if isinstance(bs, int) and bs > 1:
-                            result.append((i, dim, bs, extra_pad))
+                    for dim, blocks in dims_info.items():
+                        # One entry per distinct block size.  The launcher
+                        # pads entries in turn and a pad never shrinks the
+                        # dim, so the result covers every loop's last tile.
+                        extra_by_bs: dict[int, int] = {}
+                        for block_id, extra_pad in blocks.items():
+                            bs = env.block_sizes[block_id].from_config(config)
+                            if isinstance(bs, int) and bs > 1:
+                                extra_by_bs[bs] = max(extra_by_bs.get(bs, 0), extra_pad)
+                        result.extend(
+                            (i, dim, bs, extra_pad)
+                            for bs, extra_pad in extra_by_bs.items()
+                        )
 
         result.extend(self._zero_row_resident_pad_info(sorted_args))
         return result or None
@@ -1609,6 +1662,7 @@ class PallasBackend(Backend):
         from ..device_function import DeviceFunction
         from ..device_function import TensorArg
         from ..host_function import HostFunction
+        from ..variable_origin import BlockSizeOrigin
 
         device_fn = DeviceFunction.current()
 
@@ -1672,13 +1726,39 @@ class PallasBackend(Backend):
         # allocations to ``device='meta'`` and capture the launcher return.
         output_only_set = set(output_indices) - set(inplace_indices)
         output_only_names: list[str] = []
+        cacheable_output_only_names: list[str] = []
         if sorted_args is not None:
+            env = CompileEnvironment.current()
+            host_fn = HostFunction.current()
+            configured_symbols = {
+                symbol
+                for symbol, info in host_fn.expr_to_origin.items()
+                if isinstance(info.origin, BlockSizeOrigin)
+            }
             for i in output_indices:
                 if i in output_only_set:
                     arg = sorted_args[i]
                     assert isinstance(arg, TensorArg)
+                    # Backed input dimensions and configured block sizes are
+                    # fixed by a static-shape binding. Other metadata must be
+                    # recomputed before the launcher selects its specialization.
+                    metadata = (
+                        *arg.fake_value.shape,
+                        *arg.fake_value.stride(),
+                        arg.fake_value.storage_offset(),
+                    )
+                    if not any(
+                        isinstance(value, torch.SymInt)
+                        and free_unbacked_symbols(
+                            env.specialize_expr(env.shape_env.replace(value._sympy_()))
+                        )
+                        - configured_symbols
+                        for value in metadata
+                    ):
+                        cacheable_output_only_names.append(arg.host_str())
                     output_only_names.append(arg.host_str())
         self._output_only_names = output_only_names
+        self._cacheable_output_only_names = cacheable_output_only_names
 
         launcher_args = [*args]
         if has_rng_ops:
@@ -1725,7 +1805,7 @@ class PallasBackend(Backend):
             for scratch in scratch_shapes:
                 sources = scratch.shape_sources or (None,) * len(scratch.shape)
                 shape_dims = [
-                    host.literal_expr(size)
+                    host.literal_expr(size, device_fn.config)
                     if source is None
                     else f"{device_fn.tensor_arg(source[0]).host_str()}.size({source[1]})"
                     for size, source in zip(scratch.shape, sources, strict=True)
@@ -1754,6 +1834,11 @@ class PallasBackend(Backend):
                     dims.append((position, source[1]))
                 shape_sources.append(dims)
             launcher_args.append(f"_scratch_shape_sources={shape_sources!r}")
+
+        if device_fn.pallas_pipeline_vmem_bytes:
+            launcher_args.append(
+                f"_pipeline_vmem_bytes={device_fn.pallas_pipeline_vmem_bytes}"
+            )
 
         if device_fn.requires_remote_copy:
             launcher_args.append("_uses_remote_copy=True")

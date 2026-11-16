@@ -364,7 +364,7 @@ def _tool_search_query(surface: str, prefix: str = _MCP_TOOL_PREFIX) -> str:
     return "select:" + ",".join(prefix + n for n in names)
 
 
-def _indexed_here(timeout: float = 1.5) -> "Optional[int]":
+def _indexed_here(timeout: float = 1.5, looked=None) -> "Optional[int]":
     """File count of the index covering the working directory, or None.
 
     Used for the stdio transport only, where the working directory is the
@@ -380,32 +380,11 @@ def _indexed_here(timeout: float = 1.5) -> "Optional[int]":
     indexed" there would point the agent at the other tree. So the answer
     counts only when its `source_root` contains the working directory; a
     missing `source_root` is unknown, not a match.
+    `looked` is a `_startup_lookup()` result already in hand; without it this
+    makes the lookup itself.
     """
-    import threading
-
-    box: dict = {}
-    try:
-        cwd = Path.cwd().resolve()
-    except OSError:  # e.g. the working directory was deleted
-        logger.debug("startup index lookup: no usable working directory", exc_info=True)
-        return None
-
-    def _look() -> None:
-        try:
-            from .tools.resolve_repo import resolve_repo
-
-            box["r"] = resolve_repo(str(cwd))
-        except Exception:
-            logger.debug("startup index lookup failed", exc_info=True)
-
-    t = threading.Thread(target=_look, name="jcm-startup-index-lookup", daemon=True)
-    t.start()
-    t.join(timeout)
-    if t.is_alive():
-        logger.debug("startup index lookup exceeded %.1fs; not claiming an index", timeout)
-        return None
-    r = box.get("r")
-    if not isinstance(r, dict) or r.get("indexed") is not True or r.get("working_tree_mismatch"):
+    cwd, r = looked if looked is not None else _startup_lookup(timeout)
+    if cwd is None or not isinstance(r, dict) or r.get("indexed") is not True or r.get("working_tree_mismatch"):
         return None
     root = r.get("source_root")
     if not root:
@@ -422,16 +401,73 @@ def _indexed_here(timeout: float = 1.5) -> "Optional[int]":
     return n
 
 
+def _separate_copy_here(looked) -> bool:
+    """True when the working directory is a separate copy of a repo indexed from
+    another folder (`resolve_repo`'s `working_tree_mismatch`, read through
+    `separate_copy`). Logs the folder the index reads at WARNING, because the
+    instructions line it unlocks names no path (a path has no length bound and
+    the instructions do)."""
+    try:
+        from .tools.resolve_repo import separate_copy, separate_copy_sentence
+
+        found = separate_copy(looked[1]) if looked else None
+        if found is None:
+            return False
+        logger.warning("%s", separate_copy_sentence(*found))
+        return True
+    except Exception:  # startup must never fail on a note
+        logger.debug("separate-copy startup check failed", exc_info=True)
+        return False
+
+
+def _startup_lookup(timeout: float = 1.5):
+    """`(cwd, resolve_repo(cwd))` for the startup checks, or `(None, None)`.
+
+    The answer is None when the lookup failed or ran past `timeout`; it runs
+    on a daemon thread so a stuck one cannot hold the process open.
+    """
+    import threading
+
+    box: dict = {}
+    try:
+        cwd = Path.cwd().resolve()
+    except OSError:  # e.g. the working directory was deleted
+        logger.debug("startup index lookup: no usable working directory", exc_info=True)
+        return None, None
+
+    def _look() -> None:
+        try:
+            from .tools.resolve_repo import resolve_repo
+
+            box["r"] = resolve_repo(str(cwd))
+        except Exception:
+            logger.debug("startup index lookup failed", exc_info=True)
+
+    t = threading.Thread(target=_look, name="jcm-startup-index-lookup", daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        logger.debug("startup index lookup exceeded %.1fs; not claiming an index", timeout)
+        return cwd, None
+    return cwd, box.get("r")
+
+
 def _mcp_instructions(
     surface: "Optional[str]" = None,
     prefix: str = _MCP_TOOL_PREFIX,
     indexed_files: "Optional[int]" = None,
+    separate_copy: bool = False,
 ) -> str:
     """The `instructions` string for the initialize response, surface-aware.
 
     `indexed_files` is the working directory's index size when the caller has
     established it (`_indexed_here`); the opening then says the repo IS indexed
     and how big it is. None keeps the "can be indexed" wording.
+
+    `separate_copy` (`_separate_copy_here`) says the working directory is a
+    copy of a repo indexed from another folder. On `counter` the opening says
+    so and gives the call that indexes this folder; `full` is at its budget,
+    so it keeps its text and the server log carries the sentence.
     """
     surface = surface or _effective_surface()
     rows = _INSTRUCTION_TOOLS_COUNTER if surface == "counter" else _INSTRUCTION_TOOLS_FULL
@@ -445,6 +481,11 @@ def _mcp_instructions(
         subject = f"This repo is indexed by jcodemunch ({indexed_files:,} {unit})"
     else:
         subject = "This repo can be indexed by jcodemunch"
+    if separate_copy and indexed_files is None and surface == "counter":
+        subject = (
+            "Repo indexed elsewhere; index this copy with "
+            'order("index_folder", {"path":".","identity_mode":"local"}, allow_state_change=true)'
+        )
     if surface == "counter":
         opening = f"{subject}. Its whole tool catalog sits behind a 3-verb front door: route, menu and order."
     else:
@@ -479,10 +520,11 @@ def _mcp_instructions(
     return "\n".join(lines)
 
 
-def _initialization_options(indexed_files: "Optional[int]" = None):
+def _initialization_options(indexed_files: "Optional[int]" = None, separate_copy: bool = False):
     """`create_initialization_options()` carrying our `instructions` string.
 
-    `indexed_files` is passed by the stdio transport only (see `_indexed_here`).
+    `indexed_files` and `separate_copy` are passed by the stdio transport only
+    (see `_indexed_here` and `_separate_copy_here`).
 
     ⚠ Built per run() rather than passed to `Server(...)` at import: the surface
     is resolved from env + config, and neither is settled when this module is
@@ -494,7 +536,9 @@ def _initialization_options(indexed_files: "Optional[int]" = None):
         # nowhere to say it.
         logger.debug("InitializationOptions has no `instructions` field; skipping")
         return opts
-    return opts.model_copy(update={"instructions": _mcp_instructions(indexed_files=indexed_files)})
+    return opts.model_copy(
+        update={"instructions": _mcp_instructions(indexed_files=indexed_files, separate_copy=separate_copy)}
+    )
 
 
 def _counter_front_door_tools() -> list:
@@ -5207,7 +5251,8 @@ async def list_resources() -> list[Resource]:
                 "Process provenance for this server instance "
                 f"({runtime_identity.IDENTITY_SCHEMA}): product, version, "
                 "transport, pid, OS-derived process_start, per-process "
-                "instance_id, optional launch_id echo. Read-only, no side effects."
+                "instance_id, build digest (null with a reason on a source install), "
+                "optional launch_id echo. Read-only, no side effects."
             ),
             mimeType="application/json",
         )
@@ -6034,8 +6079,24 @@ def _label_savings_basis(result: dict) -> None:
         logger.debug("tokens_saved basis not labeled", exc_info=True)
 
 
+def _is_absence_answer(result: dict) -> bool:
+    """True when the answer says nothing in the index matched.
+
+    The verdict set is `session_journal._ABSENCE_VERDICTS`, the one place an
+    absence claim is named; a second list here would drift from it.
+    """
+    from .tools.session_journal import _ABSENCE_VERDICTS
+
+    evidence = result.get("negative_evidence")
+    return isinstance(evidence, dict) and evidence.get("verdict") in _ABSENCE_VERDICTS
+
+
 def _count_tool_call(
-    name: str, result: "list[TextContent] | CallToolResult | None", *, relayed: bool = False
+    name: str,
+    result: "list[TextContent] | CallToolResult | None",
+    *,
+    relayed: bool = False,
+    no_match: bool = False,
 ) -> None:
     """Add this call to the local per-tool counters (`storage/tool_counters.py`).
 
@@ -6047,6 +6108,13 @@ def _count_tool_call(
     the default surface was mirrored under `order` (review, 2026-10-13).
     ⚠ A dispatch that raised is a call with no answer: *result* is None and
     it adds a call and no tokens, so `calls` agrees with the latency rows.
+    ⚠ *no_match* says the answer's `negative_evidence` carried an absence
+    verdict (`_is_absence_answer`), never merely the field: #1308 sets it on
+    answers that returned rows too. It is read from the result DICT, before
+    encoding, because a compact encoding cannot be parsed back here;
+    `_call_tool_impl` marks it on this frame. A relayed call's marker stays
+    with the tool that answered, the same as its size, and a refused or failed
+    answer clears it.
     ⚠ *name* is the client's string: only a name this server publishes is
     counted, so nothing else can be written into a file the user may hand to
     someone. ⚠ It never touches the disk (the counters module hands a due
@@ -6060,7 +6128,7 @@ def _count_tool_call(
         from .storage import tool_counters
 
         size = 0 if relayed or result is None else _response_text_bytes(result)
-        tool_counters.record(name, size)
+        tool_counters.record(name, size, no_match=no_match)
     except Exception:
         logger.debug("tool counter not recorded for %s", name, exc_info=True)
 
@@ -6186,7 +6254,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
         return result
     finally:
         _COUNT_FRAME.reset(_count_token)
-        _count_tool_call(name, _counted_result, relayed=_count_frame["inner"])
+        _count_tool_call(
+            name,
+            _counted_result,
+            relayed=_count_frame["inner"],
+            # A refused or failed answer is not a no-match the client saw.
+            no_match=_dispatch_ok and bool(_count_frame.get("no_match")),
+        )
         if _count_parent is not None:
             _count_parent["inner"] = True
         else:
@@ -6229,17 +6303,28 @@ def _schedule_bm25_flush() -> None:
     """Start the write-back in the background if anything is queued. Never raises."""
     try:
         from .storage import bm25_stats as _bm25_stats
+        from .storage import token_counts as _token_counts
 
-        if not _bm25_stats.pending_count():
+        if not (_bm25_stats.pending_count() or _token_counts.pending_count()):
             return
         task = _bm25_flush_task[0]
         if task is not None and not task.done() and not task.get_loop().is_closed():
             return  # what is queued now is stored by the next one
         _bm25_flush_task[0] = asyncio.get_running_loop().create_task(
-            asyncio.to_thread(_bm25_stats.flush_pending)
+            asyncio.to_thread(_flush_write_backs)
         )
     except Exception:
         logger.debug("BM25 statistics write-back not scheduled", exc_info=True)
+
+
+def _flush_write_backs() -> None:
+    """Store what calls computed or queued: BM25 statistics, then per-file
+    token counts (storage/token_counts.py). Each half never raises."""
+    from .storage import bm25_stats as _bm25_stats
+    from .storage import token_counts as _token_counts
+
+    _bm25_stats.flush_pending()
+    _token_counts.flush_pending()
 
 
 async def _await_bm25_flush() -> None:
@@ -7611,7 +7696,9 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                         if name == "get_file_content" and "content" in result:
                             journal.record_read(arguments.get("file_path", ""), name)
                         elif name == "get_file_outline" and "symbols" in result:
-                            journal.record_read(arguments.get("file_path", ""), name)
+                            journal.record_read(
+                                arguments.get("file_path") or arguments.get("file") or "", name
+                            )
                         elif name == "get_symbol_source":
                             # Single symbol_id → flat result with "source"
                             sym_id = arguments.get("symbol_id", "")
@@ -7762,7 +7849,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
         _ignored: list[str] = []
         try:
             _ignored = _arg_contract.unrecognized_keys(
-                arguments, _declared_arg_keys(name)
+                arguments, _declared_arg_keys(name), name
             )
             if _ignored:
                 _arg_contract.apply_argument_contract(result, _ignored)
@@ -7895,13 +7982,24 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
         # search of the whole repo. `index_warning` is a key every compact
         # encoder carries (`schema_driven.is_universal_body_key`). A new dict,
         # because `result` may be an object a cache still holds.
+        # The same holds for files the per-file size limit left out: a separate
+        # sentence, because it is a separate setting with its own remedy.
         try:
             if isinstance(result, dict) and "index_warning" not in result:
                 from .retrieval.verdict import index_truncation_warning as _itw
+                from .retrieval.verdict import index_withheld_warning as _iww
 
-                _cap_line = _itw((result.get("_meta") or {}).get("index_truncated"))
-                if _cap_line:
-                    result = {**result, "index_warning": _cap_line}
+                _m = result.get("_meta") or {}
+                _lines = [
+                    _l
+                    for _l in (
+                        _itw(_m.get("index_truncated")),
+                        _iww(_m.get("index_withheld")),
+                    )
+                    if _l
+                ]
+                if _lines:
+                    result = {**result, "index_warning": " ".join(_lines)}
         except Exception:
             logger.debug("index-cap warning attach failed", exc_info=True)
 
@@ -8095,6 +8193,17 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
             except Exception:
                 logger.debug("Secret redaction failed", exc_info=True)
 
+        # The tool counters' no-match count: read the marker while the answer
+        # is still a dict; after encoding it is text in a format the counter
+        # cannot parse. ⚠ Only an ABSENCE verdict counts, the one set
+        # `session_journal` already keys on: `no_exact_match` and
+        # `low_confidence_matches` carry the same field on answers that
+        # returned rows.
+        if isinstance(result, dict) and _is_absence_answer(result):
+            _frame = _COUNT_FRAME.get()
+            if _frame is not None:
+                _frame["no_match"] = True
+
         # Compact output encoding (MUNCH). Opt-in via `format` argument or
         # JCODEMUNCH_DEFAULT_FORMAT env; "auto" falls back to JSON unless
         # savings clear the gate threshold.
@@ -8147,6 +8256,20 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
             # schemas omit repo — name what this session has already resolved.
             _missing_msg += " This session has resolved: " + ", ".join(_steer_state["repos"]) + ". Pass repo=<one of these>."
         return _fail(json.dumps({"error": _missing_msg}, separators=(',', ':')))
+    except _arg_contract.ArgumentError as exc:
+        # The caller's arguments cannot form a call. Not an internal error, and
+        # the reply names what was sent that the tool does not read, which is
+        # usually why (`path=` for `file_path=`).
+        _call_ok = False
+        payload = {"error": str(exc)}
+        try:
+            _bad = _arg_contract.unrecognized_keys(arguments, _declared_arg_keys(name), name)
+        except Exception:
+            logger.debug("Argument-contract check failed", exc_info=True)
+            _bad = []
+        if _bad:
+            payload["ignored_arguments"] = _bad
+        return _fail(json.dumps(payload, separators=(',', ':')))
     except Exception as exc:
         _call_ok = False
         logger.error("call_tool %s failed", name, exc_info=True)
@@ -8464,11 +8587,15 @@ async def run_stdio_server():
         _stdout_arg = (
             anyio.wrap_file(_private_stdout) if _private_stdout is not None else None
         )
+        _looked = _startup_lookup()  # one resolve_repo call feeds both startup readers
         async with stdio_server(stdout=_stdout_arg) as (read_stream, write_stream):
             await server.run(
                 read_stream,
                 write_stream,
-                _initialization_options(indexed_files=_indexed_here()),
+                _initialization_options(
+                    indexed_files=_indexed_here(looked=_looked),
+                    separate_copy=_separate_copy_here(_looked),
+                ),
             )
     except asyncio.CancelledError:
         if not _parent_gone.is_set():
@@ -10464,6 +10591,13 @@ def main(argv: Optional[list[str]] = None):
         help="Write .github/hooks/hooks.json so GitHub Copilot CLI / cloud agent auto-reindex on edit",
     )
     init_parser.add_argument(
+        "--cursor-hooks",
+        action="store_true",
+        dest="cursor_hooks",
+        help="Add hooks to ~/.cursor/hooks.json that count Cursor's agent reads of indexed code "
+        "beside jCodeMunch lookups (see `direct-reads`); reads are always allowed",
+    )
+    init_parser.add_argument(
         "--index",
         action="store_true",
         help="Index the current working directory after setup",
@@ -10742,6 +10876,10 @@ def main(argv: Optional[list[str]] = None):
         help="Preserve the jcodemunch block in this repository's git post-checkout hook",
     )
     uninstall_parser.add_argument(
+        "--keep-cursor-hooks", action="store_true", dest="keep_cursor_hooks",
+        help="Leave the jcodemunch hooks in ~/.cursor/hooks.json",
+    )
+    uninstall_parser.add_argument(
         "--keep-copilot-hooks", action="store_true", dest="keep_copilot_hooks",
         help="Preserve the Copilot postToolUse hook in .github/hooks/hooks.json",
     )
@@ -10791,6 +10929,19 @@ def main(argv: Optional[list[str]] = None):
         "hook-copilot-posttooluse",
         help="GitHub Copilot postToolUse hook: auto-reindex files after Edit/Write (reads stdin)",
     )
+
+    # --- hook-cursor ---
+    subparsers.add_parser(
+        "hook-cursor",
+        help="Cursor beforeReadFile/afterMCPExecution hook: count reads of indexed code beside lookups (reads stdin)",
+    )
+
+    # --- direct-reads ---
+    direct_reads_parser = subparsers.add_parser(
+        "direct-reads",
+        help="Show how often Cursor's agent read indexed code itself, beside jCodeMunch lookups",
+    )
+    direct_reads_parser.add_argument("--json", action="store_true", help="Print the counts as JSON")
 
     # --- upgrade ---
     upgrade_parser = subparsers.add_parser(
@@ -11193,7 +11344,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "hook-sessionstart", "hook-post-checkout", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "import-scip", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "reflect", "delivery", "parity", "refresh", "health", "file-risk", "observatory", "keyring", "surface", "diagnose", "storage"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-cursor", "direct-reads", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "hook-sessionstart", "hook-post-checkout", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "import-scip", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "reflect", "delivery", "parity", "refresh", "health", "file-risk", "observatory", "keyring", "surface", "diagnose", "storage"}
         # MCP-tool-name typos: route to the right CLI verb with a friendly hint.
         # `index_repo` and `index_folder` are MCP tools, not CLI subcommands.
         _CLI_ALIASES = {
@@ -11453,6 +11604,7 @@ def main(argv: Optional[list[str]] = None):
             # typed it. That is what survives `--minimal` (#397).
             hooks_explicit=(args.hooks is True),
             copilot_hooks=getattr(args, "copilot_hooks", False),
+            cursor_hooks=getattr(args, "cursor_hooks", False),
             index=args.index,
             audit=args.audit,
             dry_run=args.dry_run,
@@ -11563,6 +11715,7 @@ def main(argv: Optional[list[str]] = None):
             agents_md=not getattr(args, "keep_agents_md", False),
             hooks=not getattr(args, "keep_hooks", False),
             copilot_hooks=not getattr(args, "keep_copilot_hooks", False),
+            cursor_hooks=not getattr(args, "keep_cursor_hooks", False),
             skills=not getattr(args, "keep_skills", False),
             dry_run=getattr(args, "dry_run", False),
             no_backup=getattr(args, "no_backup", False),
@@ -11659,6 +11812,14 @@ def main(argv: Optional[list[str]] = None):
     if args.command == "hook-copilot-posttooluse":
         from .cli.hooks import run_copilot_posttooluse
         sys.exit(run_copilot_posttooluse())
+
+    if args.command == "hook-cursor":
+        from .cli.hooks import run_cursor_hook
+        sys.exit(run_cursor_hook())
+
+    if args.command == "direct-reads":
+        from .cli.direct_reads import run_direct_reads
+        sys.exit(run_direct_reads(as_json=args.json))
 
     if args.command == "upgrade":
         from .cli.upgrade import run_upgrade
@@ -12021,15 +12182,85 @@ def main(argv: Optional[list[str]] = None):
         if not result.get("success"):
             sys.exit(1)
     elif args.command == "index-file":
-        from .tools.index_file import index_file as _index_file
+        from .storage import index_file_slots as _slots
         import json as _json
 
-        use_ai = not args.no_ai_summaries and _default_use_ai_summaries()
-        result = _index_file(
-            path=args.path,
-            use_ai_summaries=use_ai,
-            storage_path=os.environ.get("CODE_INDEX_PATH"),
-        )
+        # One run per checkout and a bounded number per machine: the PostToolUse
+        # hook starts one per edit and never waits (index_file_slots.py).
+        _store = os.environ.get("CODE_INDEX_PATH")
+        _key = _slots.index_key(args.path, _store)
+        _use_ai: list = []
+
+        def _index_one(_q):
+            # Imported and configured on first use: a run turned away never pays
+            # for either.
+            from .tools import index_file as _index_file_mod
+
+            if not _use_ai:
+                _use_ai.append(not args.no_ai_summaries and _default_use_ai_summaries())
+            return _index_file_mod.index_file(
+                path=_q, use_ai_summaries=_use_ai[0], storage_path=_store,
+            )
+
+        _claim, _why = _slots.claim(_key)
+        if _claim is None:
+            _queued = _why == "same_index_busy" and _slots.queue(_key, args.path)
+            _late = _late_failed = 0
+            if _queued:
+                # Write, then check again. The live run may have taken its last
+                # look at the list and given its locks back between this run's
+                # claim and its write; then nothing else would index the path.
+                _late, _late_failed = _slots.drain_after_release(_key, _index_one)
+            # Exit 0 (the hook reads no status). `success` is false unless this
+            # run found the checkout free after queuing and indexed the list.
+            _out = {
+                "success": bool(_late) and not _late_failed,
+                "indexed": bool(_late),
+                "skipped": _why,
+                "queued_for_live_run": bool(_queued),
+                "max_concurrent": _slots.MAX_CONCURRENT,
+                "path": args.path,
+                "note": "no index was loaded. A queued path is indexed by the live run "
+                        "for this checkout. Otherwise the file is re-indexed by a running "
+                        "watcher, by refresh_on_read on the next read of a git "
+                        "repository (at most once per 30 s per server, and not while "
+                        "another write holds the index), or by the next edit",
+            }
+            if _late or _late_failed:
+                # `skipped` still names why the first claim failed.
+                _out["note"] = (
+                    "the live run for this checkout had finished by the time this "
+                    "path was queued, so this run "
+                    + (
+                        "indexed the pending list itself"
+                        if _late
+                        else "tried the pending list itself and every path failed"
+                    )
+                )
+                _out["coalesced_paths"] = _late
+                if _late_failed:
+                    _out["coalesced_failures"] = _late_failed
+            print(_json.dumps(_out, indent=2))
+            return
+        try:
+            result = _index_one(args.path)
+
+            # Paths other runs queued for this checkout while this run held it.
+            _coalesced, _failed = _slots.drain(_key, _index_one)
+        finally:
+            _slots.release(_claim)
+        # A path queued after the last read of the list and before the release
+        # would otherwise be stranded behind a lock that is now free.
+        _late, _late_failed = _slots.drain_after_release(_key, _index_one)
+        _coalesced += _late
+        _failed += _late_failed
+        if isinstance(result, dict):
+            if _coalesced:
+                result["coalesced_paths"] = _coalesced
+            if _failed:
+                result["coalesced_failures"] = _failed
+            if _claim.lock_error:
+                result["slot_error"] = _claim.lock_error
         print(_json.dumps(result, indent=2))
         if not result.get("success"):
             sys.exit(1)
@@ -12171,6 +12402,16 @@ def main(argv: Optional[list[str]] = None):
                     install,
                 )
                 watcher_enabled = False
+
+        # (#1435) Read the build now, while the RECORD still describes the code
+        # this process loaded. Read lazily, an in-place upgrade before the first
+        # identity read would make an old process report the new build.
+        try:
+            from .runtime_identity import get_build as _get_build
+
+            _get_build()
+        except Exception:
+            logger.debug("build digest: startup read failed", exc_info=True)
 
         # Presence registry (jcm#375 follow-up): record that this server process
         # exists so `get_session_stats` can report how many jcodemunch servers

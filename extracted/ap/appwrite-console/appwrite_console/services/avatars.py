@@ -699,7 +699,7 @@ class Avatars(Service):
             api_path,
             {
                 'X-Appwrite-Project': self.client.get_config('project'),
-                'accept': 'image/png',
+                'accept': 'image/*',
             },
             api_params,
         )

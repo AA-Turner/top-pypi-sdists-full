@@ -4,7 +4,6 @@ It never sends a queued write (D1): it only makes sure a worker runs."""
 
 from __future__ import annotations
 
-import sys
 import time
 from dataclasses import replace
 from typing import Any, Callable
@@ -311,7 +310,6 @@ def _get_service_version() -> str | None:
 
 
 def _print_progress(line: str) -> None:
-    try:
-        print(line, file=sys.stderr, flush=True)
-    except Exception:  # noqa: BLE001 -- a closed stderr never stops the wait
-        pass
+    from probe.sdk.capture.logs.early import print_status
+
+    print_status(line)  # outside the run's saved log: the wait's line is not the script's output

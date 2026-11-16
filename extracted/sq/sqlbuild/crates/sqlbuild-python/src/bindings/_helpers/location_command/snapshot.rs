@@ -14,7 +14,6 @@ use sqlbuild_discovery::orchestration_files::models::OrchestrationInventory;
 use sqlbuild_discovery::project_validation::main::validate_orchestration_names::validate_orchestration_names;
 use sqlbuild_orchestration::snapshots::models::{SnapshotInput, SnapshotNode};
 
-use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::compiled_project::snapshot::NativeOrchestrationSnapshot;
 use crate::bindings::_helpers::compiled_project::snapshot_declarations::{
     compile_declarations, python_declarations,
@@ -29,12 +28,13 @@ use crate::bindings::_helpers::discovery::project_validation::validation_error;
 use crate::bindings::_helpers::graph::python_selection::ProjectSelection;
 use crate::bindings::_helpers::location_command::snapshot_lineage::column_lineage_document;
 use crate::bindings::_helpers::location_command::snapshot_providers::providers_document;
-use crate::bindings::_helpers::native_host::orchestration_environment::environment_hash;
 use crate::bindings::_helpers::planner_identity::graph::execution_deps;
 use crate::bindings::_helpers::planner_identity::identities::direct_model_version_identities;
 use crate::bindings::_helpers::planner_scope::scope::build_planner_scope;
 use crate::bindings::_helpers::planner_scope::values::project_graph;
-use crate::bindings::_helpers::records::fields::field;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::orchestration_reads::main::environment_hash::environment_hash;
+use sqlbuild_python_base::records::main::fields::field::field;
 
 /// The Python node kind whose functions load sources.
 const LOADER_KIND: &str = "loader";
@@ -94,7 +94,7 @@ pub(crate) fn orchestration_snapshot<'py>(
         }
     }
     input.sqb_version = env!("CARGO_PKG_VERSION").into();
-    input.environment_hash = environment_hash(py, &project_dir)?;
+    input.environment_hash = environment_hash(py, &project_dir, env!("CARGO_PKG_VERSION"))?;
     let owner = project.owner().bind(py).borrow();
     let (nodes, columns) = model_nodes(py, &project, &owner, input.nodes)?;
     input.nodes = nodes;

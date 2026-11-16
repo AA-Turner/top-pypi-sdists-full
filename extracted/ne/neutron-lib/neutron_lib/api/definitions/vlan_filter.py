@@ -28,15 +28,20 @@ COLLECTION_NAME = 'tap_services'
 TAP_FLOW = 'tap_flow'
 TAP_FLOWS = 'tap_flows'
 
-# Regex for a comma-seperate list of integer values (VLANs)
+# Regex for a comma-separated list of integer values (VLANs)
 # For ex. "9,18,27-36,45-54" or "0-4095" or "9,18,27,36"
 RANGE_REGEX = r"^([0-9]+(-[0-9]+)?)(,([0-9]+(-[0-9]+)?))*$"
 
 RESOURCE_ATTRIBUTE_MAP: ResourceAttributeMap = {
     taas_api_def.TAP_FLOWS: {
-        'vlan_filter': {'allow_post': True, 'allow_put': False,
-                        'validate': {'type:regex_or_none': RANGE_REGEX},
-                        'is_visible': True, 'default': None}
+        'vlan_filter': {
+            'allow_post': True,
+            'allow_put': False,
+            'validate': {'type:regex_or_none': RANGE_REGEX},
+            'default': None,
+            'is_visible': True,
+            'is_filter': True
+        }
     }
 }
 SUB_RESOURCE_ATTRIBUTE_MAP = None

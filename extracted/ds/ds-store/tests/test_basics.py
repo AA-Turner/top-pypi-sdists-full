@@ -3,7 +3,9 @@ import os
 import plistlib
 import sys
 
-from ds_store import DSStore, __main__
+import pytest
+
+from ds_store import DSStore, __main__, __version__
 
 
 def test_create(tmpdir):
@@ -19,7 +21,7 @@ def test_create(tmpdir):
 
 
 def test_can_read(tmpdir):
-    """Test that we can retrieve data from a .DS_Store file written by OS X."""
+    """Test that we can retrieve data from a .DS_Store file written by macOS."""
     with DSStore.open("tests/Test_DS_Store", "r") as store:
         assert store["bam"]["Iloc"] == (104, 116)
         assert store["bar"]["Iloc"] == (256, 235)
@@ -83,3 +85,14 @@ def test_pretty_decodes_binary_plist():
         assert "sortColumn" in out
         assert "dateAdded" in out
         assert "bplist00" not in out
+
+
+def test_cli_version(capsys):
+    """``--version`` prints the program name and version, then exits cleanly."""
+    with pytest.raises(SystemExit) as exc_info:
+        __main__.main(["--version"])
+
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert captured.out == f"ds_store {__version__}\n"
+    assert captured.err == ""

@@ -254,7 +254,7 @@ def fastest_line(fastest: dict | None, *, arms: int = 1) -> None:
     print(f"fastest: {bench} benchmark machine{'s' if bench != 1 else ''}{' per arm' if arms > 1 else ''}"
           + (f" x {worlds} world{'s' if worlds != 1 else ''}" if worlds else "")
           + f" + {policy} policy machine{'s' if policy != 1 else ''}, "
-          f"{fastest['cards']} of your {fastest['limit']} GPUs: ~{float(fastest['wall_clock_s']):.0f}s, "
+          f"{fastest['cards']} of your {fastest['limit']} GPU cards: ~{float(fastest['wall_clock_s']):.0f}s, "
           f"~{money(fastest['cost_usd'])}" + (f" (estimated: {', '.join(guessed)})" if guessed else ""))
     print(f"  --benchmark-machines {bench} --policy-machines {policy}")
 
@@ -465,7 +465,8 @@ def print_cards(cards: dict | None) -> None:
             continue
         sides.append(f"{side} {count(g.get('machines'))} × {g.get('gpu')}"
                      + (f" ({each} cards each)" if isinstance(each, int) and each > 1 else ""))
-    print(f"cards: {' + '.join(sides)} = {count(cards.get('total'))} GPUs at once")
+    total = cards.get("total")
+    print(f"cards: {' + '.join(sides)} = {count(total)} card{'' if total == 1 else 's'} at once")
     print(f"  your account: limit {count(cards.get('limit'))}, in use {held(cards.get('in_use'))}, "
           f"{count(cards.get('available'))} available")
     reason, wait = cards.get("reason"), cards.get("queue_timeout_s") or 600
@@ -475,7 +476,8 @@ def print_cards(cards: dict | None) -> None:
         print(f"  never fits: {count(cards.get('total'))} at once is more than your account's limit — lay it out on "
               "fewer --policy-machines / --benchmark-machines")
     else:
-        why = {"gpu_limit_reached": "your account's GPUs are in use", "gpu_busy": "the platform's GPUs are all busy",
+        why = {"gpu_limit_reached": "your account's GPU cards are in use",
+               "gpu_busy": "the platform's GPUs are all busy",
                "gpu_low_stock": "the card is out of stock"}.get(reason, reason)
         print(f"  {count(cards.get('short'))} short ({why}, {reason})"
               + (f": submitted, it would wait in line up to {wait:.0f} s for them, then fail (queue_timeout)"
@@ -509,10 +511,10 @@ def queued_for(queue: dict) -> str:
 
 
 def queue_line(queue: dict) -> str:
-    """What a queued eval waits for and when it is expected to clear. For GPUs: 'needs 5 GPUs, 2 free now; waited 42 s;
-    gives up at 17:10 EDT'. For its compute held on a spend limit: 'waiting for compute to free up; expected back by
-    17:10 EDT; gives up at 17:40 EDT' (or 'expected time not known yet' when the platform cannot say). Nothing is held
-    or billed while it waits; it starts on its own when the wait clears."""
+    """What a queued eval waits for and when it is expected to clear. For GPUs: 'needs 5 GPU cards, 2 available now;
+    waited 42 s; gives up at 17:10 EDT'. For its compute held on a spend limit: 'waiting for compute to free up;
+    expected back by 17:10 EDT; gives up at 17:40 EDT' (or 'expected time not known yet' when the platform cannot say).
+    Nothing is held or billed while it waits; it starts on its own when the wait clears."""
     from sequence_ai._core.capacity import count
 
     waited = queue.get("waited_s")
@@ -522,7 +524,7 @@ def queue_line(queue: dict) -> str:
         parts.append(f"expected back by {_clock(queue['expected_at'])}" if queue.get("expected_at")
                      else "expected time not known yet")
     else:
-        parts = [f"needs {count(queue.get('cards'))} GPUs, {count(queue.get('available'))} available now"]
+        parts = [f"needs {count(queue.get('cards'))} GPU cards, {count(queue.get('available'))} available now"]
     if isinstance(waited, (int, float)) and waited:
         parts.append(f"waited {waited:.0f} s")
     if queue.get("gives_up_at"):

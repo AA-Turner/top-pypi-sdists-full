@@ -126,6 +126,7 @@ from autoware_carla_scenario.run_outputs import (
 )
 from autoware_carla_scenario.run_timeout import run_timeout_seconds
 from autoware_carla_scenario.scenario_config import EntityConfig
+from autoware_carla_scenario.scenario_hash import SCENARIO_SECTIONS, scenario_hash
 from autoware_carla_scenario.seed import DEFAULT_SEED, MAX_SEED, set_run_seed
 from autoware_carla_scenario.server import fog_density_scale_args
 from autoware_carla_scenario.t4 import T4Recorder, T4Settings, T4UnavailableError
@@ -138,7 +139,7 @@ from autoware_carla_scenario.typecheck.mode import (
 )
 from autoware_carla_scenario.traffic.base import check_background_speed
 from autoware_carla_scenario.traffic.config import traffic_backend_name
-from autoware_carla_scenario.traffic.registry import tm_port_option
+from autoware_carla_scenario.traffic.registry import takes_null_options, tm_port_option
 from autoware_carla_scenario.traffic import (
     TrafficBackend,
     TrafficConfig,
@@ -1298,11 +1299,17 @@ def build_traffic_backend(cfg: DictConfig) -> TrafficBackend:
         else TrafficConfig(options=_legacy_traffic_manager_options(cfg))
     )
 
-    # A key left at null is a key the config did not set, not an override of
-    # the backend's own default -- the group declares its keys so that plain
-    # `traffic.options.x=y` overrides work under Hydra's struct mode, and an
-    # interpolation that resolved to nothing leaves the backend's default alone.
-    options = {key: value for key, value in config.options.items() if value is not None}
+    # The groups declare their keys, null included, so that plain
+    # `traffic.options.x=y` overrides work under Hydra's struct mode.  A
+    # built-in backend reads a null itself (#2178): the default of an option
+    # that does not take null -- so an interpolation that resolved to nothing
+    # leaves the default alone -- and a value of its own for one that does
+    # (sumo's `lateral_resolution_m: null`, its lane-based model).  Any other
+    # backend, an installed package's, never sees a null: a key left at null
+    # is a key the config did not set, and is dropped.
+    options = dict(config.options)
+    if not takes_null_options(config.backend):
+        options = {key: value for key, value in options.items() if value is not None}
 
     backend = build_backend(
         config.backend, options, config.vehicles, config.pedestrians, config.bicycles
@@ -3296,7 +3303,10 @@ def _check_backend_settings(cfg: DictConfig) -> None:
     it (``startup_timeout_s: -1``, ``pull: sometimes``, ``docker_args`` as a
     string, ...): its ``from_settings`` only reads them -- it pulls no image
     and starts no container.  A backend of another package is built, and its
-    settings checked, by the preparer.
+    settings checked, by the preparer; only a block of its that is neither
+    null nor a mapping (``backends.<name>: false``) is refused here, as the
+    preparer's ``BackendPool`` would refuse it once the queue was built
+    (#2182).
 
     Raises:
         ValueError: naming the key (``backends.<name>.<key>``).
@@ -3306,6 +3316,9 @@ def _check_backend_settings(cfg: DictConfig) -> None:
         return
     if not isinstance(backends_cfg, DictConfig):
         raise ValueError(f"backends must be a mapping, got {backends_cfg!r}")
+    for key, block in backends_cfg.items():
+        if block is not None and not isinstance(block, DictConfig):
+            raise ValueError(f"backends.{key!s} must be a mapping, got {block!r}")
     from autoware_carla_scenario.pedestrian.ardy import ArdyBackend  # noqa: PLC0415
 
     for backend in (ArdyBackend,):
@@ -3386,6 +3399,7 @@ def build_scenario(
         ego, scenario = build_scenario_fn(cfg)
         if seed is not None:
             scenario.random_seed = seed
+        _set_scenario_hash(cfg, scenario)
         _apply_ego_config(cfg, scenario)
         add_background_traffic(cfg, scenario)
         add_environment(cfg, scenario)
@@ -3412,6 +3426,7 @@ def build_scenario(
     scenario = builder(ego, scenario_dict, spawn_pose, ground_projection)
     if seed is not None:
         scenario.random_seed = seed
+    _set_scenario_hash(cfg, scenario)
     # Built once: an Autoware ego holds a bridge server, and two of those cannot
     # hold the same address.
     ego_entity = build_ego_entity(cfg)
@@ -3421,6 +3436,28 @@ def build_scenario(
     add_environment(cfg, scenario)
     add_effect_measures(cfg, scenario)
     return ego, scenario
+
+
+def _set_scenario_hash(cfg: DictConfig, scenario: BaseScenario) -> None:
+    """Give *scenario* the digest of the concrete scenario *cfg* runs, its
+    seed aside (:func:`~autoware_carla_scenario.scenario_hash.scenario_hash`):
+    the runner writes it into the run's trajectory log, where
+    ``scenario-wosac`` tells the rollouts of one scenario by it."""
+    # Only the sections it reads are resolved: the rest may interpolate what
+    # only a Hydra job has (its output directory).
+    config: dict[str, Any] = {}
+    for key in SCENARIO_SECTIONS:
+        if key in cfg:
+            node = cfg[key]
+            config[key] = (
+                OmegaConf.to_container(node, resolve=True)
+                if OmegaConf.is_config(node)
+                else node
+            )
+    scenario_class = type(scenario)
+    scenario.scenario_hash = scenario_hash(
+        config, f"{scenario_class.__module__}.{scenario_class.__qualname__}"
+    )
 
 
 def add_effect_measures(cfg: DictConfig, scenario: BaseScenario) -> None:

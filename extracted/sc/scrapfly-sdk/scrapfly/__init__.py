@@ -1,4 +1,4 @@
-__version__ = '0.12.0'
+__version__ = '1.0.0'
 
 from typing import Tuple
 from .errors import ScrapflyError
@@ -25,9 +25,11 @@ from .errors import CrawlerError
 from .errors import ScrapflyCrawlerError
 from .errors import CrawlerSearchError
 from .errors import CrawlerPromptError
+from .errors import CrawlerExtractError
 from .errors import CrawlerRefreshError
 from .api_response import ScrapeApiResponse, ScreenshotApiResponse, ExtractionApiResponse, ResponseBodyHandler
 from .client import ScrapflyClient, ScraperAPI, MonitoringTargetPeriod, MonitoringAggregation
+from .async_client import AsyncScrapflyClient
 from .scrape_config import ScrapeConfig
 from .screenshot_config import ScreenshotConfig, VisionDeficiency
 from .extraction_config import ExtractionConfig
@@ -44,6 +46,8 @@ from .crawler import (
     CrawlerSearchSkipped,
     CrawlerSearchResponse,
     CrawlerPromptEvent,
+    CrawlerPromptSource,
+    CrawlerExtractResponse,
     CrawlerRefreshEntry,
     CrawlerRefreshState,
     WarcParser,
@@ -69,7 +73,13 @@ from .crawler import (
     CrawlerWebhook,
     webhook_from_payload,
 )
-from .browser_config import BrowserConfig, ProxyPool, OperatingSystem
+from .browser_config import BrowserConfig, ProxyPool, OperatingSystem, LinkedService
+from .browser_downloads import (
+    BrowserDownload,
+    BrowserDownloadError,
+    CloudBrowserDownloads,
+    AsyncCloudBrowserDownloads,
+)
 from .classify import ClassifyResult
 from .schedule import (
     CreateScheduleRequest,
@@ -104,6 +114,7 @@ __all__: Tuple[str, ...] = (
     'ErrorFactory',
     'HttpError',
     'ScrapflyClient',
+    'AsyncScrapflyClient',
     'ResponseBodyHandler',
     'ScrapeConfig',
     'ScreenshotConfig',
@@ -111,6 +122,11 @@ __all__: Tuple[str, ...] = (
     'BrowserConfig',
     'ProxyPool',
     'OperatingSystem',
+    'LinkedService',
+    'BrowserDownload',
+    'BrowserDownloadError',
+    'CloudBrowserDownloads',
+    'AsyncCloudBrowserDownloads',
     'ExtractionConfig',
     'ClassifyResult',
     'ScreenshotAPIError',
@@ -118,6 +134,7 @@ __all__: Tuple[str, ...] = (
     'CrawlerError',
     'CrawlerSearchError',
     'CrawlerPromptError',
+    'CrawlerExtractError',
     'CrawlerRefreshError',
     'ScrapflyCrawlerError',
     'ScraperAPI',
@@ -136,6 +153,8 @@ __all__: Tuple[str, ...] = (
     'CrawlerSearchSkipped',
     'CrawlerSearchResponse',
     'CrawlerPromptEvent',
+    'CrawlerPromptSource',
+    'CrawlerExtractResponse',
     'CrawlerRefreshEntry',
     'CrawlerRefreshState',
     'WarcParser',

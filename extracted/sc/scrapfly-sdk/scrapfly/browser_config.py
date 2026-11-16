@@ -1,4 +1,5 @@
 import hashlib
+import warnings
 from enum import Enum
 from typing import Optional, Union, Dict, List
 from urllib.parse import urlencode
@@ -20,7 +21,33 @@ class OperatingSystem(Enum):
     IPAD = "ipad"
 
 
+class LinkedService(Enum):
+    """
+    Secret managers a Cloud Browser vault can mirror its items from.
+
+    The value is the `linked_service` discriminator on the vault endpoints, and
+    the same string is the `source` of every item the syncer owns.
+
+    ONE_PASSWORD is the only provider the server accepts today. A plain string
+    is still accepted wherever this enum is, so a provider the server registers
+    later is reachable without an SDK release.
+    """
+
+    ONE_PASSWORD = "1password"
+
+
 class BrowserConfig(BaseApiConfig):
+    """Cloud Browser session options, sent as query parameters of the WebSocket URL.
+
+    `proxy_pool` takes the Cloud Browser's own pools: 'datacenter', 'residential' (ProxyPool) or
+    'tor'; a session on `byop_proxy` runs as 'byop'.
+
+    Deprecated:
+        unblock, unblock_timeout: the Cloud Browser never reads them, so no anti-bot
+            bypass runs on the session. Setting either emits a DeprecationWarning.
+            For an unblocked session, call `ScrapflyClient.cloud_browser_unblock(url)`
+            and connect to the `ws_url` it returns.
+    """
 
     CLOUD_BROWSER_HOST = 'wss://browser.scrapfly.io'
 
@@ -59,9 +86,19 @@ class BrowserConfig(BaseApiConfig):
         rtc_username: Optional[str] = None,
         rtc_password: Optional[str] = None,
         hitl_allowed_networks: Optional[Union[str, List[str]]] = None,
+        downloads_stream: Optional[bool] = None,
     ):
         if timeout is not None and timeout > 1800:
             raise ValueError('timeout cannot exceed 1800 seconds (30 minutes)')
+
+        if unblock is not None or unblock_timeout is not None:
+            warnings.warn(
+                "BrowserConfig 'unblock' and 'unblock_timeout' are deprecated: the Cloud Browser "
+                "never reads them, so no anti-bot bypass runs on the session. Use "
+                "ScrapflyClient.cloud_browser_unblock(url) and connect to the ws_url it returns.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if isinstance(proxy_pool, str):
             try:
@@ -140,6 +177,10 @@ class BrowserConfig(BaseApiConfig):
         if isinstance(hitl_allowed_networks, list):
             hitl_allowed_networks = ','.join(s.strip() for s in hitl_allowed_networks if s and s.strip())
         self.hitl_allowed_networks = hitl_allowed_networks or None
+        # Large downloaded files come back from ScrapiumBrowser.getDownloads as IO stream
+        # handles instead of inline base64: read them with CloudBrowserDownloads.
+        # https://scrapfly.io/docs/cloud-browser-api/file-downloads#large-downloads
+        self.downloads_stream = downloads_stream
 
     @staticmethod
     def project_salt(api_key: str) -> str:
@@ -223,6 +264,8 @@ class BrowserConfig(BaseApiConfig):
         if self.blacklist is not None:
             params['blacklist'] = self._bool_to_http(self.blacklist)
 
+        # Deprecated and unread by the Cloud Browser; still forwarded so the URL a
+        # caller already builds stays byte-identical.
         if self.unblock is not None:
             params['unblock'] = self._bool_to_http(self.unblock)
 
@@ -265,6 +308,9 @@ class BrowserConfig(BaseApiConfig):
         if self.hitl_allowed_networks is not None:
             params['hitl_allowed_networks'] = self.hitl_allowed_networks
 
+        if self.downloads_stream is not None:
+            params['downloads_stream'] = self._bool_to_http(self.downloads_stream)
+
         base_host = host or self.CLOUD_BROWSER_HOST
         return base_host + '?' + urlencode(params)
 
@@ -303,6 +349,7 @@ class BrowserConfig(BaseApiConfig):
             'rtc_username': self.rtc_username,
             'rtc_password': self.rtc_password,
             'hitl_allowed_networks': self.hitl_allowed_networks,
+            'downloads_stream': self.downloads_stream,
         }
 
     @staticmethod
@@ -341,4 +388,5 @@ class BrowserConfig(BaseApiConfig):
             rtc_username=browser_config_dict.get('rtc_username', None),
             rtc_password=browser_config_dict.get('rtc_password', None),
             hitl_allowed_networks=browser_config_dict.get('hitl_allowed_networks', None),
+            downloads_stream=browser_config_dict.get('downloads_stream', None),
         )

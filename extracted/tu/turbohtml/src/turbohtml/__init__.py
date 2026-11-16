@@ -36,26 +36,21 @@ from ._html import (
     tokenize,
     unescape,
 )
-from ._internal import (
-    _cssmin,  # ruff:ignore[unused-import]  # registers the CSSMinify record type with the C core on import
-    _jsminify,  # ruff:ignore[unused-import]  # registers the JSMinify record type with the C core on import
-)
-from ._internal._locations import SourceLocation, SourceSpan  # registers the source-location record types on import
-from ._internal._render import Canonical, Html, Markdown, PlainText
-from ._internal._selectors import SelectorSyntaxError  # registers the selector error type with the C core on import
+from ._internal import Canonical, Html, Markdown, PlainText, SelectorSyntaxError, SourceLocation, SourceSpan
 from ._version import __version__
 from .build import E, ElementMaker
-from .extract._article import Article  # registers the Article record type with the C core on import
-from .extract._feed import Entry, Feed  # registers the Feed/Entry record types with the C core on import
-from .extract._links import Link  # registers the Link record type with the C core on import
-from .extract._structured_data import (  # registers the JSON-LD parser and record classes with the C core on import
+from .extract import (
+    Article,
+    Entry,
+    Feed,
+    Link,
     MicrodataItem,
     OpenGraph,
     RdfaItem,
     StructuredData,
 )
 from .mutations import MutationObserver, MutationRecord  # registers the MutationRecord type on import
-from .query._xpath import XPathString  # registers the smart-string type with the C core on import
+from .query import XPathString
 from .traverse import NodeFilter, NodeIterator, TreeWalker
 
 __all__ = [

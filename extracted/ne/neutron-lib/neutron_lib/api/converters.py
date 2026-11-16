@@ -49,8 +49,13 @@ def convert_to_boolean_if_not_none(data):
     :returns: The 'data' returned from convert_to_boolean() if 'data' is not
         None. None is returned if data is None.
     """
-    if data is not None:
+    if data is None:
+        return None
+    try:
         return convert_to_boolean(data)
+    except n_exc.InvalidInput as e:
+        msg = _("Failed to convert '%s' to boolean: %s") % (data, str(e))
+        raise n_exc.InvalidInput(error_message=msg) from e
 
 
 def convert_to_int(data):
@@ -61,6 +66,9 @@ def convert_to_int(data):
     :returns: The int value of the data.
     :raises InvalidInput: If the value can't be converted to an int.
     """
+    if data is None:
+        msg = _("'None' is not an integer")
+        raise n_exc.InvalidInput(error_message=msg)
     try:
         return int(data)
     except (ValueError, TypeError) as e:
@@ -96,7 +104,7 @@ def convert_to_positive_float_or_none(val):
     # It is deemed however generic enough to be in this module as it
     # might be used in future for other API attributes.
     if val is None:
-        return
+        return None
     try:
         val = float(val)
         if val < 0:
@@ -156,15 +164,6 @@ def convert_none_to_empty_dict(value):
     :returns: An empty dict if 'value' is None, otherwise 'value'.
     """
     return {} if value is None else value
-
-
-def convert_none_to_empty_string(value):
-    """Convert the value to an empty string if it's None.
-
-    :param value: The value to convert.
-    :returns: An empty string if 'value' is None, otherwise 'value'.
-    """
-    return '' if value is None else value
 
 
 def convert_to_list(data):
@@ -278,7 +277,7 @@ def convert_to_protocol(data):
     """
 
     if data is None:
-        return
+        return None
     val = convert_string_to_case_insensitive(data)
     if val in constants.IPTABLES_PROTOCOL_MAP:
         return data
@@ -292,6 +291,7 @@ def convert_to_protocol(data):
         raise n_exc.InvalidInput(error_message=error_message)
     except n_exc.InvalidInput as e:
         raise n_exc.InvalidInput(error_message=error_message) from e
+    return None
 
 
 def convert_to_string(data):
@@ -303,6 +303,7 @@ def convert_to_string(data):
 
     if data is not None:
         return str(data)
+    return None
 
 
 def convert_prefix_forced_case(data, prefix):

@@ -1,21 +1,21 @@
 repos:
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 26.10.0
+    rev: 26.10.1
     hooks:
       - id: black
-        args: [--target-version=py39]
+        args: [--target-version=py310]
   - repo: https://github.com/PyCQA/isort
-    rev: 9.0.2
+    rev: 10.0.0b2
     hooks:
       - id: isort
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
-        args: [--py39-plus]
+        args: [--py310-plus]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema.git
-    rev: 0.38.2
+    rev: 0.39.0
     hooks:
       - id: check-github-actions
       - id: check-github-workflows
@@ -31,14 +31,14 @@ repos:
       - id: check-readthedocs
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.4.1
+    rev: 7.5.0
     hooks:
       - id: flake8
         additional_dependencies:
           - flake8-pytest-style == 2.2.0
           - flake8-typing-as-t == 1.1.0
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.4.0
+    rev: v2.4.1
     hooks:
       - id: mypy
         # Avoid error: Duplicate module named 'setup'
@@ -119,7 +119,7 @@ repos:
           - "github.com/wasilibs/go-shellcheck/cmd/shellcheck@v0.11.1"
 
   - repo: https://github.com/jackdewinter/pymarkdown.git
-    rev: v0.9.40
+    rev: v0.9.41
     hooks:
     - id: pymarkdown
       alias: md-changelog
@@ -145,6 +145,17 @@ repos:
       - --disable-rules=first-line-heading
       - scan
       files: ^changelog\.d/(.*\..*|\.draft_changelog_partial)\.md$
+    - id: pymarkdown
+      alias: md-security-policy
+      name: PyMarkdown (security policy)
+      args:
+      # NOTE: We have a header "tip", which violates `first-line-heading`
+      # NOTE: but renders fine.
+      # NOTE: `no-emphasis-as-heading` improperly flags emphasized sentences
+      # NOTE: inside of blockquotes.
+      - --disable-rules=first-line-heading,no-emphasis-as-heading
+      - scan
+      files: ^SECURITY\.md$
     - id: pymarkdown
       alias: md-issue-pr-templates
       name: PyMarkdown (issue and pull request templates)
@@ -181,6 +192,7 @@ repos:
                 |afterword
               )(\.\d+)?(\.md)?
             )
+            |SECURITY\.md
             |CHANGELOG\.md
           )
         $

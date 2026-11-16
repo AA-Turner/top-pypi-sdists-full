@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: recipe_scrapers
-Version: 15.13.0
+Version: 15.14.0
 Summary: Python package, scraping recipes from all over the internet
 Author-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
 Maintainer-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
-License: MIT License
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/hhursev/recipe-scrapers/
 Keywords: python,recipes,scraper,harvest,recipe-scraper,recipe-scrapers
 Classifier: Programming Language :: Python :: 3
@@ -14,19 +14,18 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.11
+Requires-Python: >=3.11.5
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: beautifulsoup4>=4.12.3
-Requires-Dist: extruct>=0.17.0
-Requires-Dist: isodate>=0.6.1
+Requires-Dist: beautifulsoup4>=4.13.1
+Requires-Dist: extruct>=0.18.0
+Requires-Dist: isodate>=0.7.2
 Provides-Extra: online
-Requires-Dist: requests>=2.31.0; extra == "online"
+Requires-Dist: requests>=2.32.4; extra == "online"
 Provides-Extra: docs
 Requires-Dist: mkdocs>=1.6.1; extra == "docs"
 Requires-Dist: mkdocs-material>=9.5.48; extra == "docs"

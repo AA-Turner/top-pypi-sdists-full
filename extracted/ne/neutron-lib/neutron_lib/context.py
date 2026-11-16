@@ -20,7 +20,6 @@ from oslo_db.sqlalchemy import enginefacade
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
-from neutron_lib.db import api as db_api
 from neutron_lib.policy import _engine as policy_engine
 
 LOG = logging.getLogger(__name__)
@@ -138,8 +137,8 @@ class ContextBase(oslo_context.RequestContext):
         return values
 
     @classmethod
-    def from_dict(cls, values):
-        cls_obj = super().from_dict(values)
+    def from_dict(cls, values, **kwargs):
+        cls_obj = super().from_dict(values, **kwargs)
         if values.get('timestamp'):
             cls_obj.timestamp = values['timestamp']
         cls_obj.user_id = values.get('user_id', values.get('user'))
@@ -184,6 +183,9 @@ class Context(ContextBaseWithSession):
         if hasattr(super(), 'session'):
             self._session = super().session
         if self._session is None:
+            # Imported here so that using a context does not load the DB API.
+            # pylint: disable-next=import-outside-toplevel
+            from neutron_lib.db import api as db_api
             self._session = db_api.get_writer_session()
         return self._session
 

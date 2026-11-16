@@ -1110,6 +1110,23 @@ def _optional_prompt_token_ids(
     return list(ids) if ids else None
 
 
+def _routing_prompt_token_ids(
+    prompt_dicts: list[dict], return_expert_routing: bool
+) -> list[list[int] | None] | None:
+    """Submitted prompt IDs that routing samples report without a server echo.
+
+    The server echoes prompt IDs only when asked (``return_prompt_token_ids``
+    or ``return_prompt_logprobs``). A token-form prompt without images ran
+    exactly the submitted IDs, so routing samples report those and keep
+    ``Sample.prompt_token_ids`` aligned with ``expert_routing``. Text prompts
+    and image prompts (whose placeholders the backend expands) have no local
+    copy; callers that need the server's IDs request the echo.
+    """
+    if not return_expert_routing:
+        return None
+    return [None if d.get("images") else d.get("input_ids") for d in prompt_dicts]
+
+
 def _normalize_per_prompt_images(
     prompts: list[str],
     images: list[Image] | list[list[Image]] | None,
@@ -1411,6 +1428,7 @@ def _build_sample_prompt_dicts(
     return_expert_routing: bool = False,
     prompt_token_ids: list[int] | list[list[int]] | None = None,
     prompt_token_ids_validated: bool = False,
+    return_prompt_token_ids: bool = False,
 ) -> tuple[list[str] | list[list[int]], list[dict]]:
     if (prompts is None) == (prompt_token_ids is None):
         raise ValueError("exactly one of `prompts` and `prompt_token_ids` is required")
@@ -1461,6 +1479,8 @@ def _build_sample_prompt_dicts(
                 d["seed"] = seed + seed_index
             if return_prompt_logprobs:
                 d["return_prompt_logprobs"] = True
+            if return_prompt_token_ids:
+                d["return_prompt_token_ids"] = True
             if logprobs is not None and logprobs > 0:
                 d["logprobs"] = logprobs
             if return_expert_routing:
@@ -1489,6 +1509,7 @@ def _group_sample_dicts(
     return_prompt_logprobs: bool,
     return_prompt_token_ids: bool,
     return_sampling_log_mass: bool = False,
+    submitted_prompt_token_ids: list[list[int] | None] | None = None,
 ) -> list[list[Sample]]:
     expected = num_prompts * num_samples
     if len(raw_results) != expected:
@@ -1504,6 +1525,10 @@ def _group_sample_dicts(
         samples: list[Sample] = []
         for _sample_idx in range(num_samples):
             r = raw_results[idx]
+            prompt_ids = _optional_prompt_token_ids(r, return_prompt_token_ids)
+            if prompt_ids is None and submitted_prompt_token_ids is not None:
+                submitted = submitted_prompt_token_ids[idx]
+                prompt_ids = list(submitted) if submitted else None
             idx += 1
 
             tokens, token_lps, stop_reason = _tokens_and_logprobs_from_raw(
@@ -1528,9 +1553,7 @@ def _group_sample_dicts(
                         r, return_prompt_logprobs
                     ),
                     request_id=request_id,
-                    prompt_token_ids=_optional_prompt_token_ids(
-                        r, return_prompt_token_ids
-                    ),
+                    prompt_token_ids=prompt_ids,
                     top_logprobs=r.get("top_logprobs"),
                     prompt_top_logprobs=r.get("prompt_top_logprobs"),
                     sampling_log_masses=_optional_sampling_log_masses(
@@ -2595,6 +2618,7 @@ class Model:
         seed: int | None = None,
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
         return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
@@ -2624,6 +2648,14 @@ class Model:
             seeds: Exact per-prompt/sample seeds. Mutually exclusive with
                 ``seed`` and ordered by prompt then sample.
             return_prompt_logprobs: Whether to return prompt token logprobs.
+            return_prompt_token_ids: Return the prompt token IDs the
+                sampler ran in ``Sample.prompt_token_ids`` without
+                computing prompt logprobs (which imply them). Needed with
+                text or image prompts when the caller wants the server's
+                tokenization; requires the model's ``prompt_token_echo_v1``
+                capability. With ``return_expert_routing`` and token-form
+                prompts without images, ``Sample.prompt_token_ids`` reports
+                the submitted IDs without this flag.
             logprobs: If set to ``K > 0``, request the top-K alternative
                 logprobs at each output position (and, when
                 ``return_prompt_logprobs=True``, at each prompt position).
@@ -2673,7 +2705,7 @@ class Model:
                 ``images``. ``expected_tokens`` and ``format`` on image
                 chunks are accepted and ignored; to validate the
                 backend's image expansion against ``expected_tokens``,
-                pass ``return_prompt_logprobs=True`` and count
+                pass ``return_prompt_token_ids=True`` and count
                 placeholder ids in the echoed ``Sample.prompt_token_ids``.
             metrics_type: Opaque server-interpreted token enabling extra
                 scalar metrics on the response. Unrecognized values are
@@ -2703,6 +2735,7 @@ class Model:
             seed=seed,
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
             return_sampling_log_mass=return_sampling_log_mass,
             images=images,
@@ -2811,6 +2844,7 @@ class Model:
         seed: int | None = None,
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
         return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
@@ -2844,6 +2878,7 @@ class Model:
             seed=seed,
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
             return_sampling_log_mass=return_sampling_log_mass,
             images=images,
@@ -2880,9 +2915,12 @@ class Model:
                 request_id=request_id,
                 return_prompt_logprobs=return_prompt_logprobs,
                 return_prompt_token_ids=(
-                    return_prompt_logprobs or return_expert_routing
+                    return_prompt_logprobs or return_prompt_token_ids
                 ),
                 return_sampling_log_mass=return_sampling_log_mass,
+                submitted_prompt_token_ids=_routing_prompt_token_ids(
+                    prompt_dicts, return_expert_routing
+                ),
             )
 
         return PendingSample(
@@ -3650,6 +3688,7 @@ class Session:
         seed: int | None = None,
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
         return_sampling_log_mass: bool = False,
         return_expert_routing: bool = False,
@@ -3682,6 +3721,8 @@ class Session:
             seed: Random seed (varied per sample automatically).
             seeds: Exact per-prompt/sample seeds, mutually exclusive with seed.
             return_prompt_logprobs: Whether to return prompt token logprobs.
+            return_prompt_token_ids: Return the sampler's prompt token IDs.
+                See :meth:`Model.sample` for details.
             logprobs: If set to ``K > 0``, request the top-K alternative
                 logprobs at each position. Off by default — enabling it
                 roughly halves server throughput.
@@ -3722,6 +3763,7 @@ class Session:
             seed=seed,
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
             return_sampling_log_mass=return_sampling_log_mass,
             return_expert_routing=return_expert_routing,
@@ -3809,6 +3851,7 @@ class Session:
         seed: int | None = None,
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
+        return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
         return_sampling_log_mass: bool = False,
         return_expert_routing: bool = False,
@@ -3852,6 +3895,7 @@ class Session:
             seed=seed,
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
             return_sampling_log_mass=return_sampling_log_mass,
             return_expert_routing=return_expert_routing,
@@ -3891,9 +3935,12 @@ class Session:
                 request_id=request_id,
                 return_prompt_logprobs=return_prompt_logprobs,
                 return_prompt_token_ids=(
-                    return_prompt_logprobs or return_expert_routing
+                    return_prompt_logprobs or return_prompt_token_ids
                 ),
                 return_sampling_log_mass=return_sampling_log_mass,
+                submitted_prompt_token_ids=_routing_prompt_token_ids(
+                    prompt_dicts, return_expert_routing
+                ),
             )
 
         remaining_timeout = timeout - (time.monotonic() - operation_started_at)
@@ -5193,15 +5240,16 @@ class Client:
         """Drain started image uploads and close connections off the event loop."""
         await asyncio.to_thread(self.close)
 
-    def _new_async_channel(self):
+    def _new_async_channel(self, extra_options=()):
         # The sampling collector owns this channel on its event loop and closes
         # it before that loop exits; Client can be reused across asyncio.run calls.
         target = f"{self._endpoint}:{self._port}"
+        options = [*self._channel_options, *extra_options]
         if self._use_ssl:
             return grpc.aio.secure_channel(
-                target, grpc.ssl_channel_credentials(), options=self._channel_options
+                target, grpc.ssl_channel_credentials(), options=options
             )
-        return grpc.aio.insecure_channel(target, options=self._channel_options)
+        return grpc.aio.insecure_channel(target, options=options)
 
     def _get_channel(self) -> grpc.Channel:
         """Get or create gRPC channel."""
@@ -6174,8 +6222,10 @@ class Client:
 
         if kwargs.get("stream"):
             raise ValueError(
-                "Queued chat does not support streaming. Use create_deployment() "
-                "and the OpenAI client with deployment.base_url."
+                "chat_complete_from_checkpoint does not stream. To receive the "
+                "completion as one streamed chunk, call the OpenAI client at the "
+                "River base URL with model=checkpoint_path and stream=True; for "
+                "token streaming, use create_deployment() and deployment.base_url."
             )
 
         timeout = timeout if timeout is not None else self._timeout
@@ -6387,12 +6437,13 @@ def _prepare_independent_samples(
         prompt_token_ids=prompt_token_ids,
         # Lowering model_input checked every id already.
         prompt_token_ids_validated=model_input is not None,
+        return_prompt_token_ids=return_prompt_token_ids,
     )
     if len(prompt_dicts) != len(prompt_list) * num_samples:
         raise ValueError("Invalid sample grid")
-    if return_prompt_token_ids:
-        for prompt in prompt_dicts:
-            prompt["return_prompt_token_ids"] = True
+    submitted_prompt_token_ids = _routing_prompt_token_ids(
+        prompt_dicts, return_expert_routing
+    )
     common = {
         "prompts": session._prompts_to_proto(prompt_dicts),
         "metrics_type": metrics_type,
@@ -6440,9 +6491,13 @@ def _prepare_independent_samples(
                 request_id=request_ids[index],
                 return_prompt_logprobs=return_prompt_logprobs,
                 return_prompt_token_ids=return_prompt_token_ids
-                or return_prompt_logprobs
-                or return_expert_routing,
+                or return_prompt_logprobs,
                 return_sampling_log_mass=return_sampling_log_mass,
+                submitted_prompt_token_ids=(
+                    None
+                    if submitted_prompt_token_ids is None
+                    else [submitted_prompt_token_ids[index]]
+                ),
             )[0][0]
 
         return PendingSamplingBatch(

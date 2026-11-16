@@ -15,6 +15,7 @@ from trilogy.core.models.build import (
     BuildDatasource,
     BuildFilterItem,
     BuildFunction,
+    BuildParenthetical,
     BuildRowsetItem,
 )
 from trilogy.core.models.execute import (
@@ -248,13 +249,6 @@ def is_grouped_cte(cte: CTE) -> bool:
     return cte.group_to_grain or cte.source.source_type == SourceType.GROUP
 
 
-def equivalent_addresses(concepts: list[BuildConcept]) -> set[str]:
-    out: set[str] = set()
-    for c in concepts:
-        out |= c.equivalent_addresses
-    return out
-
-
 def base_datasource(
     datasource: BuildDatasource | QueryDatasource,
 ) -> BuildDatasource | QueryDatasource | None:
@@ -282,13 +276,24 @@ def condition_contains_atom(atom: object, condition: object | None) -> bool:
         return False
     if condition == atom:
         return True
+    if isinstance(condition, BuildParenthetical):
+        return condition_contains_atom(atom, condition.content)
     if (
         isinstance(condition, BuildConditional)
         and condition.operator == BooleanOperator.AND
-    ):
-        return condition_contains_atom(atom, condition.left) or condition_contains_atom(
-            atom, condition.right
+        and (
+            condition_contains_atom(atom, condition.left)
+            or condition_contains_atom(atom, condition.right)
         )
+    ):
+        return True
+    # a parenthesized conjunction is held when each of its conjuncts is
+    if isinstance(atom, BuildParenthetical):
+        return condition_contains_atom(atom.content, condition)
+    if isinstance(atom, BuildConditional) and atom.operator == BooleanOperator.AND:
+        return condition_contains_atom(
+            atom.left, condition
+        ) and condition_contains_atom(atom.right, condition)
     return False
 
 

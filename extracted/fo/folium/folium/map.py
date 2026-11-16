@@ -5,11 +5,13 @@ Classes for drawing maps.
 
 import warnings
 from collections import OrderedDict, defaultdict
-from typing import TYPE_CHECKING, DefaultDict, Optional, Sequence, Union, cast
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Union, cast
 
 from branca.element import Element, Figure, Html, MacroElement
 
 from folium.elements import ElementAddToElement, EventHandler, IncludeStatement
+from folium.font_awesome import extra_classes_for_icon
 from folium.template import Template
 from folium.utilities import (
     JsCode,
@@ -38,7 +40,7 @@ if TYPE_CHECKING:
 class Class(MacroElement):
     """The root class of the leaflet class hierarchy"""
 
-    _includes: DefaultDict[str, dict] = defaultdict(dict)
+    _includes: defaultdict[str, dict] = defaultdict(dict)
 
     @classmethod
     def include(cls, **kwargs):
@@ -78,7 +80,7 @@ class Evented(Class):
 
     Adds the `on` and `once` methods for event handling capabilities.
 
-    See https://leafletjs.com/reference.html#evented for
+    See https://leafletjs.com/reference-1.9.4.html#evented for
     more in depth documentation. Please note that we have
     only added the `on(<Object> eventMap)` variant of this
     method using python keyword arguments.
@@ -114,7 +116,7 @@ class Layer(Evented):
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = False,
         control: bool = True,
         show: bool = True,
@@ -158,23 +160,21 @@ class FeatureGroup(Layer):
         Whether the layer will be shown on opening.
     **kwargs
         Additional (possibly inherited) options. See
-        https://leafletjs.com/reference.html#featuregroup
+        https://leafletjs.com/reference-1.9.4.html#featuregroup
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.featureGroup(
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
@@ -182,6 +182,57 @@ class FeatureGroup(Layer):
     ):
         super().__init__(name=name, overlay=overlay, control=control, show=show)
         self._name = "FeatureGroup"
+        self.tile_name = name if name is not None else self.get_name()
+        self.options = remove_empty(**kwargs)
+
+
+class LayerGroup(Layer):
+    """
+    Create a LayerGroup layer ; you can put things in it and handle them
+    as a single layer.  For example, you can add a LayerControl to
+    tick/untick the whole group.
+
+    LayerGroup is the base class of FeatureGroup in Leaflet.
+    Unlike FeatureGroup, LayerGroup accepts custom options
+    that can be used in custom JavaScript code.
+
+    Parameters
+    ----------
+    name : str, default None
+        The name of the layer group layer.
+        It will be displayed in the LayerControl.
+        If None get_name() will be called to get the technical (ugly) name.
+    overlay : bool, default True
+        Whether your layer will be an overlay (ticked with a check box in
+        LayerControls) or a base layer (ticked with a radio button).
+    control: bool, default True
+        Whether the layer will be included in LayerControls.
+    show: bool, default True
+        Whether the layer will be shown on opening.
+    **kwargs
+        Additional (possibly inherited) options. See
+        https://leafletjs.com/reference-1.9.4.html#layergroup
+
+    """
+
+    _template = Template("""
+        {% macro script(this, kwargs) %}
+            var {{ this.get_name() }} = L.layerGroup(
+                {{ this.options|tojavascript }}
+            );
+        {% endmacro %}
+        """)
+
+    def __init__(
+        self,
+        name: str | None = None,
+        overlay: bool = True,
+        control: bool = True,
+        show: bool = True,
+        **kwargs: TypeJsonValue,
+    ):
+        super().__init__(name=name, overlay=overlay, control=control, show=show)
+        self._name = "LayerGroup"
         self.tile_name = name if name is not None else self.get_name()
         self.options = remove_empty(**kwargs)
 
@@ -215,12 +266,11 @@ class LayerControl(MacroElement):
           to True to allow dragging the control around.
     **kwargs
         Additional (possibly inherited) options. See
-        https://leafletjs.com/reference.html#control-layers
+        https://leafletjs.com/reference-1.9.4.html#control-layers
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this,kwargs) %}
             var {{ this.get_name() }}_layers = {
                 base_layers : {
@@ -245,8 +295,7 @@ class LayerControl(MacroElement):
             {%- endif %}
 
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
@@ -298,6 +347,8 @@ class Icon(MacroElement):
              'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen',
              'gray', 'black', 'lightgray']
 
+        or a hex color code such as '#00A6A6'.
+
     icon_color : str, default 'white'
         The color of the drawing on the marker. You can use colors above,
         or an html color code.
@@ -310,21 +361,47 @@ class Icon(MacroElement):
         The icon will be rotated by this amount of degrees.
     prefix : str, default 'glyphicon'
         The prefix states the source of the icon. 'fa' for font-awesome or
-        'glyphicon' for bootstrap 3.
+        'glyphicon' for bootstrap 3. Font Awesome brand icons (for example
+        'fa-bluetooth') automatically get the 'fa-brands' class required by
+        Font Awesome 6.
 
     https://github.com/lvoogdt/Leaflet.awesome-markers
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.AwesomeMarkers.icon(
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+
+        {% macro header(this, kwargs) %}
+            {% if this.is_hex %}
+            <style>
+                /* Replace the sprite image with a pin of the same size in the given color.
+                   Leaflet positions the marker with an inline transform, so the pin is a
+                   rotated pseudo-element behind the icon. */
+                .awesome-marker-icon-{{ this.color_name }} {
+                    background-image: none;
+                }
+                .awesome-marker-icon-{{ this.color_name }}::before {
+                    content: "";
+                    position: absolute;
+                    z-index: -1;
+                    left: 3px;
+                    top: 4px;
+                    width: 29px;
+                    height: 29px;
+                    background-color: {{ this.color }};
+                    border-radius: 50% 50% 50% 0;
+                    transform: scaleY(1.14) rotate(-45deg);
+                    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+                }
+            </style>
+            {% endif %}
+        {% endmacro %}
+        """)
     color_options = {
         "red",
         "darkred",
@@ -358,17 +435,30 @@ class Icon(MacroElement):
     ):
         super().__init__()
         self._name = "Icon"
-        if color not in self.color_options:
+
+        # 1. Determine if the input is a hex color
+        self.is_hex = (
+            isinstance(color, str) and color.startswith("#") and len(color) in (4, 7)
+        )
+        self.color = color
+
+        # 2. Strip the '#' for the CSS class name generation
+        self.color_name = color[1:] if self.is_hex else color
+
+        # 3. Allow hex codes to pass the warning check
+        if color not in self.color_options and not self.is_hex:
             warnings.warn(
-                f"color argument of Icon should be one of: {self.color_options}.",
+                f"color argument of Icon should be one of: {self.color_options} or a valid hex code.",
                 stacklevel=2,
             )
+
+        # 4. Pass the stripped color_name to the JavaScript options
         self.options = remove_empty(
-            marker_color=color,
+            marker_color=self.color_name,
             icon_color=icon_color,
             icon=icon,
             prefix=prefix,
-            extra_classes=f"fa-rotate-{angle}",
+            extra_classes=extra_classes_for_icon(prefix, icon, f"fa-rotate-{angle}"),
             **kwargs,
         )
 
@@ -407,27 +497,36 @@ class Marker(MacroElement):
     ... )
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.marker(
                 {{ this.location|tojson }},
                 {{ this.options|tojavascript }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     class SetIcon(MacroElement):
         """Set the icon of a marker after both are created."""
 
-        _template = Template(
-            """
+        # Leaflet reuses the current <img> element when the new icon is also an
+        # image, and keeps its inline size and margins if the new icon does not
+        # set them. Clear them first, so an icon without `icon_size` keeps the
+        # natural size of its image instead of the size of the default icon.
+        _template = Template("""
             {% macro script(this, kwargs) %}
+                {
+                    const element = {{ this.marker.get_name() }}.getElement();
+                    if (element) {
+                        element.style.width = "";
+                        element.style.height = "";
+                        element.style.marginLeft = "";
+                        element.style.marginTop = "";
+                    }
+                }
                 {{ this.marker.get_name() }}.setIcon({{ this.icon.get_name() }});
             {% endmacro %}
-        """
-        )
+        """)
 
         def __init__(
             self, marker: "Marker", icon: Union[Icon, "CustomIcon", "DivIcon"]
@@ -437,12 +536,24 @@ class Marker(MacroElement):
             self.marker = marker
             self.icon = icon
 
+        def render(self, **kwargs):
+            figure = self.get_root()
+            assert isinstance(
+                figure, Figure
+            ), "You cannot render this Element if it is not in a Figure."
+            script = self._template.module.__dict__.get("script", None)
+            if script is not None:
+                figure.script.add_child(
+                    Element(script(self, kwargs)),
+                    name=f"{self.marker.get_name()}_set_icon",
+                )
+
     def __init__(
         self,
-        location: Optional[Sequence[float]] = None,
+        location: Sequence[float] | None = None,
         popup: Union["Popup", str, None] = None,
         tooltip: Union["Tooltip", str, None] = None,
-        icon: Optional[Union[Icon, "CustomIcon", "DivIcon"]] = None,
+        icon: Union[Icon, "CustomIcon", "DivIcon"] | None = None,
         draggable: bool = False,
         **kwargs: TypeJsonValue,
     ):
@@ -514,8 +625,7 @@ class Popup(MacroElement):
         True only loads the Popup content when clicking on the Marker.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         var {{this.get_name()}} = L.popup({{ this.options|tojavascript }});
 
         {% for name, element in this.html._children.items() %}
@@ -535,14 +645,13 @@ class Popup(MacroElement):
         {% for name, element in this.script._children.items() %}
             {{element.render()}}
         {% endfor %}
-    """
-    )  # noqa
+    """)  # noqa
 
     def __init__(
         self,
-        html: Union[str, Element, None] = None,
+        html: str | Element | None = None,
         parse_html: bool = False,
-        max_width: Union[str, int] = "100%",
+        max_width: str | int = "100%",
         show: bool = False,
         sticky: bool = False,
         lazy: bool = False,
@@ -607,12 +716,11 @@ class Tooltip(MacroElement):
         Whether the tooltip should follow the mouse.
     **kwargs
         These values will map directly to the Leaflet Options. More info
-        available here: https://leafletjs.com/reference.html#tooltip
+        available here: https://leafletjs.com/reference-1.9.4.html#tooltip
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this._parent.get_name() }}.bindTooltip(
                 `<div{% if this.style %} style={{ this.style|tojson }}{% endif %}>
@@ -621,20 +729,19 @@ class Tooltip(MacroElement):
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         text: str,
-        style: Optional[str] = None,
+        style: str | None = None,
         sticky: bool = True,
         **kwargs: TypeJsonValue,
     ):
         super().__init__()
         self._name = "Tooltip"
 
-        self.text = str(text)
+        self.text = escape_backticks(str(text))
 
         kwargs.update({"sticky": sticky})
         self.options = remove_empty(**kwargs)
@@ -668,24 +775,22 @@ class FitBounds(MacroElement):
         Maximum zoom to be used.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this._parent.get_name() }}.fitBounds(
                 {{ this.bounds|tojson }},
                 {{ this.options|tojson }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         bounds: TypeBounds,
-        padding_top_left: Optional[Sequence[float]] = None,
-        padding_bottom_right: Optional[Sequence[float]] = None,
-        padding: Optional[Sequence[float]] = None,
-        max_zoom: Optional[int] = None,
+        padding_top_left: Sequence[float] | None = None,
+        padding_bottom_right: Sequence[float] | None = None,
+        padding: Sequence[float] | None = None,
+        max_zoom: int | None = None,
     ):
         super().__init__()
         self._name = "FitBounds"
@@ -713,8 +818,7 @@ class FitOverlays(MacroElement):
         Apply the fit when initially loading the map.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         function customFlyToBounds() {
             let bounds = L.latLngBounds([]);
@@ -732,13 +836,12 @@ class FitOverlays(MacroElement):
         customFlyToBounds();
         {%- endif %}
         {% endmacro %}
-    """
-    )
+    """)
 
     def __init__(
         self,
         padding: int = 0,
-        max_zoom: Optional[int] = None,
+        max_zoom: int | None = None,
         fly: bool = False,
         fit_on_map_load: bool = True,
     ):
@@ -766,15 +869,14 @@ class CustomPane(MacroElement):
         determine which map elements lie over/under it. The default
         (625) corresponds to between markers and tooltips. Default
         panes and z-indexes can be found at
-        https://leafletjs.com/reference.html#map-pane
+        https://leafletjs.com/reference-1.9.4.html#map-pane
     pointer_events: bool, default False
         Whether or not layers in the pane should interact with the
         cursor. Setting to False will prevent interfering with
         pointer events associated with lower layers.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = {{ this._parent.get_name() }}.createPane(
                 {{ this.name|tojson }});
@@ -783,13 +885,12 @@ class CustomPane(MacroElement):
                 {{ this.get_name() }}.style.pointerEvents = 'none';
             {% endif %}
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         name: str,
-        z_index: Union[int, str] = 625,
+        z_index: int | str = 625,
         pointer_events: bool = False,
     ):
         super().__init__()

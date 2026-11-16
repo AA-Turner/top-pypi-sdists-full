@@ -3,7 +3,7 @@ Wraps leaflet Polyline, Polygon, Rectangle, Circle, and CircleMarker
 
 """
 
-from typing import List, Optional, Sequence, Union
+from collections.abc import Sequence
 
 from branca.element import MacroElement
 
@@ -21,7 +21,7 @@ from folium.utilities import (
 
 
 def path_options(
-    line: bool = False, radius: Optional[float] = None, **kwargs: TypePathOptions
+    line: bool = False, radius: float | None = None, **kwargs: TypePathOptions
 ):
     """
     Contains options and constants shared between vector overlays
@@ -73,7 +73,7 @@ def path_options(
 
     This function accepts both snake_case and lowerCamelCase equivalents.
 
-    See https://leafletjs.com/reference.html#path
+    See https://leafletjs.com/reference-1.9.4.html#path
 
     """
 
@@ -122,6 +122,11 @@ def path_options(
         "bubblingMouseEvents": kwargs.pop("bubblingMouseEvents", True),
     }
     default.update(extra_options)
+    # Pass any remaining options straight through to Leaflet, matching how
+    # the other folium option builders forward **kwargs. Without this, Path
+    # options such as ``interactive``, ``pane`` or ``renderer`` were silently
+    # dropped from vector overlays.
+    default.update(kwargs)
     return default
 
 
@@ -135,8 +140,8 @@ class BaseMultiLocation(MacroElement):
     def __init__(
         self,
         locations: TypeMultiLine,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
     ):
         super().__init__()
         self.locations = validate_multi_locations(locations)
@@ -147,7 +152,7 @@ class BaseMultiLocation(MacroElement):
                 tooltip if isinstance(tooltip, Tooltip) else Tooltip(str(tooltip))
             )
 
-    def _get_self_bounds(self) -> List[List[Optional[float]]]:
+    def _get_self_bounds(self) -> list[list[float | None]]:
         """Compute the bounds of the object itself."""
         return get_bounds(self.locations)
 
@@ -174,20 +179,18 @@ class PolyLine(BaseMultiLocation):
         Disable polyline clipping.
     **kwargs
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#polyline
+        https://leafletjs.com/reference-1.9.4.html#polyline
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.polyline(
                 {{ this.locations|tojson }},
                 {{ this.options|tojson }}
             ).addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(self, locations, popup=None, tooltip=None, **kwargs):
         super().__init__(locations, popup=popup, tooltip=tooltip)
@@ -213,26 +216,24 @@ class Polygon(BaseMultiLocation):
         Display a text when hovering over the object.
     **kwargs
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#polygon
+        https://leafletjs.com/reference-1.9.4.html#polygon
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.polygon(
                 {{ this.locations|tojson }},
                 {{ this.options|tojson }}
             ).addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         locations: TypeMultiLine,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
         **kwargs: TypePathOptions,
     ):
         super().__init__(locations, popup=popup, tooltip=tooltip)
@@ -255,26 +256,24 @@ class Rectangle(MacroElement):
         Display a text when hovering over the object.
     **kwargs
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#rectangle
+        https://leafletjs.com/reference-1.9.4.html#rectangle
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{this.get_name()}} = L.rectangle(
                 {{ this.locations|tojson }},
                 {{ this.options|tojson }}
             ).addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         bounds: TypeLine,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
         **kwargs: TypePathOptions,
     ):
         super().__init__()
@@ -289,7 +288,7 @@ class Rectangle(MacroElement):
                 tooltip if isinstance(tooltip, Tooltip) else Tooltip(str(tooltip))
             )
 
-    def _get_self_bounds(self) -> List[List[Optional[float]]]:
+    def _get_self_bounds(self) -> list[list[float | None]]:
         """Compute the bounds of the object itself."""
         return get_bounds(self.locations)
 
@@ -315,27 +314,25 @@ class Circle(Marker):
         Radius of the circle, in meters.
     **kwargs
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#circle
+        https://leafletjs.com/reference-1.9.4.html#circle
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.circle(
                 {{ this.location|tojson }},
                 {{ this.options|tojson }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
-        location: Optional[Sequence[float]] = None,
+        location: Sequence[float] | None = None,
         radius: float = 50,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
         **kwargs: TypePathOptions,
     ):
         super().__init__(location, popup=popup, tooltip=tooltip)
@@ -361,27 +358,25 @@ class CircleMarker(Marker):
         Radius of the circle marker, in pixels.
     **kwargs
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#circlemarker
+        https://leafletjs.com/reference-1.9.4.html#circlemarker
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.circleMarker(
                 {{ this.location|tojson }},
                 {{ this.options|tojson }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
-        location: Optional[Sequence[float]] = None,
+        location: Sequence[float] | None = None,
         radius: float = 10,
-        popup: Union[Popup, str, None] = None,
-        tooltip: Union[Tooltip, str, None] = None,
+        popup: Popup | str | None = None,
+        tooltip: Tooltip | str | None = None,
         **kwargs: TypePathOptions,
     ):
         super().__init__(location, popup=popup, tooltip=tooltip)

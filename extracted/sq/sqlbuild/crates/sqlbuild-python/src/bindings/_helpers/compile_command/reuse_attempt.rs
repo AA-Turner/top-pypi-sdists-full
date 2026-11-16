@@ -16,11 +16,6 @@ use sqlbuild_core::command_output::constants::INVOCATION_CONTEXT_ENV;
 use sqlbuild_cli::replay::constants::{LAUNCH_RECORD_DIRECTORY, LAUNCH_RECORD_FORMAT};
 use sqlbuild_host::entries::models::{ExecutorHost, FacadeHost};
 
-use crate::bindings::_helpers::boundary::python_calls::{call_with, imported, keywords};
-use crate::bindings::_helpers::build_progress::progress::{
-    NativeProgressProjector, current_projector,
-};
-use crate::bindings::_helpers::cli::launch_state::launch_record_path;
 use crate::bindings::_helpers::compile_command::constants::{
     COMPILE_CACHE_DISABLE_ENV_VAR, COMPILE_CACHE_DISABLE_VALUE, COMPILE_COMMAND_NAME,
     COMPILED_DIRECTORY_NAME, COMPUTE_LOG_DIRECTORY_NAME, EXCLUDED_DIRECTORIES,
@@ -37,25 +32,32 @@ use crate::bindings::_helpers::compile_command::models::CompileReuseAttempt;
 use crate::bindings::_helpers::compile_command::runtime_identity::{
     invocation_identity, runtime_identity,
 };
-use crate::bindings::_helpers::compile_context::delta;
 use crate::bindings::_helpers::compile_delta::driver::{
     self, DELTA_VERIFY_ENV_VAR, DeltaOutcome, delta_enabled, env_enabled,
 };
 use crate::bindings::_helpers::compile_delta::verify;
 use crate::bindings::_helpers::compile_driver::command::run_compile_command;
 use crate::bindings::_helpers::compile_driver::phases::{elapsed_ms, monotonic};
-use crate::bindings::_helpers::compile_outputs::json_report::plain_json;
 use crate::bindings::_helpers::compile_outputs::reuse::{
     ReuseCheckPy, ReuseRulesPy, check_compile_reuse,
 };
 use crate::bindings::_helpers::discovery::project_config::warn_deprecated_settings;
 use crate::bindings::_helpers::frontier::cache_directory::cache_directory;
 use crate::bindings::_helpers::macro_bridge::first_compile::keep_delta_claim;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::presentation_text::terminal::stdout_supports_color;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::NativeAttr;
-use crate::bindings::_helpers::records::registry;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::build_progress::main::progress::current_projector::current_projector;
+use sqlbuild_python_base::build_progress::models::NativeProgressProjector;
+use sqlbuild_python_base::cli::main::launch_record_path::launch_record_path;
+use sqlbuild_python_base::compile_context::main::delta::reset::reset;
+use sqlbuild_python_base::compile_context::main::delta::start_capture::start_capture;
+use sqlbuild_python_base::compile_outputs::main::plain_json::plain_json;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::registry::native_attr::native_attr;
+use sqlbuild_python_base::records::types::NativeAttr;
 
 const REUSE_REQUEST: FacadeHost = FacadeHost::CompileReuseRequest;
 const HIT: &str = "hit";
@@ -88,7 +90,7 @@ fn reuse_debug_with<'py>(
 /// The reuse constants the native check, the stored compile and the launch record share.
 pub(crate) fn reuse_rules(py: Python<'_>) -> PyResult<ReuseRulesPy> {
     let mut excluded_root: Vec<String> =
-        registry::native(py, NativeAttr::CompileReuseExcludedRootDirectories)?
+        native_attr(py, NativeAttr::CompileReuseExcludedRootDirectories)?
             .try_iter()?
             .map(|value| value?.extract())
             .collect::<PyResult<_>>()?;
@@ -111,7 +113,7 @@ pub(crate) fn reuse_rules(py: Python<'_>) -> PyResult<ReuseRulesPy> {
             ),
         ],
         config_filenames: PROJECT_CONFIG_FILENAMES.map(str::to_owned).into(),
-        racy_window_ns: registry::native(py, NativeAttr::CompileReuseRacyWindowNs)?.extract()?,
+        racy_window_ns: native_attr(py, NativeAttr::CompileReuseRacyWindowNs)?.extract()?,
         max_stored_entries: REUSE_MAX_STORED_ENTRIES as usize,
         max_entry_bytes: REUSE_MAX_ENTRY_BYTES as usize,
         missing_environment_value: MISSING_ENVIRONMENT_VALUE.to_owned(),
@@ -140,7 +142,7 @@ fn launch_payload<'py>(
     let capture: Bound<'py, PyAny> = if py
         .import("sys")?
         .getattr("stdout")?
-        .is_instance(&host::entry(py, ExecutorHost::TextComputeLogTee)?)?
+        .is_instance(&host_entry(py, ExecutorHost::TextComputeLogTee)?)?
     {
         let logs: Bound<'py, PyAny> = resolved
             .call_method1("__truediv__", (COMPUTE_LOG_DIRECTORY_NAME,))?
@@ -174,7 +176,7 @@ fn launch_payload<'py>(
     payload.set_item("search_path", search_path)?;
     payload.set_item(
         "startup_inputs",
-        host::entry(py, FacadeHost::StartupInputs)?.call0()?,
+        host_entry(py, FacadeHost::StartupInputs)?.call0()?,
     )?;
     payload.set_item("json_output", native_field(attempt, "json_output")?)?;
     let native_rules: ReuseRulesPy = reuse_rules(py)?;
@@ -460,7 +462,7 @@ fn reuse_request<'py>(request: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>
         fields.push((name, native_field(request, name)?));
     }
     fields.push(("profiling", profiling.into_bound_py_any(py)?));
-    call_with(&host::entry(py, REUSE_REQUEST)?, &fields)
+    call_with(&host_entry(py, REUSE_REQUEST)?, &fields)
 }
 
 /// Run one compile command request, replaying the previous compile when nothing changed.
@@ -478,7 +480,7 @@ pub(crate) fn run_compile<'py>(request: &Bound<'py, PyAny>) -> PyResult<Bound<'p
     } else {
         run_compile_command(py, request.clone(), Some(attempt))
     };
-    delta::reset();
+    reset();
     verify::disarm();
     code.and_then(|value| pyo3::IntoPyObjectExt::into_bound_py_any(value, py))
 }
@@ -510,7 +512,7 @@ fn compiled_with_delta<'py>(
             None => Ok(()),
         }
     };
-    delta::reset();
+    reset();
     let project_dir: Bound<'py, PyAny> = native_field(attempt, "project_dir")?;
     let cache: Bound<'py, PyAny> = cache_directory(&project_dir)?;
     let compiled_root: PathBuf = std::path::absolute(
@@ -551,7 +553,7 @@ fn compiled_with_delta<'py>(
                     &format!("delta compile fell back: {reason}").into_bound_py_any(py)?,
                 )?;
             }
-            delta::start_capture();
+            start_capture();
             return run_compile_command(py, request.clone(), Some(attempt.clone()));
         }
         DeltaOutcome::Finished(finished) => verify::hold_expected(verify::Expected {
@@ -571,7 +573,7 @@ fn compiled_with_delta<'py>(
             ..verify::Expected::default()
         }),
     }
-    delta::start_capture();
+    start_capture();
     let full: PyResult<i64> = run_compile_command(py, request.clone(), Some(attempt.clone()));
     let raised: Option<String> = full.as_ref().err().map(ToString::to_string);
     let differences: Vec<String> = verify::differences(raised);

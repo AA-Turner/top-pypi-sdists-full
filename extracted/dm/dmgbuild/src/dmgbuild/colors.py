@@ -4,7 +4,7 @@ import re
 
 class Color:
     def to_rgb(self):
-        raise Exception("Must implement to_rgb() in subclasses")
+        raise NotImplementedError("Must implement to_rgb() in subclasses")
 
 
 class RGB:
@@ -21,7 +21,7 @@ class HSL(Color):
     def __init__(self, h, s, l):  # noqa: E741
         self.h = h
         self.s = s
-        self.l = l  # noqa: E741
+        self.l = l
 
     @staticmethod
     def _hue_to_rgb(t1, t2, hue):
@@ -41,7 +41,7 @@ class HSL(Color):
 
     def to_rgb(self):
         hue = self.h / 60.0
-        if self.l <= 0.5:  # noqa: E741
+        if self.l <= 0.5:
             t2 = self.l * (self.s + 1)
         else:
             t2 = self.l + self.s - (self.l * self.s)
@@ -257,7 +257,7 @@ _x11_colors = {
 
 _ws_re = re.compile(r"\s+")
 _token_re = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-_hex_re = re.compile(r"#([0-9a-f]{3}(?:[0-9a-f]{3})?)$")
+_hex_re = re.compile(r"#([0-9a-f]{3}(?:[0-9a-f]{3})?)$", re.IGNORECASE)
 _number_re = re.compile(r"[0-9]*(\.[0-9]*)")
 
 

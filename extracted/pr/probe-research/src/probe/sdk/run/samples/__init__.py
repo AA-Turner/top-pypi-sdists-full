@@ -17,6 +17,8 @@ _HOMES = {
     "attach_producer": ".producer",
     "generated_by": ".refs",
     "parse_generated_by": ".refs",
+    "to_failure_reason": ".wire",
+    "to_sampling_settings": ".wire",
 }
 __all__ = sorted(_HOMES)
 

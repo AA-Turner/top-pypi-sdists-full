@@ -213,7 +213,7 @@ impl CacheView {
                 let mut template = template.clone();
                 let mut path = self.path.clone();
                 path.extend(&template.loader_path);
-                template.loader_path = path;
+                template.set_loader_path(path);
                 dict.set_item(key, template)
             }
             // Like Django's cached loader, debug mode stores an exception
@@ -318,7 +318,12 @@ impl CachedLoader {
         engine: &Engine,
     ) -> Result<PyResult<Lookup>, LoaderError> {
         match self.cache.get(template_name) {
-            Some(Ok(template)) => Ok(Ok(Lookup::Cached(template.clone()))),
+            Some(Ok(template)) => {
+                // Build the render handle on the cached copy, so every
+                // template returned from the cache shares one.
+                template.owner_handle(py);
+                Ok(Ok(Lookup::Cached(template.clone())))
+            }
             Some(Err(e)) => Err(e.clone()),
             None => {
                 let mut tried = Vec::new();
@@ -368,7 +373,7 @@ impl CachedLoader {
     ) -> PyResult<()> {
         if !self.cache.contains_key(template_name) {
             let mut template = template.clone();
-            template.loader_path = path.to_vec();
+            template.set_loader_path(path.to_vec());
             let discarded = self.store(py, template_name.to_string(), Ok(template), engine)?;
             drop(discarded);
         }
@@ -386,7 +391,6 @@ pub struct LocMemLoader {
 }
 
 impl LocMemLoader {
-    #[allow(dead_code)]
     pub fn new(templates: HashMap<String, String>) -> Self {
         Self { templates }
     }
@@ -421,9 +425,8 @@ pub enum Loader {
     FileSystem(FileSystemLoader),
     AppDirs(AppDirsLoader),
     Cached(CachedLoader),
-    #[allow(dead_code)]
     LocMem(LocMemLoader),
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "external loaders are not wired up yet")]
     External(ExternalLoader),
 }
 
@@ -509,7 +512,7 @@ impl Lookup {
                 loader_path,
             } => {
                 let mut template = Template::new(py, &contents, path, template_name, engine)?;
-                template.loader_path = loader_path;
+                template.set_loader_path(loader_path);
                 Ok(template)
             }
         }

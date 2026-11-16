@@ -38,19 +38,27 @@ def count(value: Any) -> str:
         return "unknown"
 
 
+
+
+
+
+_PARTS = (("build", "build checks"), ("shell", "shells"), ("gpu", "GPUs"))
+
+
 def held(in_use: Optional[Mapping[str, Any]]) -> str:
-    """What the account's GPUs are doing: 'serving 6, evals 2, build checks 1' (a count it could not read says
-    'unknown'), ', shells 1' while a benchmark's shell machine holds one, and ', GPUs 2' while GPUs added by hand hold
-    theirs (in_use.gpu). A deploy's build check and a shell hold their
-    cards while they run and the total counts them, so the parts name them too; an in_use without a build check (an eval's)
-    leaves it out.
+    """What holds the account's GPU cards, each part the platform reports said, 0 among them, as the console's Account
+    page says them: 'serving 6, evals 2, build checks 1, shells 0, GPUs 2'. GET /v1/account and every gpu_limit_reached
+    answer report all five, and they add up to the cards held; a count it could not read says 'unknown'; a part the
+    in_use does not carry is left out - an eval's dry run reports serving and evals alone.
+
+
+
  
+
 """
     u = in_use if isinstance(in_use, Mapping) else {}
     words = f"serving {count(u.get('serving'))}, evals {count(u.get('eval'))}"
-    return (words + (f", build checks {count(u.get('build'))}" if "build" in u else "")
-            + (f", shells {count(u.get('shell'))}" if u.get("shell") else "")
-            + (f", GPUs {count(u.get('gpu'))}" if u.get("gpu") else ""))
+    return words + "".join(f", {name} {count(u.get(key))}" for key, name in _PARTS if key in u)
 
 
 def _when(retry_after_s: Optional[float]) -> str:
@@ -114,7 +122,7 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
         except (TypeError, ValueError):
             never_fits = False
         if never_fits:
-            return (f"This needs {count(requested)} GPUs at once and your account's limit is {count(limit)}; "
+            return (f"This needs {count(requested)} GPU cards at once and your account's limit is {count(limit)}; "
                     "lay it out on fewer cards.")
         need = f"this needs {count(requested)}" + (f", {count(short)} more than are free" if short else "")
 
@@ -126,7 +134,7 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
                 else "stop a deployment")
         then = (f"; {in_line} until enough free up." if queued
                 else f"; {free} or wait for {wait_for} to finish, then try again.")
-        return f"Your account's {count(limit)} GPUs are in use ({held(d.get('in_use'))}) and {need}{then}"
+        return f"Your account's {count(limit)} GPU cards are in use ({held(d.get('in_use'))}) and {need}{then}"
     if reason == "gpu_busy":
         return ("Every GPU on the platform is busy right now (your account's limit is not the problem); "
                 + (f"{in_line}." if queued else f"try again {_when(retry_after_s)}."))
@@ -163,7 +171,7 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
 def queue_phrase(reason: Optional[str]) -> str:
     """Why a robot is queued, as the few words its notice carries."""
     return {"gpu_busy": "every GPU on the platform is busy",
-            "gpu_limit_reached": "your account's GPUs are all in use",
+            "gpu_limit_reached": "your account's GPU cards are all in use",
             "deployment_full": "the deployment holds its max_gpus and every slot is taken",
             "in_line": "every seat on the deployment's workers is taken"}.get(
                 reason or "", "waiting for a free slot")

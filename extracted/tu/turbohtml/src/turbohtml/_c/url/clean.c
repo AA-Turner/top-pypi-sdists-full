@@ -21,14 +21,6 @@
 
 #include <string.h>
 
-#if defined(_MSC_VER)
-#define TH_FORCEINLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-#define TH_FORCEINLINE inline __attribute__((always_inline))
-#else
-#define TH_FORCEINLINE inline
-#endif
-
 /* The knobs of turbohtml.extract.UrlCleaning, plus the two vocabularies the shim holds as configuration. `allow` is a
    lowercased name set or None, `deny` a lowercased name set; `language` is an ISO 639-1 code or None. */
 typedef struct {
@@ -122,17 +114,6 @@ static int str_has_prefix(PyObject *text, const char *literal) {
 
 static int str_holds(PyObject *text, Py_UCS4 needle) {
     return PyUnicode_FindChar(text, needle, 0, PyUnicode_GET_LENGTH(text), 1) >= 0;
-}
-
-static int web_host_holds(PyObject *text, unsigned char needle) {
-    if (PyUnicode_KIND(text) == PyUnicode_1BYTE_KIND) {
-        return memchr(PyUnicode_1BYTE_DATA(text), needle, (size_t)PyUnicode_GET_LENGTH(text)) != NULL;
-    }
-    return str_holds(text, needle);
-}
-
-static TH_FORCEINLINE int is_web_host(PyObject *host, PyObject *netloc) {
-    return PyUnicode_GET_LENGTH(host) > 0 && (web_host_holds(host, '.') || web_host_holds(netloc, ':'));
 }
 
 static PyObject *port_suffix(const th_url_parts *parts) {
@@ -240,7 +221,7 @@ static PyObject *normalize_netloc(const th_url_parts *parts, int web_only, int c
         return NULL;      /* GCOVR_EXCL_LINE */
     }
     /* Port normalization can erase the colon that admitted a dotless host. */
-    if (web_only && !web_host_holds(host, '.') && !web_host_holds(netloc, ':')) {
+    if (web_only && !str_holds(host, '.') && !str_holds(netloc, ':')) {
         Py_SETREF(netloc, Py_NewRef(Py_None));
     }
     Py_DECREF(host);
@@ -688,14 +669,14 @@ PyObject *turbohtml_url_normalize(PyObject *Py_UNUSED(module), PyObject *args) {
     return result;
 }
 
-/* Whether the scrubbed, split URL is a fetchable web address: an http/https scheme and a host that is either dotted
-   or carries a port, the shape gate clean_url applies before the language filter and normalization. */
+/* Whether the scrubbed, split URL can be a fetchable web address: an http/https scheme and a non-empty host. The
+   dotted-or-ported rule waits for normalize_netloc, because the spelled host can gain its dots only once canonical. */
 static int is_web_url(const th_url_parts *parts, PyObject *host) {
     PyObject *scheme = parts->part[TH_URL_SCHEME];
     if (!str_equals(scheme, "http") && !str_equals(scheme, "https")) {
         return 0;
     }
-    return is_web_host(host, parts->part[TH_URL_NETLOC]);
+    return PyUnicode_GET_LENGTH(host) > 0;
 }
 
 /* clean_url's pipeline over one str: scrub, split, the web gate, the language gate, then normalization. Returns the
@@ -863,8 +844,12 @@ static const Py_UCS4 *anchor_attr(th_tree *tree, th_node *node, const char *name
 
 /* Collect the href of every <a>/<area> that is neither rel=nofollow nor, under a language filter, hreflang'd to
    another language, in document order, trimmed the way Node.links() reports a URL attribute. Pure tree reads plus
-   str allocation, so it runs under the document's critical section. Returns -1 on allocation failure. */
+   str allocation, so it runs under the document's critical section. The tree builder reopens an unclosed <a> in every
+   block that follows it, and each of those clones borrows the one href buffer of the start tag: an anchor that holds
+   the buffer just collected adds nothing to a result that is a set, and a str per clone would cost href length x
+   clones. Returns -1 on allocation failure. */
 static int collect_hrefs(th_tree *tree, th_node *root, PyObject *language, PyObject *hrefs) {
+    const Py_UCS4 *collected = NULL;
     for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
         if (node->type != TH_NODE_ELEMENT || (node->atom != TH_TAG_A && node->atom != TH_TAG_AREA)) {
             continue;
@@ -898,6 +883,10 @@ static int collect_hrefs(th_tree *tree, th_node *root, PyObject *language, PyObj
                 continue;
             }
         }
+        if (href == collected) {
+            continue;
+        }
+        collected = href;
         PyObject *url = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, href + start, end - start);
         if (url == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;     /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -929,7 +918,7 @@ static PyObject *cleaned_href(PyObject *href, PyObject *base, const clean_option
             first == '\\' || (first == '/' && PyUnicode_GET_LENGTH(href) > 2 &&
                               (PyUnicode_READ(kind, data, 1) == '/' || PyUnicode_READ(kind, data, 1) == '\\') &&
                               (PyUnicode_READ(kind, data, 2) == '/' || PyUnicode_READ(kind, data, 2) == '\\'));
-        candidate = special_slashes ? th_url_resolve(base, href) : th_url_join(base, href);
+        candidate = special_slashes ? th_url_resolve(base, href) : th_url_join_link(base, href);
         if (candidate == NULL) {
             return NULL; /* the document base cannot be split (an unbalanced IPv6 bracket) */
         }

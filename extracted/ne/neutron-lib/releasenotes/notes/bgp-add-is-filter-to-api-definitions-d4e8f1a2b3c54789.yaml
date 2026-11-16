@@ -1,0 +1,11 @@
+---
+fixes:
+  - |
+    Added ``is_filter`` to all scalar attributes in the BGP dynamic routing
+    API definition for ``bgp_speakers`` (``id``, ``name``, ``local_as``,
+    ``ip_version``, ``tenant_id``, ``advertise_floating_ip_host_routes``,
+    and ``advertise_tenant_networks``) and ``bgp_peers`` (``id``, ``name``,
+    ``peer_ip``, ``remote_as``, ``auth_type``, and ``tenant_id``).
+    Previously, no BGP attribute was declared as filterable, which caused
+    list operations with query filters (e.g. ``?name=foo``) to return HTTP
+    400 when the filter-validation extension is enabled.

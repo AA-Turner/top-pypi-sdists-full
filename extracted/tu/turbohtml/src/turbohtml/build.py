@@ -24,7 +24,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Final, TypeAlias
 
-from ._html import _build_document, _build_element
+from ._html import build_document as _build_document
+from ._html import build_element as _build_element
 
 if TYPE_CHECKING:
     from ._html import Document, Element, Node
@@ -39,33 +40,28 @@ Content: TypeAlias = "Attributes | Node | str"
 
 
 def _build(tag: str, args: tuple[Content, ...]) -> Element:
-    """
-    Build one element: a leading mapping sets its attributes, and the rest become children in order.
-
-    :raises ValueError: if the tag or an attribute name carries a character HTML forbids there, or if a
-        void element such as ``br`` or ``img`` is given children.
-    :raises TypeError: if an attribute mapping is not the first argument.
-    """
+    # Build one element: a leading mapping sets its attributes, and the rest become children in order.
+    #
+    # :raises ValueError: if the tag or an attribute name carries a character HTML forbids there, or if a
+    #     void element such as ``br`` or ``img`` is given children.
+    # :raises TypeError: if an attribute mapping is not the first argument.
     return _build_element(tag, args, Mapping)
 
 
 class _TagFactory:
-    """The callable returned by ``E.<tag>``; it remembers the tag name and builds that element when called."""
-
+    # The callable returned by ``E.<tag>``; it remembers the tag name and builds that element when called.
     __slots__ = ("_tag",)
 
     def __init__(self, tag: str) -> None:
-        """Remember the tag name this factory builds."""
+        # Remember the tag name this factory builds.
         self._tag = tag
 
     def __call__(self, *args: Content) -> Element:
-        """
-        Build the element from a leading attribute mapping and the child nodes and strings that follow.
-
-        :raises ValueError: if the tag or an attribute name carries a character HTML forbids there, or if a
-            void element such as ``br`` or ``img`` is given children.
-        :raises TypeError: if an attribute mapping is not the first argument.
-        """
+        # Build the element from a leading attribute mapping and the child nodes and strings that follow.
+        #
+        # :raises ValueError: if the tag or an attribute name carries a character HTML forbids there, or if a
+        #     void element such as ``br`` or ``img`` is given children.
+        # :raises TypeError: if an attribute mapping is not the first argument.
         return _build(self._tag, args)
 
 
@@ -78,7 +74,13 @@ class ElementMaker:
     """
 
     def __getattr__(self, tag: str) -> _TagFactory:
-        """Return the factory for ``tag``; dunder lookups fall through so copy and pickle protocols are not hijacked."""
+        """
+        Return the factory for ``tag``; dunder lookups fall through so copy and pickle protocols are not hijacked.
+
+        :param tag: the tag name.
+        :returns: the factory that builds ``tag`` elements.
+        :raises AttributeError: if ``tag`` is a dunder name.
+        """
         if tag.startswith("__") and tag.endswith("__"):
             raise AttributeError(tag)
         return _TagFactory(tag)
@@ -87,15 +89,18 @@ class ElementMaker:
         """
         Build ``tag`` from a leading attribute mapping and the child nodes and strings that follow.
 
+        :param tag: the element's tag name.
+        :param args: an optional leading attribute mapping, then the child nodes and strings.
         :raises ValueError: if the tag or an attribute name carries a character HTML forbids there, or if a
             void element such as ``br`` or ``img`` is given children.
         :raises TypeError: if an attribute mapping is not the first argument.
+        :returns: the element built from ``tag``, its attributes, and its children.
         """
         return _build(tag, args)
 
 
 #: The shared builder: ``E.div(...)`` or ``E("div", ...)`` builds a ``<div>`` element.
-E: Final = ElementMaker()
+E: Final[ElementMaker] = ElementMaker()  # simplint: ignore[single-letter-name]  # public name exported by turbohtml
 
 
 def document(

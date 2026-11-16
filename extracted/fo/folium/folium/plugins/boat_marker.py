@@ -24,8 +24,7 @@ class BoatMarker(JSCSSMixin, Marker):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.boatMarker(
                 {{ this.location|tojson }},
@@ -41,8 +40,7 @@ class BoatMarker(JSCSSMixin, Marker):
             {{this.get_name()}}.setHeading({{this.heading}});
             {% endif -%}
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -59,7 +57,7 @@ class BoatMarker(JSCSSMixin, Marker):
         heading=0,
         wind_heading=None,
         wind_speed=0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(location, popup=popup, icon=icon)
         self._name = "BoatMarker"

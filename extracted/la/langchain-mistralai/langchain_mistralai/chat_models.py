@@ -13,6 +13,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    Self,
     cast,
 )
 
@@ -22,6 +23,14 @@ from httpx_sse import EventSource, aconnect_sse, connect_sse
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
+)
+from langchain_core.exceptions import (
+    ModelAPIError,
+    ModelAuthenticationError,
+    ModelInvalidRequestError,
+    ModelNotFoundError,
+    ModelPermissionDeniedError,
+    ModelRateLimitError,
 )
 from langchain_core.language_models import (
     LanguageModelInput,
@@ -65,6 +74,7 @@ from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResu
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
 from langchain_core.utils import get_pydantic_field_names, secret_from_env
+from langchain_core.utils._gateway import _apply_gateway_config
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
 from langchain_core.utils.utils import _build_model_kwargs
@@ -75,7 +85,6 @@ from pydantic import (
     SecretStr,
     model_validator,
 )
-from typing_extensions import Self
 
 from langchain_mistralai._compat import _convert_from_v1_to_mistral
 from langchain_mistralai._version import __version__
@@ -219,6 +228,58 @@ def _convert_mistral_chat_message_to_message(
     )
 
 
+class MistralAIAuthenticationError(httpx.HTTPStatusError, ModelAuthenticationError):
+    """Mistral AI authentication error classified as a LangChain model error."""
+
+
+class MistralAIPermissionDeniedError(httpx.HTTPStatusError, ModelPermissionDeniedError):
+    """Mistral AI permission error classified as a LangChain model error."""
+
+
+class MistralAIInvalidRequestError(httpx.HTTPStatusError, ModelInvalidRequestError):
+    """Mistral AI invalid-request error classified as a LangChain model error."""
+
+
+class MistralAIModelNotFoundError(httpx.HTTPStatusError, ModelNotFoundError):
+    """Mistral AI not-found error classified as a LangChain model error."""
+
+
+class MistralAIRateLimitError(httpx.HTTPStatusError, ModelRateLimitError):
+    """Mistral AI rate-limit error classified as a LangChain model error."""
+
+
+class MistralAIAPIError(httpx.HTTPStatusError, ModelAPIError):
+    """Mistral AI server error classified as a LangChain model error."""
+
+
+_STATUS_ERROR_TYPES: dict[int, type[httpx.HTTPStatusError]] = {
+    400: MistralAIInvalidRequestError,
+    401: MistralAIAuthenticationError,
+    403: MistralAIPermissionDeniedError,
+    404: MistralAIModelNotFoundError,
+    422: MistralAIInvalidRequestError,
+    429: MistralAIRateLimitError,
+}
+"""HTTP status codes the Mistral AI API reports, keyed to LangChain error types."""
+
+
+def _status_error_type(status_code: int) -> type[httpx.HTTPStatusError]:
+    """Return the error type to raise for an HTTP status code.
+
+    Args:
+        status_code: The HTTP status code of the error response.
+
+    Returns:
+        The classified error type, or plain `httpx.HTTPStatusError` for status codes
+        the taxonomy does not cover.
+    """
+    if error_type := _STATUS_ERROR_TYPES.get(status_code):
+        return error_type
+    if status_code >= 500:
+        return MistralAIAPIError
+    return httpx.HTTPStatusError
+
+
 def _raise_on_error(response: httpx.Response) -> None:
     """Raise an error if the response is an error."""
     if httpx.codes.is_error(response.status_code):
@@ -227,7 +288,7 @@ def _raise_on_error(response: httpx.Response) -> None:
             f"Error response {response.status_code} "
             f"while fetching {response.url}: {error_message}"
         )
-        raise httpx.HTTPStatusError(
+        raise _status_error_type(response.status_code)(
             msg,
             request=response.request,
             response=response,
@@ -242,7 +303,7 @@ async def _araise_on_error(response: httpx.Response) -> None:
             f"Error response {response.status_code} "
             f"while fetching {response.url}: {error_message}"
         )
-        raise httpx.HTTPStatusError(
+        raise _status_error_type(response.status_code)(
             msg,
             request=response.request,
             response=response,
@@ -286,6 +347,15 @@ async def acompletion_with_retry(
     return await _completion_with_retry(**kwargs)
 
 
+def _is_empty_chunk(chunk: AIMessageChunk) -> bool:
+    return (
+        not chunk.content
+        and not chunk.tool_call_chunks
+        and not chunk.usage_metadata
+        and "finish_reason" not in chunk.response_metadata
+    )
+
+
 def _convert_chunk_to_message_chunk(
     chunk: dict,
     default_class: type[BaseMessageChunk],
@@ -297,8 +367,9 @@ def _convert_chunk_to_message_chunk(
     _delta = _choice["delta"]
     role = _delta.get("role")
     content = _delta.get("content") or ""
-    if output_version == "v1" and isinstance(content, str):
-        content = [{"type": "text", "text": content}]
+    # Once a stream has sent list content, keep later string deltas as text blocks
+    if isinstance(content, str) and (output_version == "v1" or index_type):
+        content = [{"type": "text", "text": content}] if content else []
     content = _normalize_mistral_content(content)
     if isinstance(content, list):
         for block in content:
@@ -606,6 +677,16 @@ class ChatMistralAI(BaseChatModel):
 
     safe_mode: bool | None = None
 
+    reasoning_effort: str | None = None
+    """Reasoning effort.
+
+    Forwarded as the `reasoning_effort` request field. Supported values vary by
+    model (e.g. `'none'` or `'high'`).
+
+    Can also be passed at call time, e.g.
+    `model.invoke(..., reasoning_effort="high")`.
+    """
+
     streaming: bool = False
 
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
@@ -633,6 +714,7 @@ class ChatMistralAI(BaseChatModel):
             "top_p": self.top_p,
             "random_seed": self.random_seed,
             "safe_prompt": self.safe_mode,
+            "reasoning_effort": self.reasoning_effort,
             **self.model_kwargs,
         }
         return {k: v for k, v in defaults.items() if v is not None}
@@ -709,6 +791,27 @@ class ChatMistralAI(BaseChatModel):
         """Set package version in metadata."""
         self._add_version("langchain-mistralai", __version__)
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_mistralai_gateway_config(cls, values: Any) -> Any:
+        """Resolve the base URL and API key, applying LangSmith gateway settings.
+
+        Routes through the gateway when `LANGSMITH_GATEWAY` is set or the model is
+        built inside `langsmith_gateway`. See `langchain_core.utils._gateway` for
+        precedence.
+        """
+        if isinstance(values, dict):
+            _apply_gateway_config(
+                values,
+                cls,
+                base_url_field="endpoint",
+                api_key_field="mistral_api_key",
+                provider_path="mistral/v1",
+                base_url_env="MISTRAL_BASE_URL",
+                api_key_env="MISTRAL_API_KEY",
+            )
+        return values
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -835,6 +938,8 @@ class ChatMistralAI(BaseChatModel):
             )
             # make future chunks same type as first chunk
             default_chunk_class = new_chunk.__class__
+            if isinstance(new_chunk, AIMessageChunk) and _is_empty_chunk(new_chunk):
+                continue
             gen_chunk = ChatGenerationChunk(message=new_chunk)
             if run_manager:
                 run_manager.on_llm_new_token(
@@ -865,6 +970,8 @@ class ChatMistralAI(BaseChatModel):
             )
             # make future chunks same type as first chunk
             default_chunk_class = new_chunk.__class__
+            if isinstance(new_chunk, AIMessageChunk) and _is_empty_chunk(new_chunk):
+                continue
             gen_chunk = ChatGenerationChunk(message=new_chunk)
             if run_manager:
                 await run_manager.on_llm_new_token(

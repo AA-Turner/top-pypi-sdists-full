@@ -1,7 +1,7 @@
 """The `--custom-generate-function-path` door (W30 spike M1-M3), with no Miles commit: every generate function Miles'
 `GenerateState` hands out runs inside `ProbeGenerate`, which names each try before its first model request, marks the
 samples it returns, and runs a retried try again in its slot. `generate_and_rm` and `generate_and_rm_group` end each
-try once Miles graded it. Wrapped as `inference_rollout_common` loads (`samples/wraps.py`)."""
+try once Miles graded it. Every sample it returns names the call's sampling settings (`SAMPLING_KEY`). Wrapped as `inference_rollout_common` loads (`samples/wraps.py`)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ import os
 import threading
 from contextvars import ContextVar
 from typing import Any
+
+from probe.integrations.miles.samples.mapping import SAMPLING_KEY, SCHEDULED_STEP_KEY
+from probe.sdk.run.samples import to_sampling_settings
 
 from .engines import CURRENT
 from .live import LIVE, LiveRollouts
@@ -62,19 +65,22 @@ class ProbeGenerate:
         except Exception as exc:  # noqa: BLE001 -- fail open: this try runs unrecorded
             _warn_once("start", exc)
             rollout = None
+        settings = _call_quietly(to_sampling_settings, getattr(input, "sampling_params", None))
         if rollout is None:
-            return await self.inner(input)
+            return _stamp_sampling(await self.inner(input), settings)
         token = CURRENT.set(rollout)
         try:
             while True:
                 if started is not None:
                     started.append(rollout)
+                _stamp_step(sample, rollout)
                 try:
                     output = await self.inner(input)
                 except BaseException as exc:
                     _call_quietly(self._live.end_raised, rollout, exc)
                     raise
                 outputs = output.samples if isinstance(output.samples, list) else [output.samples]
+                _stamp_sampling(output, settings)
                 retried = _call_quietly(self._live.finish_try, rollout, outputs, sample, input.args)
                 if retried is None:
                     return output
@@ -83,6 +89,30 @@ class ProbeGenerate:
                 input = _replace_sampling(input, sampling)
         finally:
             CURRENT.reset(token)
+
+
+def _stamp_step(sample: Any, rollout: Rollout) -> None:
+    """A train try's step on the sample it runs, before generation: an agent function reads only the metadata Miles
+    hands it (`agentic_tool_call.py:77`), never the samples `finish_try` stamps after it returns. A try with no step
+    clears an earlier try's, so no step is read stale."""
+    metadata = getattr(sample, "metadata", None)
+    if not isinstance(metadata, dict):
+        return
+    if rollout.scheduled_step is None:
+        metadata.pop(SCHEDULED_STEP_KEY, None)
+    else:
+        metadata[SCHEDULED_STEP_KEY] = rollout.scheduled_step
+
+
+def _stamp_sampling(output: Any, settings: dict | None) -> Any:
+    """The call's sampling settings on each sample it returned (``output``, returned as is), read into the generator
+    part (`mapping.build_generator_part`). Taken before the call: single_turn spends its own copy's token cap."""
+    if settings:
+        samples = getattr(output, "samples", None)
+        for sample in samples if isinstance(samples, list) else [samples]:
+            if isinstance(getattr(sample, "metadata", None), dict):
+                sample.metadata[SAMPLING_KEY] = dict(settings)
+    return output
 
 
 def _replace_sampling(input: Any, sampling: Any) -> Any:

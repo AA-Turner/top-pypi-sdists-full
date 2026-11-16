@@ -10,7 +10,11 @@ element, so the factory becomes the matching ``empty`` call.
 The proof is deliberately narrow. The host statement must be a top-level
 ``name = torch.zeros(...)`` / ``torch.zeros_like(...)`` / ``x.new_zeros(...)``
 assignment whose name is bound once and is not read by any host statement
-before the last device loop. On the device, every access to that tensor must
+before the last device loop. "Top level" is read through the typed
+constexpr branches the specialization fixes (``if reduction == "none":
+loss = torch.zeros_like(x) else: loss = torch.zeros([n])`` on a ``str``
+argument keys one variant per value): only the selected branch exists for
+this variant, so its fill counts as the single binding. On the device, every access to that tensor must
 be an unmasked ``store`` whose indices are tiles, one per tensor dimension:
 tiles of the root grid, or of enclosing ``hl.tile(extent)`` loops that are
 not under a device ``if`` and run over their whole ``[0, extent)`` range.
@@ -31,7 +35,21 @@ config and the fill stays for a config that leaves rows unwritten.
 
 Only root tiles that start at zero with unit step count (a root
 ``hl.tile(begin, end)`` indexes ``[begin, end)`` and numbers its tiles from
-``begin // block_size``), and only blocks with a static extent.
+``begin // block_size``).
+
+One dimension may instead be written by several stores under sibling device
+loops over partial ranges that chain across the whole dimension:
+``for tile1 in hl.tile(0, a): out[tile0, tile1] = ...`` followed by
+``for tile1 in hl.tile(a, out.size(1)): out[tile0, tile1] = ...`` writes the
+first ``a`` columns and then the rest, so every column is written whatever
+``a`` is (with ``a`` outside ``[0, n]`` one loop is empty and the other spans
+the dimension, as the original stores already do).  A link's end must be the
+next link's begin: the same integer, the same host ``SymInt`` expression or
+the very FX node of one device scalar (``nnz.amax()`` computed once per row
+tile); the chain starts at zero and ends at the dimension's size.  Every
+other dimension must be written in full by every one of those stores, since
+the union of products is the full product only when the stores differ in a
+single dimension.
 
 Device loads of the tensor are admitted only from a later ``hl.barrier()``
 phase than every store: the grid-wide barrier orders the complete stores
@@ -44,6 +62,9 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from typing import Protocol
+from typing import TypeVar
+from typing import cast
 
 import sympy
 import torch
@@ -62,8 +83,14 @@ from ..type_info import LiteralType
 from ..type_info import TensorType
 from ..variable_origin import BlockSizeOrigin
 from ..variable_origin import TileIdOrigin
+from .host_sum_site import _constant_condition
+from .host_sum_site import fold_constexpr_branches
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Mapping
+    from collections.abc import Sequence
+
     from ...runtime.config import Config
     from ..compile_environment import CompileEnvironment
     from ..device_ir import GraphInfo
@@ -83,6 +110,9 @@ class ZeroFill:
     statement: str
     target: str
     factory: str
+
+
+_F = TypeVar("_F", bound="_ProvenFill")
 
 
 def _zero_factory(statement: ast.AST) -> tuple[str, str, ast.Call] | None:
@@ -128,6 +158,85 @@ def _same_extent(numel: object, size: object) -> bool:
         return sympy.simplify(sympy.sympify(numel) - sympy.sympify(size)) == 0
     except (TypeError, ValueError):
         return False
+
+
+@dataclass(frozen=True, eq=False)
+class _Range:
+    """The ``[begin, end)`` slice of one dimension a store writes through the
+    tile of a device loop over a partial range.  ``begin`` / ``end`` are the
+    loop call's bound values: an ``int``, a host ``SymInt`` or the FX node of a
+    device scalar bound (compared by identity: one node is one value within
+    its graph)."""
+
+    begin: object
+    end: object
+
+
+def _bound(value: object) -> object:
+    """A loop call's bound as a comparable value: a host integer (an ``int``
+    or a ``SymInt``, also when the call holds it as a symbolic-size node) or
+    the FX node of a device scalar."""
+    if isinstance(value, Node):
+        traced = value.meta.get("val")
+        if isinstance(traced, (int, torch.SymInt)):
+            return traced
+    return value
+
+
+def _same_bound(left: object, right: object) -> bool:
+    if isinstance(left, Node) or isinstance(right, Node):
+        return left is right
+    return _same_extent(left, right)
+
+
+def _chain_covers(ranges: list[_Range], size: object) -> bool:
+    """Whether ``ranges`` link from zero to ``size``."""
+    current: object = 0
+    for _ in range(len(ranges) + 1):
+        if _same_bound(current, size):
+            return True
+        step = next((item for item in ranges if _same_bound(item.begin, current)), None)
+        if step is None:
+            return False
+        current = step.end
+    return False
+
+
+def _combine_coverages(
+    coverages: list[tuple[int | _Range, ...]], shape: torch.Size
+) -> tuple[int, ...] | None:
+    """Per-dimension remainder left by the union of the stores' coverages.
+
+    Every store writes the same slab of every dimension but at most one, whose
+    partial ranges must chain across the dimension (see the module docstring).
+    """
+    if any(len(coverage) != len(shape) for coverage in coverages):
+        return None
+    result: list[int] = []
+    chained = False
+    for dim, size in enumerate(shape):
+        entries = [coverage[dim] for coverage in coverages]
+        remainders = {entry for entry in entries if isinstance(entry, int)}
+        ranges = [entry for entry in entries if isinstance(entry, _Range)]
+        if not ranges:
+            if len(remainders) != 1:
+                return None
+            result.append(next(iter(remainders)))
+            continue
+        if chained:
+            return None
+        chained = True
+        # A whole-extent tile that stops ``remainder`` short of the dimension
+        # (or a tile-id axis with that many unused slots) writes the prefix
+        # ``[0, size - remainder)``: one more link of the chain.
+        links = [
+            *ranges,
+            *(_Range(0, size - remainder) for remainder in remainders if remainder),
+        ]
+        if 0 not in remainders and not _chain_covers(links, size):
+            return None
+        result.append(0)
+    return tuple(result)
 
 
 _METADATA_ATTRIBUTES = frozenset(
@@ -222,39 +331,6 @@ def _constant_remainder(numel: object, size: object) -> int | None:
     return None
 
 
-def _config_int(value: object, env: CompileEnvironment, config: Config) -> int | None:
-    """``value`` as the integer it takes for ``config``.
-
-    Host integer helpers over ``hl.register_tunable`` values trace as unbacked
-    symbols whose config expression the environment keeps; every other symbol
-    (a dynamic input size) makes the value unknown.
-    """
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, torch.SymInt):
-        expr = value.node.expr
-    elif isinstance(value, sympy.Basic):
-        expr = value
-    else:
-        return None
-    substitutions: dict[sympy.Basic, sympy.Integer] = {}
-    for symbol in expr.free_symbols:
-        expression = (
-            env.config_value_expressions.get(symbol)
-            if isinstance(symbol, sympy.Symbol)
-            else None
-        )
-        if expression is None:
-            return None
-        substitutions[symbol] = sympy.Integer(expression.evaluate(config))
-    resolved = sympy.simplify(expr.xreplace(substitutions)) if substitutions else expr
-    if isinstance(resolved, sympy.Integer):
-        return int(resolved)
-    return None
-
-
 def _index_block(index: torch.SymInt, host: HostFunction) -> tuple[int, bool] | None:
     """``(block_id, is_tile_id)`` for a tile index, else ``None``.
 
@@ -286,9 +362,9 @@ def _tile_id_remainder(
     ``tiles = cdiv(extent, block_size)``, both evaluated for ``config``.
     """
     info = env.block_sizes[block_id]
-    extent = _config_int(info.size, env, config)
-    block_size = _config_int(info.from_config(config), env, config)
-    size_value = _config_int(size, env, config)
+    extent = env.config_value(info.size, config)
+    block_size = env.config_value(info.from_config(config), config)
+    size_value = env.config_value(size, config)
     if extent is None or block_size is None or size_value is None or block_size <= 0:
         return None
     tiles = -(-extent // block_size)
@@ -321,12 +397,14 @@ def _store_coverage(
     roots: dict[torch.fx.Graph, set[int]],
     host: HostFunction,
     config: Config,
-) -> tuple[int, ...] | None:
-    """Per-dimension remainder a complete tile store leaves unwritten.
+) -> tuple[int | _Range, ...] | None:
+    """Per-dimension coverage of one unmasked tile store: the remainder a
+    whole-extent tile leaves unwritten, or the ``_Range`` a tile of a
+    partial-range device loop writes.
 
-    ``None`` when the store is masked, conditional, inside a partial-range or
-    stepped loop, or indexed by anything but tiles (or tile ids) of the
-    enclosing loops.
+    ``None`` when the store is masked, conditional, inside a stepped or jagged
+    loop, or indexed by anything but tiles (or tile ids) of the enclosing
+    loops.
     """
     if node.target is not memory_ops.store or node.args[0] is not tensor:
         return None
@@ -342,6 +420,10 @@ def _store_coverage(
     by_graph = {info.graph: info for info in graphs}
     info = by_graph[node.graph]
     allowed: set[int] = set()
+    # The ``[begin, end)`` range of every enclosing device loop's block, and
+    # the blocks among them whose range is not the whole ``[0, extent)``.
+    loop_ranges: dict[int, _Range] = {}
+    ranges: dict[int, _Range] = {}
     while info.graph_id in parents:
         call, _slot = parents[info.graph_id]
         if (
@@ -358,28 +440,32 @@ def _store_coverage(
         ):
             return None
         for block_id, begin, end in zip(info.block_ids, begins, ends, strict=True):
-            if isinstance(begin, Node):
-                begin = begin.meta.get("val")
-            if isinstance(end, Node):
-                end = end.meta.get("val")
-            if env.block_sizes[block_id].size is None:
-                # A jagged tile (``hl.jagged_tile``) has no static extent to
-                # cover: the rows it walks are per-sequence.
+            if env.is_jagged_tile(block_id):
+                # A jagged tile (``hl.jagged_tile``) has no extent to cover:
+                # the rows it walks are per-sequence.
                 return None
+            allowed.add(block_id)
+            begin, end = _bound(begin), _bound(end)
+            loop_ranges[block_id] = _Range(begin, end)
+            if isinstance(begin, Node) or isinstance(end, Node):
+                # A device scalar bound (``hl.tile(0, nnz.amax())``): the
+                # block has no static extent; the loop writes ``[begin, end)``
+                # and only a chain of such loops can cover the dimension.
+                ranges[block_id] = _Range(begin, end)
+                continue
             numel = _static_numel(env, block_id)
             if (
                 numel is None
                 or not _same_extent(begin, 0)
                 or not _same_extent(numel, end)
             ):
-                return None
-            allowed.add(block_id)
+                ranges[block_id] = _Range(begin, end)
         info = by_graph[call.graph]
     grid = roots.get(info.graph)
     if grid is None:
         return None
     allowed |= grid
-    remainders: list[int] = []
+    coverage: list[int | _Range] = []
     block_ids: list[int] = []
     for index, size in zip(indices, fake.shape, strict=True):
         if isinstance(index, Node):
@@ -393,16 +479,30 @@ def _store_coverage(
         block_id, is_tile_id = found
         if block_id not in allowed or block_id in block_ids:
             return None
-        if is_tile_id:
-            remainder = _tile_id_remainder(block_id, size, env, config)
+        entry: int | _Range | None
+        if block_id in ranges:
+            entry = None if is_tile_id else ranges[block_id]
+        elif is_tile_id:
+            entry = _tile_id_remainder(block_id, size, env, config)
         else:
             numel = _static_numel(env, block_id)
-            remainder = _constant_remainder(numel, size) if numel is not None else None
-        if remainder is None:
+            entry = _constant_remainder(numel, size) if numel is not None else None
+            if entry is None and block_id in loop_ranges:
+                # A whole-extent device loop whose symbolic extent is not the
+                # dimension less a constant (``hl.tile(0, split)`` with a host
+                # ``split``): the prefix it writes may still be one link of a
+                # chain.
+                entry = loop_ranges[block_id]
+        if entry is None:
             return None
         block_ids.append(block_id)
-        remainders.append(remainder)
-    return tuple(remainders)
+        coverage.append(entry)
+    if any(block_id not in block_ids for block_id in ranges):
+        # A partial-range loop may be empty (``hl.tile(a, n)`` with ``a == n``
+        # for this row): a store under it that does not index its tile then
+        # runs zero times, and nothing proves the rows it would have written.
+        return None
+    return tuple(coverage)
 
 
 def _remainder_fill(statement: ast.AST, name: str, remainders: tuple[int, ...]) -> bool:
@@ -463,60 +563,141 @@ def _is_load(user: Node, tensor: Node) -> bool:
     )
 
 
+@dataclass(frozen=True)
+class HostFillElision:
+    """The device-side facts a host-fill elision proof reads (analysis).
+
+    Shared by the two provers -- the zero-fill one (drop the factory's
+    memset) and the remainder-fill one (move the constant fill of the
+    unwritten rows onto the device): which root graphs count as coverage
+    of ``[0, extent)`` and with which blocks (``roots``), the control-flow
+    parents of every graph, the position of the last device loop in the
+    host body, and the ``_host_tensor`` nodes of every host tensor the
+    device reads or writes.  ``analyze`` is None for a kernel without root
+    graphs or device loops, where neither proof applies.
+    """
+
+    host: HostFunction
+    env: CompileEnvironment
+    config: Config
+    graphs: list[GraphInfo]
+    roots: dict[torch.fx.Graph, set[int]]
+    parents: dict[int, tuple[Node, int]]
+    last_device_loop: int
+    host_tensors: dict[torch.Tensor, list[Node]]
+    # The host body read through the typed constexpr branches the
+    # specialization fixes (``fold_constexpr_branches``): only the selected
+    # branch exists for this variant, so a fill under it is a top-level
+    # binding.  ``last_device_loop`` indexes this view.
+    body: list[ast.AST]
+
+    @classmethod
+    def analyze(
+        cls, host: HostFunction, env: CompileEnvironment, config: Config
+    ) -> HostFillElision | None:
+        device_ir = host.device_ir
+        graphs = device_ir.graphs
+        # A root ``hl.tile(begin, end)`` with a nonzero begin (or a step)
+        # indexes ``[begin, end)`` and numbers its tiles from ``begin //
+        # block_size``; its blocks never count as coverage of ``[0, extent)``.
+        skewed = device_ir.noncanonical_task_origin_block_ids
+        roots = {
+            graphs[root_id].graph: set(block_ids) - skewed
+            for root_id, block_ids in zip(
+                device_ir.root_ids, device_ir.grid_block_ids, strict=True
+            )
+            if isinstance(graphs[root_id], RootGraphInfo)
+        }
+        if not roots:
+            return None
+        conditions = {
+            node._location: (ast.dump(node.test), condition)
+            for node in ast.walk(ast.Module(body=host.body, type_ignores=[]))
+            if isinstance(node, ast.If)
+            and isinstance(node, ExtendedAST)
+            and (condition := _constant_condition(node.test, host)) is not None
+        }
+        body = fold_constexpr_branches(host.body, conditions)
+        device_loops = [
+            index
+            for index, statement in enumerate(body)
+            if isinstance(statement, ExtendedAST)
+            and statement._loop_type == LoopType.GRID
+        ]
+        if not device_loops:
+            return None
+        host_tensors: dict[torch.Tensor, list[Node]] = {}
+        for info in graphs:
+            for node in info.graph.nodes:
+                if node.target is _tracing_ops._host_tensor:
+                    value = node.meta.get("val")
+                    if isinstance(value, torch.Tensor):
+                        host_tensors.setdefault(value, []).append(node)
+        return cls(
+            host,
+            env,
+            config,
+            graphs,
+            roots,
+            control_flow_parent_entries(graphs),
+            device_loops[-1],
+            host_tensors,
+            body,
+        )
+
+    def top_graph(self, node: Node) -> GraphInfo:
+        return _top_graph(node, self.graphs, self.parents)
+
+    def store_coverage(
+        self, node: Node, tensor: Node, fake: torch.Tensor
+    ) -> tuple[int | _Range, ...] | None:
+        return _store_coverage(
+            node,
+            tensor,
+            fake,
+            self.env,
+            self.graphs,
+            self.parents,
+            self.roots,
+            self.host,
+            self.config,
+        )
+
+    def host_statements_after_device_loops(self) -> range:
+        """Positions (in ``body``) of the host statements after the last
+        device loop."""
+        return range(self.last_device_loop + 1, len(self.body))
+
+
 def prove_host_zero_fills(
     host: HostFunction, env: CompileEnvironment, config: Config
 ) -> list[ZeroFill]:
-    device_ir = host.device_ir
-    graphs = device_ir.graphs
-    # A root ``hl.tile(begin, end)`` with a nonzero begin (or a step) indexes
-    # ``[begin, end)`` and numbers its tiles from ``begin // block_size``; its
-    # blocks never count as coverage of ``[0, extent)``.
-    skewed = device_ir.noncanonical_task_origin_block_ids
-    roots = {
-        graphs[root_id].graph: set(block_ids) - skewed
-        for root_id, block_ids in zip(
-            device_ir.root_ids, device_ir.grid_block_ids, strict=True
-        )
-        if isinstance(graphs[root_id], RootGraphInfo)
-    }
-    if not roots:
+    analysis = HostFillElision.analyze(host, env, config)
+    if analysis is None:
         return []
+    graphs = analysis.graphs
     # Keyed by graph object: a config that rolls a reduction replaces a root's
     # graph payload and appends a second info for it without the phase.
     root_phases: dict[torch.fx.Graph, int] = {}
-    for root_id in device_ir.root_ids:
+    for root_id in host.device_ir.root_ids:
         root = graphs[root_id]
         if isinstance(root, RootGraphInfo):
             root_phases[root.graph] = root.phase_index
-    device_loops = [
-        index
-        for index, statement in enumerate(host.body)
-        if isinstance(statement, ExtendedAST) and statement._loop_type == LoopType.GRID
-    ]
-    if not device_loops:
-        return []
-    last_device_loop = device_loops[-1]
-    host_tensors: dict[torch.Tensor, list[Node]] = {}
-    for info in graphs:
-        for node in info.graph.nodes:
-            if node.target is _tracing_ops._host_tensor:
-                value = node.meta.get("val")
-                if isinstance(value, torch.Tensor):
-                    host_tensors.setdefault(value, []).append(node)
-    parents = control_flow_parent_entries(graphs)
+    last_device_loop = analysis.last_device_loop
+    body = analysis.body
     result: list[ZeroFill] = []
-    for index, statement in enumerate(host.body):
+    for index, statement in enumerate(body):
         if index >= last_device_loop:
             break
         found = _zero_factory(statement)
         if found is None:
             continue
         name, factory, _call = found
-        if sum(_assigns(other, name) for other in host.body) != 1:
+        if sum(_assigns(other, name) for other in body) != 1:
             continue
         if any(
             _reads(other, name)
-            for other in host.body[index + 1 : last_device_loop + 1]
+            for other in body[index + 1 : last_device_loop + 1]
             if not (
                 isinstance(other, ExtendedAST) and other._loop_type == LoopType.GRID
             )
@@ -527,16 +708,16 @@ def prove_host_zero_fills(
         target_type = statement.value._type_info
         assert isinstance(target_type, TensorType)
         fake = target_type.fake_value
-        nodes = host_tensors.get(fake, [])
+        nodes = analysis.host_tensors.get(fake, [])
         if not nodes:
             continue
-        coverages: set[tuple[int, ...] | None] = set()
+        coverages: list[tuple[int | _Range, ...] | None] = []
         store_phases: list[int] = []
         load_phases: list[int] = []
         ordered = True
         for tensor in nodes:
             for user in tensor.users:
-                top = _top_graph(user, graphs, parents)
+                top = analysis.top_graph(user)
                 phase = root_phases.get(top.graph)
                 if phase is None:
                     if isinstance(top, ReductionLoopGraphInfo):
@@ -549,18 +730,17 @@ def prove_host_zero_fills(
                     continue
                 else:
                     store_phases.append(phase)
-                coverages.add(
-                    _store_coverage(
-                        user, tensor, fake, env, graphs, parents, roots, host, config
-                    )
-                )
-        if not ordered or len(coverages) != 1 or None in coverages:
+                coverages.append(analysis.store_coverage(user, tensor, fake))
+        if not ordered or not coverages or None in coverages:
             continue
         if load_phases and (not store_phases or max(store_phases) >= min(load_phases)):
             # Only a grid-wide barrier orders the loads after every store.
             continue
-        (remainders,) = coverages
-        assert remainders is not None
+        remainders = _combine_coverages(
+            [coverage for coverage in coverages if coverage is not None], fake.shape
+        )
+        if remainders is None:
+            continue
         if any(remainders):
             # One dimension may stop short of the tensor by a constant when a
             # host assignment after the device loops writes exactly that
@@ -570,13 +750,13 @@ def prove_host_zero_fills(
             fill = next(
                 (
                     position
-                    for position in range(last_device_loop + 1, len(host.body))
-                    if _remainder_fill(host.body[position], name, remainders)
+                    for position in analysis.host_statements_after_device_loops()
+                    if _remainder_fill(body[position], name, remainders)
                 ),
                 None,
             )
             if fill is None or any(
-                _reads(other, name) for other in host.body[last_device_loop + 1 : fill]
+                _reads(other, name) for other in body[last_device_loop + 1 : fill]
             ):
                 continue
         result.append(
@@ -597,6 +777,30 @@ def lower_host_zero_fills(
     proven = {fill.location: fill for fill in prove_host_zero_fills(host, env, config)}
     if not proven:
         return body
+    return _rewrite_fills(body, proven)
+
+
+class _ProvenFill(Protocol):
+    @property
+    def statement(self) -> str: ...
+
+
+def walk_proven_fills(
+    body: Sequence[ast.AST],
+    proven: Mapping[SourceLocation, _F],
+    replace: Callable[[ast.AST, _F], Sequence[ast.AST]],
+) -> list[ast.AST]:
+    """``body`` with every proven fill replaced by ``replace(statement, fill)``.
+
+    A statement is a proven fill when ``proven`` has its ``_location`` and the
+    fill's recorded text is the statement's unparsed text; the walk descends in
+    place into both branches of every ``if`` (a fill under a constexpr branch
+    is matched by its own location and text, the other branch never matches),
+    padding a branch the replacement emptied with ``pass``.  The remainder
+    fills (``host_remainder_fills``) and the zero fills share this traversal so
+    the matching rule stays in step with ``fold_constexpr_branches`` in one
+    place.
+    """
     result: list[ast.AST] = []
     for statement in body:
         fill = (
@@ -604,18 +808,37 @@ def lower_host_zero_fills(
             if isinstance(statement, ExtendedAST)
             else None
         )
-        if fill is None or ast.unparse(statement) != fill.statement:
-            result.append(statement)
+        if fill is not None and ast.unparse(statement) == fill.statement:
+            result.extend(replace(statement, fill))
             continue
+        if isinstance(statement, ast.If):
+            statement.body = cast(
+                "list[ast.stmt]", walk_proven_fills(statement.body, proven, replace)
+            ) or [ast.Pass()]
+            statement.orelse = cast(
+                "list[ast.stmt]", walk_proven_fills(statement.orelse, proven, replace)
+            )
+        result.append(statement)
+    return result
+
+
+def _rewrite_fills(
+    body: Sequence[ast.AST], proven: dict[SourceLocation, ZeroFill]
+) -> list[ast.AST]:
+    """Replace the proven fills in ``body`` (and under its ``if`` branches) by
+    their empty-factory form."""
+
+    def replace(statement: ast.AST, fill: ZeroFill) -> list[ast.AST]:
         assert isinstance(statement, ast.Assign)
         value = statement.value
         assert isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
-        result.append(
+        return [
             statement_from_string(
                 f"{fill.target} = {_factory_call_source(value, _EMPTY_FACTORY[fill.factory])}"
             )
-        )
-    return result
+        ]
+
+    return walk_proven_fills(body, proven, replace)
 
 
 def _factory_call_source(call: ast.Call, attr: str) -> str:

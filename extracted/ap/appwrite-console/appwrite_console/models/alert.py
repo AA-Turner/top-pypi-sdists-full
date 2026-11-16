@@ -3,6 +3,7 @@ from pydantic import Field, PrivateAttr, model_validator
 
 from .base_model import AppwriteModel
 from ..enums.alert_status import AlertStatus
+from ..enums.alert_severity import AlertSeverity
 from ..enums.alert_metric import AlertMetric
 from ..enums.alert_comparator import AlertComparator
 from ..enums.monitor_type import MonitorType
@@ -37,8 +38,10 @@ class Alert(AppwriteModel):
         Name of the user who acknowledged the alert, when they did.
     rules : List[Any]
         The monitor&#039;s rules when the alert fired, as query strings.
+    severity : AlertSeverity
+        The monitor&#039;s severity when the alert fired: `info`, `warning`, `error` or `critical`.
     critical : bool
-        Whether the monitor was critical when the alert fired.
+        Deprecated: use `severity`. Whether the monitor was critical when the alert fired.
     metric : AlertMetric
         Metric the alert fired on.
     comparator : AlertComparator
@@ -70,6 +73,7 @@ class Alert(AppwriteModel):
     acknowledgedby: str = Field(..., alias='acknowledgedBy')
     acknowledgedbyname: str = Field(..., alias='acknowledgedByName')
     rules: List[Any] = Field(..., alias='rules')
+    severity: AlertSeverity = Field(..., alias='severity')
     critical: bool = Field(..., alias='critical')
     metric: AlertMetric = Field(..., alias='metric')
     comparator: AlertComparator = Field(..., alias='comparator')
@@ -106,6 +110,8 @@ class Alert(AppwriteModel):
             data['acknowledgedByName'] = ''
         if 'rules' not in data:
             data['rules'] = []
+        if 'severity' not in data:
+            data['severity'] = 'warning'
         if 'critical' not in data:
             data['critical'] = False
         if 'metric' not in data:

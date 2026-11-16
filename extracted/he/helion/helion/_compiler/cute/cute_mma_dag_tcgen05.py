@@ -87,6 +87,7 @@ from .cute_mma_dag import AXIS_LEAD
 from .cute_mma_dag import AXIS_LOOP
 from .cute_mma_dag import AXIS_RDIM
 from .cute_mma_dag import AXIS_ROOT
+from .cute_mma_dag import MMA_DAG_CLUSTER_KEY
 from .cute_mma_dag import MMA_DAG_DERIVED_EXCHANGE
 from .cute_mma_dag import MMA_DAG_DERIVED_PASS
 from .cute_mma_dag import MMA_DAG_EPILOGUE_KEY
@@ -94,6 +95,7 @@ from .cute_mma_dag import MMA_DAG_EPILOGUE_ROW
 from .cute_mma_dag import MMA_DAG_EPILOGUE_SPLIT
 from .cute_mma_dag import MMA_DAG_EXCHANGE_AUTO
 from .cute_mma_dag import MMA_DAG_K_STEP
+from .cute_mma_dag import MMA_DAG_KEY
 from .cute_mma_dag import MMA_DAG_LOADS_TMA
 from .cute_mma_dag import MMA_DAG_LOOKAHEAD_KEY
 from .cute_mma_dag import MMA_DAG_LOOKAHEAD_OFF
@@ -103,6 +105,7 @@ from .cute_mma_dag import MMA_DAG_PASS_WARPS_MMA
 from .cute_mma_dag import MMA_DAG_PASS_WARPS_OFF
 from .cute_mma_dag import MMA_DAG_SPLIT_FIXUP
 from .cute_mma_dag import MMA_DAG_STAGE_CHOICES
+from .cute_mma_dag import MMA_DAG_STAGES_KEY
 from .cute_mma_dag import MMA_DAG_STORE_STAGED
 from .cute_mma_dag import MMA_DAG_TCGEN05
 from .cute_mma_dag import MMA_DAG_WARPS_KEY
@@ -121,23 +124,27 @@ from .cute_mma_dag import Dot
 from .cute_mma_dag import MmaDagPlan
 from .cute_mma_dag import MmaDagProgram
 from .cute_mma_dag import Operand
+from .cute_mma_dag import Reason
 from .cute_mma_dag import Store
 from .cute_mma_dag import _decline
 from .cute_mma_dag import _is_call
 from .cute_mma_dag import _storage
 from .cute_mma_dag import mma_dag_ctas_per_sm
 from .cute_mma_dag import staged_store_reason
-from .cute_mma_dag_codegen import _RUNTIME
-from .cute_mma_dag_codegen import Coords
-from .cute_mma_dag_codegen import _broadcast
-from .cute_mma_dag_codegen import _Emitter
-from .cute_mma_dag_codegen import _Evaluator
-from .cute_mma_dag_codegen import _Hoist
-from .cute_mma_dag_codegen import _shape
 from .cute_mma_dag_codegen import emit_mma_dag_module_statements
 from .cute_mma_dag_codegen import mma_dag_alias_plan
+from .cute_mma_dag_emitter_base import _RUNTIME
+from .cute_mma_dag_emitter_base import TMA_KIND
+from .cute_mma_dag_emitter_base import Coords
+from .cute_mma_dag_emitter_base import MmaDagEmitterBase
+from .cute_mma_dag_emitter_base import _Evaluator
+from .cute_mma_dag_emitter_base import _Hoist
+from .cute_mma_dag_emitter_base import _shape
+from .cute_mma_dag_emitter_base import _TmaMap
+from .cute_mma_dag_emitter_base import tma_wrapper_plan
 from .cute_warp_mma_gemm import _swizzled_chunk
 from .matmul_utils import strip_new_vars
+from .state import cute_codegen_state
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -227,7 +234,6 @@ TMA_MAX_MAPS = 16
 # the wait for the previous iteration's groups must precede the commit the
 # other threads wait for before reusing a staging buffer.
 TMA_STORE_THREAD = 0
-TMA_KIND = "helion_mma_dag_tma"
 _SWIZZLE_BY_ROW_BYTES = {32: "s32b", 64: "s64b", 128: "s128b"}
 # The 32-bit MN-major UMMA layout: 128-byte rows whose 32-byte units XOR with
 # the row mod 4 (``Swizzle<2,5,2>``); the descriptor's stride byte offset is
@@ -517,6 +523,16 @@ def tcgen05_facts(program: MmaDagProgram) -> Tcgen05Facts | None:
         from .cute_mma_dag_tcgen05_regions import region_facts
 
         return region_facts(program)
+    if any(axis.kind == AXIS_LOOP for axis in program.tile_index_loads.values()):
+        # A derived value reads a loop axis's ``tile.index`` (gdn_fwd_h's
+        # token mask ``t_i.index < seqlen``).  This emitter evaluates the
+        # loop's derived values ahead of the loop (the table prologue) and
+        # one iteration ahead inside it with the current iteration's loop
+        # axis base (``axis_base``): the position would be undefined there
+        # and off by one tile here.  The warp emitter evaluates them inside
+        # their iteration (the region renderer, dispatched above, walks the
+        # iteration it evaluates).
+        return None
     # A loop output computed in another slot (a no-acc dot over the carry,
     # a rescaled accumulator whose leaf an operand reads) is copied back into
     # the carry's registers at the iteration end by the warp emitter; this
@@ -861,11 +877,12 @@ def tcgen05_persistent_staging(
     return staging
 
 
-def tcgen05_warps_reason(warps: object) -> str | None:
+def tcgen05_warps_reason(warps: object) -> Reason | None:
     if type(warps) is not int or warps not in TCGEN05_WARP_CHOICES:
-        return (
+        return Reason(
             f"{MMA_DAG_WARPS_KEY} {warps!r} must be one of {TCGEN05_WARP_CHOICES} "
-            f"for {MMA_DAG_TCGEN05}"
+            f"for {MMA_DAG_TCGEN05}",
+            MMA_DAG_WARPS_KEY,
         )
     return None
 
@@ -880,7 +897,7 @@ def tcgen05_config_reason(
     lookahead: str = MMA_DAG_LOOKAHEAD_OFF,
     persistent: bool = False,
     pass_warps: str = MMA_DAG_PASS_WARPS_OFF,
-) -> str | None:
+) -> Reason | None:
     """Why the resolved block sizes cannot run the tcgen05 mode (None: they
     can).  The caller checked the warp / stage choices, the power-of-two and
     divisibility rules and the dot K step; ``derived`` is the
@@ -895,54 +912,64 @@ def tcgen05_config_reason(
     their accumulators in tensor memory)."""
     tc = facts.tcgen05
     if tc is None:
-        return f"the kernel or the target does not admit {MMA_DAG_TCGEN05}"
+        return Reason(
+            f"the kernel or the target does not admit {MMA_DAG_TCGEN05}", MMA_DAG_KEY
+        )
     split = epilogue == MMA_DAG_EPILOGUE_SPLIT
     if split:
         from .cute_mma_dag import mma_dag_epilogue_reason
 
         reason = mma_dag_epilogue_reason(facts, warps, MMA_DAG_TCGEN05)
         if reason is not None:
-            return f"{MMA_DAG_EPILOGUE_KEY}={epilogue!r}: {reason}"
+            return Reason(
+                f"{MMA_DAG_EPILOGUE_KEY}={epilogue!r}: {reason}", MMA_DAG_EPILOGUE_KEY
+            )
     ahead = lookahead == MMA_DAG_LOOKAHEAD_ON
     if ahead:
         from .cute_mma_dag import mma_dag_lookahead_reason
 
         reason = mma_dag_lookahead_reason(facts, stages, MMA_DAG_TCGEN05)
         if reason is not None:
-            return f"{MMA_DAG_LOOKAHEAD_KEY}={lookahead!r}: {reason}"
+            return Reason(
+                f"{MMA_DAG_LOOKAHEAD_KEY}={lookahead!r}: {reason}",
+                MMA_DAG_LOOKAHEAD_KEY,
+            )
     if (
         facts.split_axis >= 0
         and resolved[facts.split_axis] != facts.axes[facts.split_axis].extent
         and not tc.regions
     ):
-        return "the cluster split of a full-slice axis needs the region renderer"
+        return Reason(
+            "the cluster split of a full-slice axis needs the region renderer",
+            MMA_DAG_CLUSTER_KEY,
+        )
     for rows, cols in facts.frags:
         bm, bn = resolved[rows], resolved[cols]
         if bm not in TCGEN05_M_CHOICES:
-            return f"a tcgen05 tile needs {TCGEN05_M_CHOICES} rows, not {bm}"
+            return Reason(f"a tcgen05 tile needs {TCGEN05_M_CHOICES} rows, not {bm}")
         if bn % 8 or bn > TCGEN05_MAX_N:
-            return (
+            return Reason(
                 "a tcgen05 tile needs columns in multiples of 8 up to "
                 f"{TCGEN05_MAX_N}, not {bn}"
             )
         if split and tcgen05_thread_cols(bm, bn, split=True) < TCGEN05_SPLIT_MIN_COLS:
             # The exchange tiles, staging tiles and aux reads move 16-byte
             # packets of the thread's columns: eight 16-bit elements at least.
-            return (
+            return Reason(
                 f"the split epilogue leaves a thread {tcgen05_thread_cols(bm, bn, split=True)} "
                 f"columns of a {bm}x{bn} fragment (at least {TCGEN05_SPLIT_MIN_COLS})"
             )
     columns = tcgen05_slot_columns(facts, resolved, split, ahead)
     if columns > TCGEN05_MAX_TMEM_COLS:
-        return (
+        return Reason(
             f"the fragments need {columns} TMEM columns (limit {TCGEN05_MAX_TMEM_COLS})"
         )
     for tile in tc.tiles:
         rows, cols = resolved[tile.rows], resolved[tile.cols]
         if rows > TCGEN05_MAX_ROWS:
-            return f"an operand tile of {rows} rows exceeds the TMA box"
+            return Reason(f"an operand tile of {rows} rows exceeds the TMA box")
         if tcgen05_atom_bytes(cols * tile.elem_bytes) is None:
-            return (
+            return Reason(
                 f"an operand tile of {cols} contiguous {tile.elem_bytes}-byte "
                 "elements has no swizzled UMMA layout (32 / 64 bytes or "
                 "multiples of 128)"
@@ -950,18 +977,18 @@ def tcgen05_config_reason(
     for exchange in tc.exchanges:
         cols = resolved[exchange.cols]
         if tcgen05_atom_bytes(cols * exchange.elem_bytes) is None:
-            return (
+            return Reason(
                 f"a fragment operand of {cols} columns has no swizzled UMMA "
                 "layout (32 / 64 bytes or multiples of 128)"
             )
     for tile in tc.tiles:
         if tile.passed and tile.elem_bytes == 4 and tile.source_bytes == 4:
-            return "no in-place pass over fp32 (the pass rewrites 16-bit pairs)"
+            return Reason("no in-place pass over fp32 (the pass rewrites 16-bit pairs)")
     for index, cols in enumerate(tc.derived_cols):
         frags = tc.derived_frags[index] if split and tc.derived_frags else ()
         live = tcgen05_live_cols(resolved, cols, frags, split and bool(frags))
         if live > TCGEN05_MAX_DERIVED_COLS:
-            return (
+            return Reason(
                 f"a derived value holds {live} fp32 columns per thread in "
                 f"registers (limit {TCGEN05_MAX_DERIVED_COLS})"
             )
@@ -980,9 +1007,10 @@ def tcgen05_config_reason(
         )
     smem = tcgen05_smem_bytes(facts, resolved, stages, True)
     if facts.smem_capacity and smem > facts.smem_capacity:
-        return (
+        return Reason(
             f"{stages} tcgen05 stages need {smem} B of shared memory "
-            f"(capacity {facts.smem_capacity})"
+            f"(capacity {facts.smem_capacity})",
+            MMA_DAG_STAGES_KEY,
         )
     return None
 
@@ -1606,16 +1634,11 @@ def tcgen05_corner_seeds(
 
 
 @dataclasses.dataclass(frozen=True)
-class TmaSpec:
-    """One host-built tensor map: the kernel parameter, the tensor dims in
-    TMA order, the box (same order) and the shared slab it fills."""
+class TmaSpec(_TmaMap):
+    """One host-built tensor map (``_TmaMap``: the kernel parameter, the
+    tensor dims in TMA order, the box, the swizzle) and the shared slab it
+    fills."""
 
-    index: int
-    param: str
-    access: Access
-    dims: tuple[int, ...]
-    box: tuple[int, ...]
-    swizzle: str
     # Position (in ``dims``) of the contiguous dim the slabs step along, and
     # the step in elements (the atom width).
     slab_dim: int
@@ -1845,7 +1868,7 @@ class Tcgen05Plan:
     tmem_operands: dict[tuple[Node, str], int] = dataclasses.field(default_factory=dict)
     # Region programs under ``cute_mma_dag_pass_warps='mma'``: one warp
     # beyond ``warps`` issues the streamed loops' MMAs and ring refills while
-    # the config's warps run the operand passes (``_Tcgen05RegionEmitter``).
+    # the config's warps run the operand passes (``Tcgen05RegionMmaDagEmitter``).
     mma_warp: bool = False
 
     @property
@@ -2281,17 +2304,13 @@ def codegen_mma_dag_tcgen05(cg: GenerateAST, plan: MmaDagPlan) -> None:
     assert tc is not None
     df = cg.device_function
     emit_mma_dag_module_statements(cg)
-    emitted = getattr(cg, "_helion_mma_dag_tc_module_emitted", False)
-    if not emitted:
-        cg._helion_mma_dag_tc_module_emitted = True  # type: ignore[attr-defined]
-        for stmt in ast.parse(_PREAMBLE).body:
-            cg.module_statements.append(stmt)
+    cg.ensure_module_statements(_PREAMBLE)
     if tc.regions:
-        from .cute_mma_dag_tcgen05_regions import _Tcgen05RegionEmitter
+        from .cute_mma_dag_tcgen05_regions import Tcgen05RegionMmaDagEmitter
 
-        emitter: _Tcgen05Emitter = _Tcgen05RegionEmitter(cg, plan)
+        emitter: Tcgen05MmaDagEmitter = Tcgen05RegionMmaDagEmitter(cg, plan)
     else:
-        emitter = _Tcgen05Emitter(cg, plan)
+        emitter = Tcgen05MmaDagEmitter(cg, plan)
     source = emitter.render()
     if plan.persistent:
         # The generic persistent program ids wrap the body in the tile loop:
@@ -2311,40 +2330,32 @@ def codegen_mma_dag_tcgen05(cg: GenerateAST, plan: MmaDagPlan) -> None:
     else:
         for statement in ast.parse(textwrap.dedent(source)).body:
             cg.add_statement(statement)
+    wrapper_plans = cute_codegen_state(cg).wrapper_plans
     if tc.tma:
-        wrapper: dict[str, object] = {"kind": TMA_KIND, "tma_count": len(tc.tma)}
-        for spec in tc.tma:
-            name = emitter.tensor_names[spec.access.node]
-            wrapper[f"tma{spec.index}_name"] = name
-            wrapper[f"tma{spec.index}_param"] = spec.param
-            wrapper[f"tma{spec.index}_dims"] = list(spec.dims)
-            wrapper[f"tma{spec.index}_box"] = list(spec.box)
-            wrapper[f"tma{spec.index}_swizzle"] = spec.swizzle
-            wrapper[f"tma{spec.index}_elem"] = spec.access.dtype.itemsize
-            df.wrapper_only_params.append(spec.param)
-            df.wrapper_only_param_annotations[spec.param] = (
-                f"cutlass.GridConstant[{_RT}.cuda.TensorMap]"
+        wrapper_plans.append(
+            tma_wrapper_plan(
+                df, tc.tma, lambda access: emitter.tensor_names[access.node]
             )
-        cg.cute_wrapper_plans.append(wrapper)
+        )
     alias_plan = mma_dag_alias_plan(df, plan.program)
     if getattr(emitter, "pdl", False):
         # The renderer placed the griddepcontrol calls itself; the launcher
         # still needs the programmatic-dependent-launch attribute.
         alias_plan["use_pdl"] = True
-    cg.cute_wrapper_plans.append(alias_plan)
-    df.cute_state.owned_root_block_dims = (plan.launch_threads, 1, 1)
+    wrapper_plans.append(alias_plan)
+    df.cute_state.lanes.owned_root_block_dims = (plan.launch_threads, 1, 1)
     if plan.cluster > 1 and plan.split_mode == MMA_DAG_SPLIT_FIXUP:
         # The fixup grid: ``cluster`` N tiles per root tile folded into the
         # one launch dim (the N tile fastest, so a row tile's CTAs launch
         # together), and the workspace of their row-sum exchange, allocated
         # by the launcher (``helion_mma_dag_fixup``) and passed as an Int64
         # pointer after the ordinary arguments.
-        from .cute_mma_dag_tcgen05_regions import _Tcgen05RegionEmitter
+        from .cute_mma_dag_tcgen05_regions import Tcgen05RegionMmaDagEmitter
 
-        assert isinstance(emitter, _Tcgen05RegionEmitter)
-        df.cute_state.launch_grid_multiplier = plan.cluster
+        assert isinstance(emitter, Tcgen05RegionMmaDagEmitter)
+        df.cute_state.lanes.launch_grid_multiplier = plan.cluster
         if emitter.split_reduces:
-            cg.cute_wrapper_plans.append(
+            wrapper_plans.append(
                 {
                     "kind": "helion_mma_dag_fixup",
                     "param": FIXUP_WORKSPACE_PARAM,
@@ -2359,7 +2370,7 @@ def codegen_mma_dag_tcgen05(cg: GenerateAST, plan: MmaDagPlan) -> None:
     elif plan.cluster > 1:
         # The launch adds a trailing grid dim of ``cluster`` CTAs forming
         # one thread-block cluster per root tile.
-        df.cute_state.grid_cluster_n = plan.cluster
+        df.cute_state.lanes.grid_cluster_n = plan.cluster
 
 
 class _PassEvaluator(_Evaluator):
@@ -2370,12 +2381,12 @@ class _PassEvaluator(_Evaluator):
     round-to-nearest-even is the same rounding (one ``cvt`` per pair instead
     of two scalar ones per element)."""
 
-    def __init__(self, emitter: _Emitter) -> None:
+    def __init__(self, emitter: MmaDagEmitterBase) -> None:
         super().__init__(emitter)
         self.round_root: Node | None = None
 
     def evaluate(self, node: Node, coords: Coords) -> str:
-        em = cast("_Tcgen05Emitter", self.emitter)
+        em = cast("Tcgen05MmaDagEmitter", self.emitter)
         if em.table_recording is not None:
             if node in em.table_nodes:
                 em.table_recording.append((node, coords))
@@ -2406,8 +2417,11 @@ class _PassEvaluator(_Evaluator):
         return super().evaluate(node, coords)
 
     def _load(self, node: Node, coords: Coords) -> str:
-        em = cast("_Tcgen05Emitter", self.emitter)
+        em = cast("Tcgen05MmaDagEmitter", self.emitter)
         access = em.accesses[node]
+        if access.grouped:
+            # These scalar accesses have no affine vector prefetch protocol.
+            return super()._load(node, coords)
         if len(access.tile_dims) == 2:
             # A tile leaf: nothing to record (the scratch render has none).
             if em.table_recording is not None:
@@ -2441,7 +2455,7 @@ class _PassEvaluator(_Evaluator):
         read the registers.  None where the renderer has no packet cache,
         the access varies with a loop, is not contiguous, or the column is
         not a static local column (``(md_cb{slot} + j)`` or ``j``)."""
-        em = cast("_Tcgen05Emitter", self.emitter)
+        em = cast("Tcgen05MmaDagEmitter", self.emitter)
         packets = em.side_packets
         if packets is None or len(access.tile_dims) != 1 or em.loop_dependent(access):
             return None
@@ -2492,42 +2506,8 @@ class _PassEvaluator(_Evaluator):
     def _lowered(self, node: Node, coords: Coords) -> str:
         import ast
 
-        from torch._inductor.virtualized import V
-        from torch.fx.node import map_arg
-
-        from ..ast_extension import expr_from_string
-        from ..aten_lowering import AtenLowering
-        from ..aten_lowering import LoweringContext
-        from ..inductor_lowering import PointwiseLowering
-
-        lowering = node.meta.get("lowering")
+        result, statements = self._lower_pointwise(node, coords)
         em = self.emitter
-        shape = _shape(node)
-        env: dict[Node, object] = {}
-
-        def visit(value: Node) -> Node:
-            if value not in env:
-                env[value] = expr_from_string(
-                    self.evaluate(value, _broadcast(coords, shape, _shape(value)))
-                )
-            return value
-
-        map_arg((node.args, {**node.kwargs, "_extra_deps": None}), visit)
-        ctx = LoweringContext.__new__(LoweringContext)
-        ctx.cg = em.cg
-        ctx.env = env  # pyrefly: ignore[bad-assignment]
-        statements: list[ast.AST] = []
-        with em.cg.set_statements(statements), V.set_current_node(node):
-            if isinstance(lowering, PointwiseLowering):
-                result = lowering.codegen_from_input_asts(
-                    ctx, node, lowering.input_asts(ctx, node)
-                )
-            elif isinstance(lowering, AtenLowering):
-                result = lowering.codegen(ctx, node)
-            else:
-                raise _decline(f"{node.name} is not a pointwise value")
-        if not isinstance(result, ast.AST):
-            raise _decline(f"invalid pointwise result for {node.name}")
         if node is self.round_root:
             val = node.meta.get("val")
             dtype = val.dtype if isinstance(val, torch.Tensor) else None
@@ -2559,13 +2539,10 @@ class _PassEvaluator(_Evaluator):
                     and ast.unparse(result.func) == cast_name
                 ):
                     result = result.args[0]
-        for statement in statements:
-            for line in ast.unparse(ast.fix_missing_locations(statement)).splitlines():
-                em.emit(line)
-        return em.bind("md_v", ast.unparse(result))
+        return self._emit_lowered(result, statements)
 
 
-class _Tcgen05Emitter(_Emitter):
+class Tcgen05MmaDagEmitter(MmaDagEmitterBase):
     """The tcgen05 renderer: the warp emitter's evaluator, addressing and
     pointwise machinery over TMEM-resident fragments (one row per epilogue
     thread, 64 columns per load) and UMMA-swizzled shared tiles."""
@@ -2609,7 +2586,7 @@ class _Tcgen05Emitter(_Emitter):
         self.values = {}
         self.raw_stages = {}
         # The warp emitter's ring-slot aliases of vector loads
-        # (``_Emitter._ring_aliases``) have no subject here: this mode's
+        # (``WarpMmaDagEmitter._ring_aliases``) have no subject here: this mode's
         # ring is TMA-fed and its side loads are hoisted through
         # ``prefetched``; every vector load keeps its global read.
         self.ring_aliases = {}
@@ -2671,6 +2648,7 @@ class _Tcgen05Emitter(_Emitter):
             32 * TCGEN05_EPILOGUE_WARPS if tc.pass_warps else plan.threads
         )
         self.loop_var = "md_i"
+        self.bounded_ordinal: str | None = None
         self.tensor_names: dict[Node, str] = {}
         # Name prefix of the fragment row vectors (``md_v{slot}_{chunk}``).
         self.vec = "md_v"
@@ -2840,7 +2818,7 @@ class _Tcgen05Emitter(_Emitter):
         finally:
             self.row_guards -= 1
 
-    def reg(self, slot: int, *key: object) -> str:  # type: ignore[override]
+    def reg(self, slot: int, *key: object) -> str:
         chunk, j = key
         prefix = self.slot_regs.get(slot, f"{self.vec}{slot}_")
         return f"{prefix}{chunk}[{j}]"
@@ -3148,7 +3126,7 @@ class _Tcgen05Emitter(_Emitter):
         self.fold_root(operand.value)
         return operand.value
 
-    def emit_sync_pass(  # type: ignore[override]
+    def emit_sync_pass(
         self, tile: Tcgen05Tile, stage: str, idx_base: str, threads: int
     ) -> None:
         """Cooperative pass for a source TMA cannot fetch: element pairs
@@ -3184,8 +3162,12 @@ class _Tcgen05Emitter(_Emitter):
             lo, hi = self.pair_load(
                 address, load.dtype, paired, readonly=self.readonly(load)
             )
-            self.evaluator.tile_leaves[(load.node, 0)] = lo
-            self.evaluator.tile_leaves[(load.node, 1)] = hi
+            if load.dtype in (torch.int8, torch.uint8):
+                self.set_tile_leaf(load, 0, lo)
+                self.set_tile_leaf(load, 1, hi)
+            else:
+                self.evaluator.tile_leaves[(load.node, 0)] = lo
+                self.evaluator.tile_leaves[(load.node, 1)] = hi
             values = []
             for half in range(2):
                 self.evaluator.element = half
@@ -3207,7 +3189,7 @@ class _Tcgen05Emitter(_Emitter):
             if nest is not None:
                 nest.__exit__(None, None, None)
 
-    def emit_inplace_pass(  # type: ignore[override]
+    def emit_inplace_pass(
         self, tile: Tcgen05Tile, stage: str, idx_base: str, threads: int
     ) -> None:
         """Rewrite the landed tile's packets through the pointwise DAG in
@@ -3359,7 +3341,52 @@ class _Tcgen05Emitter(_Emitter):
         for rep, (prow, _pch, _guard) in enumerate(rounds):
             self.round_of[prow] = (rep * per, cpr)
 
-    def emit_convert_pass(  # type: ignore[override]
+    def emit_byte_convert_pass(
+        self, tile: Tcgen05Tile, stage: str, idx_base: str, threads: int
+    ) -> None:
+        """Convert sixteen raw bytes into two swizzled 16-bit packets."""
+        operand = tile.operand
+        load = operand.load
+        assert load is not None and load.dtype in (torch.int8, torch.uint8)
+        assert tile.elem_bytes == 2 and tile.route == ROUTE_CONVERT
+        value = self.pass_value(operand)
+        self.hoist_scalars(value)
+        raw_cpr = tile.raw_row_bytes // 16
+
+        def packet_load(prow: str, pch: str) -> list[str]:
+            words = [self.df.new_var("md_w") for _ in range(4)]
+            self.emit(
+                f"{', '.join(words)} = {_RUNTIME}.lds_v4_b32({self.raw_address(tile, stage, prow, pch)})"
+            )
+            return words
+
+        def rewrite(words: list[str], prow: str, pch: str) -> None:
+            self.set_byte_packet(load, words)
+            packed = []
+            for q in range(8):
+                pair = []
+                for e in (2 * q, 2 * q + 1):
+                    self.evaluator.element = e
+                    coords = self.tile_coords(operand, prow, f"({pch} * 16 + {e})")
+                    pair.append(self.evaluator.unrounded(value, coords))
+                self.evaluator.element = None
+                packed.append(self.pack(pair[0], pair[1], operand.dtype))
+            for half in range(2):
+                chunk = f"({pch} * 2 + {half})"
+                self.emit(
+                    f"{_RUNTIME}.sts_v4_b32({self.tile_address(tile, stage, prow, chunk)}, "
+                    f"{', '.join(packed[4 * half : 4 * half + 4])})"
+                )
+
+        self.emit_pipelined_pass(
+            self.packet_rounds(
+                tile.rows * raw_cpr, threads, idx_base, raw_cpr, tile.tag
+            ),
+            packet_load,
+            rewrite,
+        )
+
+    def emit_convert_pass(
         self, tile: Tcgen05Tile, stage: str, idx_base: str, threads: int
     ) -> None:
         """Rewrite the raw fp32 tile (linear rows) through the pointwise DAG
@@ -3367,6 +3394,9 @@ class _Tcgen05Emitter(_Emitter):
         operand = tile.operand
         load = operand.load
         assert load is not None
+        if load.dtype in (torch.int8, torch.uint8):
+            self.emit_byte_convert_pass(tile, stage, idx_base, threads)
+            return
         value = self.pass_value(operand)
         self.hoist_scalars(value)
         raw_cpr = tile.raw_row_bytes // 16
@@ -3465,7 +3495,7 @@ class _Tcgen05Emitter(_Emitter):
         finally:
             self.sync = sync
 
-    def emit_derived_pass(  # type: ignore[override]
+    def emit_derived_pass(
         self, tile: Tcgen05Tile, stage: str, idx_base: str, threads: int
     ) -> None:
         """A pass chain's operand tile from its staged sources: the region
@@ -3781,8 +3811,10 @@ class _Tcgen05Emitter(_Emitter):
         """This thread's table entries (those of ``window``, or all) for
         iteration ``loop_value``, from the vectors read at that iteration's
         bases."""
-        saved = (self.iter_vars, self.evaluator)
+        saved = (self.iter_vars, self.evaluator, self.values)
         self.iter_vars = dict(saved[0])
+        # Pointwise index expressions must use the same iteration as the loads.
+        self.values = {**self.values, 0: loop_value}
         for access in self.program.accesses:
             if self.loop_dependent(access):
                 self.iter_vars[access.node] = self.iteration_base(access, loop_value)
@@ -3799,7 +3831,7 @@ class _Tcgen05Emitter(_Emitter):
             result = self.evaluator.evaluate(*key)
             self.emit(f"{register} = cutlass.Float32({result})")
         self.computing_tables = False
-        self.iter_vars, self.evaluator = saved
+        self.iter_vars, self.evaluator, self.values = saved
 
     def emit_tables_ahead(self, loop: str, end: str, window: int) -> None:
         """The next iteration's table entries of ``window`` (after a batch
@@ -4061,7 +4093,7 @@ class _Tcgen05Emitter(_Emitter):
             f"{name}[0:{self.chunk_cols(slot, chunk)}]{self.ld_offset(slot)})"
         )
 
-    def emit_carry_init(self) -> None:  # type: ignore[override]
+    def emit_carry_init(self) -> None:
         """Seed the TMEM carries: zeros, or this thread's row of the init tile."""
         with self.block("if md_epi:"):
             for carry in self.program.carries:
@@ -4225,9 +4257,7 @@ class _Tcgen05Emitter(_Emitter):
                         return True
         return False
 
-    def emit_derived(  # type: ignore[override]
-        self, step: Derived, loaded: set[int]
-    ) -> None:
+    def emit_derived(self, step: Derived, loaded: set[int]) -> None:
         """Materialize a derived fragment: its pointwise DAG per element of
         this thread's row over the input fragments' rows (loaded on demand)
         and the 2-D tile inputs read as pairs at the element's coordinates
@@ -4315,7 +4345,7 @@ class _Tcgen05Emitter(_Emitter):
             f"+ {_swizzled_chunk(row, local, 8)} * 16"
         )
 
-    def emit_stage_in(  # type: ignore[override]
+    def emit_stage_in(
         self,
         store: Store,
         parity: str,
@@ -4377,7 +4407,7 @@ class _Tcgen05Emitter(_Emitter):
         if evaluate:
             self.evaluator.leave_frag()
 
-    def emit_stage_out(  # type: ignore[override]
+    def emit_stage_out(
         self, store: Store, parity: str, loop_value: str, idx: str, threads: int
     ) -> None:
         """Staging buffer -> global memory as 16-byte packets, round-robin
@@ -4509,7 +4539,7 @@ class _Tcgen05Emitter(_Emitter):
 
     # -- the body -----------------------------------------------------------------
 
-    def render(self) -> str:  # type: ignore[override]
+    def render(self) -> str:
         tc, plan, program = self.tc, self.plan, self.program
         self.dot_index = {dot.node: i for i, dot in enumerate(program.dots)}
         self.emit("md_tidx, _, _ = cute.arch.thread_idx()")
@@ -4685,6 +4715,11 @@ class _Tcgen05Emitter(_Emitter):
                     self.emit_epilogue_tma_issue()
         self.emit(self.sync)
         self.table_lookup = True
+        self.bounded_ordinal = (
+            "md_ring" if self.phase_base is None and self.wide_loop_bounds() else None
+        )
+        if self.bounded_ordinal is not None:
+            self.emit(f"{self.bounded_ordinal} = cutlass.Int32(0)")
         if tc.pass_warps:
             # Warps 4-7 rewrite the operand tiles as their TMA lands, up to
             # S - 1 tiles ahead; the epilogue warps run the chain on their
@@ -4701,6 +4736,8 @@ class _Tcgen05Emitter(_Emitter):
                     self.emit_general_iteration(begin, end)
                 else:
                     self.emit_iteration(begin, end)
+                if self.bounded_ordinal is not None:
+                    self.advance_ring_counter(self.bounded_ordinal, 2 * tc.stages)
             self.sync = "cute.arch.barrier()"
         else:
             # Loop-invariant per-thread side loads (a scalar read by a pass)
@@ -4720,6 +4757,8 @@ class _Tcgen05Emitter(_Emitter):
                     self.emit_general_iteration(begin, end)
                 else:
                     self.emit_iteration(begin, end)
+                if self.bounded_ordinal is not None:
+                    self.advance_ring_counter(self.bounded_ordinal, 2 * tc.stages)
             self.hoists.pop()
         self.table_lookup = False
         if self.epilogue_sites and not self.epilogue_sites_in_loop:
@@ -4787,7 +4826,9 @@ class _Tcgen05Emitter(_Emitter):
         tile's coordinates): a single static-trip TMA ring without pass
         warps, epilogue tiles or TMA stores, over the generic
         persistent_interleaved program ids (their mixed-radix decomposition
-        of ``virtual_pid + grid`` gives the next tile)."""
+        of ``virtual_pid + grid`` gives the next tile). Table-loaded indices
+        are excluded: their current-tile bases cannot be reused for the
+        next tile's lookups."""
         tc = self.tc
         _begin, _end, trip = self.loop_bounds()
         if (
@@ -4795,6 +4836,7 @@ class _Tcgen05Emitter(_Emitter):
             or not tc.tx_bytes
             or tc.pass_warps
             or self.general_loop
+            or self.program.index_loads
             or tc.store_tma
             or not trip
         ):
@@ -5027,6 +5069,8 @@ class _Tcgen05Emitter(_Emitter):
                 32 * TCGEN05_EPILOGUE_WARPS,
             )
             self.emit(f"{_PRIMS}.mbarrier_arrive(md_pass + md_stage)")
+            if self.bounded_ordinal is not None:
+                self.advance_ring_counter(self.bounded_ordinal, 2 * self.tc.stages)
         (
             self.loop_var,
             self.iter_vars,
@@ -5040,10 +5084,14 @@ class _Tcgen05Emitter(_Emitter):
         ``md_i``; returns the iteration offset expression."""
         tc, program = self.tc, self.program
         loop = self.loop_var
-        offset = loop if begin == "0" else f"({loop} - {begin})"
+        offset = self.bounded_ordinal or (
+            loop if begin == "0" else f"({loop} - {begin})"
+        )
         if program.loop_axis is not None:
-            step = self.plan.size(program.loop_axis)
-            self.emit(f"{self.axis_base(program.loop_axis)} = {loop} * {step}")
+            self.emit(
+                f"{self.axis_base(program.loop_axis)} = "
+                f"{self.axis_product(program.loop_axis, loop)}"
+            )
         # The ring's full barriers count the CTA's iterations across its
         # tiles under a cross-tile prefetch (``phase_base``).
         ring = offset if self.phase_base is None else f"({self.phase_base} + {offset})"
@@ -5051,7 +5099,7 @@ class _Tcgen05Emitter(_Emitter):
         self.emit(f"md_round = ({ring} // {tc.stages}) & 1")
         return offset
 
-    def emit_iteration(self, begin: str, end: str) -> None:  # type: ignore[override]
+    def emit_iteration(self, begin: str, end: str) -> None:
         tc, program = self.tc, self.program
         loop = self.loop_var
         offset = self.emit_iteration_header(begin)
@@ -5747,7 +5795,7 @@ class _Tcgen05Emitter(_Emitter):
         self.emit(f"{_PRIMS}.tcgen05_fence({_PRIMS}.Tcgen05Fence.AFTER_THREAD_SYNC)")
         self.epilogue_commits += 1
 
-    def emit_exchange(self, tile: Tcgen05Tile) -> None:  # type: ignore[override]
+    def emit_exchange(self, tile: Tcgen05Tile) -> None:
         """Epilogue warps: the fragment operand's value (its pointwise chain
         over the finished accumulator) per element of this thread's row,
         packed into the UMMA exchange tile."""
@@ -5776,7 +5824,7 @@ class _Tcgen05Emitter(_Emitter):
                 address = self.tile_address(tile, "0", row, chunk)
                 self.emit(f"{_RUNTIME}.sts_v4_b32({address}, {', '.join(words)})")
 
-    def emit_epilogue(self) -> None:  # type: ignore[override]
+    def emit_epilogue(self) -> None:
         tc, program = self.tc, self.program
         dots = program.dots_in("epilogue")
         stores = program.stores_in("epilogue")

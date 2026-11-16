@@ -19,6 +19,9 @@ typedef struct {
     Py_ssize_t len;
     Py_ssize_t cap;
     int failed;
+    /* added to len for the attribute characters parser clones may still write: each clone attribute takes back twice
+       what it wrote, once as the output it is and once as the allowance it spent (see ser_clone_attr_fits) */
+    Py_ssize_t clone_credit;
 } sbuf;
 
 /* Grow the buffer so at least extra more code points fit, doubling so a run of
@@ -108,17 +111,20 @@ static inline void sbuf_put_utf8(sbuf *out, const char *bytes, Py_ssize_t len) {
         if (lead < 0x80) {
             character = lead;
             index += 1;
-        } else if (lead < 0xE0) {
+        } else if (lead < 0xE0 && index + 1 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
             character = (Py_UCS4)(lead & 0x1F) << 6 | ((unsigned char)bytes[index + 1] & 0x3F);
             index += 2;
-        } else if (lead < 0xF0) {
+        } else if (lead < 0xF0 && index + 2 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
             character = (Py_UCS4)(lead & 0x0F) << 12 | ((unsigned char)(bytes[index + 1] & 0x3F)) << 6 |
                         ((unsigned char)bytes[index + 2] & 0x3F);
             index += 3;
-        } else {
+        } else if (index + 3 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
             character = (Py_UCS4)(lead & 0x07) << 18 | ((unsigned char)(bytes[index + 1] & 0x3F)) << 12 |
                         ((unsigned char)(bytes[index + 2] & 0x3F)) << 6 | ((unsigned char)bytes[index + 3] & 0x3F);
             index += 4;
+        } else {                    /* GCOVR_EXCL_BR_LINE: a truncated tail, which the UTF-8 encoder never writes */
+            sbuf_putc(out, 0xFFFD); /* GCOVR_EXCL_LINE: unreachable from a test */
+            break;                  /* GCOVR_EXCL_LINE */
         }
         sbuf_putc(out, character);
     }

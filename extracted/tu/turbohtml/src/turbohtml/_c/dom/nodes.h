@@ -9,6 +9,7 @@
 
 #include "core/ascii.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
 #include "dom/tree.h"
 #include "dom/ownership.h"
 #include "query/xpath/xpath.h"
@@ -56,6 +57,7 @@ typedef struct {
     size_t mask; /* capacity - 1; capacity is a power of two */
     uint64_t id_version;
     int ci;
+    int keyed; /* 1 once the fill on FNV-1a walked past TH_FAST_PROBE_LIMIT and moved to the keyed hash */
 } path_id_map;
 
 typedef struct {
@@ -98,7 +100,31 @@ typedef struct {
     Py_ssize_t *index_offsets; /* th_tag_count + 2 entries; NULL until built */
     path_id_map *path_ids;     /* css_path id-occurrence map; NULL until first css_path */
     void *path_positions;
+    void *md_ordinals;          /* to_markdown's cache for list items (serialize/markdown.c); NULL until one needs it */
+    void *path_child_positions; /* xpath_path "*[n]" indices; NULL until a tag name needs one */
     node_hash_overrides *hash_overrides;
+    uint64_t hash_salt; /* unique to this handle; see handle_node_hash */
+    /* etree positional access: the element children last reached by position, so element[i] in a loop walks on from
+       the previous one. Valid while view_cursor_version equals mutation_version; see view_element_at. */
+    struct view_cursor {
+        th_node *parent;
+        th_node *child;
+        Py_ssize_t skip; /* element siblings before child (forward) or after it */
+        int forward;
+    } view_cursors[4];
+    uint64_t view_cursor_version;
+    unsigned view_cursor_next;
+    /* Range child offsets: children recently mapped to or from their index, so a loop of Range calls over a long child
+       list steps from the last one it used. Valid while sibling_cursor_version equals mutation_version and
+       sibling_cursor_unlinks equals th_tree_unlinks(); see sibling_index in dom/range.c. */
+    struct sibling_cursor {
+        th_node *parent;
+        th_node *child;
+        Py_ssize_t index;
+    } sibling_cursors[4];
+    uint64_t sibling_cursor_version;
+    uint64_t sibling_cursor_unlinks;
+    unsigned sibling_cursor_next;
     node_binding_slot *bindings;
     node_binding_slot inline_bindings[16];
     uint16_t binding_capacity;
@@ -118,10 +144,18 @@ typedef struct {
     int xpath_cache_len;
     void *css_sheets;
     Py_ssize_t css_sheet_count;
+    Py_ssize_t css_sheet_chain; /* the longest chain of any sheet's rule (sel_compiled.chain), set with the sheets */
     uint32_t css_sheet_attr_gen;
+    uint64_t css_sheet_attr_version; /* the tree's attribute version the <style> types were last checked at */
     int css_sheets_ready;
     void *css_computed;
+    void *slot_cache;       /* the slot tables of the shadow roots read through it (dom/shadow.c), or NULL */
+    uint32_t slot_scans;    /* long slot scans since the slot cache was last dropped */
+    int32_t slot_scan_wait; /* plain slot scans left before the next counted one or cache read */
     uint64_t mutation_version;
+    /* The attribute values imported nodes copied into this tree, kept for the handle's life so that a later import
+       from the same source shares a value an earlier one copied (see import_node). */
+    th_copy_memo copies;
 } HandleObject;
 
 static inline size_t hash_override_slot(const th_node *node, size_t mask) {
@@ -139,8 +173,9 @@ static inline Py_hash_t handle_node_hash(const HandleObject *handle, const th_no
             }
         }
     }
-    Py_hash_t hash = (Py_hash_t)(uintptr_t)node;
-    return hash == -1 ? -2 : hash; /* GCOVR_EXCL_BR_LINE: an arena pointer is never (Py_hash_t)-1 */
+    /* Addresses repeat once a tree is freed, and a moved node keeps its hash, so each handle salts its own. */
+    Py_hash_t hash = (Py_hash_t)((uint64_t)(uintptr_t)node ^ handle->hash_salt);
+    return hash == -1 ? -2 : hash; /* GCOVR_EXCL_BR_LINE: no test can place a node at its salt's complement */
 }
 
 /* Put node's hash in the first free slot of its probe run. A tree never frees a
@@ -325,7 +360,7 @@ enum th_axis {
 
 typedef struct {
     PyObject_HEAD PyObject *handle;
-    th_node *root;    /* subtree bound for pre-order walks (unused for ancestors) */
+    th_node *root;    /* subtree bound for pre-order walks, preceding_skip's origin (unused for ancestors) */
     th_node *current; /* next node to yield, or NULL when exhausted */
     int mode;
 } WalkerObject;
@@ -335,8 +370,6 @@ typedef struct {
     PyObject *scope;
     PyObject *tags;
     PyObject *pending;
-    PyObject *pending_handle;
-    uint64_t pending_version;
     uint64_t tag_atoms[4];
     int started;
     int include_self;
@@ -426,7 +459,11 @@ static inline PyObject *str_from_accessor(Py_UCS4 *(*accessor)(th_tree *, th_nod
                                           th_node *node) {
     Py_ssize_t len;
     Py_UCS4 *buf = accessor(tree, node, &len);
-    if (buf == NULL) {           /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+    if (buf == NULL) {
+        /* inner_xml leaves its ValueError set; a bare NULL with no exception is the unforceable allocation failure */
+        if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: the no-exception NULL is an unforceable allocation failure */
+            return NULL;
+        }
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     PyObject *result = ucs4_to_str(buf, len);
@@ -456,7 +493,19 @@ static inline PyObject *type_for_node(module_state *state, const th_node *node) 
     return state->node_type; /* GCOVR_EXCL_LINE: every node type returns above */
 }
 
-static inline PyObject *node_wrap_nonnull(module_state *state, PyObject *handle, th_node *node, int element) {
+/* an unoptimized build keeps the call, so gcov counts each branch once rather than once per inlined call site */
+#if defined(_MSC_VER)
+#define TH_NODE_WRAP_INLINE __forceinline
+#elif defined(__GNUC__) && defined(__OPTIMIZE__)
+#define TH_NODE_WRAP_INLINE inline __attribute__((always_inline))
+#else
+#define TH_NODE_WRAP_INLINE inline
+#endif
+
+/* Forced: every node handed to Python passes through here, and LTO's unit-wide inline budget runs out before it reaches
+   some callers, such as XPath's result conversion, whenever code elsewhere in the extension grows. */
+static TH_NODE_WRAP_INLINE PyObject *node_wrap_nonnull(module_state *state, PyObject *handle, th_node *node,
+                                                       int element) {
     NodeObject **binding = NULL;
 #ifndef Py_GIL_DISABLED
     if (node->binding_id != 0) {
@@ -566,6 +615,7 @@ static inline int is_ancestor(th_node *candidate, th_node *node) {
 static inline Py_ssize_t node_index(th_node *node) {
     Py_ssize_t index = 0;
     for (th_node *previous = node->prev_sibling; previous != NULL; previous = previous->prev_sibling) {
+        TH_WORK_STEP();
         index++;
     }
     return index;
@@ -574,33 +624,29 @@ static inline Py_ssize_t node_index(th_node *node) {
 /* A shadow root, document, or detached node can each top a connected tree. */
 static inline th_node *node_root(th_node *node) {
     while (node->parent != NULL) {
+        TH_WORK_STEP();
         node = node->parent;
     }
     return node;
 }
 
-static inline int node_order(th_node *left, th_node *right) {
-    Py_ssize_t left_depth = 0;
-    for (th_node *node = left; node->parent != NULL; node = node->parent) {
-        left_depth++;
-    }
-    Py_ssize_t right_depth = 0;
-    for (th_node *node = right; node->parent != NULL; node = node->parent) {
-        right_depth++;
-    }
-    th_node *left_at = left;
-    th_node *right_at = right;
+/* Climb two different nodes of one tree, at the depths given, to the children of their lowest common ancestor. Returns
+   1 when *right is an ancestor of *left, -1 for the reverse, else 0 with *left and *right on two siblings. */
+static inline int node_climb_to_siblings(th_node **left, Py_ssize_t left_depth, th_node **right,
+                                         Py_ssize_t right_depth) {
+    th_node *left_at = *left;
+    th_node *right_at = *right;
     while (left_depth > right_depth) {
         left_at = left_at->parent;
         left_depth--;
-        if (left_at == right) {
+        if (left_at == *right) {
             return 1;
         }
     }
     while (right_depth > left_depth) {
         right_at = right_at->parent;
         right_depth--;
-        if (right_at == left) {
+        if (right_at == *left) {
             return -1;
         }
     }
@@ -608,13 +654,27 @@ static inline int node_order(th_node *left, th_node *right) {
         left_at = left_at->parent;
         right_at = right_at->parent;
     }
-    return node_index(left_at) < node_index(right_at) ? -1 : 1;
+    *left = left_at;
+    *right = right_at;
+    return 0;
 }
 
-/* Walk back in document order from current, skipping origin's ancestors so the
-   preceding axis stays disjoint from the ancestors axis. */
-static inline th_node *preceding_skip(th_node *current, th_node *origin) {
-    while (current != NULL && is_ancestor(current, origin)) {
+/* The tree order of two different nodes whose depths the caller already knows: -1 when left comes first, else 1. */
+static inline int node_order_at(th_node *left, Py_ssize_t left_depth, th_node *right, Py_ssize_t right_depth) {
+    int order = node_climb_to_siblings(&left, left_depth, &right, right_depth);
+    if (order != 0) {
+        return order;
+    }
+    return node_index(left) < node_index(right) ? -1 : 1;
+}
+
+/* Walk back in document order from current past origin's ancestors, which keeps the preceding axis disjoint from the
+   ancestors axis. A backward walk meets those ancestors nearest first, so the one due next is always the parent of the
+   last one passed; *origin climbs with the walk, which keeps each test one compare however deep the origin sits. */
+static inline th_node *preceding_skip(th_node *current, th_node **origin) {
+    while (current != NULL && current == (*origin)->parent) {
+        TH_WORK_STEP();
+        *origin = current;
         current = previous_element(current);
     }
     return current;
@@ -700,6 +760,7 @@ static inline Py_ssize_t find_attr_index(th_tree *tree, th_node *node, const cha
 /* The attribute carrying name_atom on a node, or NULL when absent. */
 static inline const th_node_attr *find_node_attr(th_node *node, uint32_t atom) {
     for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        TH_WORK_STEP();
         if (node->attrs[index].name_atom == atom) {
             return &node->attrs[index];
         }
@@ -841,18 +902,44 @@ static inline int append_wrapped(PyObject *out, module_state *state, PyObject *h
    with the bindings that populate them. */
 void handle_clear_caches(HandleObject *handle);
 
-/* Defined in cssom.c, where the private css_sheet type lives. */
+/* Defined in cssom.c, where the private css_sheet type lives. The edit form keeps the compiled sheets across an edit
+   that involves no <style> element. */
 void handle_clear_css_cache(HandleObject *handle);
+void handle_clear_css_edit(HandleObject *handle, const th_node *parent, th_node *const *nodes, Py_ssize_t count);
 
 /* Drop a handle's cached selector index and id map after a structural mutation. Lives in
-   element.c beside the mutation bindings; query/methods.c calls it from prune/remove/strip. */
+   element.c beside the mutation bindings; query/methods.c calls it from prune/remove/strip. The edit form is for a
+   mutation that only links or unlinks whole nodes (see handle_clear_css_edit). */
 void handle_drop_index(PyObject *handle_obj);
+void handle_drop_index_edit(PyObject *handle_obj, const th_node *parent, th_node *const *nodes, Py_ssize_t count);
+/* Free a handle's slot cache, which must exist. Defined in shadow.c, where the private slot table types live. */
+void handle_free_slots(HandleObject *handle);
+
+/* Drop a handle's slot cache, if it has one. Inline, so a handle without one pays one test. */
+static inline void handle_drop_slots(HandleObject *handle) {
+    if (handle->slot_cache != NULL) {
+        handle_free_slots(handle);
+    }
+}
 void path_positions_free(void *positions);
 
 /* Encode an attribute-name str into a freshly allocated (PyMem_Free) UTF-8 buffer for a
    lookup on tree, folding case for HTML but not XML, or NULL with an exception set.
    Defined in element.c; query/methods.c reuses it for re(). */
 char *attr_key_utf8(th_tree *tree, PyObject *key, Py_ssize_t *out_len);
+
+/* Encode serialized markup under a codec label: PyUnicode_AsEncodedString, strict or (charrefs) "xmlcharrefreplace",
+   that keeps content from writing its own ISO-2022 shift codes. Defined in node.c beside encode(); elementtree.c's
+   tostring() encodes through it too. */
+PyObject *markup_encode(PyObject *text, const char *encoding, int charrefs);
+
+/* The name the codec registry gives encoding, as a new reference: None when its CodecInfo carries no name, or NULL with
+   the lookup's exception set for an unknown codec. Defined in node.c beside the ISO-2022 check. */
+PyObject *codec_registry_name(const char *encoding);
+
+/* The WHATWG name a meta_charset declaration writes for an encode() codec, or NULL with no exception set when no label
+   names it. Defined in document.c beside the codec registry, which holds the label table. */
+const char *meta_charset_label(const char *encoding);
 
 PyObject *node_get_text(PyObject *self, void *Py_UNUSED(closure));
 PyObject *element_get_tag(PyObject *self, void *Py_UNUSED(closure));
@@ -868,7 +955,7 @@ PyObject *node_xpath_iter(PyObject *self, PyObject *args, PyObject *kwds);
 PyObject *node_xpath_one(PyObject *self, PyObject *args, PyObject *kwds);
 PyObject *node_css_matches(PyObject *self, PyObject *arg);
 PyObject *node_css_closest(PyObject *self, PyObject *arg);
-int node_css_closest_borrowed(PyObject *self, PyObject *arg, th_node **found);
+int node_css_closest_each(PyObject *module, PyObject *nodes, PyObject *selector, PyObject *out);
 PyObject *node_prune(PyObject *self, PyObject *arg);
 PyObject *node_remove(PyObject *self, PyObject *arg);
 PyObject *node_strip_tags(PyObject *self, PyObject *arg);

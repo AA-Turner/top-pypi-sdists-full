@@ -55,6 +55,12 @@ class TrainingStepSummary(BaseModel):
   p75_tokens: float | None
   """75th percentile of generated tokens among finished rollouts at this training step."""
 
+  avg_sandbox_start_seconds: float | None = None
+  """Mean time in seconds from fresh sandbox creation to readiness, when recorded."""
+
+  avg_sandbox_teardown_seconds: float | None = None
+  """Mean time in seconds to tear down a sandbox and confirm it stopped, when recorded."""
+
   tool_failure_count: int
   """
     Finished rollouts with at least one tool failure (recoverable; not folded into

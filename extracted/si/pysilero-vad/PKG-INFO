@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pysilero-vad
-Version: 3.4.0
+Version: 3.4.1
 Summary: Pre-packaged voice activity detector using silero-vad
 Keywords: voice,activity,silero,vad
 Author-Email: Michael Hansen <mike@rhasspy.org>

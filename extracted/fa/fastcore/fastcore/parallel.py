@@ -1,6 +1,6 @@
 """Threading and multiprocessing functions
 
-`parallel(f, items)` applies `f` to each item using a process pool. Set `threadpool=True` to use threads. Set `n_workers` to control concurrency, or to 0 for serial execution when debugging. Optional arguments include a `progress` bar, a `pause` between starts, `return_exceptions` to collect errors, and `max_tasks_per_child=1` to run each item in a new process (Python 3.11 and later, with `f` importable from a module rather than defined in `__main__`). `parallel_async` runs work concurrently with asyncio.
+`parallel(f, items)` applies `f` to each item using a process pool. On POSIX, the default start method is `fork`, or `forkserver` with worker recycling. Pass `method=` to choose a start method. Set `threadpool=True` to use threads. Set `n_workers` to control concurrency, or to 0 for serial execution when debugging. Optional arguments include a `progress` bar, a `pause` between starts, `return_exceptions` to collect errors, and `max_tasks_per_child=1` to run each item in a new process (Python 3.11 and later, with `f` importable from a module rather than defined in `__main__`). `parallel_async` runs work concurrently with asyncio.
 
 `@threaded` runs a function in a background thread and returns the thread. Read its `result` attribute after it finishes. Set `process=True` to run in a process. `startthread` and `startproc` start their decorated functions immediately.
 
@@ -21,11 +21,8 @@ from .xtras import *
 from functools import wraps
 
 import concurrent.futures,time
-from multiprocessing import Process,Manager,set_start_method,get_context
+from multiprocessing import Manager,get_context
 from threading import Thread,Lock
-try:
-    if sys.platform == 'darwin' and IN_NOTEBOOK: set_start_method("fork")
-except: pass
 
 # %% ../nbs/03a_parallel.ipynb #21e71104
 @metadec
@@ -41,8 +38,7 @@ def threaded(
         _obj_td.result = res
     @wraps(f)
     def _f(*args, **kwargs):
-        Proc = get_context('fork').Process if sys.platform == 'darwin' else Process
-        res = (Thread,Proc)[process](target=g, args=args, kwargs=kwargs)
+        res = (get_context('fork').Process if process else Thread)(target=g, args=args, kwargs=kwargs)
         res._args = (res,)+res._args
         if daemon: res.daemon = True
         res.start()
@@ -137,7 +133,7 @@ def parallel(f, items, *args, n_workers=defaults.cpus, total=None, progress=None
         if max_tasks_per_child:
             kwpool['max_tasks_per_child'] = max_tasks_per_child
             if not method: method = 'spawn' if sys.platform == 'win32' else 'forkserver'
-        if not method and sys.platform == 'darwin': method='fork'
+        if not method and sys.platform != 'win32': method='fork'
         if method: kwpool['mp_context'] = get_context(method)
         pool = ProcessPoolExecutor
     with pool(n_workers, pause=pause, **kwpool) as ex:
@@ -156,6 +152,13 @@ def _add_one(x, a=1):
     return x+a
 
 # %% ../nbs/03a_parallel.ipynb #9a6e2f26
+def _report_exc(t, on_err=None, skip=None):
+    "Pass finished task `t`'s exception to `on_err`, or print its traceback; nothing if `t` was cancelled, succeeded, or raised `skip`"
+    import traceback
+    if t.cancelled() or (exc := t.exception()) is None or exc is skip: return
+    if on_err: on_err(exc)
+    else: traceback.print_exception(exc)
+
 async def parallel_async_gen(f, items, *args, n_workers=16, pause=0,
     timeout=None, return_exceptions=False, cancel_on_exit=True, **kwargs):
     "Yield `(index,result)` pairs as `f` applied to each of `items` completes, in completion order"
@@ -176,6 +179,9 @@ async def parallel_async_gen(f, items, *args, n_workers=16, pause=0,
         if cancel_on_exit:
             for t in tasks: t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+        else:
+            raised = sys.exc_info()[1]
+            for t in tasks: t.add_done_callback(partial(_report_exc, skip=raised))
 
 # %% ../nbs/03a_parallel.ipynb #7406c085
 @delegates(parallel_async_gen)
@@ -198,13 +204,9 @@ def bg_task(
     on_err=None, # Called with the exception when the task fails; default prints the traceback
 ):
     "Like `asyncio.create_task`, but keeps the task alive and reports exceptions, for fire-and-forget tasks"
-    import traceback,asyncio
-    def _done(t):
-        if not t.cancelled() and (exc := t.exception()):
-            if on_err: on_err(exc)
-            else: traceback.print_exception(exc)
+    import asyncio
     task = asyncio.create_task(coro)
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)
-    task.add_done_callback(_done)
+    task.add_done_callback(partial(_report_exc, on_err=on_err))
     return task

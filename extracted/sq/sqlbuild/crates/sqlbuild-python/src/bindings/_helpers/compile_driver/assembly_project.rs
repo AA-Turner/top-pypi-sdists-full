@@ -9,7 +9,6 @@ use sqlbuild_analysis::assembly::project::main::configured_namespace::configured
 
 use sqlbuild_host::entries::models::AdapterHost;
 
-use crate::bindings::_helpers::boundary::python_calls::keywords;
 use crate::bindings::_helpers::compile_attachment::target::{
     connection_is_default_target, project_location,
 };
@@ -25,23 +24,26 @@ use crate::bindings::_helpers::compile_driver::assembly_models::{
     binding_rows, compiled_models, project_binding_diagnostics,
 };
 use crate::bindings::_helpers::compile_driver::assembly_sql_tests::assembled_sql_tests;
-use crate::bindings::_helpers::compile_driver::stage_work::{SEMANTIC_COMPLETION, count_stage};
 use crate::bindings::_helpers::compiled_views::compiled_model_view::NativeCompiledModel;
 use crate::bindings::_helpers::contracts::spec_resolution::{
     resolve_effective_adapter_name, resolve_effective_scenario_config,
 };
 use crate::bindings::_helpers::model_config::template_data::early_model_templates;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::new_record;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::{mapping_get, path_posix};
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::scopes::scope_errors::report_scope_index_errors;
 use crate::bindings::_helpers::scopes::scope_validation::scope_index_with_compile_usages;
 use crate::bindings::_helpers::semantic_checks::stage::{
     SemanticCompletion, completed_semantic_project,
 };
 use pyo3::IntoPyObjectExt;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::compile_driver::constants::SEMANTIC_COMPLETION;
+use sqlbuild_python_base::compile_driver::main::count_stage::count_stage;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::new_record::new_record;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
+use sqlbuild_python_base::records::main::fields::path_posix::path_posix;
+use sqlbuild_python_base::records::types::RecordId;
 
 const SOURCE_SLOT: &str = "source";
 const SEED_SLOT: &str = "seed";
@@ -114,7 +116,7 @@ pub(crate) fn assembled_project<'py>(
     let native: Bound<'py, PyAny> = native_project_facts(inputs, &context, names, &native_session)?;
     let resources: Bound<'py, PyAny> = native_field(&native, "resources")?;
     let scope_index: Bound<'py, PyAny> = scope_index_with_compile_usages(inputs)?;
-    if crate::bindings::_helpers::compile_context::delta::injection().is_none() {
+    if sqlbuild_python_base::compile_context::main::delta::injection::injection().is_none() {
         report_scope_index_errors(&scope_index)?;
     }
     let target_values: Bound<'py, PyAny> = effective_target_values(inputs)?;
@@ -224,7 +226,7 @@ fn connection_database_fallback<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py: Python<'py> = inputs.py();
     let adapter_name: Bound<'py, PyAny> = effective_adapter_name(inputs)?;
-    if adapter_name.eq(host::entry(py, AdapterHost::BuiltinAdapter)?.getattr("DUCKDB")?)? {
+    if adapter_name.eq(host_entry(py, AdapterHost::BuiltinAdapter)?.getattr("DUCKDB")?)? {
         return Ok(py.None().into_bound(py));
     }
     str_or_none(&mapping_get(connection, "database")?)

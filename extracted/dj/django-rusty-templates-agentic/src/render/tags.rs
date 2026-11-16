@@ -1,12 +1,15 @@
 use crate::gc::Gc;
 use std::borrow::Cow;
+use std::cmp::Ordering;
 use std::collections::{HashMap, VecDeque};
 
 use either::Either;
-use num_bigint::{BigInt, Sign};
-use num_traits::cast::ToPrimitive;
+use num_bigint::BigInt;
+use num_traits::cast::{FromPrimitive, ToPrimitive};
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
-    PyAttributeError, PyKeyError, PyOverflowError, PyTypeError, PyValueError, PyZeroDivisionError,
+    PyAttributeError, PyException, PyKeyError, PyOverflowError, PyTypeError, PyValueError,
+    PyZeroDivisionError,
 };
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -33,7 +36,7 @@ use crate::parse::{
 };
 use crate::path::construct_relative_path;
 use crate::template::django_rusty_templates::{
-    NoReverseMatch, Template, TemplateDoesNotExist, TemplateSyntaxError,
+    NoReverseMatch, Template, TemplateDoesNotExist, TemplateSyntaxError, VariableDoesNotExist,
 };
 use crate::utils::PyResultMethods;
 
@@ -41,7 +44,9 @@ static RENDER_FIRSTOF_VALUE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static FIRSTOF_SAFE_STRING: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static QUERY_DICT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static QUERY_SETTINGS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
-static STRIP_SPACES: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static GROUPED_RESULT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static DJANGO_CONTEXT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static MARK_SAFE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static DEBUG_NODE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static MARK_BLOCK_SAFE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static CONDITIONAL_ESCAPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
@@ -89,6 +94,21 @@ impl Resolve for Url {
         };
         let reverse = REVERSE.import(py, "django_rusty_templates.diagnostics", "render_url")?;
 
+        // Django resolves every argument, then `reverse()` refuses the mix.
+        if !self.args.is_empty() && !self.kwargs.is_empty() {
+            for argument in self
+                .args
+                .iter()
+                .chain(self.kwargs.iter().map(|(_, value)| value))
+            {
+                argument.resolve(py, template, context, failures)?;
+            }
+            return Err(PyValueError::new_err(
+                "Don't mix *args and **kwargs in call to reverse()!",
+            )
+            .into());
+        }
+
         let current_app = current_app(py, context.request.as_ref())?;
         let url = if self.kwargs.is_empty() {
             let py_args = PyList::empty(py);
@@ -130,319 +150,115 @@ impl Resolve for Url {
     }
 }
 
-impl Evaluate for Content<'_, '_> {
-    fn evaluate(
-        &self,
-        _py: Python<'_>,
-        _template: TemplateString<'_>,
-        _context: &mut Context,
-    ) -> Option<bool> {
-        Some(match self {
-            Self::Py(obj) => obj.is_truthy().unwrap_or(false),
-            Self::String(s) => !s.as_raw().is_empty(),
-            Self::Float(f) => *f != 0.0,
-            Self::Int(n) => *n != BigInt::ZERO,
-            Self::Bool(b) => *b,
-        })
+/// Django's `{% if %}` comparisons, which are Python's. A comparison that
+/// raises is false.
+trait PyCmp<T> {
+    fn compare(&self, other: &T, op: CompareOp) -> bool;
+}
+
+/// The operator Python tries on the right operand: `a < b` falls back to
+/// `b.__gt__(a)`.
+const fn reflected(op: CompareOp) -> CompareOp {
+    match op {
+        CompareOp::Eq => CompareOp::Eq,
+        CompareOp::Ne => CompareOp::Ne,
+        CompareOp::Lt => CompareOp::Gt,
+        CompareOp::Gt => CompareOp::Lt,
+        CompareOp::Le => CompareOp::Ge,
+        CompareOp::Ge => CompareOp::Le,
     }
 }
 
-trait PyCmp<T> {
-    fn eq(&self, other: &T) -> bool;
-
-    fn ne(&self, other: &T) -> bool {
-        !self.eq(other)
+/// Python's `!=` calls `__ne__`, which a class can define apart from
+/// `__eq__`, so every operator goes to Python as itself.
+fn python_compare(obj: &Bound<'_, PyAny>, other: &Content<'_, '_>, op: CompareOp) -> bool {
+    match other {
+        Content::Py(other) => obj.rich_compare(other, op),
+        Content::Float(other) => obj.rich_compare(other, op),
+        Content::Int(other) => obj.rich_compare(other, op),
+        Content::Bool(other) => obj.rich_compare(other, op),
+        Content::String(other) => obj.rich_compare(other.as_raw(), op),
     }
+    .and_then(|result| result.is_truthy())
+    .unwrap_or(false)
+}
 
-    fn lt(&self, other: &T) -> bool;
+/// How two native values order, as Python orders them, or `None` when
+/// Python can't order them (different types, or a NaN).
+fn native_ordering(left: &Content<'_, '_>, right: &Content<'_, '_>) -> Option<Ordering> {
+    match (left, right) {
+        (Content::Float(left), Content::Float(right)) => left.partial_cmp(right),
+        (Content::Int(left), Content::Int(right)) => Some(left.cmp(right)),
+        (Content::Bool(left), Content::Bool(right)) => Some(left.cmp(right)),
+        (Content::Int(left), Content::Bool(right)) => {
+            Some(left.cmp(&BigInt::from(u8::from(*right))))
+        }
+        (Content::Bool(left), Content::Int(right)) => {
+            Some(BigInt::from(u8::from(*left)).cmp(right))
+        }
+        (Content::Float(left), Content::Bool(right)) => left.partial_cmp(&f64::from(*right)),
+        (Content::Bool(left), Content::Float(right)) => f64::from(*left).partial_cmp(right),
+        (Content::Float(left), Content::Int(right)) => float_int_ordering(*left, right),
+        (Content::Int(left), Content::Float(right)) => {
+            float_int_ordering(*right, left).map(Ordering::reverse)
+        }
+        (Content::String(left), Content::String(right)) => Some(left.as_raw().cmp(right.as_raw())),
+        _ => None,
+    }
+}
 
-    fn gt(&self, other: &T) -> bool;
+/// An int too large for a float lies beyond every finite float, but not
+/// beyond the infinity of the same sign.
+fn float_int_ordering(float: f64, int: &BigInt) -> Option<Ordering> {
+    if float.is_nan() {
+        return None;
+    }
+    match int.to_f64().expect("BigInt to f64 is always possible") {
+        f64::INFINITY if float == f64::INFINITY => Some(Ordering::Greater),
+        f64::INFINITY => Some(Ordering::Less),
+        f64::NEG_INFINITY if float == f64::NEG_INFINITY => Some(Ordering::Less),
+        f64::NEG_INFINITY => Some(Ordering::Greater),
+        int => float.partial_cmp(&int),
+    }
+}
 
-    fn lte(&self, other: &T) -> bool;
-
-    fn gte(&self, other: &T) -> bool;
+fn holds(ordering: Option<Ordering>, op: CompareOp) -> bool {
+    match op {
+        CompareOp::Eq => ordering.is_some_and(Ordering::is_eq),
+        CompareOp::Ne => !ordering.is_some_and(Ordering::is_eq),
+        CompareOp::Lt => ordering.is_some_and(Ordering::is_lt),
+        CompareOp::Le => ordering.is_some_and(Ordering::is_le),
+        CompareOp::Gt => ordering.is_some_and(Ordering::is_gt),
+        CompareOp::Ge => ordering.is_some_and(Ordering::is_ge),
+    }
 }
 
 impl PyCmp<Content<'_, '_>> for Content<'_, '_> {
-    fn eq(&self, other: &Content<'_, '_>) -> bool {
+    fn compare(&self, other: &Content<'_, '_>, op: CompareOp) -> bool {
         match (self, other) {
-            (Self::Py(obj), Content::Py(other)) => obj.eq(other).unwrap_or(false),
-            (Self::Py(obj), Content::Float(other)) => obj.eq(other).unwrap_or(false),
-            (Self::Py(obj), Content::Int(other)) => obj.eq(other).unwrap_or(false),
-            (Self::Py(obj), Content::Bool(other)) => obj.eq(other).unwrap_or(false),
-            (Self::Py(obj), Content::String(other)) => obj.eq(other.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Py(other)) => other.eq(obj).unwrap_or(false),
-            (Self::Int(obj), Content::Py(other)) => other.eq(obj).unwrap_or(false),
-            (Self::String(obj), Content::Py(other)) => other.eq(obj.as_raw()).unwrap_or(false),
-            (Self::Bool(obj), Content::Py(other)) => other.eq(obj).unwrap_or(false),
-            (Self::Float(obj), Content::Float(other)) => obj == other,
-            (Self::Int(obj), Content::Int(other)) => obj == other,
-            (Self::Int(obj), Content::Bool(other)) => {
-                u8::try_from(obj).is_ok_and(|o| o == u8::from(*other))
-            }
-            (Self::Bool(obj), Content::Int(other)) => {
-                u8::try_from(other).is_ok_and(|o| o == u8::from(*obj))
-            }
-            (Self::Float(obj), Content::Int(other)) => {
-                match other.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY | f64::NEG_INFINITY => false,
-                    other => *obj == other,
-                }
-            }
-            (Self::Int(obj), Content::Float(other)) => {
-                match obj.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY | f64::NEG_INFINITY => false,
-                    obj => obj == *other,
-                }
-            }
-            (Self::Float(obj), Content::Bool(other)) => match other {
-                true => *obj == 1.0,
-                false => *obj == 0.0,
-            },
-            (Self::Bool(obj), Content::Float(other)) => match obj {
-                true => *other == 1.0,
-                false => *other == 0.0,
-            },
-            (Self::String(obj), Content::String(other)) => obj.as_raw() == other.as_raw(),
-            (Self::Bool(obj), Content::Bool(other)) => obj == other,
-            _ => false,
-        }
-    }
-
-    fn lt(&self, other: &Content<'_, '_>) -> bool {
-        match (self, other) {
-            (Self::Py(obj), Content::Py(other)) => obj.lt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Float(other)) => obj.lt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Int(other)) => obj.lt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Bool(other)) => obj.lt(other).unwrap_or(false),
-            (Self::Py(obj), Content::String(other)) => obj.lt(other.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Py(other)) => other.gt(obj).unwrap_or(false),
-            (Self::Int(obj), Content::Py(other)) => other.gt(obj).unwrap_or(false),
-            (Self::String(obj), Content::Py(other)) => other.gt(obj.as_raw()).unwrap_or(false),
-            (Self::Bool(obj), Content::Py(other)) => other.gt(obj).unwrap_or(false),
-            (Self::Float(obj), Content::Float(other)) => obj < other,
-            (Self::Int(obj), Content::Int(other)) => obj < other,
-            (Self::Int(obj), Content::Bool(other)) => match obj.sign() {
-                Sign::Minus => true,
-                _ => u8::try_from(obj).is_ok_and(|o| o < u8::from(*other)),
-            },
-            (Self::Bool(obj), Content::Int(other)) => match other.sign() {
-                Sign::Minus => false,
-                _ => u8::try_from(other).map_or(true, |o| o > u8::from(*obj)),
-            },
-            (Self::Float(obj), Content::Int(other)) => {
-                match other.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => obj.is_finite() || *obj == f64::NEG_INFINITY,
-                    f64::NEG_INFINITY => *obj == f64::NEG_INFINITY,
-                    other => *obj < other,
-                }
-            }
-            (Self::Int(obj), Content::Float(other)) => {
-                match obj.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => *other == f64::INFINITY,
-                    f64::NEG_INFINITY => other.is_finite() || *other == f64::INFINITY,
-                    obj => obj < *other,
-                }
-            }
-            (Self::Float(obj), Content::Bool(other)) => match other {
-                true => *obj < 1.0,
-                false => *obj < 0.0,
-            },
-            (Self::Bool(obj), Content::Float(other)) => match obj {
-                true => *other > 1.0,
-                false => *other > 0.0,
-            },
-            (Self::String(obj), Content::String(other)) => obj.as_raw() < other.as_raw(),
-            (Self::Bool(obj), Content::Bool(other)) => obj < other,
-            _ => false,
-        }
-    }
-
-    fn gt(&self, other: &Content<'_, '_>) -> bool {
-        match (self, other) {
-            (Self::Py(obj), Content::Py(other)) => obj.gt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Float(other)) => obj.gt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Int(other)) => obj.gt(other).unwrap_or(false),
-            (Self::Py(obj), Content::Bool(other)) => obj.gt(other).unwrap_or(false),
-            (Self::Py(obj), Content::String(other)) => obj.gt(other.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Py(other)) => other.lt(obj).unwrap_or(false),
-            (Self::Int(obj), Content::Py(other)) => other.lt(obj).unwrap_or(false),
-            (Self::String(obj), Content::Py(other)) => other.lt(obj.as_raw()).unwrap_or(false),
-            (Self::Bool(obj), Content::Py(other)) => other.lt(obj).unwrap_or(false),
-            (Self::Float(obj), Content::Float(other)) => obj > other,
-            (Self::Int(obj), Content::Int(other)) => obj > other,
-            (Self::Int(obj), Content::Bool(other)) => match obj.sign() {
-                Sign::Minus => false,
-                _ => u8::try_from(obj).map_or(true, |o| o > u8::from(*other)),
-            },
-            (Self::Bool(obj), Content::Int(other)) => match other.sign() {
-                Sign::Minus => true,
-                _ => u8::try_from(other).is_ok_and(|o| o < u8::from(*obj)),
-            },
-            (Self::Float(obj), Content::Int(other)) => {
-                match other.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => *obj == f64::INFINITY,
-                    f64::NEG_INFINITY => obj.is_finite() || *obj == f64::INFINITY,
-                    other => *obj > other,
-                }
-            }
-            (Self::Int(obj), Content::Float(other)) => {
-                match obj.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => other.is_finite() || *other == f64::NEG_INFINITY,
-                    f64::NEG_INFINITY => *other == f64::NEG_INFINITY,
-                    obj => obj > *other,
-                }
-            }
-            (Self::Float(obj), Content::Bool(other)) => match other {
-                true => *obj > 1.0,
-                false => *obj > 0.0,
-            },
-            (Self::Bool(obj), Content::Float(other)) => match obj {
-                true => *other < 1.0,
-                false => *other < 0.0,
-            },
-            (Self::String(obj), Content::String(other)) => obj.as_raw() > other.as_raw(),
-            (Self::Bool(obj), Content::Bool(other)) => obj > other,
-            _ => false,
-        }
-    }
-
-    fn lte(&self, other: &Content<'_, '_>) -> bool {
-        match (self, other) {
-            (Self::Py(obj), Content::Py(other)) => obj.le(other).unwrap_or(false),
-            (Self::Py(obj), Content::Float(other)) => obj.le(other).unwrap_or(false),
-            (Self::Py(obj), Content::Int(other)) => obj.le(other).unwrap_or(false),
-            (Self::Py(obj), Content::Bool(other)) => obj.le(other).unwrap_or(false),
-            (Self::Py(obj), Content::String(other)) => obj.le(other.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Py(other)) => other.ge(obj).unwrap_or(false),
-            (Self::Int(obj), Content::Py(other)) => other.ge(obj).unwrap_or(false),
-            (Self::Bool(obj), Content::Py(other)) => other.ge(obj).unwrap_or(false),
-            (Self::String(obj), Content::Py(other)) => other.ge(obj.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Float(other)) => obj <= other,
-            (Self::Int(obj), Content::Int(other)) => obj <= other,
-            (Self::Int(obj), Content::Bool(other)) => match obj.sign() {
-                Sign::Minus => true,
-                _ => u8::try_from(obj).is_ok_and(|o| o <= u8::from(*other)),
-            },
-            (Self::Bool(obj), Content::Int(other)) => match other.sign() {
-                Sign::Minus => false,
-                _ => u8::try_from(other).map_or(true, |o| o >= u8::from(*obj)),
-            },
-            (Self::Float(obj), Content::Int(other)) => {
-                match other.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => obj.is_finite() || *obj == f64::NEG_INFINITY,
-                    f64::NEG_INFINITY => *obj == f64::NEG_INFINITY,
-                    other => *obj <= other,
-                }
-            }
-            (Self::Int(obj), Content::Float(other)) => {
-                match obj.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => *other == f64::INFINITY,
-                    f64::NEG_INFINITY => other.is_finite() || *other == f64::INFINITY,
-                    obj => obj <= *other,
-                }
-            }
-            (Self::Float(obj), Content::Bool(other)) => match other {
-                true => *obj <= 1.0,
-                false => *obj <= 0.0,
-            },
-            (Self::Bool(obj), Content::Float(other)) => match obj {
-                true => *other >= 1.0,
-                false => *other >= 0.0,
-            },
-            (Self::String(obj), Content::String(other)) => obj.as_raw() <= other.as_raw(),
-            (Self::Bool(obj), Content::Bool(other)) => obj <= other,
-            _ => false,
-        }
-    }
-
-    fn gte(&self, other: &Content<'_, '_>) -> bool {
-        match (self, other) {
-            (Self::Py(obj), Content::Py(other)) => obj.ge(other).unwrap_or(false),
-            (Self::Py(obj), Content::Float(other)) => obj.ge(other).unwrap_or(false),
-            (Self::Py(obj), Content::Int(other)) => obj.ge(other).unwrap_or(false),
-            (Self::Py(obj), Content::Bool(other)) => obj.ge(other).unwrap_or(false),
-            (Self::Py(obj), Content::String(other)) => obj.ge(other.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Py(other)) => other.le(obj).unwrap_or(false),
-            (Self::Int(obj), Content::Py(other)) => other.le(obj).unwrap_or(false),
-            (Self::Bool(obj), Content::Py(other)) => other.le(obj).unwrap_or(false),
-            (Self::String(obj), Content::Py(other)) => other.le(obj.as_raw()).unwrap_or(false),
-            (Self::Float(obj), Content::Float(other)) => obj >= other,
-            (Self::Int(obj), Content::Int(other)) => obj >= other,
-            (Self::Int(obj), Content::Bool(other)) => match obj.sign() {
-                Sign::Minus => false,
-                _ => u8::try_from(obj).map_or(true, |o| o >= u8::from(*other)),
-            },
-            (Self::Bool(obj), Content::Int(other)) => match other.sign() {
-                Sign::Minus => true,
-                _ => u8::try_from(other).is_ok_and(|o| o <= u8::from(*obj)),
-            },
-            (Self::Float(obj), Content::Int(other)) => {
-                match other.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => *obj == f64::INFINITY,
-                    f64::NEG_INFINITY => obj.is_finite() || *obj == f64::INFINITY,
-                    other => *obj >= other,
-                }
-            }
-            (Self::Int(obj), Content::Float(other)) => {
-                match obj.to_f64().expect("BigInt to f64 is always possible") {
-                    f64::INFINITY => other.is_finite() || *other == f64::NEG_INFINITY,
-                    f64::NEG_INFINITY => *other == f64::NEG_INFINITY,
-                    obj => obj >= *other,
-                }
-            }
-            (Self::Float(obj), Content::Bool(other)) => match other {
-                true => *obj >= 1.0,
-                false => *obj >= 0.0,
-            },
-            (Self::Bool(obj), Content::Float(other)) => match obj {
-                true => *other <= 1.0,
-                false => *other <= 0.0,
-            },
-            (Self::String(obj), Content::String(other)) => obj.as_raw() >= other.as_raw(),
-            (Self::Bool(obj), Content::Bool(other)) => obj >= other,
-            _ => false,
+            (Self::Py(obj), other) => python_compare(obj, other, op),
+            // The Python object is on the right, so its reflected method
+            // runs, as it would after the native type returns
+            // `NotImplemented`.
+            (_, Content::Py(other)) => python_compare(other, self, reflected(op)),
+            _ => holds(native_ordering(self, other), op),
         }
     }
 }
 
 impl PyCmp<Self> for Option<Content<'_, '_>> {
-    fn eq(&self, other: &Self) -> bool {
+    fn compare(&self, other: &Self, op: CompareOp) -> bool {
         match (self, other) {
-            (None, None) => true,
-            (Some(obj), Some(other)) => obj.eq(other),
-            (Some(obj), None) | (None, Some(obj)) => match obj {
-                Content::Py(obj) => obj.eq(PyNone::get(obj.py())).unwrap_or(false),
+            (Some(obj), Some(other)) => obj.compare(other, op),
+            (None, None) => matches!(op, CompareOp::Eq),
+            (Some(obj), None) | (None, Some(obj)) => match (op, obj) {
+                (CompareOp::Eq | CompareOp::Ne, Content::Py(obj)) => obj
+                    .rich_compare(PyNone::get(obj.py()), op)
+                    .and_then(|result| result.is_truthy())
+                    .unwrap_or(false),
+                (CompareOp::Ne, _) => true,
                 _ => false,
             },
-        }
-    }
-
-    fn lt(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Some(obj), Some(other)) => obj.lt(other),
-            _ => false,
-        }
-    }
-
-    fn gt(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Some(obj), Some(other)) => obj.gt(other),
-            _ => false,
-        }
-    }
-
-    fn lte(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Some(obj), Some(other)) => obj.lte(other),
-            _ => false,
-        }
-    }
-
-    fn gte(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Some(obj), Some(other)) => obj.gte(other),
-            _ => false,
         }
     }
 }
@@ -483,169 +299,264 @@ impl Contains<Option<Content<'_, '_>>> for Content<'_, '_> {
     }
 }
 
-trait ResolveTuple<'t, 'py> {
-    fn resolve(
+/// Whether Django's `except Exception` around each operator catches `error`.
+/// `KeyboardInterrupt` and other `BaseException`s escape.
+fn operator_catches(py: Python<'_>, error: &PyRenderError) -> bool {
+    match error {
+        PyRenderError::PyErr(error) => error.is_instance_of::<PyException>(py),
+        PyRenderError::RenderError(_) | PyRenderError::InvalidTagResult(_) => true,
+    }
+}
+
+/// Python's `bool(value)`; a missing variable is `None`.
+fn truth(value: Option<&Content<'_, '_>>) -> PyResult<bool> {
+    Ok(match value {
+        None => false,
+        Some(Content::Py(object)) => object.is_truthy()?,
+        Some(Content::String(text)) => !text.as_raw().is_empty(),
+        Some(Content::Float(number)) => *number != 0.0,
+        Some(Content::Int(number)) => *number != BigInt::ZERO,
+        Some(Content::Bool(value)) => *value,
+    })
+}
+
+type ConditionValue<'t, 'py> = Result<Option<Content<'t, 'py>>, PyRenderError>;
+
+impl IfCondition {
+    /// Django's `condition.eval(context)`. A variable gives its value (`None`
+    /// when missing) and lets its exceptions escape. An operator catches
+    /// every `Exception` its operands and its own work raise, and is then
+    /// `False`.
+    fn value<'t, 'py>(
         &self,
         py: Python<'py>,
         template: TemplateString<'t>,
         context: &mut Context,
-    ) -> Result<(Option<Content<'t, 'py>>, Option<Content<'t, 'py>>), PyRenderError>;
-}
+    ) -> ConditionValue<'t, 'py> {
+        if let Self::Variable(variable) = self {
+            return variable.resolve(
+                py,
+                template,
+                context,
+                ResolveFailures::IgnoreVariableDoesNotExist,
+            );
+        }
+        match self.operator_value(py, template, context) {
+            Err(error) if operator_catches(py, &error) => Ok(Some(Content::Bool(false))),
+            result => result,
+        }
+    }
 
-impl<'t, 'py> ResolveTuple<'t, 'py> for (IfCondition, IfCondition) {
-    fn resolve(
-        &self,
+    /// The operands of a binary operator, left first.
+    fn operands<'t, 'py>(
+        pair: &(Self, Self),
         py: Python<'py>,
         template: TemplateString<'t>,
         context: &mut Context,
     ) -> Result<(Option<Content<'t, 'py>>, Option<Content<'t, 'py>>), PyRenderError> {
-        const IGNORE: ResolveFailures = ResolveFailures::IgnoreVariableDoesNotExist;
-        Ok(match self {
-            (IfCondition::Variable(l), IfCondition::Variable(r)) => {
-                let left = l.resolve(py, template, context, IGNORE)?;
-                let right = r.resolve(py, template, context, IGNORE)?;
-                (left, right)
+        let left = pair.0.value(py, template, context)?;
+        let right = pair.1.value(py, template, context)?;
+        Ok((left, right))
+    }
+
+    fn operator_value<'t, 'py>(
+        &self,
+        py: Python<'py>,
+        template: TemplateString<'t>,
+        context: &mut Context,
+    ) -> ConditionValue<'t, 'py> {
+        let result = match self {
+            Self::Variable(_) => unreachable!("`value` resolves variables"),
+            // `x and y` and `x or y` give one of their operands, and only
+            // evaluate `y` when `x` doesn't decide the result.
+            Self::And(inner) => {
+                let left = inner.0.value(py, template, context)?;
+                return if truth(left.as_ref())? {
+                    inner.1.value(py, template, context)
+                } else {
+                    Ok(left)
+                };
             }
-            (IfCondition::Variable(l), r) => {
-                let left = l.resolve(py, template, context, IGNORE)?;
-                let right = r
-                    .evaluate(py, template, context)
-                    .expect("Right cannot be an expression that evaluates to None");
-                (left, Some(Content::Bool(right)))
+            Self::Or(inner) => {
+                let left = inner.0.value(py, template, context)?;
+                return if truth(left.as_ref())? {
+                    Ok(left)
+                } else {
+                    inner.1.value(py, template, context)
+                };
             }
-            (l, IfCondition::Variable(r)) => {
-                let left = l
-                    .evaluate(py, template, context)
-                    .expect("Left cannot be an expression that evaluates to None");
-                let right = r.resolve(py, template, context, IGNORE)?;
-                (Some(Content::Bool(left)), right)
+            Self::Not(inner) => !truth(inner.value(py, template, context)?.as_ref())?,
+            Self::Equal(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Eq)
             }
-            (l, r) => {
-                let left = l
-                    .evaluate(py, template, context)
-                    .expect("Left cannot be an expression that evaluates to None");
-                let right = r
-                    .evaluate(py, template, context)
-                    .expect("Right cannot be an expression that evaluates to None");
-                (Some(Content::Bool(left)), Some(Content::Bool(right)))
+            Self::NotEqual(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Ne)
             }
-        })
+            Self::LessThan(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Lt)
+            }
+            Self::GreaterThan(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Gt)
+            }
+            Self::LessThanEqual(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Le)
+            }
+            Self::GreaterThanEqual(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                left.compare(&right, CompareOp::Ge)
+            }
+            Self::In(inner) => match Self::operands(inner, py, template, context)? {
+                (left, Some(right)) => right.contains(left).unwrap_or(false),
+                _ => false,
+            },
+            Self::NotIn(inner) => match Self::operands(inner, py, template, context)? {
+                (left, Some(right)) => !(right.contains(left).unwrap_or(true)),
+                _ => false,
+            },
+            Self::Is(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                is_same(py, left.as_ref(), right.as_ref())
+            }
+            Self::IsNot(inner) => {
+                let (left, right) = Self::operands(inner, py, template, context)?;
+                !is_same(py, left.as_ref(), right.as_ref())
+            }
+        };
+        Ok(Some(Content::Bool(result)))
+    }
+}
+
+/// A native int as the object Python would hold. Python keeps one object
+/// for each small int, so `x is 5` can be true; an int outside that range is
+/// a new object.
+fn int_object<'py>(py: Python<'py>, number: &BigInt) -> Bound<'py, PyAny> {
+    match i64::try_from(number) {
+        Ok(number) => number
+            .into_pyobject(py)
+            .expect("An i64 can always be converted to a Python int.")
+            .into_any(),
+        Err(_) => number
+            .into_pyobject(py)
+            .expect("A BigInt can always be converted to a Python int.")
+            .into_any(),
+    }
+}
+
+/// Python's `left is right`. A missing variable is `None`. Values Rusty
+/// computed are the same object as `True` or `False`, or as an int Python
+/// shares; its strings and floats are new objects, as Django's are.
+fn is_same(
+    py: Python<'_>,
+    left: Option<&Content<'_, '_>>,
+    right: Option<&Content<'_, '_>>,
+) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(Content::Py(left)), Some(Content::Py(right))) => left.is(right),
+        (Some(Content::Py(object)), None) | (None, Some(Content::Py(object))) => object.is_none(),
+        (Some(Content::Bool(left)), Some(Content::Bool(right))) => left == right,
+        (Some(Content::Bool(value)), Some(Content::Py(object)))
+        | (Some(Content::Py(object)), Some(Content::Bool(value))) => {
+            object.is(PyBool::new(py, *value).as_any())
+        }
+        (Some(Content::Int(left)), Some(Content::Int(right))) => {
+            left == right && int_object(py, left).is(int_object(py, right))
+        }
+        (Some(Content::Int(number)), Some(Content::Py(object)))
+        | (Some(Content::Py(object)), Some(Content::Int(number))) => {
+            object.is(int_object(py, number))
+        }
+        _ => false,
     }
 }
 
 impl Evaluate for IfCondition {
-    #[allow(clippy::too_many_lines)]
+    /// Django's `IfNode`: a condition that raises `VariableDoesNotExist`
+    /// doesn't match, and the truth of its value is tested outside the
+    /// operators, so an exception from `__bool__` there escapes.
     fn evaluate(
         &self,
         py: Python<'_>,
         template: TemplateString<'_>,
         context: &mut Context,
-    ) -> Option<bool> {
-        Some(match self {
-            Self::Variable(v) => v.evaluate(py, template, context)?,
-            Self::And(inner) => {
-                let left = inner.0.evaluate(py, template, context).unwrap_or(false);
-                let right = inner.1.evaluate(py, template, context).unwrap_or(false);
-                if left { right } else { false }
+    ) -> Result<bool, PyRenderError> {
+        match self.value(py, template, context) {
+            Ok(value) => Ok(truth(value.as_ref())?),
+            Err(PyRenderError::RenderError(
+                RenderError::VariableDoesNotExist { .. } | RenderError::ArgumentDoesNotExist { .. },
+            )) => Ok(false),
+            Err(PyRenderError::PyErr(error))
+                if error.is_instance_of::<VariableDoesNotExist>(py) =>
+            {
+                Ok(false)
             }
-            Self::Or(inner) => {
-                let left = inner.0.evaluate(py, template, context);
-                let right = inner.1.evaluate(py, template, context);
-                match left {
-                    None => false,
-                    Some(left) => {
-                        if left {
-                            true
-                        } else {
-                            right.unwrap_or(false)
-                        }
-                    }
-                }
-            }
-            Self::Not(inner) => match inner.evaluate(py, template, context) {
-                None | Some(true) => false,
-                Some(false) => true,
-            },
-            Self::Equal(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.eq(&r),
-                Err(_) => false,
-            },
-            Self::NotEqual(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.ne(&r),
-                Err(_) => false,
-            },
-            Self::LessThan(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.lt(&r),
-                Err(_) => false,
-            },
-            Self::GreaterThan(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.gt(&r),
-                Err(_) => false,
-            },
-            Self::LessThanEqual(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.lte(&r),
-                Err(_) => false,
-            },
-            Self::GreaterThanEqual(inner) => match inner.resolve(py, template, context) {
-                Ok((l, r)) => l.gte(&r),
-                Err(_) => false,
-            },
-            Self::In(inner) => {
-                let Ok(inner) = inner.resolve(py, template, context) else {
-                    return Some(false);
-                };
-                match inner {
-                    (l, Some(r)) => r.contains(l).unwrap_or(false),
-                    _ => false,
-                }
-            }
-            Self::NotIn(inner) => {
-                let Ok(inner) = inner.resolve(py, template, context) else {
-                    return Some(false);
-                };
-                match inner {
-                    (l, Some(r)) => !(r.contains(l).unwrap_or(true)),
-                    _ => false,
-                }
-            }
-            Self::Is(inner) => {
-                let Ok(inner) = inner.resolve(py, template, context) else {
-                    return Some(false);
-                };
-                match inner {
-                    (Some(Content::Py(left)), Some(Content::Py(right))) => left.is(&right),
-                    (Some(Content::Py(obj)), None) | (None, Some(Content::Py(obj))) => {
-                        obj.is(PyNone::get(py).as_any())
-                    }
-                    (Some(Content::Bool(left)), Some(Content::Py(right))) => {
-                        right.is(PyBool::new(py, left).as_any())
-                    }
-                    (None, None) => true,
-                    _ => false,
-                }
-            }
-            Self::IsNot(inner) => {
-                let Ok(inner) = inner.resolve(py, template, context) else {
-                    return Some(false);
-                };
-                match inner {
-                    (Some(Content::Py(left)), Some(Content::Py(right))) => !left.is(&right),
-                    (Some(Content::Bool(left)), Some(Content::Bool(right))) => left != right,
-                    (Some(Content::Py(obj)), None) | (None, Some(Content::Py(obj))) => {
-                        !obj.is(PyNone::get(py).as_any())
-                    }
-                    (Some(Content::Bool(left)), Some(Content::Py(right))) => {
-                        !right.is(PyBool::new(py, left).as_any())
-                    }
-                    (Some(Content::Py(left)), Some(Content::Bool(right))) => {
-                        !left.is(PyBool::new(py, right).as_any())
-                    }
-                    (None, None) => false,
-                    _ => true,
-                }
-            }
-        })
+            Err(error) => Err(error),
+        }
     }
+}
+
+/// A Python `int` or `float` that converts to a float exactly, the only
+/// values `native_widthratio` takes.
+fn exact_float(value: &Bound<'_, PyAny>) -> Option<f64> {
+    if value.is_exact_instance_of::<PyFloat>() {
+        return value.extract().ok();
+    }
+    if value.is_exact_instance_of::<PyInt>() {
+        let number: i64 = value.extract().ok()?;
+        if number.unsigned_abs() <= 1 << 53 {
+            #[allow(clippy::cast_precision_loss)]
+            return Some(number as f64);
+        }
+    }
+    None
+}
+
+/// Django's `round((float(value) / float(max_value)) * int(max_width))` for
+/// plain numbers, with the same float operations. `None` leaves strings,
+/// subclasses, huge integers and results `round` rejects to Python.
+fn native_widthratio(values: &[Bound<'_, PyAny>]) -> Option<String> {
+    if !values[2].is_exact_instance_of::<PyInt>() {
+        return None;
+    }
+    let value = exact_float(&values[0])?;
+    let maximum = exact_float(&values[1])?;
+    let width = exact_float(&values[2])?;
+    if maximum == 0.0 {
+        return Some("0".to_string());
+    }
+    let ratio = (value / maximum) * width;
+    if !ratio.is_finite() {
+        return None;
+    }
+    BigInt::from_f64(ratio.round_ties_even()).map(|rounded| rounded.to_string())
+}
+
+/// Python's `str.isspace`, which `re`'s `\s` and `str.strip` use: Unicode
+/// whitespace plus the four information separators.
+fn is_python_space(c: char) -> bool {
+    c.is_whitespace() || ('\x1c'..='\x1f').contains(&c)
+}
+
+/// Django's `strip_spaces_between_tags(value.strip())`: `re.sub(r">\s+<",
+/// "><", value)`.
+fn spaceless(text: &str) -> String {
+    let mut rest = text.trim_matches(is_python_space);
+    let mut output = String::with_capacity(rest.len());
+    while let Some(position) = rest.find('>') {
+        output.push_str(&rest[..=position]);
+        rest = &rest[position + 1..];
+        let trimmed = rest.trim_start_matches(is_python_space);
+        if trimmed.len() < rest.len() && trimmed.starts_with('<') {
+            rest = trimmed;
+        }
+    }
+    output.push_str(rest);
+    output
 }
 
 fn render_widthratio(
@@ -666,6 +577,9 @@ fn render_widthratio(
             .map(|value| value.unwrap_or_else(|| "".as_content()).to_py(py))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    if let Some(result) = native_widthratio(&values) {
+        return Ok(result);
+    }
     let builtins = BUILTINS
         .get_or_try_init(py, || {
             py.import("builtins")
@@ -758,7 +672,7 @@ impl Render for Tag {
                 truthy,
                 falsey,
             } => {
-                if condition.evaluate(py, template, context).unwrap_or(false) {
+                if condition.evaluate(py, template, context)? {
                     truthy.render_into(py, template, context, output)
                 } else {
                     falsey.render_into(py, template, context, output)
@@ -786,24 +700,23 @@ impl Render for Tag {
                             .map(|value| (name, value.unwrap_or_else(|| "".as_content()).to_py(py)))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                let mut scoped = context.clone_scope(py);
-                let scope = if let Some(live) = &scoped.formatting_context {
-                    Some(live.bind(py).call_method0("push")?)
-                } else {
-                    None
+                let pushed = match &context.formatting_context {
+                    Some(live) => super::live::push(live.bind(py)).map(|()| true)?,
+                    None => false,
                 };
-                let local_names = values
-                    .iter()
-                    .map(|(name, _)| (*name).clone())
-                    .collect::<Vec<_>>();
-                for (name, value) in values {
-                    scoped.insert(name.clone(), value)?;
+                // Django's `with context.push(**values)`: the names, and
+                // anything the body assigns, last until the scope closes.
+                let values = values
+                    .into_iter()
+                    .map(|(name, value)| (name.as_str(), value));
+                let rendered = context
+                    .push_bindings(py, values)
+                    .map_err(Into::into)
+                    .and_then(|()| nodes.render_into(py, template, context, output));
+                context.pop_variables();
+                if pushed && let Some(live) = &context.formatting_context {
+                    super::live::pop(live.bind(py))?;
                 }
-                let rendered = nodes.render_into(py, template, &mut scoped, output);
-                if let Some(scope) = scope {
-                    scope.call_method1("__exit__", (py.None(), py.None(), py.None()))?;
-                }
-                context.merge_render_state(py, scoped, &local_names)?;
                 rendered
             }
             Self::Block { name, nodes } => {
@@ -956,9 +869,11 @@ impl Render for Tag {
                         && let Some(lookup) = &group.lookup
                         && context.formatting_context.is_none()
                     {
-                        let grouped_result = py
-                            .import("django.template.defaulttags")?
-                            .getattr("GroupedResult")?;
+                        let grouped_result = GROUPED_RESULT.import(
+                            py,
+                            "django.template.defaulttags",
+                            "GroupedResult",
+                        )?;
                         let mut previous: Option<Bound<'_, PyAny>> = None;
                         let mut items = PyList::empty(py);
                         for item in target.try_iter()? {
@@ -980,9 +895,11 @@ impl Render for Tag {
                         let python_context = context.django_context(py)?;
                         let kwargs = PyDict::new(py);
                         kwargs.set_item("ignore_failures", true)?;
-                        let grouped_result = py
-                            .import("django.template.defaulttags")?
-                            .getattr("GroupedResult")?;
+                        let grouped_result = GROUPED_RESULT.import(
+                            py,
+                            "django.template.defaulttags",
+                            "GroupedResult",
+                        )?;
                         let mut previous: Option<Bound<'_, PyAny>> = None;
                         let mut items = PyList::empty(py);
                         for item in target.try_iter()? {
@@ -1063,19 +980,22 @@ impl Render for Tag {
                 for filter in filters {
                     value = filter.resolve(value, py, template, context)?;
                 }
+                // Django returns the filtered value as the node's output, so
+                // one that isn't a string fails when the nodes are joined.
                 match value {
-                    Some(value) => Cow::Owned(value.to_py(py).str()?.extract::<String>()?),
+                    Some(value) => {
+                        let value = value.to_py(py);
+                        if !value.is_instance_of::<PyString>() {
+                            return Err(PyRenderError::InvalidTagResult(value.unbind()));
+                        }
+                        Cow::Owned(value.str()?.extract::<String>()?)
+                    }
                     None => Cow::Borrowed(""),
                 }
             }
             Self::Spaceless(nodes) => {
                 let output = nodes.render(py, template, context)?;
-                Cow::Owned(
-                    STRIP_SPACES
-                        .import(py, "django.utils.html", "strip_spaces_between_tags")?
-                        .call1((output.trim(),))?
-                        .extract()?,
-                )
+                Cow::Owned(spaceless(&output))
             }
             Self::Verbatim(nodes) => nodes.render(py, template, context)?,
             Self::Debug => {
@@ -1085,9 +1005,8 @@ impl Render for Tag {
                         values.del_item(name)?;
                     }
                 }
-                let ctx = py
-                    .import("django.template.context")?
-                    .getattr("Context")?
+                let ctx = DJANGO_CONTEXT
+                    .import(py, "django.template.context", "Context")?
                     .call1((values,))?;
                 Cow::Owned(
                     DEBUG_NODE
@@ -1127,7 +1046,7 @@ impl Render for Tag {
                 truthy,
                 falsey,
             } => {
-                if condition.evaluate(py, template, context).unwrap_or(false) {
+                if condition.evaluate(py, template, context)? {
                     truthy.render(py, template, context)?
                 } else {
                     falsey.render(py, template, context)?
@@ -1194,8 +1113,17 @@ impl For {
         context: &mut Context,
         rendered: &mut String,
     ) -> super::RenderIntoResult {
+        // Stop at the first error, as `list()` does: an iterator can keep
+        // raising forever.
         let mut list: Vec<_> = match iterable.try_iter() {
-            Ok(iterator) => iterator.collect(),
+            Ok(iterator) => match iterator.collect::<PyResult<_>>() {
+                Ok(list) => list,
+                Err(error) => {
+                    let error =
+                        error.annotate(py, self.iterable.at, "while iterating this", template);
+                    return Err(error.into());
+                }
+            },
             Err(error) => {
                 let error = error.annotate(py, self.iterable.at, "here", template);
                 return Err(error.into());
@@ -1208,36 +1136,36 @@ impl For {
             list.reverse();
         }
         let mut join = super::JoinResults::default();
-        context.push_for_loop(list.len());
-        for (index, values) in list.into_iter().enumerate() {
-            let values = match values {
-                Ok(values) => values,
-                Err(error) => {
-                    let error =
-                        error.annotate(py, self.iterable.at, "while iterating this", template);
-                    return Err(error.into());
-                }
-            };
-            context.push_variables(
-                &self.variables.names,
-                self.variables.at,
-                values,
-                self.iterable.at,
-                index,
-                template,
-            )?;
-            context.sync_loop_context(py, index == 0)?;
-            for (body_index, node) in self.body.iter().enumerate() {
-                join.collect(
-                    index * self.body.len() + body_index,
-                    node.render_into(py, template, context, rendered),
+        let scopes = context.scope_depth();
+        context.push_for_loop(py, list.len());
+        let result = (|| {
+            for (index, values) in list.into_iter().enumerate() {
+                context.push_variables(
+                    &self.variables.names,
+                    self.variables.at,
+                    values,
+                    self.iterable.at,
+                    index,
+                    template,
                 )?;
+                context.sync_loop_context(py, index == 0)?;
+                for (body_index, node) in self.body.iter().enumerate() {
+                    join.collect(
+                        index * self.body.len() + body_index,
+                        node.render_into(py, template, context, rendered),
+                    )?;
+                }
+                context.increment_for_loop();
             }
-            context.increment_for_loop();
-        }
-        context.pop_variables();
+            Ok(())
+        })();
+        // Leave the loop's scope on errors too: a caller that catches the
+        // error may keep rendering with this context, as Django's does.
+        // One scope, as Django pops one layer: if a tag in the body left
+        // its own open, that is the one that goes.
+        context.pop_scope_above(scopes);
         context.pop_for_loop();
-        join.finish(py)
+        result.and_then(|()| join.finish(py))
     }
 
     fn render_string_into(
@@ -1269,22 +1197,26 @@ impl For {
         let variable = &self.variables.names[0];
         let mut join = super::JoinResults::default();
         let mut utf8 = [0; 4];
-        context.push_for_loop(length);
-        for (index, c) in chars.enumerate() {
-            let c = PyString::new(py, c.encode_utf8(&mut utf8));
-            context.push_variable(variable.clone(), c.into_any(), index);
-            context.sync_loop_context(py, index == 0)?;
-            for (body_index, node) in self.body.iter().enumerate() {
-                join.collect(
-                    index * self.body.len() + body_index,
-                    node.render_into(py, template, context, rendered),
-                )?;
+        let scopes = context.scope_depth();
+        context.push_for_loop(py, length);
+        let result = (|| {
+            for (index, c) in chars.enumerate() {
+                let c = PyString::new(py, c.encode_utf8(&mut utf8));
+                context.push_variable(variable.clone(), c.into_any(), index);
+                context.sync_loop_context(py, index == 0)?;
+                for (body_index, node) in self.body.iter().enumerate() {
+                    join.collect(
+                        index * self.body.len() + body_index,
+                        node.render_into(py, template, context, rendered),
+                    )?;
+                }
+                context.increment_for_loop();
             }
-            context.increment_for_loop();
-        }
-        context.pop_variables();
+            Ok(())
+        })();
+        context.pop_scope_above(scopes);
         context.pop_for_loop();
-        join.finish(py)
+        result.and_then(|()| join.finish(py))
     }
 }
 
@@ -1307,14 +1239,23 @@ impl Render for For {
         context: &mut Context,
         output: &mut String,
     ) -> super::RenderIntoResult {
-        let scope = if let Some(django_context) = &context.formatting_context {
-            Some(django_context.bind(py).call_method0("push")?)
-        } else {
-            None
+        if self.callback_free
+            && context.formatting_context.is_some()
+            && let Some(result) = context.shadowed(py, |context| {
+                self.render_loop_into(py, template, context, output)
+            })?
+        {
+            return result;
+        }
+        // Keep no handle on the live context or its new layer while the loop
+        // renders: an inner loop may then render on native scopes.
+        let pushed = match &context.formatting_context {
+            Some(live) => super::live::push(live.bind(py)).map(|()| true)?,
+            None => false,
         };
         let result = self.render_loop_into(py, template, context, output);
-        if let Some(scope) = scope {
-            scope.call_method1("__exit__", (py.None(), py.None(), py.None()))?;
+        if pushed && let Some(live) = &context.formatting_context {
+            super::live::pop(live.bind(py))?;
         }
         result
     }
@@ -1338,6 +1279,10 @@ impl For {
             return self.empty.render_into(py, template, context, output);
         };
         match iterable {
+            // Django's `{% for %}` treats `None` as an empty sequence.
+            Content::Py(iterable) if iterable.is_none() => {
+                self.empty.render_into(py, template, context, output)
+            }
             Content::Py(iterable) => {
                 self.render_python_into(&iterable, py, template, context, output)
             }
@@ -1487,6 +1432,12 @@ impl Include {
                 if let Some(render) = content.getattr_opt(intern!(py, "render"))?
                     && render.is_callable()
                 {
+                    // A backend template renders a dict; Django includes
+                    // the engine-level template inside it.
+                    let render = match content.getattr_opt(intern!(py, "template"))? {
+                        Some(inner) => inner.getattr(intern!(py, "render"))?,
+                        None => render,
+                    };
                     Ok(IncludeTemplate::Callable(render))
                 } else if content.is_instance_of::<PyString>() {
                     let template_path = content
@@ -1627,8 +1578,15 @@ impl Include {
                 new_context.use_l10n = context.use_l10n;
                 new_context.use_tz = context.use_tz;
                 new_context.format_values = context.format_values;
-                new_context.number_format = context.number_format.clone();
-                render(&mut new_context)
+                new_context.render_stack = context.render_stack;
+                new_context.number_format = std::sync::Arc::clone(&context.number_format);
+                // Lend the caches: the isolated context has the same
+                // language and time zone, and an include in a loop would
+                // otherwise fill them again on every call.
+                context.move_caches_to(&mut new_context);
+                let rendered = render(&mut new_context);
+                new_context.move_caches_to(context);
+                rendered
             }
         }
     }
@@ -1725,6 +1683,7 @@ pub(super) fn build_pycontext<'py>(
     if let Some(live) = &context.formatting_context {
         return Ok(live.bind(py).clone());
     }
+    context.enter_callback();
     #[cfg(not(Py_GIL_DISABLED))]
     if let Some(wrapper) = spare_contexts::take() {
         let wrapper = wrapper.into_bound(py);
@@ -1764,7 +1723,13 @@ pub(super) fn retrieve_context<'py>(
         // Only this function holds the wrapper, and no block callback holds
         // its state: swap the render back and keep the wrapper for next time.
         // SAFETY: `wrapper` is a live object, and reading a reference count is
-        // only a load.
+        // only a load. Reuse is sound because, on GIL builds (this block is
+        // compiled only there), no other thread can change the count while we
+        // hold the GIL: a count of 1 is our own handle, so no Python object,
+        // callback or retained reference can still reach the wrapper and
+        // observe its state being swapped out or the wrapper being pooled.
+        // Native handles (block callbacks) are ruled out by
+        // `is_sole_native_owner`.
         let refcount = unsafe { pyo3::ffi::Py_REFCNT(wrapper.as_ptr()) };
         if refcount == 1 && wrapper.borrow().context.is_sole_native_owner() {
             std::mem::swap(
@@ -1776,6 +1741,7 @@ pub(super) fn retrieve_context<'py>(
                 context,
             );
             spare_contexts::give_back(wrapper.clone().unbind());
+            context.leave_callback();
             return;
         }
     }
@@ -1793,6 +1759,7 @@ pub(super) fn retrieve_context<'py>(
         .take_or_clone(py, |context| context.clone_ref(py));
     // Put the Context back in `context`
     let _ = std::mem::replace(context, inner_context);
+    context.leave_callback();
 }
 
 fn build_arg<'py>(
@@ -1845,6 +1812,20 @@ fn store_target_var_into(
 ) -> super::RenderIntoResult {
     match target_var {
         None => {
+            // `conditional_escape` of a plain `str` is `html.escape`, and of a
+            // `SafeString` its own text: both are done here without a call.
+            if content.is_exact_instance_of::<PyString>() {
+                return Ok(super::types::append_python_string(
+                    &content,
+                    context.autoescape,
+                    rendered,
+                )?);
+            }
+            if crate::render::filters::is_exact_safe_string(&content)? {
+                return Ok(super::types::append_python_string(
+                    &content, false, rendered,
+                )?);
+            }
             let output = if context.autoescape {
                 CONDITIONAL_ESCAPE
                     .import(content.py(), "django.utils.html", "conditional_escape")?
@@ -1876,6 +1857,10 @@ fn inclusion_values<'py>(
 ) -> PyResult<HashMap<String, Py<PyAny>>> {
     if let Ok(values) = result.extract() {
         return Ok(values);
+    }
+    // `Context.new(None)` is an empty context.
+    if result.is_none() {
+        return Ok(HashMap::new());
     }
     INCLUSION_VALUES
         .import(py, "django_rusty_templates.stock", "inclusion_values")?
@@ -2080,7 +2065,8 @@ impl InclusionTag {
         child.use_l10n = context.use_l10n;
         child.use_tz = context.use_tz;
         child.format_values = context.format_values;
-        child.number_format = context.number_format.clone();
+        child.render_stack = context.render_stack;
+        child.number_format = std::sync::Arc::clone(&context.number_format);
         if let Some(template_name) = self.admin_template {
             // `InclusionAdminNode` lets each model or app override the template.
             let opts = context
@@ -2223,9 +2209,8 @@ impl Render for SimpleBlockTag {
         let kwargs = build_kwargs(py, template, context, &self.kwargs)?;
 
         let content = self.nodes.render(py, template, context)?;
-        let content = py
-            .import("django.utils.safestring")?
-            .getattr("mark_safe")?
+        let content = MARK_SAFE
+            .import(py, "django.utils.safestring", "mark_safe")?
             .call1((&*content,))?;
         args.push_front(content);
 
@@ -2370,6 +2355,13 @@ impl Render for Lorem {
             context,
             ResolveFailures::IgnoreVariableDoesNotExist,
         )?;
+        // Django catches `ValueError` and `TypeError` from `int(count)`,
+        // but not the `OverflowError` an infinity raises.
+        if count_content.as_ref().is_some_and(Content::is_infinite) {
+            return Err(
+                PyOverflowError::new_err("cannot convert float infinity to integer").into(),
+            );
+        }
         let val = count_content
             .and_then(|c| c.to_bigint())
             .and_then(|n| n.to_i64())
@@ -2421,7 +2413,7 @@ impl Render for FirstOf {
                 template,
                 context,
                 ResolveFailures::IgnoreVariableDoesNotExist,
-            )? && content.to_bool().unwrap_or(false)
+            )? && content.to_bool()?
             {
                 if let Some(asvar) = &self.asvar {
                     // Django stores `render_value_in_context(value)`. With

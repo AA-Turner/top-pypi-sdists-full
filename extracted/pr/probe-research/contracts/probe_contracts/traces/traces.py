@@ -14,6 +14,8 @@ from ..compat import StrEnum
 TRACE_PROTOCOL_VERSION = 1
 #: `<language>/<protocol version>`, e.g. `typescript/1`: lets the server count refusals per client.
 PROBE_CLIENT_HEADER = "Probe-Client"
+#: A well-formed `Probe-Client` value, lowercased (`fullmatch`): the server's label, the checker's rule.
+PROBE_CLIENT_PATTERN = r"[a-z][a-z0-9_.+-]{0,31}/[0-9]{1,4}"
 #: Raw spans per request; past it the server answers 413 and the client splits parent-first.
 MAX_TRACE_SPANS_PER_REQUEST = 1_000
 #: Request body bytes; past it the server answers 413 and the client splits parent-first.

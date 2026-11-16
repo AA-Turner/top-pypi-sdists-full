@@ -4,16 +4,26 @@
    token in lx.kind) and resolves the two grammar-driven lexer ambiguities from here:
    a `/` in operand position is re-read as a regex (jm_lex_rescan_regex), and a `}`
    that closes a `${...}` is re-read as a template continuation (jm_lex_rescan_template).
-   The arrow-function cover grammar is handled by backtracking - the lexer state is a
-   plain value, so a speculative scan can peek for `=>` and rewind.
+   The arrow-function cover grammar is parsed once: a parenthesized list that may be an
+   arrow's parameters is read as the elements both readings share, and the token after
+   its `)` settles which it was (parse_cover). No token scan can stand in for that parse,
+   since it would read every `/` and `}` on the way without those two re-reads.
 
    Any construct the parser does not handle reports an error; jm_parse then returns
    NULL and the caller emits the original source unchanged, so partial coverage can
    never corrupt a script. */
 
+/* glibc declares pthread_getattr_np, which core/stack.h reads the thread's stack bounds with, only for GNU code. The
+   extension build gets that from pyconfig.h; the standalone build has no Python.h to ask for it. */
+#if defined(JM_STANDALONE) && defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE 1
+#endif
+
 #include "js/internal.h"
 
 #include "core/fuzzing.h"
+#include "core/stack.h"
+#include "core/work_steps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,7 +38,9 @@ typedef struct {
     jm_lexer lx;
     jm_program *prog;
     int err;
+    int32_t limit;     /* the nesting cap on this call's thread: JM_MAX_DEPTH, or what the C stack left holds */
     int32_t depth;     /* current parse-recursion depth; a nesting cap stops a stack overflow (#421) */
+    int32_t peak;      /* deepest level reached since the innermost chain began */
     int await_keyword; /* `await` starts an AwaitExpression: in an async function, or at a module's top level */
     int yield_keyword; /* `yield` starts a YieldExpression: in a generator */
     int strict;        /* strict mode code (ECMA-262 11.2.2): a module, a class, or a "use strict" directive's scope */
@@ -37,13 +49,27 @@ typedef struct {
     size_t names_cap;
     char *errbuf;
     size_t errlen;
+    Py_ssize_t arrow_at;    /* where the innermost AssignmentExpression starts: only there may `(` head an arrow */
+    Py_ssize_t operator_at; /* where the function being parsed last used `await` or `yield` as an operator */
+    Py_ssize_t await_at;    /* where the function being parsed last used `await` as an identifier */
 } P;
 
-/* The recursion/nesting a script may reach before the parser rejects it as too deep, chosen so the
-   post-parse fold and print walks (bounded by this AST height) stay well inside the C stack -- even a
-   512 KiB secondary-thread stack -- while clearing the deepest generated expressions seen in practice
-   (hundreds of operands). The point is to fail cleanly on a pathological input rather than fault. */
+/* The recursion/nesting a script may reach before the parser rejects it as too deep, chosen to clear the deepest
+   generated expressions seen in practice (hundreds of operands). The parse and the fold, mangle and print walks after
+   it (bounded by this AST height) all recurse once per level, so on a thread whose C stack holds fewer levels the cap
+   drops to what it holds (stack_levels). The point is to fail cleanly on a pathological input rather than fault. */
 enum { JM_MAX_DEPTH = TH_DEPTH_LIMIT(1000) };
+
+/* The C stack one level of nesting may take in the parse or in any walk after it, the most measured over every nesting
+   construct of the grammar: about 0.55 KiB with gcc -O3, 0.65 KiB with MSVC /O2, 0.9 KiB with clang -O3, and 1.25 KiB
+   with clang -O0. */
+enum { JM_LEVEL_BYTES = 1536 };
+
+#ifndef TH_STACK_FLOOR
+/* Where the platform reports no stack bounds, the stack assumed left below jm_parse: a 512 KiB thread less the margin
+   other stack guards keep and the frames of the caller. */
+enum { JM_FALLBACK_STACK = 384 * 1024 };
+#endif
 
 /* Report the first error: the construct that failed, the byte offset, and the offending token slice
    (or end-of-input), so a diagnostic names what and where rather than an offset alone (#434). */
@@ -78,16 +104,43 @@ static void fail_at(P *parser, Py_ssize_t start, const char *message) {
 /* Enter one level of parse recursion; returns 0 (after flagging a clean error) when the nesting cap
    is reached, so the caller unwinds instead of overflowing the stack. Each enter pairs with a leave. */
 static int enter(P *parser) {
-    if (parser->depth >= JM_MAX_DEPTH) {
+    if (parser->depth >= parser->limit) {
         fail(parser, "nested too deeply");
         return 0;
     }
     parser->depth++;
+    if (parser->depth > parser->peak) {
+        parser->peak = parser->depth;
+    }
     return 1;
 }
 
 static void leave(P *parser) {
     parser->depth--;
+}
+
+/* parser->depth forgets an operand's levels once it is parsed, but the spine built on it still stands that tall, so
+   a chain meters its height against parser->peak, the deepest level reached since the chain began. */
+static int32_t chain_begin(P *parser) {
+    int32_t outer = parser->peak;
+    parser->peak = parser->depth;
+    return outer;
+}
+
+static int chain_link(P *parser) {
+    if (parser->peak >= parser->limit) {
+        fail(parser, "nested too deeply");
+        return 0;
+    }
+    parser->peak++;
+    parser->depth++;
+    return 1;
+}
+
+static void chain_end(P *parser, int32_t outer) {
+    if (outer > parser->peak) {
+        parser->peak = outer;
+    }
 }
 
 /* Advance to the next token; a lexer error becomes a parser error. */
@@ -102,7 +155,7 @@ static int at(const P *parser, jm_tok kind) {
     return parser->lx.kind == kind;
 }
 
-static int kw(const P *parser, const char *word) {
+static JM_TOKEN_INLINE int kw(const P *parser, const char *word) {
     return parser->lx.kind == JT_IDENT && jm_text_eq(&parser->lx, word);
 }
 
@@ -205,7 +258,7 @@ static int32_t parse_primary(P *parser);
 static int32_t parse_new_target(P *parser);
 static int32_t parse_import_call(P *parser);
 static int operand_follows(P *parser);
-static int32_t parse_arrow_rest(P *parser, int32_t node);
+static int32_t parse_arrow_rest(P *parser, int32_t node, Py_ssize_t params_start);
 static int32_t parse_function(P *parser, int is_expr, int is_async);
 static void parse_function_rest(P *parser, int32_t fn, int unique);
 static int duplicate_param(P *parser, int32_t first);
@@ -213,6 +266,7 @@ static int collect_name(P *parser, const jm_node *name);
 static int compare_names(const void *left, const void *right);
 static int32_t parse_class(P *parser, int is_expr);
 static int32_t parse_class_rest(P *parser, int is_expr);
+static int32_t parse_field_initializer(P *parser);
 static void parse_static_block(P *parser, int32_t member);
 static int parse_params(P *parser, int32_t fn);
 static int each_bound_name(P *parser, int32_t idx, int (*visit)(P *parser, const jm_node *name));
@@ -257,7 +311,13 @@ static int32_t parse_spread(P *parser) {
    scope binder, the folder and the printer -- then sees the one canonical name. */
 static void set_ident(P *parser, int32_t node) {
     Py_ssize_t len = 0;
-    parser->prog->nodes[node].str = jm_ident_value(parser->prog, parser->lx.text, parser->lx.text_len, &len);
+    const Py_UCS4 *name = jm_ident_value(parser->prog, parser->lx.text, parser->lx.text_len, &len);
+    if (name == NULL) { /* an escape with no decoded form: keep the lexeme so the node stays well-formed */
+        fail(parser, "invalid identifier escape");
+        name = parser->lx.text;
+        len = parser->lx.text_len;
+    }
+    parser->prog->nodes[node].str = name;
     parser->prog->nodes[node].str_len = len;
 }
 
@@ -265,6 +325,12 @@ static void set_ident(P *parser, int32_t node) {
 static int32_t leaf(P *parser, jm_kind kind) {
     int32_t index = jm_node_new(parser->prog, kind);
     if (kind == JN_IDENT) {
+        /* Only a value-bearing token names anything: at a punctuator lx.text still spans the last token that did,
+           so the name read there would be an earlier token's. Punctuators follow the value-bearing kinds in jm_tok,
+           and the end of input is let through, since its text is empty and repeats no earlier name. */
+        if (parser->lx.kind > JT_TEMPLATE_TAIL) {
+            fail(parser, "expected property name");
+        }
         set_ident(parser, index);
     } else {
         parser->prog->nodes[index].str = parser->lx.text;
@@ -452,10 +518,6 @@ static int is_binding_target(P *parser, int32_t target) {
         }
         int32_t bound = child;
         if (element->kind == JN_PROP) {
-            /* a shorthand binds its key, which a computed `[a]` key cannot be */
-            if ((element->flags & JN_F_SHORTHAND) != 0 && (element->flags & JN_F_COMPUTED) != 0) {
-                return 0;
-            }
             bound = element->b < 0 ? element->a : element->b;
         }
         if (!is_binding_element(parser, bound)) {
@@ -990,11 +1052,11 @@ static int binary_prec(P *parser, int no_in, int *logical, int *is_in_or_instanc
 }
 
 static int32_t parse_binary(P *parser, int min_prec, int no_in) {
+    int32_t outer = chain_begin(parser);
     int32_t left = parse_unary(parser);
     if (parser->err) {
         return -1;
     }
-    int32_t built = 0; /* each loop turn deepens the left-leaning spine by one, so it counts as nesting */
     for (;;) {
         int logical = 0;
         int worded = 0;
@@ -1002,10 +1064,9 @@ static int32_t parse_binary(P *parser, int min_prec, int no_in) {
         if (prec == 0 || prec < min_prec) {
             break;
         }
-        if (!enter(parser)) {
+        if (!chain_link(parser)) {
             return -1;
         }
-        built++;
         uint16_t op = (uint16_t)parser->lx.kind;
         int32_t word_node = -1;
         if (worded) {
@@ -1029,8 +1090,9 @@ static int32_t parse_binary(P *parser, int min_prec, int no_in) {
             set_c(parser, node, word_node);
         }
         left = node;
+        leave(parser);
     }
-    parser->depth -= built; /* the spine is built; release its levels so a sibling expression starts fresh */
+    chain_end(parser, outer);
     return left;
 }
 
@@ -1078,8 +1140,8 @@ static int32_t parse_cond(P *parser, int no_in) {
     return parser->err ? -1 : node;
 }
 
-/* Peek whether the next tokens form an arrow head (`x =>` or `( ... ) =>`, each
-   optionally prefixed `async`). Restores the lexer before returning. */
+/* Peek whether the next tokens form an arrow head with one bare parameter (`x =>`, optionally prefixed `async`).
+   Restores the lexer before returning. A parenthesized head takes a parse to tell apart (parse_cover). */
 static int looks_like_arrow(P *parser) {
     jm_mark save = mark(parser);
     int result = 0;
@@ -1093,93 +1155,129 @@ static int looks_like_arrow(P *parser) {
     if (at(parser, JT_IDENT)) {
         advance(parser);
         result = at(parser, JT_ARROW);
-    } else if (at(parser, JT_LPAREN)) {
-        int depth = 0;
-        do {
-            if (at(parser, JT_LPAREN)) {
-                depth++;
-            } else if (at(parser, JT_RPAREN)) {
-                depth--;
-            } else if (at(parser, JT_EOF) || at(parser, JT_ERROR)) {
-                reset(parser, save);
-                return 0;
-            }
-            advance(parser);
-        } while (depth > 0);
-        result = at(parser, JT_ARROW);
     }
     reset(parser, save);
     return result;
 }
 
-/* An arrow sets its own await and yield context: its body is ConciseBody[~Await] or AsyncConciseBody[+Await], never
-   [+Yield] (ECMA-262 15.3, 15.9). */
+/* An arrow function with one bare parameter, which looks_like_arrow found. */
 static int32_t parse_arrow(P *parser) {
-    int32_t node = jm_node_new(parser->prog, JN_ARROW);
-    int outer_await = parser->await_keyword;
-    int outer_yield = parser->yield_keyword;
-    int outer_strict = parser->strict;
-    parser->await_keyword = kw(parser, "async");
-    parser->yield_keyword = 0;
     Py_ssize_t params_start = parser->lx.start;
-    int32_t result = parse_arrow_rest(parser, node);
-    /* an arrow's parameters are UniqueFormalParameters (ECMA-262 15.3) */
-    if (result >= 0 && duplicate_param(parser, parser->prog->nodes[node].a)) {
-        fail_at(parser, params_start, "duplicate parameter name");
-        result = -1;
-    }
-    parser->await_keyword = outer_await;
-    parser->yield_keyword = outer_yield;
-    parser->strict = outer_strict;
-    return result;
-}
-
-static int32_t parse_arrow_rest(P *parser, int32_t node) {
+    int32_t node = jm_node_new(parser->prog, JN_ARROW);
     if (kw(parser, "async")) {
         parser->prog->nodes[node].flags |= JN_F_ASYNC;
         advance(parser);
     }
-    if (at(parser, JT_IDENT)) {
-        int32_t param = leaf(parser, JN_IDENT);
-        set_a(parser, node, param);
-    } else {
-        advance(parser); /* ( */
-        int32_t tail = -1;
-        /* no EOF guard: the cover-grammar lookahead already matched complete params and `=>`,
-           and an unterminated list makes parse_assign error out below, so the loop always ends */
-        while (!at(parser, JT_RPAREN)) {
-            int32_t param = at(parser, JT_ELLIPSIS) ? parse_spread(parser) : parse_assign(parser, 0);
-            if (parser->err) {
-                return -1;
-            }
-            if (tail < 0) {
-                set_a(parser, node, param);
-            } else {
-                parser->prog->nodes[tail].next = param;
-            }
-            tail = param;
-            if (!eat(parser, JT_COMMA)) {
-                break;
-            }
+    set_a(parser, node, leaf(parser, JN_IDENT));
+    return parse_arrow_rest(parser, node, params_start);
+}
+
+/* An arrow head that parse_cover or parse_call_member stopped at its `=>`. No operator takes `=>` as an operand, and an
+   arrow function ends its AssignmentExpression, so parse_assign_body reads the body. */
+static int is_arrow_head(const P *parser, int32_t expr) {
+    const jm_node *node = &parser->prog->nodes[expr];
+    return node->kind == JN_ARROW && node->b < 0;
+}
+
+/* The list an AssignmentExpression starts with, parsed once as the elements that a group and an arrow's parameters
+   share (ECMA-262 13.2, 15.3). A token scan cannot find its `)`: a `/` or `}` on the way lexes right only from its
+   grammar position. The token after the `)` settles whether it is an arrow head. */
+static int32_t parse_cover(P *parser) {
+    Py_ssize_t params_only = -1; /* the first token only parameters allow: a `...`, or the `)` of `()` or `(a,)` */
+    int32_t first = -1;
+    int32_t tail = -1;
+    advance(parser); /* ( */
+    for (;;) {
+        TH_WORK_STEP();
+        if (params_only < 0 && (at(parser, JT_RPAREN) || at(parser, JT_ELLIPSIS))) {
+            params_only = parser->lx.start;
         }
-        expect(parser, JT_RPAREN, "expected )");
+        if (at(parser, JT_RPAREN)) {
+            break;
+        }
+        int32_t item = at(parser, JT_ELLIPSIS) ? parse_spread(parser) : parse_assign(parser, 0);
+        if (parser->err) {
+            return -1;
+        }
+        if (tail < 0) {
+            first = item;
+        } else {
+            parser->prog->nodes[tail].next = item;
+        }
+        tail = item;
+        if (!eat(parser, JT_COMMA)) {
+            break;
+        }
     }
-    expect(parser, JT_ARROW, "expected =>");
+    expect(parser, JT_RPAREN, "expected )");
     if (parser->err) {
         return -1;
     }
-    if (at(parser, JT_LBRACE)) {
-        set_b(parser, node, parse_block(parser, 1));
-    } else {
-        parser->prog->nodes[node].flags |= JN_F_EXPRBODY;
-        set_b(parser, node, parse_assign(parser, 0));
+    if (at(parser, JT_ARROW)) {
+        int32_t node = jm_node_new(parser->prog, JN_ARROW);
+        set_a(parser, node, first);
+        return node;
     }
+    if (params_only >= 0) {
+        fail_at(parser, params_only, "unexpected token");
+        return -1;
+    }
+    if (tail == first) {
+        return first;
+    }
+    int32_t node = jm_node_new(parser->prog, JN_SEQ);
+    set_a(parser, node, first);
+    return node;
+}
+
+/* The `=>` and body of the arrow function whose head node is, read from params_start on. An arrow sets its own await
+   and yield context: its body is ConciseBody[~Await] or AsyncConciseBody[+Await], never [+Yield] (ECMA-262 15.3,
+   15.9). */
+static int32_t parse_arrow_rest(P *parser, int32_t node, Py_ssize_t params_start) {
+    int is_async = (parser->prog->nodes[node].flags & JN_F_ASYNC) != 0;
+    /* a parenthesized head was parsed in the enclosing context, before its `=>` showed it to be parameters, which hold
+       neither operator (ECMA-262 15.3.1, 15.9.1); an async arrow's parameters read `await` as the operator even where
+       that context took it for an identifier */
+    Py_ssize_t misplaced = parser->operator_at;
+    if (is_async && parser->await_at > misplaced) {
+        misplaced = parser->await_at;
+    }
+    if (misplaced > params_start) {
+        fail_at(parser, misplaced, "await or yield expression not allowed here");
+        return -1;
+    }
+    int outer_await = parser->await_keyword;
+    int outer_yield = parser->yield_keyword;
+    int outer_strict = parser->strict;
+    Py_ssize_t outer_operator = parser->operator_at;
+    Py_ssize_t outer_await_at = parser->await_at;
+    parser->await_keyword = is_async;
+    parser->yield_keyword = 0;
+    advance(parser); /* => */
+    if (!parser->err) {
+        if (at(parser, JT_LBRACE)) {
+            set_b(parser, node, parse_block(parser, 1));
+        } else {
+            parser->prog->nodes[node].flags |= JN_F_EXPRBODY;
+            set_b(parser, node, parse_assign(parser, 0));
+        }
+    }
+    /* an arrow's parameters are UniqueFormalParameters (ECMA-262 15.3) */
+    if (!parser->err && duplicate_param(parser, parser->prog->nodes[node].a)) {
+        fail_at(parser, params_start, "duplicate parameter name");
+    }
+    parser->await_keyword = outer_await;
+    parser->yield_keyword = outer_yield;
+    parser->strict = outer_strict;
+    parser->operator_at = outer_operator;
+    parser->await_at = outer_await_at;
     return parser->err ? -1 : node;
 }
 
 static int32_t parse_assign_body(P *parser, int no_in) {
     if (parser->yield_keyword && kw(parser, "yield")) {
         int32_t node = jm_node_new(parser->prog, JN_YIELD);
+        parser->operator_at = parser->lx.start;
         advance(parser);
         if (eat(parser, JT_STAR)) {
             parser->prog->nodes[node].flags |= JN_F_DELEGATE;
@@ -1193,9 +1291,14 @@ static int32_t parse_assign_body(P *parser, int no_in) {
     if (looks_like_arrow(parser)) {
         return parse_arrow(parser);
     }
+    Py_ssize_t start = parser->lx.start;
+    parser->arrow_at = start;
     int32_t left = parse_cond(parser, no_in);
     if (parser->err) {
         return -1;
+    }
+    if (is_arrow_head(parser, left)) {
+        return parse_arrow_rest(parser, left, start);
     }
     if (is_assign_op(parser->lx.kind)) {
         uint16_t op = (uint16_t)parser->lx.kind;
@@ -1259,6 +1362,8 @@ static int32_t parse_unary(P *parser) {
     } else if (node_kind == JN_UPDATE) {
         parser->prog->nodes[node].op = (uint16_t)kind;
         parser->prog->nodes[node].flags |= JN_F_PREFIX;
+    } else {
+        parser->operator_at = parser->lx.start;
     }
     advance(parser);
     if (!enter(parser)) { /* one guard for the shared prefix recursion (`!!!x`, `typeof void x`, `++x`) */
@@ -1315,6 +1420,7 @@ static void parse_args(P *parser, int32_t call) {
    to it, but the first `(` is the new's own argument list, not a call on the callee.
    So this walks the dot/bracket chain only, stopping at `(`. */
 static int32_t parse_new_callee(P *parser) {
+    int32_t outer = chain_begin(parser);
     int32_t expr;
     if (kw(parser, "new")) {
         advance(parser);
@@ -1341,15 +1447,13 @@ static int32_t parse_new_callee(P *parser) {
     if (parser->err) {
         return -1;
     }
-    int32_t built = 0; /* the callee's member chain deepens the spine one node per link */
     for (;;) {
         if (!at(parser, JT_DOT) && !at(parser, JT_LBRACK)) {
             break;
         }
-        if (!enter(parser)) {
+        if (!chain_link(parser)) {
             return -1;
         }
-        built++;
         if (at(parser, JT_DOT)) {
             advance(parser);
             int32_t prop = leaf(parser, JN_IDENT);
@@ -1369,14 +1473,19 @@ static int32_t parse_new_callee(P *parser) {
         if (parser->err) {
             return -1;
         }
+        leave(parser);
     }
-    parser->depth -= built;
+    chain_end(parser, outer);
     return expr;
 }
 
 static int32_t parse_call_member(P *parser) {
+    int32_t outer = chain_begin(parser);
     int32_t expr;
-    int32_t built = 0; /* every call/member/tag link deepens the left-leaning spine by one */
+    /* `async (...)` at the start of an AssignmentExpression is a call, or an async arrow function's head when `=>`
+       follows it (the cover grammar of ECMA-262 15.9): the list is parsed once, as arguments, which are the elements
+       parameters are too */
+    int async_start = parser->lx.start == parser->arrow_at && kw(parser, "async");
     if (kw(parser, "new")) {
         advance(parser);
         if (at(parser, JT_DOT)) {
@@ -1405,10 +1514,9 @@ chain:
             !at(parser, JT_TEMPLATE) && !at(parser, JT_TEMPLATE_HEAD)) {
             break;
         }
-        if (!enter(parser)) {
+        if (!chain_link(parser)) {
             return -1;
         }
-        built++;
         if (at(parser, JT_DOT)) {
             advance(parser);
             int32_t prop = leaf(parser, JN_IDENT); /* a property name (identifier name) */
@@ -1447,11 +1555,18 @@ chain:
             expect(parser, JT_RBRACK, "expected ]");
             expr = node;
         } else if (at(parser, JT_LPAREN)) {
+            /* only the identifier `async` itself, with its `(` on the same line, can head an arrow function */
+            int head = async_start && parser->prog->nodes[expr].kind == JN_IDENT && !parser->lx.newline_before;
             int32_t node = jm_node_new(parser->prog, JN_CALL);
             set_a(parser, node, expr);
             mark_value_slot(parser, expr, 0);
             parse_args(parser, node);
             expr = node;
+            if (head && at(parser, JT_ARROW) && !parser->err) {
+                expr = jm_node_new(parser->prog, JN_ARROW);
+                parser->prog->nodes[expr].flags |= JN_F_ASYNC;
+                set_a(parser, expr, parser->prog->nodes[node].b);
+            }
         } else { /* JT_TEMPLATE / JT_TEMPLATE_HEAD: a tagged template */
             int32_t node = jm_node_new(parser->prog, JN_TAGGED);
             set_a(parser, node, expr);
@@ -1462,8 +1577,9 @@ chain:
         if (parser->err) {
             return -1;
         }
+        leave(parser);
     }
-    parser->depth -= built;
+    chain_end(parser, outer);
     return expr;
 }
 
@@ -1571,6 +1687,11 @@ static int32_t parse_object(P *parser) {
                 set_b(parser, prop, fn);
             } else if (eat(parser, JT_COLON)) {
                 set_b(parser, prop, parse_assign(parser, 0));
+            } else if ((parser->prog->nodes[prop].flags & JN_F_COMPUTED) != 0 ||
+                       parser->prog->nodes[parser->prog->nodes[prop].a].kind != JN_IDENT) {
+                /* only an IdentifierReference abbreviates (ECMA-262 13.2.5); a shorthand's key is also its value, so
+                   a computed key taken as one is walked once per role at every nesting level */
+                fail(parser, "expected :");
             } else if (eat(parser, JT_ASSIGN)) {
                 /* shorthand with a default - only valid in a destructuring pattern */
                 parser->prog->nodes[prop].flags |= JN_F_SHORTHAND;
@@ -1662,6 +1783,7 @@ static int32_t parse_primary(P *parser) {
             fail(parser, "bad regex");
             return -1;
         }
+        parser->prog->has_regex = 1;
         return leaf(parser, JN_REGEX);
     case JT_TEMPLATE:
     case JT_TEMPLATE_HEAD:
@@ -1671,11 +1793,19 @@ static int32_t parse_primary(P *parser) {
     case JT_LBRACE:
         return parse_object(parser);
     case JT_LPAREN: {
-        advance(parser);
-        int32_t expr = parse_expr(parser, 0);
-        expect(parser, JT_RPAREN, "expected )");
+        int32_t expr;
+        if (parser->lx.start == parser->arrow_at) {
+            expr = parse_cover(parser);
+        } else {
+            advance(parser);
+            expr = parse_expr(parser, 0);
+            expect(parser, JT_RPAREN, "expected )");
+        }
         if (parser->err) {
             return -1;
+        }
+        if (is_arrow_head(parser, expr)) { /* parse_cover stopped at `=>`: parameters, not a group */
+            return expr;
         }
         parser->prog->nodes[expr].flags |= JN_F_GROUPED;
         /* parentheses around an optional chain are load-bearing - they end the chain
@@ -1711,6 +1841,9 @@ static int32_t parse_primary(P *parser) {
         if (parser->lx.text_len == 5 && (kw(parser, "await") || kw(parser, "yield")) && operand_follows(parser)) {
             fail(parser, "await or yield expression not allowed here");
             return -1;
+        }
+        if (parser->lx.text_len == 5 && kw(parser, "await")) {
+            parser->await_at = parser->lx.start;
         }
         return leaf(parser, JN_IDENT);
     default:
@@ -1818,6 +1951,8 @@ static void parse_function_rest(P *parser, int32_t fn, int unique) {
     int outer_await = parser->await_keyword;
     int outer_yield = parser->yield_keyword;
     int outer_strict = parser->strict;
+    Py_ssize_t outer_operator = parser->operator_at;
+    Py_ssize_t outer_await_at = parser->await_at;
     parser->await_keyword = (parser->prog->nodes[fn].flags & JN_F_ASYNC) != 0;
     parser->yield_keyword = (parser->prog->nodes[fn].flags & JN_F_GENERATOR) != 0;
     Py_ssize_t params_start = parser->lx.start;
@@ -1833,6 +1968,8 @@ static void parse_function_rest(P *parser, int32_t fn, int unique) {
     parser->await_keyword = outer_await;
     parser->yield_keyword = outer_yield;
     parser->strict = outer_strict;
+    parser->operator_at = outer_operator;
+    parser->await_at = outer_await_at;
 }
 
 /* Whether a parameter list binds one name twice. The names are sorted, so a long list costs O(n log n) rather than a
@@ -1910,7 +2047,11 @@ static int32_t parse_class_rest(P *parser, int is_expr) {
     }
     if (kw(parser, "extends")) {
         advance(parser);
+        if (!enter(parser)) { /* `class extends class extends ...` recurses here without passing parse_assign */
+            return -1;
+        }
         set_a(parser, node, parse_call_member(parser));
+        leave(parser);
         if (parser->err) {
             return -1;
         }
@@ -1988,7 +2129,7 @@ static int32_t parse_class_rest(P *parser, int is_expr) {
             /* a field: optional initializer, then ASI */
             parser->prog->nodes[member].decl = 3; /* field */
             if (eat(parser, JT_ASSIGN)) {
-                set_b(parser, member, parse_assign(parser, 0));
+                set_b(parser, member, parse_field_initializer(parser));
             }
             semicolon(parser);
         }
@@ -2004,6 +2145,23 @@ static int32_t parse_class_rest(P *parser, int is_expr) {
     }
     expect(parser, JT_RBRACE, "expected }");
     return parser->err ? -1 : node;
+}
+
+/* A class field's initializer, which runs as a method of its own: neither `await` nor `yield` is an operator in it
+   (ECMA-262 15.7, Initializer[+In, ~Yield, ~Await]), so what it names or holds is none of an enclosing arrow head's. */
+static int32_t parse_field_initializer(P *parser) {
+    int outer_await = parser->await_keyword;
+    int outer_yield = parser->yield_keyword;
+    Py_ssize_t outer_operator = parser->operator_at;
+    Py_ssize_t outer_await_at = parser->await_at;
+    parser->await_keyword = 0;
+    parser->yield_keyword = 0;
+    int32_t value = parse_assign(parser, 0);
+    parser->await_keyword = outer_await;
+    parser->yield_keyword = outer_yield;
+    parser->operator_at = outer_operator;
+    parser->await_at = outer_await_at;
+    return value;
 }
 
 /* A class static block `static{...}` (ECMA-262 15.7): a keyless member whose value is a parameterless function, so
@@ -2022,6 +2180,17 @@ static void parse_static_block(P *parser, int32_t member) {
     set_b(parser, member, fn);
 }
 
+/* The levels the C stack left below the caller's frame holds, at most JM_MAX_DEPTH. The fold, mangle and print passes
+   run from th_js_minify too, a frame above this one, so the same room bounds them. */
+static int32_t stack_levels(void) {
+#ifdef TH_STACK_FLOOR
+    intptr_t room = (intptr_t)(TH_FRAME_ADDRESS() - th_stack_floor());
+#else
+    intptr_t room = JM_FALLBACK_STACK;
+#endif
+    return room / JM_LEVEL_BYTES < JM_MAX_DEPTH ? (int32_t)(room / JM_LEVEL_BYTES) : JM_MAX_DEPTH;
+}
+
 jm_program *jm_parse(const Py_UCS4 *src, Py_ssize_t len, int module, char *errbuf, size_t errlen) {
     jm_program *prog = jm_program_new();
     if (prog == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -2031,7 +2200,18 @@ jm_program *jm_parse(const Py_UCS4 *src, Py_ssize_t len, int module, char *errbu
     prog->src = src;
     prog->src_len = len;
 
-    P parser = {.prog = prog, .err = 0, .errbuf = errbuf, .errlen = errlen, .await_keyword = module, .strict = module};
+    int32_t levels = stack_levels();
+    prog->rewrite_limit = levels - levels / 10;
+    P parser = {.prog = prog,
+                .err = 0,
+                .limit = levels,
+                .errbuf = errbuf,
+                .errlen = errlen,
+                .await_keyword = module,
+                .strict = module};
+    parser.arrow_at = -1;
+    parser.operator_at = -1;
+    parser.await_at = -1;
     errbuf[0] = '\0';
     prog->parse_err = &parser.err;
     jm_lex_init(&parser.lx, src, len);

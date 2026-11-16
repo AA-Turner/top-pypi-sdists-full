@@ -122,6 +122,7 @@ class MultipartState(IntEnum):
     PART_DATA_END = 10
     END_BOUNDARY = 11
     END = 12
+    BOUNDARY_PADDING = 13
 
 
 if TYPE_CHECKING:
@@ -142,6 +143,7 @@ if TYPE_CHECKING:
     PART_DATA_END = MultipartState.PART_DATA_END
     END_BOUNDARY = MultipartState.END_BOUNDARY
     END = MultipartState.END
+    BOUNDARY_PADDING = MultipartState.BOUNDARY_PADDING
 
 # Flags for the multipart parser.
 FLAG_PART_BOUNDARY = 1
@@ -210,8 +212,8 @@ def _parseparam(s: str) -> list[str]:
         if i == -1:
             f = s[start:end]
         else:
-            f = s[start:i].rstrip().lower() + "=" + s[i + 1 : end].lstrip()
-        plist.append(f.strip())
+            f = s[start:i].rstrip(" \t").lower() + "=" + s[i + 1 : end].lstrip(" \t")
+        plist.append(f.strip(" \t"))
         start = end
     return plist
 
@@ -230,7 +232,7 @@ def parse_options_header(value: str | bytes | None) -> tuple[bytes, dict[bytes, 
 
     # If we have no options, return the string as-is.
     if ";" not in value:
-        return (value.lower().strip().encode("latin-1"), {})
+        return (value.lower().strip(" \t").encode("latin-1"), {})
 
     ctype, *segments = _parseparam(value)
     options: dict[bytes, bytes] = {}
@@ -733,9 +735,9 @@ class OctetStreamParser(BaseParser):
         max_size: The maximum size of body to parse.  Defaults to infinity - i.e. unbounded.
     """
 
-    def __init__(self, callbacks: OctetStreamCallbacks = {}, max_size: float = float("inf")):
+    def __init__(self, callbacks: OctetStreamCallbacks | None = None, max_size: float = float("inf")):
         super().__init__()
-        self.callbacks = callbacks
+        self.callbacks = {} if callbacks is None else callbacks
         self._started = False
 
         if not isinstance(max_size, Number) or max_size < 1:
@@ -811,13 +813,16 @@ class QuerystringParser(BaseParser):
     state: QuerystringState
 
     def __init__(
-        self, callbacks: QuerystringCallbacks = {}, strict_parsing: bool = False, max_size: float = float("inf")
+        self,
+        callbacks: QuerystringCallbacks | None = None,
+        strict_parsing: bool = False,
+        max_size: float = float("inf"),
     ) -> None:
         super().__init__()
         self.state = BEFORE_FIELD
         self._found_sep = False
 
-        self.callbacks = callbacks
+        self.callbacks = {} if callbacks is None else callbacks
 
         # Max-size stuff
         if not isinstance(max_size, Number) or max_size < 1:
@@ -883,6 +888,7 @@ class QuerystringParser(BaseParser):
             on_field_end = _noop_event
 
         i = 0
+        sep_pos = -1
         while i < length:
             ch = data[i]
 
@@ -977,8 +983,9 @@ class QuerystringParser(BaseParser):
                         i = length
 
             elif state == FIELD_DATA:
-                # Try finding an ampersand after this position.
-                sep_pos = data.find(b"&", i, length)
+                # Reuse the separator already found while scanning the field name.
+                if sep_pos < i:
+                    sep_pos = data.find(b"&", i, length)
 
                 # If we found it, callback this bit as data and then go back
                 # to expecting to find a field.
@@ -987,12 +994,14 @@ class QuerystringParser(BaseParser):
                         on_field_data(data, i, sep_pos)
                     on_field_end()
 
-                    # Note that we go to the separator, which brings us to the
-                    # "before field" state.  This allows us to properly emit
-                    # "field_start" events only when we actually have data for
-                    # a field of some sort.
-                    i = sep_pos - 1
-                    state = BEFORE_FIELD
+                    # Trailing or duplicate separators must not start a field.
+                    if sep_pos + 1 < length and data[sep_pos + 1] != AMPERSAND:
+                        on_field_start()
+                        i = sep_pos
+                        state = FIELD_NAME
+                    else:
+                        i = sep_pos - 1
+                        state = BEFORE_FIELD
 
                 # Otherwise, emit the rest as data and finish.
                 else:
@@ -1060,7 +1069,7 @@ class MultipartParser(BaseParser):
     def __init__(
         self,
         boundary: bytes | str,
-        callbacks: MultipartCallbacks = {},
+        callbacks: MultipartCallbacks | None = None,
         max_size: float = float("inf"),
         *,
         max_header_count: int = DEFAULT_MAX_HEADER_COUNT,
@@ -1071,7 +1080,7 @@ class MultipartParser(BaseParser):
         self.state = START
         self.index = self.flags = 0
 
-        self.callbacks = callbacks
+        self.callbacks = {} if callbacks is None else callbacks
 
         if not isinstance(max_size, Number) or max_size < 1:
             raise ValueError("max_size must be a positive number, not %r" % max_size)
@@ -1151,14 +1160,6 @@ class MultipartParser(BaseParser):
             current_header_size += amount
             if current_header_size > self.max_header_size:
                 raise MultipartParseError("Maximum header size exceeded", offset=i)
-
-        # Set a mark.
-        def set_mark(name: str) -> None:
-            self.marks[name] = i
-
-        # Remove a mark.
-        def delete_mark(name: str, reset: bool = False) -> None:
-            self.marks.pop(name, None)
 
         # Helper function that makes calling a callback with data easier. The
         # 'remaining' parameter will callback from the marked value until the
@@ -1274,6 +1275,15 @@ class MultipartParser(BaseParser):
                     index += 1
 
             elif state == HEADER_FIELD_START:
+                if data.startswith(b"\r\n", i, length):
+                    # Consume the blank line without visiting the intermediate states.
+                    self.callback("headers_finished")
+                    self.marks["part_data"] = i + 2
+                    index = 0
+                    state = PART_DATA
+                    i += 2
+                    continue
+
                 # Mark the start of a header field here, reset the index, and
                 # continue parsing our header field.
                 index = 0
@@ -1285,7 +1295,7 @@ class MultipartParser(BaseParser):
                     current_header_size = 0
 
                 # Set a mark of our header field.
-                set_mark("header_field")
+                self.marks["header_field"] = i
 
                 # Notify that we're starting a header if the next character is
                 # not a CR; a CR at the beginning of the header will cause us
@@ -1303,7 +1313,7 @@ class MultipartParser(BaseParser):
                 # that we've reached the second of 2 newlines, and so there are
                 # no more headers to parse.
                 if c == CR and index == 0:
-                    delete_mark("header_field")
+                    self.marks.pop("header_field", None)
                     state = HEADERS_ALMOST_DONE
                     i += 1
                     continue
@@ -1351,7 +1361,7 @@ class MultipartParser(BaseParser):
                     continue
 
                 # Mark the start of the header value.
-                set_mark("header_value")
+                self.marks["header_value"] = i
 
                 # Move to the header-value state, reprocessing this character.
                 state = HEADER_VALUE
@@ -1368,7 +1378,12 @@ class MultipartParser(BaseParser):
                     data_callback("header_value", i)
                     self.callback("header_end")
                     current_header_size = 0
-                    state = HEADER_VALUE_ALMOST_DONE
+                    if data.startswith(b"\r\n", cr, length):
+                        # Consume the buffered LF without another parser iteration.
+                        i += 1
+                        state = HEADER_FIELD_START
+                    else:
+                        state = HEADER_VALUE_ALMOST_DONE
                 else:
                     i = length
 
@@ -1394,15 +1409,9 @@ class MultipartParser(BaseParser):
                     raise MultipartParseError(msg, offset=i)
 
                 self.callback("headers_finished")
-                state = PART_DATA_START
 
-            elif state == PART_DATA_START:
-                # Mark the start of our part data.
-                set_mark("part_data")
-
-                # Start processing part data, including this character.
+                self.marks["part_data"] = i + 1
                 state = PART_DATA
-                i -= 1
 
             elif state == PART_DATA:
                 # We're processing our part data right now.  During this, we
@@ -1421,6 +1430,18 @@ class MultipartParser(BaseParser):
                     # Calling `find` is much faster than iterating here.
                     i0 = data.find(boundary, i, length)
                     if i0 >= 0:
+                        # Finish a buffered delimiter without stepping through its CRLF.
+                        after = i0 + boundary_length
+                        if data.startswith(b"\r\n", after, length):
+                            data_callback("part_data", i0)
+                            self.callback("part_end")
+                            self.callback("part_begin")
+                            current_header_count = 0
+                            current_header_size = 0
+                            state = HEADER_FIELD_START
+                            i = after + 2
+                            continue
+
                         # We matched the whole boundary string.
                         index = boundary_length - 1
                         i = i0 + boundary_length - 1
@@ -1462,6 +1483,13 @@ class MultipartParser(BaseParser):
                     # of all boundaries.
                     elif c == HYPHEN:
                         flags |= FLAG_LAST_BOUNDARY
+
+                    # RFC 2046 forbids lines starting with the boundary in a part, so this can't be data.
+                    elif c in b" \t":
+                        data_callback("part_data", i - boundary_length)
+                        self.marks.pop("part_data", None)
+                        index = 0
+                        state = BOUNDARY_PADDING
 
                     # Otherwise, we reset our index, since this isn't either a
                     # newline or a hyphen.
@@ -1526,6 +1554,21 @@ class MultipartParser(BaseParser):
                     # Re-consider the current character, since this could be
                     # the start of the boundary itself.
                     i -= 1
+
+            elif state == BOUNDARY_PADDING:
+                if index == 0 and c == CR:
+                    index = 1
+                elif index == 1 and c == LF:
+                    self.callback("part_end")
+                    self.callback("part_begin")
+                    current_header_count = 0
+                    current_header_size = 0
+                    index = 0
+                    state = HEADER_FIELD_START
+                elif index == 1 or c not in b" \t":
+                    msg = "Did not find CRLF after boundary padding at %d" % (i,)
+                    self.logger.warning(msg)
+                    raise MultipartParseError(msg, offset=i)
 
             elif state == END_BOUNDARY:
                 if index == boundary_length - 1:
@@ -1801,7 +1844,7 @@ class FormParser:
                 header_value.append(data[start:end])
 
             def on_header_end() -> None:
-                headers[b"".join(header_name).lower()] = b"".join(header_value)
+                headers[b"".join(header_name).lower()] = b"".join(header_value).strip(b" \t")
                 del header_name[:]
                 del header_value[:]
 

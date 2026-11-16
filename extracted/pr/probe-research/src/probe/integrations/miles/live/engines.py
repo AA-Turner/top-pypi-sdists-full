@@ -14,6 +14,8 @@ from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
+from .gpu import take_reply_trace
+
 if TYPE_CHECKING:
     from .rollout import Rollout
 
@@ -134,11 +136,16 @@ class RidStamp:
         async def post(url, payload, max_retries=MILES_MAX_RETRIES, action="post", headers=None):
             original = self._original
             rollout = CURRENT.get()
+            is_generate = str(url).endswith("/generate")
             if (rollout is None or rollout.is_agent or not isinstance(payload, dict) or "rid" in payload
-                    or not str(url).endswith("/generate")):  # fmt: skip
-                return await original(url, payload, max_retries, action=action, headers=headers)
+                    or not is_generate):  # fmt: skip
+                output = await original(url, payload, max_retries, action=action, headers=headers)
+                if is_generate:  # stamped or not, the readings never reach Miles
+                    _call_quietly(take_reply_trace, None if rollout is None or rollout.is_agent else rollout, output)
+                return output
             _call_quietly(self._on_request, rollout)
             output = await self._post_with_rids(rollout, url, payload, max_retries, action, headers)
+            _call_quietly(take_reply_trace, rollout, output)
             _call_quietly(self._on_reply, rollout, output)
             return output
 
@@ -157,10 +164,12 @@ class RidStamp:
             try:
                 return await self._send(rollout, self._original(url, stamped, 1, action=action, headers=headers))
             except httpx.HTTPStatusError as exc:
+                rollout.gpu.is_incomplete = True  # a failed send's readings never come back
                 status = exc.response.status_code
                 if (400 <= status < 500 and status not in (408, 429)) or attempt >= max_retries:
                     raise
             except Exception:
+                rollout.gpu.is_incomplete = True
                 if attempt >= max_retries:
                     raise
             await asyncio.sleep(MILES_RETRY_SLEEP_S)

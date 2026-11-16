@@ -17,7 +17,6 @@ import re
 import unicodedata
 
 import netaddr
-from os_ken.lib.packet import ether_types
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import netutils
@@ -160,6 +159,7 @@ def _verify_dict_keys(expected_keys, target_dict, strict=True):
                "Provided keys: %(provided_keys)s")
         LOG.debug(msg, msg_data)
         return _(msg) % msg_data
+    return None
 
 
 def _collect_duplicates(data_list):
@@ -207,6 +207,7 @@ def _validate_list_of_items(item_validator, data, *args, **kwargs):
         msg = item_validator(item, *args, **kwargs)
         if msg:
             return msg
+    return None
 
 
 def _validate_list_of_items_non_empty(item_validator, data, *args, **kwargs):
@@ -218,6 +219,7 @@ def _validate_list_of_items_non_empty(item_validator, data, *args, **kwargs):
     if len(data) == 0:
         msg = _("List should not be empty")
         return msg
+    return None
 
 
 def validate_values(data, valid_values=None, valid_values_display=None):
@@ -240,7 +242,7 @@ def validate_values(data, valid_values=None, valid_values_display=None):
 
     # If valid_values is not specified we don't check against it.
     if valid_values is None:
-        return
+        return None
 
     # Check if we can use 'in' to find membership of data in valid_values
     contains = getattr(valid_values, "__contains__", None)
@@ -265,6 +267,7 @@ def validate_values(data, valid_values=None, valid_values_display=None):
         # This is a programming error
         msg = _("'valid_values' does not support membership operations")
         raise TypeError(msg)
+    return None
 
 
 def validate_not_empty_string_or_none(data, max_len=None):
@@ -278,6 +281,7 @@ def validate_not_empty_string_or_none(data, max_len=None):
     """
     if data is not None:
         return validate_not_empty_string(data, max_len=max_len)
+    return None
 
 
 def validate_not_empty_string(data, max_len=None):
@@ -295,6 +299,7 @@ def validate_not_empty_string(data, max_len=None):
         msg = "'%s' Blank strings are not permitted"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_string_or_none(data, max_len=None):
@@ -307,6 +312,7 @@ def validate_string_or_none(data, max_len=None):
     """
     if data is not None:
         return validate_string(data, max_len=max_len)
+    return None
 
 
 def validate_string(data, max_len=None):
@@ -328,6 +334,7 @@ def validate_string(data, max_len=None):
         msg = "'%(data)s' exceeds maximum length of %(max_len)s"
         LOG.debug(msg, msg_data)
         return _(msg) % msg_data
+    return None
 
 
 _validate_list_of_unique_strings = functools.partial(_validate_list_of_items,
@@ -361,6 +368,7 @@ def validate_oneline_not_empty_string(data, max_len=None):
         msg = "Multi-line string is not allowed: '%s'"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_oneline_not_empty_string_or_none(data, max_len=None):
@@ -374,6 +382,7 @@ def validate_oneline_not_empty_string_or_none(data, max_len=None):
     """
     if data is not None:
         return validate_oneline_not_empty_string(data, max_len=max_len)
+    return None
 
 
 def validate_name_string(data, max_len=None):
@@ -391,7 +400,7 @@ def validate_name_string(data, max_len=None):
 
     try:
         if re.search(valid_name_regex, data):
-            return
+            return None
     except TypeError:
         # The name must be string type. If data isn't string type,
         # TypeError will be raised here.
@@ -411,6 +420,7 @@ def validate_name_string_or_none(data, max_len=None):
     """
     if data is not None:
         return validate_name_string(data, max_len=max_len)
+    return None
 
 
 def validate_not_empty_name_string(data, max_len=None):
@@ -429,6 +439,7 @@ def validate_not_empty_name_string(data, max_len=None):
     msg = validate_name_string(data, max_len=max_len)
     if msg:
         return msg
+    return None
 
 
 def validate_name_string_not_default(data, max_len=None):
@@ -448,6 +459,7 @@ def validate_name_string_not_default(data, max_len=None):
         return msg
     if data.lower() == "default":
         raise sg_exc.SecurityGroupDefaultAlreadyExists()
+    return None
 
 
 def validate_boolean(data, valid_values=None):
@@ -464,6 +476,7 @@ def validate_boolean(data, valid_values=None):
         msg = "'%s' is not a valid boolean value"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_integer(data, valid_values=None):
@@ -499,6 +512,20 @@ def validate_integer(data, valid_values=None):
         msg = "'%s' is not an integer:boolean"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
+
+
+def validate_integer_or_none(data, valid_values=None):
+    """Validate data is an integer or None.
+
+    :param data: The data to validate.
+    :param valid_values: values to limit the 'data' to.
+    :returns: None if data is None or an integer, otherwise a human readable
+        message indicating why validation failed.
+    """
+    if data is not None:
+        return validate_integer(data, valid_values)
+    return None
 
 
 def validate_range(data, valid_values=None):
@@ -534,6 +561,7 @@ def validate_range(data, valid_values=None):
         msg = "'%(data)s' is too large - must be no larger than '%(limit)d'"
         LOG.debug(msg, msg_data)
         return _(msg) % msg_data
+    return None
 
 
 def validate_range_or_none(data, valid_values=None):
@@ -541,6 +569,7 @@ def validate_range_or_none(data, valid_values=None):
 
     if data is not None:
         return validate_range(data, valid_values)
+    return None
 
 
 def validate_no_whitespace(data):
@@ -581,6 +610,7 @@ def validate_mac_address(data, valid_values=None):
         msg = "'%s' is not a valid MAC address"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_mac_address_or_none(data, valid_values=None):
@@ -593,6 +623,7 @@ def validate_mac_address_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_mac_address(data, valid_values)
+    return None
 
 
 def validate_ip_address(data, valid_values=None):
@@ -603,6 +634,10 @@ def validate_ip_address(data, valid_values=None):
     :returns: None if data is an IP address, otherwise a human readable
         message indicating why data isn't an IP address.
     """
+    if data is None:
+        msg = "'None' is not a valid IP address"
+        LOG.debug(msg)
+        return _(msg)
     msg = None
     msg_data = data
     try:
@@ -712,6 +747,7 @@ def validate_ip_pools(data, valid_values=None):
             msg = validate_ip_address(ip_pool[k])
             if msg:
                 return msg
+    return None
 
 
 def validate_fixed_ips(data, valid_values=None):
@@ -753,6 +789,7 @@ def validate_fixed_ips(data, valid_values=None):
             msg = validate_uuid(fixed_ip['subnet_id'])
             if msg:
                 return msg
+    return None
 
 
 def validate_nameservers(data, valid_values=None):
@@ -768,6 +805,10 @@ def validate_nameservers(data, valid_values=None):
         LOG.debug(msg, data)
         return _(msg) % data
 
+    # Handle empty list explicitly
+    if not data:
+        return None
+
     hosts = []
     for host in data:
         # This must be an IP address only
@@ -782,6 +823,7 @@ def validate_nameservers(data, valid_values=None):
             LOG.debug(msg, host)
             return _(msg) % host
         hosts.append(host)
+    return None
 
 
 def validate_hostroutes(data, valid_values=None):
@@ -816,6 +858,7 @@ def validate_hostroutes(data, valid_values=None):
             LOG.debug(msg, hostroute)
             return _(msg) % hostroute
         hostroutes.append(hostroute)
+    return None
 
 
 def validate_ip_address_or_none(data, valid_values=None):
@@ -828,6 +871,7 @@ def validate_ip_address_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_ip_address(data, valid_values)
+    return None
 
 
 def validate_ip_or_subnet_or_none(data, valid_values=None):
@@ -844,6 +888,7 @@ def validate_ip_or_subnet_or_none(data, valid_values=None):
     if msg_ip is not None and msg_subnet is not None:
         return _("'%(data)s' is neither a valid IP address, nor "
                  "is it a valid IP subnet") % {'data': data}
+    return None
 
 
 def validate_subnet(data, valid_values=None):
@@ -864,6 +909,7 @@ def validate_subnet(data, valid_values=None):
         msg = "'%s' is not a valid IP subnet"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_route_cidr(data, valid_values=None):
@@ -887,6 +933,7 @@ def validate_route_cidr(data, valid_values=None):
     except Exception:
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_subnet_or_none(data, valid_values=None):
@@ -899,6 +946,7 @@ def validate_subnet_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_subnet(data, valid_values)
+    return None
 
 
 _validate_subnet_list = functools.partial(_validate_list_of_items,
@@ -927,6 +975,7 @@ def validate_subnet_list_or_none(data, key_specs=None):
     """
     if data is not None:
         return validate_subnet_list(data, key_specs)
+    return None
 
 
 def validate_regex(data, valid_values=None):
@@ -940,7 +989,7 @@ def validate_regex(data, valid_values=None):
     """
     try:
         if re.match(valid_values, data):
-            return
+            return None
     except TypeError:
         pass
 
@@ -960,6 +1009,7 @@ def validate_regex_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_regex(data, valid_values)
+    return None
 
 
 def validate_list_of_regex_or_none(data, valid_values=None):
@@ -973,6 +1023,7 @@ def validate_list_of_regex_or_none(data, valid_values=None):
     """
     if data is not None:
         return _validate_list_of_items(validate_regex, data, valid_values)
+    return None
 
 
 def validate_subnetpool_id(data, valid_values=None):
@@ -985,6 +1036,7 @@ def validate_subnetpool_id(data, valid_values=None):
     """
     if data != constants.IPV6_PD_POOL_ID:
         return validate_uuid_or_none(data, valid_values)
+    return None
 
 
 def validate_subnetpool_id_or_none(data, valid_values=None):
@@ -997,6 +1049,7 @@ def validate_subnetpool_id_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_subnetpool_id(data, valid_values)
+    return None
 
 
 def validate_uuid(data, valid_values=None):
@@ -1011,6 +1064,7 @@ def validate_uuid(data, valid_values=None):
         msg = "'%s' is not a valid UUID"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_uuid_or_none(data, valid_values=None):
@@ -1023,6 +1077,7 @@ def validate_uuid_or_none(data, valid_values=None):
     """
     if data is not None:
         return validate_uuid(data)
+    return None
 
 
 _validate_uuid_list = functools.partial(_validate_list_of_items,
@@ -1039,18 +1094,6 @@ def validate_uuid_list(data, valid_values=None):
         otherwise a message is returned indicating why validation failed.
     """
     return _validate_uuid_list(data, valid_values)
-
-
-def validate_uuid_list_non_empty(data, valid_values=None):
-    """Validate data is a non-empty list of UUID like values.
-
-    :param data: The data to validate.
-    :param valid_values: Not used!
-    :returns: None if data is a non-empty iterable that contains valid UUID
-        values, otherwise a message is returned indicating why validation
-        failed.
-    """
-    return _validate_list_of_items_non_empty(validate_uuid, data)
 
 
 def _extract_validator(key_validator):
@@ -1086,6 +1129,7 @@ def _validate_dict_item(key, key_validator, data):
         # an issue. Wouldn't InternalServer error be more natural ?
         LOG.debug(e.message)
         return e.message
+    return None
 
 
 def validate_dict(data, key_specs=None):
@@ -1104,7 +1148,7 @@ def validate_dict(data, key_specs=None):
         return _(msg) % data
     # Do not perform any further validation, if no constraints are supplied
     if not key_specs:
-        return
+        return None
 
     # Check whether all required keys are present
     required_keys = [key for key, spec in key_specs.items()
@@ -1130,6 +1174,7 @@ def validate_dict(data, key_specs=None):
         msg = _validate_dict_item(key, key_validator, data)
         if msg:
             return msg
+    return None
 
 
 def validate_dict_or_none(data, key_specs=None):
@@ -1144,6 +1189,7 @@ def validate_dict_or_none(data, key_specs=None):
     """
     if data is not None:
         return validate_dict(data, key_specs)
+    return None
 
 
 def validate_dict_or_empty(data, key_specs=None):
@@ -1158,6 +1204,7 @@ def validate_dict_or_empty(data, key_specs=None):
     """
     if data != {}:
         return validate_dict(data, key_specs)
+    return None
 
 
 def validate_dict_or_nodata(data, key_specs=None):
@@ -1172,6 +1219,7 @@ def validate_dict_or_nodata(data, key_specs=None):
     """
     if data:
         return validate_dict(data, key_specs)
+    return None
 
 
 def validate_non_negative(data, valid_values=None):
@@ -1193,6 +1241,7 @@ def validate_non_negative(data, valid_values=None):
         msg = "'%s' should be non-negative"
         LOG.debug(msg, data)
         return _(msg) % data
+    return None
 
 
 def validate_port_range_or_none(data, valid_values=None):
@@ -1206,7 +1255,7 @@ def validate_port_range_or_none(data, valid_values=None):
         readable message as to why data is invalid.
     """
     if data is None:
-        return
+        return None
 
     min_value, max_value = valid_values or [0, 65535]
 
@@ -1233,6 +1282,7 @@ def validate_port_range_or_none(data, valid_values=None):
         msg = "First port in a port range must be lower than the second port"
         LOG.debug(msg)
         return _(msg)
+    return None
 
 
 def validate_subports(data, valid_values=None):
@@ -1276,7 +1326,7 @@ def validate_subports(data, valid_values=None):
         # details from the underlying subport's network).
         segmentation_type = subport.get("segmentation_type")
         if segmentation_type == 'inherit':
-            return
+            return None
         segmentation_id = subport.get("segmentation_id")
         if ((not segmentation_type or segmentation_id is None) and
                 len(subport) > 1):
@@ -1294,6 +1344,7 @@ def validate_subports(data, valid_values=None):
             return _(msg) % msg_data
         if segmentation_id is not None:
             segmentations[segmentation_type].add(segmentation_id)
+    return None
 
 
 def validate_service_plugin_type(data, valid_values=None):
@@ -1316,15 +1367,14 @@ def validate_subnet_service_types(service_types, valid_values=None):
             raise exc.HTTPBadRequest(
                 _("Subnet service types must be a list."))
 
-        # Include standard prefixes
-        prefixes = list(constants.DEVICE_OWNER_PREFIXES)
-        prefixes += constants.DEVICE_OWNER_COMPUTE_PREFIX
+        prefixes = (constants.DEVICE_OWNER_PREFIXES +
+                    (constants.DEVICE_OWNER_COMPUTE_PREFIX,))
 
         for service_type in service_types:
             if not isinstance(service_type, str):
                 raise n_exc.InvalidInputSubnetServiceType(
                     service_type=service_type)
-            if not service_type.startswith(tuple(prefixes)):
+            if not service_type.startswith(prefixes):
                 raise n_exc.InvalidSubnetServiceType(service_type=service_type)
 
 
@@ -1337,6 +1387,9 @@ def validate_ethertype(ethertype, valid_values=None):
     """
 
     if cfg.CONF.sg_filter_ethertypes:
+        # Imported here because os_ken is large and only this check needs it.
+        from os_ken.lib.packet import ether_types  # pylint: disable=C0415
+
         os_ken_ethertypes = ether_types.__dict__
         try:
             # Use the ethertype constants from os_ken with the special
@@ -1385,6 +1438,7 @@ def validate_list_of_dict_or_nodata(data, valid_values=None):
     if data:
         return _validate_list_of_items(validate_dict_or_nodata, data,
                                        **valid_values)
+    return None
 
 
 # Dictionary that maintains a list of validation functions
@@ -1432,10 +1486,10 @@ validators = {'type:dict': validate_dict,
               'type:uuid': validate_uuid,
               'type:uuid_or_none': validate_uuid_or_none,
               'type:uuid_list': validate_uuid_list,
-              'type:uuid_list_non_empty': validate_uuid_list_non_empty,
               'type:values': validate_values,
               'type:boolean': validate_boolean,
               'type:integer': validate_integer,
+              'type:integer_or_none': validate_integer_or_none,
               'type:list_of_unique_strings': validate_list_of_unique_strings,
               'type:list_of_any_key_specs_or_none':
                   validate_any_key_specs_or_none,
@@ -1463,6 +1517,7 @@ def validate_ip_not_multicast(data, valid_values=None):
         msg_data = {'ip': data}
         msg = 'IP %(ip)s is a multicast address, which is not supported.'
         return _(msg) % msg_data
+    return None
 
 
 def validate_subnet_not_multicast(data, valid_values=None):
@@ -1479,7 +1534,7 @@ def validate_subnet_not_multicast(data, valid_values=None):
     """
     net = netaddr.IPNetwork(data)
     if net == netaddr.IPNetwork('0.0.0.0/0'):
-        return
+        return None
     if net.version == 4:
         mcast_net = netaddr.IPNetwork('224.0.0.0/4')
     else:  # net.version == 6:
@@ -1496,6 +1551,7 @@ def validate_subnet_not_multicast(data, valid_values=None):
             'Subnet %(net)s overlaps with multicast range %(mcast_net)s, '
             'which is not supported.')
         return _(msg) % msg_data
+    return None
 
 
 def validate_mac_address_not_multicast(data, valid_values=None):
@@ -1521,6 +1577,7 @@ def validate_mac_address_not_multicast(data, valid_values=None):
             'MAC address %(mac_address)s is a multicast address, '
             'which is not supported.')
         return _(msg) % msg_data
+    return None
 
 
 class UndefinedValidator(Exception):

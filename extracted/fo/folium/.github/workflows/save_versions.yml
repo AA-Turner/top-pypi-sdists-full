@@ -1,5 +1,8 @@
 name: Save package versions
 
+# no permissions by default
+permissions: {}
+
 on:
   pull_request:
   push:
@@ -9,13 +12,18 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
 
     steps:
     - name: Checkout Folium
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
 
     - name: Setup Micromamba env
-      uses: mamba-org/setup-micromamba@v2
+      uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39  # v3.2.1
       with:
         environment-name: TEST
         create-args: >-
@@ -36,7 +44,7 @@ jobs:
 
     - name: Save versions.txt
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
       with:
         name: versions.txt
         path: /tmp/versions.txt

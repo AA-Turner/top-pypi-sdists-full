@@ -254,6 +254,9 @@ class _Objective:
                         scoring=self.scoring,
                     )
             except ValueError:
+                if self.error_score == "raise":
+                    raise
+
                 n_splits = self.cv.get_n_splits(self.X, self.y, self.groups)
                 fit_time = np.array([np.nan] * n_splits)
                 score_time = np.array([np.nan] * n_splits)
@@ -311,8 +314,10 @@ class _Objective:
         if self.return_train_score:
             scores["train_score"] = np.empty(n_splits)
 
+        # Each estimator must keep the same training and validation samples across epochs.
+        splits = list(self.cv.split(self.X, self.y, groups=self.groups))
         for step in range(self.max_iter):
-            for i, (train, test) in enumerate(self.cv.split(self.X, self.y, groups=self.groups)):
+            for i, (train, test) in enumerate(splits):
                 out = list(
                     np.asarray(
                         self._partial_fit_and_score(
@@ -355,11 +360,19 @@ class _Objective:
     ) -> list[Number]:
         X_train, y_train = _safe_split(estimator, self.X, self.y, train)
         X_test, y_test = _safe_split(estimator, self.X, self.y, test, train_indices=train)
+        fit_params = _check_fit_params(
+            self.X,
+            {key: value for key, value in partial_fit_params.items() if key != "classes"},
+            train,
+        )
+        # Classes describe the full target space, not individual samples.
+        if "classes" in partial_fit_params:
+            fit_params["classes"] = partial_fit_params["classes"]
 
         start_time = time()
 
         try:
-            estimator.partial_fit(X_train, y_train, **partial_fit_params)
+            estimator.partial_fit(X_train, y_train, **fit_params)
 
         except Exception as e:
             if self.error_score == "raise":
@@ -607,17 +620,14 @@ class OptunaSearchCV(BaseEstimator):
 
     @property
     def cv_results_(self) -> dict[str, Any]:
-        """A dictionary mapping a metric name to a list of Cross-Validation results of all trials."""  # NOQA: E501
+        """A dictionary mapping a metric name to Cross-Validation results in trial order.
+
+        Includes names recorded in any trial. Missing values are filled with ``NaN``.
+        """
 
         cv_results_dict_in_list = [trial_.user_attrs for trial_ in self.trials_]
-        if len(cv_results_dict_in_list) == 0:
-            cv_results_list_in_dict = {}
-        else:
-            cv_results_list_in_dict = {
-                key: [dict_[key] for dict_ in cv_results_dict_in_list]
-                for key in cv_results_dict_in_list[0]
-            }
-        return cv_results_list_in_dict
+        keys = dict.fromkeys(key for dict_ in cv_results_dict_in_list for key in dict_)
+        return {key: [dict_.get(key, np.nan) for dict_ in cv_results_dict_in_list] for key in keys}
 
     @property
     def n_trials_(self) -> int:

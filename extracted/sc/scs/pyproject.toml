@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = 'scs'
-version = "3.3.1"
+version = "3.3.2"
 description = 'Splitting conic solver'
 readme = 'README.md'
 requires-python = '>=3.9'
@@ -22,6 +22,7 @@ classifiers = [
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: Python :: 3 :: Only',
     'Programming Language :: Python :: Free Threading :: 3 - Stable',
     'Programming Language :: Python :: Implementation :: CPython',
@@ -41,6 +42,8 @@ dependencies = [
 [tool.cibuildwheel]
 skip = [
   "*-win32", # fails on locating Python headers, probably meson.build is misconfigured
+  # there are no CPython win_arm64 releases before 3.11
+  "cp39-win_arm64", "cp310-win_arm64",
   "*musllinux*aarch64*" # no Scipy wheels for this
 ]
 # Test
@@ -61,6 +64,7 @@ archs = [
 
 [tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"
+config-settings = {setup-args = "--vsenv"}
 # This will probably become default in newer cibuildwheels versions
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 
@@ -78,7 +82,8 @@ repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 select = "*-manylinux_x86_64"
 inherit.before-all = "append"
 before-all = [
-  "dnf install -y openblas-devel",
+  # Retry: AlmaLinux mirrors intermittently serve empty repo metadata.
+  "for i in 1 2 3 4 5; do dnf install -y --disablerepo=extras openblas-devel && break; [ $i = 5 ] && exit 1; dnf clean metadata; sleep $((i * 10)); done",
   "bash /project/.github/scripts/install_mkl_static.sh /opt/mkl-static",
 ]
 config-settings = {setup-args = "-Dmkl_static_prefix=/opt/mkl-static"}
@@ -88,7 +93,8 @@ select = "*-manylinux_aarch64"
 inherit.before-all = "append"
 before-all = [
   # "dnf update", "dnf search blas",
-  "dnf install -y openblas-devel"]
+  # Retry: AlmaLinux mirrors intermittently serve empty repo metadata.
+  "for i in 1 2 3 4 5; do dnf install -y --disablerepo=extras openblas-devel && break; [ $i = 5 ] && exit 1; dnf clean metadata; sleep $((i * 10)); done"]
 
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"

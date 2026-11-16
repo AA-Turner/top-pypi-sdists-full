@@ -1040,8 +1040,8 @@ static void set_diag_r(ScsWork *w) {
   SCS(set_r_y)(w->cone_work, w->stgs->scale, &(w->diag_r[w->d->n]));
   if (w->scale_mults) {
     /* per-row multipliers act like a per-row scale: R_y_i = base_i / f_i.
-     * Multipliers are kept uniform within cone blocks (enforced at update
-     * time) so no SCS(enforce_cone_boundaries) needed here. */
+     * Multipliers are kept in the form their cone block needs (enforced
+     * at update time) so no SCS(enforce_cone_boundaries) needed here. */
     for (i = 0; i < w->d->m; ++i) {
       w->diag_r[w->d->n + i] /= w->scale_mults[i];
     }
@@ -1114,17 +1114,6 @@ static ScsWork *init_work(const ScsData *d, const ScsCone *k,
   w->r_orig = init_residuals(w->d);
   w->b_orig = (scs_float *)scs_calloc(w->d->m, sizeof(scs_float));
   w->c_orig = (scs_float *)scs_calloc(w->d->n, sizeof(scs_float));
-#ifdef USE_SPECTRAL_CONES
-  if (w->stgs->adaptive_diag_scale &&
-      (w->k->dsize || w->k->nucsize || w->k->ell1_size || w->k->sl_size)) {
-    /* The spectral-cone projections are iterative inner solvers with
-     * warm-start state that does not currently tolerate mid-solve metric
-     * changes (observed as dual iterates leaving the cone). Disable
-     * dynamic diagonal rescaling on such problems until the inner
-     * solvers are made metric-change aware. */
-    w->stgs->adaptive_diag_scale = 0;
-  }
-#endif
   if (w->stgs->adaptive_diag_scale) {
     if (!w->stgs->adaptive_scale) {
       /* silently disable: diag scaling rides the adaptive-scale update
@@ -1134,7 +1123,9 @@ static ScsWork *init_work(const ScsData *d, const ScsCone *k,
     } else {
       scs_int j;
       w->scale_mults = (scs_float *)scs_calloc(w->d->m, sizeof(scs_float));
-      if (!w->scale_mults) {
+      w->scale_mults_next =
+          (scs_float *)scs_calloc(w->d->m, sizeof(scs_float));
+      if (!w->scale_mults || !w->scale_mults_next) {
         scs_printf("ERROR: work memory allocation failure\n");
         scs_finish(w);
         return SCS_NULL;
@@ -1158,6 +1149,10 @@ static ScsWork *init_work(const ScsData *d, const ScsCone *k,
     scs_printf("ERROR: init_cone failure\n");
     scs_finish(w);
     return SCS_NULL;
+  }
+  if (w->stgs->verbose && w->cone_work->psd_nthreads > 1) {
+    scs_printf("\t  psd cones projected in parallel by %li threads\n",
+               (long)w->cone_work->psd_nthreads);
   }
   set_diag_r(w);
 
@@ -1260,6 +1255,10 @@ static scs_int update_work(ScsWork *w, ScsSolution *sol) {
     cold_start_vars(w);
   }
 
+  /* the cached spectral warm starts describe the iterates of the previous
+   * solve, which the (re)start above has just discarded */
+  SCS(reset_cone_cache)(w->cone_work);
+
   update_work_cache(w);
   return 0;
 }
@@ -1304,8 +1303,10 @@ static void set_den_floor(ScsWork *w) {
 
 static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
   scs_int i;
-  scs_float factor, new_scale, relative_res_pri, relative_res_dual;
-  scs_float denom_pri, denom_dual;
+  scs_float factor, new_scale, dist_pri, dist_dual;
+  scs_float terms_pri, terms_dual, abs_pri, abs_dual, sat_pri, sat_dual, wt;
+  const scs_float eps_abs = w->stgs->eps_abs;
+  const scs_float eps_rel = w->stgs->eps_rel;
 
   ScsResiduals *r = w->r_orig;
 
@@ -1320,20 +1321,44 @@ static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
   if (w->scale_mults) {
     set_den_floor(w);
   }
+  /* The scale is moved toward whichever residual is further behind, so each
+   * sample is the log of a primal-to-dual ratio. Two ratios are blended.
+   *
+   * (1) Distance to stopping: each residual over its own threshold in
+   * has_converged, with tau multiplied through. At or below one, that side
+   * would pass. Balancing these evens out how far each side has to go. */
   /* ||Ax + s - b * tau|| */
-  denom_pri = MAX(nm_ax, nm_s);
-  denom_pri = MAX(denom_pri, w->nm_b_orig * r->tau);
-  relative_res_pri = SAFEDIV_POS(nm_ax_s_btau, denom_pri);
+  terms_pri = MAX(MAX(nm_ax, nm_s), w->nm_b_orig * r->tau);
+  dist_pri = SAFEDIV_POS(nm_ax_s_btau, eps_abs * r->tau + eps_rel * terms_pri);
   /* ||Px + A'y + c * tau|| */
-  denom_dual = MAX(nm_px, nm_aty);
-  denom_dual = MAX(denom_dual, w->nm_c_orig * r->tau);
-  relative_res_dual = SAFEDIV_POS(nm_px_aty_ctau, denom_dual);
+  terms_dual = MAX(MAX(nm_px, nm_aty), w->nm_c_orig * r->tau);
+  dist_dual =
+      SAFEDIV_POS(nm_px_aty_ctau, eps_abs * r->tau + eps_rel * terms_dual);
+  /* clamp to avoid log(0) which would NaN-poison sum_log_scale_factor */
+  dist_pri = MAX(dist_pri, _DIV_EPS_TOL);
+  dist_dual = MAX(dist_dual, _DIV_EPS_TOL);
+
+  /* (2) The residuals themselves, in the space the iteration runs in
+   * (equilibrated when normalize is on), with nothing divided out. */
+  abs_pri = MAX(SCALE_NORM(w->r_normalized->ax_s_btau, w->d->m), _DIV_EPS_TOL);
+  abs_dual =
+      MAX(SCALE_NORM(w->r_normalized->px_aty_ctau, w->d->n), _DIV_EPS_TOL);
+
+  /* A residual as large as the terms it is measured against has no correct
+   * digits, and its distance then sits at a ceiling of about 1 / eps_rel
+   * whatever the iterate does. With c = 0 and P = 0 the dual is there on
+   * every iteration, because the residual A'y is the only term: (1) alone
+   * then reads the dual as permanently behind and walks the scale to its
+   * floor. sat is 1 at that ceiling and 0 when the residual is negligible
+   * against its terms; (1) gets weight wt, the trust in both sides, and (2)
+   * gets the rest. */
+  sat_pri = MIN(1., eps_rel * dist_pri);
+  sat_dual = MIN(1., eps_rel * dist_dual);
+  wt = (1. - sat_pri) * (1. - sat_dual);
 
   /* higher scale makes res_pri go down faster, so increase if res_pri larger */
-  /* clamp to avoid log(0) which would NaN-poison sum_log_scale_factor */
-  relative_res_pri = MAX(relative_res_pri, _DIV_EPS_TOL);
-  relative_res_dual = MAX(relative_res_dual, _DIV_EPS_TOL);
-  w->sum_log_scale_factor += log(relative_res_pri) - log(relative_res_dual);
+  w->sum_log_scale_factor += wt * (log(dist_pri) - log(dist_dual)) +
+                             (1. - wt) * (log(abs_pri) - log(abs_dual));
   w->n_log_scale_factor++;
 
   /* geometric mean */
@@ -1349,13 +1374,28 @@ static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
   scs_int apply_scalar =
       (new_scale != w->stgs->scale) && should_update_r(factor);
   scs_int apply_diag = 0;
-  scs_float log_g = 0., g, step, newf, change;
+  scs_float log_g = 0., g, step, change;
   if (w->stgs->adaptive_diag_scale) {
-    /* residual profiles: adapt when the scalar updates, or when some
-     * row's/column's damped *clamped* step exceeds the update threshold
-     * (a railed scalar must not freeze the diagonal; a railed multiplier
-     * must not keep triggering updates it cannot take). */
-    scs_float drift = 1.0;
+    /* Residual profiles. The multipliers the update would install are
+     * built in full first: a damped step along the row profile, the clamp,
+     * and then the form each cone block must take (one value for most
+     * non-polyhedral cones, a rank-one fit for PSD blocks). The diagonal
+     * adapts when the scalar updates, or when some multiplier would move
+     * by more than the update threshold, so that a railed scalar does not
+     * freeze the diagonal and a railed multiplier does not keep asking for
+     * an update it cannot take.
+     *
+     * The change is measured on what would be installed, after the cone
+     * blocks have been given their form. Measured before that, a single
+     * row of a block that wants a large step refactorizes the matrix even
+     * though its block then moves by almost nothing: the factorization,
+     * the acceleration memory and the cone cache are thrown away as often
+     * as every RESCALING_MIN_ITERS iterations for a metric that has not
+     * changed. (The fit of a PSD block can also move an entry further than
+     * any one row asked for; that change is real and is counted too.)
+     * Rows of the zero, nonnegative and box cones are not shared, so for
+     * them the two measures are the same. */
+    scs_float change_max = 1.0;
     for (i = 0; i < w->d->m; ++i) {
       log_g += log(row_rel_res(w, i));
     }
@@ -1363,12 +1403,17 @@ static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
     g = exp(log_g);
     for (i = 0; i < w->d->m; ++i) {
       step = POWF(row_rel_res(w, i) / g, DIAG_SCALE_DAMP);
-      newf = MIN(MAX(w->scale_mults[i] * step, DIAG_SCALE_MULT_MIN),
-                 DIAG_SCALE_MULT_MAX);
-      change = newf / w->scale_mults[i];
-      drift = MAX(drift, MAX(change, 1. / change));
+      w->scale_mults_next[i] =
+          MIN(MAX(w->scale_mults[i] * step, DIAG_SCALE_MULT_MIN),
+              DIAG_SCALE_MULT_MAX);
     }
-    apply_diag = apply_scalar || should_update_r(drift);
+    SCS(enforce_cone_boundaries)(w->cone_work, w->scale_mults_next,
+                                 &SCS(mean), 1);
+    for (i = 0; i < w->d->m; ++i) {
+      change = w->scale_mults_next[i] / w->scale_mults[i];
+      change_max = MAX(change_max, MAX(change, 1. / change));
+    }
+    apply_diag = apply_scalar || should_update_r(change_max);
   }
   if (!apply_scalar && !apply_diag) {
     return 0;
@@ -1383,15 +1428,9 @@ static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
       w->stgs->scale = new_scale;
     }
     if (apply_diag) {
-      g = exp(log_g);
-      for (i = 0; i < w->d->m; ++i) {
-        step = POWF(row_rel_res(w, i) / g, DIAG_SCALE_DAMP);
-        w->scale_mults[i] = MIN(
-            MAX(w->scale_mults[i] * step, DIAG_SCALE_MULT_MIN),
-            DIAG_SCALE_MULT_MAX);
-      }
-      /* non-polyhedral cone blocks must share a single metric entry */
-      SCS(enforce_cone_boundaries)(w->cone_work, w->scale_mults, &SCS(mean), 1);
+      /* already clamped and in the form the cone blocks need */
+      memcpy(w->scale_mults, w->scale_mults_next,
+             w->d->m * sizeof(scs_float));
     }
 
     /* update diag r vector */
@@ -1410,6 +1449,11 @@ static scs_int update_scale(ScsWork *w, const ScsCone *k, scs_int iter) {
     if (w->accel) {
       aa_reset(w->accel);
     }
+    /* Same reasoning for the cone projections: the spectral cones' inner
+     * solvers warm-start from state computed under the metric we just
+     * replaced, so drop it rather than let it seed the next iteration's
+     * projection (see SCS(reset_cone_cache)). */
+    SCS(reset_cone_cache)(w->cone_work);
     /* update v, using fact that rsk, u, u_t vectors should be the same */
     /* solve: R^+ (v^+ + u - 2u_t) = rsk = R(v + u - 2u_t)
      *  => v^+ = R+^-1 rsk + 2u_t - u
@@ -1688,6 +1732,7 @@ void scs_finish(ScsWork *w) {
     scs_free(w->lin_sys_warm_start);
     scs_free(w->diag_r);
     scs_free(w->scale_mults);
+    scs_free(w->scale_mults_next);
     SCS(free_sol)(w->xys_orig);
     if (w->scal) {
       scs_free(w->scal->D);

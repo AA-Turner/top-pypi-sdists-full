@@ -14,9 +14,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from probe.generated.samples import TurnsSource
+from probe.sdk.run.samples import to_sampling_settings
+from probe.sdk.run.samples.rollout import Decode, build_decoded_turns
+
+from ..task_label import TASK_ID_FIELD, get_task_label
 
 #: A dataset column (it lands in `env_extras`, `generators/utils.py:597-598`) naming the task; else a prompt hash.
-TASK_KEY_COLUMN = "task_id"
+#: `task_name` / `task_description` columns label it (`task_label/task_label.py`).
+TASK_KEY_COLUMN = TASK_ID_FIELD
 #: A dataset column holding the task's scenario as an object of named values.
 SCENARIO_COLUMN = "scenario"
 #: The task's grading spec, its reference answer under `ground_truth` (every SkyRL Gym env reads it, e.g.
@@ -72,7 +77,8 @@ def render_prompt(prompt: Any) -> str:
 
 class OutputMapper:
     """GeneratorInput + GeneratorOutput -> `SamplePartIn`-shaped generator parts. ``decode`` turns token ids into
-    text (the tokenizer's `decode`), ``tokens_to_text`` into one string per token; either may be None."""
+    text (the tokenizer's `decode`), ``tokens_to_text`` into one string per token; either may be None.
+    ``decode_turns`` decodes for step-wise turns (`rollout.decoded`); without it ``decode`` serves."""
 
     def __init__(
         self,
@@ -82,8 +88,12 @@ class OutputMapper:
         scenario_keys: Sequence[str] = (),
         host: str | None = None,
         worker: str | None = None,
+        decode_turns: Decode | None = None,
     ) -> None:
         self._decode = decode
+        if decode_turns is None and decode is not None:
+            decode_turns = lambda ids, keep_special: str(decode(list(ids)))  # noqa: E731 -- one decode for both
+        self._decode_turns = decode_turns
         self._tokens_to_text = tokens_to_text
         self._scenario_keys = tuple(scenario_keys)
         self.where = {name: value for name, value in (("host", host), ("worker", worker)) if value}
@@ -137,6 +147,7 @@ class OutputMapper:
         metadata = inputs.get("batch_metadata")
         split = "eval" if _get(metadata, "training_phase") == "eval" else "train"
         scheduled = scheduled_step if split == "train" and scheduled_step is not None else _get(metadata, "global_step")
+        sampling = to_sampling_settings(inputs.get("sampling_params"))  # the call's own; None: the generator's config
         rows = []
         for row in range(len(responses)):
             trajectory = trajectory_ids[row] if row < len(trajectory_ids) else None
@@ -162,6 +173,8 @@ class OutputMapper:
             part["split"] = split
             if isinstance(scheduled, int):
                 part["scheduled_step"] = scheduled
+            if sampling:
+                part["sampling"] = dict(sampling)
             if segment_count is not None:
                 part["segment"], part["segment_count"] = segment, segment_count
             parts.append(part)
@@ -179,6 +192,7 @@ class OutputMapper:
             "response": self._decode_text(response_ids),
             "response_tokens": len(response_ids),
             "generated_by": make_policy_pieces(versions),
+            **get_task_label(env_extras),  # with the prompt: a start part's label alone sends nothing (D5b)
             **self.where,
         }
         label = _get_label(env_extras)
@@ -224,15 +238,14 @@ class OutputMapper:
 
     def _build_step_turn(self, response_ids: Sequence[int], mask: Any, reward: float | None, *, is_graded: bool) -> dict:
         """A step-wise row as its one turn (`skyrl_gym_generator.py:571-590`): the model's tokens (loss mask 1) and
-        the observation after them (0) decoded apart, with the step's own reward."""
-        bits = list(mask) if isinstance(mask, (list, tuple)) and len(mask) == len(response_ids) else [1] * len(response_ids)
-        messages = []
-        if self._decode is not None:
-            for is_model, ids in _split_runs(response_ids, bits):
-                content = self._decode_text(ids)
-                messages.append({"role": "assistant", "source": "model", "is_trainable": True, "content": content}
-                                if is_model else {"role": "user", "source": "environment", "content": content})
-        turn: dict[str, Any] = {"messages": messages}
+        the observation after them (0) read through the chat template (`rollout.decoded`), with the step's own
+        reward."""
+        bits = list(mask) if isinstance(mask, (list, tuple)) and len(mask) == len(response_ids) else None
+        turns = build_decoded_turns(response_ids, bits, self._decode_turns)
+        turn: dict[str, Any] = {"messages": [message for found in turns for message in found["messages"]]}
+        calls = [call for found in turns for call in found.get("tool_calls", ())]
+        if calls:
+            turn["tool_calls"] = calls
         if is_graded and reward is not None:
             turn["reward"] = reward
         return turn
@@ -285,17 +298,6 @@ def _set_step_grades(parts: list[dict], identities: Sequence[tuple[str, int] | N
             for name in GRADE_FIELDS:
                 parts[index].pop(name, None)
             parts[index].update(grade)
-
-
-def _split_runs(ids: Sequence[int], bits: Sequence[Any]) -> list[tuple[bool, list[int]]]:
-    """The response's runs of equal loss-mask bits: (is the model's, token ids), in order."""
-    runs: list[tuple[bool, list[int]]] = []
-    for token, bit in zip(ids, bits):
-        if runs and runs[-1][0] == bool(bit):
-            runs[-1][1].append(int(token))
-        else:
-            runs.append((bool(bit), [int(token)]))
-    return runs
 
 
 def _join_trial(part: dict, trial: Any, segment: int) -> None:

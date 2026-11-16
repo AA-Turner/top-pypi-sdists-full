@@ -120,8 +120,12 @@ class HTMLChunkResolver(HTMLParser):
       self.boundaries.discard(self.scan_index)
     if tag.upper() in SKIP_NODES:
       if not self.to_skip and self.scan_index in self.boundaries:
+        prev_was_whitespace = (
+          self.scan_index > 0 and self.text[self.scan_index - 1].isspace()
+        )
         self.boundaries.remove(self.scan_index)
-        self._output.append(self.separator)
+        if not prev_was_whitespace:
+          self._output.append(self.separator)
       self.to_skip = True
     self._output.append(f'<{tag}{encoded_attrs}>')
     if tag in VOID_ELEMENTS:
@@ -152,6 +156,9 @@ class HTMLChunkResolver(HTMLParser):
       # HTML as per the HTML spec.
       # Note the HTML "adoption agency algorithm" isn't fully supported.
       # See https://html.spec.whatwg.org/multipage/parsing.html#an-introduction-to-error-handling-and-strange-cases-in-the-parser
+
+  def handle_comment(self, data: str) -> None:
+    self._output.append(f'<!--{data}-->')
 
   def handle_data(self, data: str) -> None:
     for char in data:

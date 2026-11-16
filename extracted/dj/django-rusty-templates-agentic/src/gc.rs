@@ -66,8 +66,14 @@ pub struct Gc<T> {
 
 impl<T: Trace + Any + Send + Sync + Debug> Gc<T> {
     pub fn new(value: T) -> Self {
+        Python::attach(|py| Self::new_in(py, value))
+    }
+
+    /// `new` for callers already attached to Python, which skips attaching
+    /// again on hot paths.
+    pub fn new_in(py: Python<'_>, value: T) -> Self {
         let native_owners = usize::from(value.count_native_owners());
-        Python::attach(|py| Self {
+        Self {
             shared: Py::new(
                 py,
                 Shared {
@@ -77,7 +83,7 @@ impl<T: Trace + Any + Send + Sync + Debug> Gc<T> {
             )
             .expect("allocate shared native object"),
             marker: PhantomData,
-        })
+        }
     }
 
     /// Whether this is the only native handle to movable state.
@@ -94,16 +100,24 @@ impl<T: Trace + Any + Send + Sync + Debug> Gc<T> {
     }
 }
 
-impl<T> Clone for Gc<T> {
-    fn clone(&self) -> Self {
+impl<T> Gc<T> {
+    /// `clone` for callers already attached to Python, which skips
+    /// attaching again on hot paths.
+    pub fn clone_ref(&self, py: Python<'_>) -> Self {
         let owners = &self.shared.get().native_owners;
         if owners.load(Ordering::Relaxed) != 0 {
             owners.fetch_add(1, Ordering::Relaxed);
         }
-        Python::attach(|py| Self {
+        Self {
             shared: self.shared.clone_ref(py),
             marker: PhantomData,
-        })
+        }
+    }
+}
+
+impl<T> Clone for Gc<T> {
+    fn clone(&self) -> Self {
+        Python::attach(|py| self.clone_ref(py))
     }
 }
 
@@ -204,7 +218,7 @@ impl<T: Trace> Trace for Box<T> {
     }
 }
 
-impl<K, T: Trace> Trace for HashMap<K, T> {
+impl<K, T: Trace, S> Trace for HashMap<K, T, S> {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.values().try_for_each(|value| value.trace(visit))
     }
@@ -217,10 +231,13 @@ impl<T: Trace> Trace for OnceLock<T> {
 }
 
 /// A fallible Python initializer with a nonblocking, Python-free GC read path.
+///
+/// `init` runs without a lock, so an initializer that re-enters Python (or
+/// this cell) cannot deadlock. Threads that race each build a value and the
+/// first one stored wins; the others are dropped.
 #[derive(Debug)]
 pub struct GcOnceLock<T> {
     value: OnceLock<T>,
-    initializing: Mutex<()>,
 }
 
 impl<T> GcOnceLock<T> {
@@ -228,29 +245,31 @@ impl<T> GcOnceLock<T> {
         self.value.get()
     }
 
+    /// A lock that already holds `value`.
+    pub fn with_value(value: T) -> Self {
+        Self {
+            value: OnceLock::from(value),
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             value: OnceLock::new(),
-            initializing: Mutex::new(()),
         }
     }
 
     pub fn get_or_try_init<E>(
         &self,
-        py: Python<'_>,
+        _py: Python<'_>,
         init: impl FnOnce() -> Result<T, E>,
     ) -> Result<&T, E> {
         if let Some(value) = self.value.get() {
             return Ok(value);
         }
-        let _guard = self
-            .initializing
-            .lock_py_attached(py)
-            .expect("initializer lock is not poisoned");
-        if let Some(value) = self.value.get() {
-            return Ok(value);
-        }
-        let _ = self.value.set(init()?);
+        let value = init()?;
+        // If another thread stored first, its value wins and this one is
+        // dropped here, while attached, since it may hold Python references.
+        let _ = self.value.set(value);
         Ok(self.value.get().expect("initialized native object"))
     }
 }
@@ -282,11 +301,16 @@ impl Trace for usize {
 
 // Only fields which can own Python references need tracing. Native source
 // spans, names, numbers, and literal strings have no GC edges.
+//
+// Each struct lists every field: the traced ones, then after `;` the ones
+// with nothing to trace. The pattern is exhaustive, so a field added to a
+// node doesn't compile until it is put in one list or the other.
 macro_rules! trace_fields {
-    ($($ty:ty => $($field:tt),+;)+) => {$ (
+    ($($ty:path { $($field:ident),+ ; $($skip:ident),* })+) => {$(
         impl Trace for $ty {
             fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-                $(self.$field.trace(visit)?;)+
+                let Self { $($field,)+ $($skip: _,)* } = self;
+                $($field.trace(visit)?;)+
                 Ok(())
             }
         }
@@ -297,21 +321,30 @@ use crate::filters::FilterType;
 use crate::parse::{self, IfCondition, StockNode, Tag, TagElement, TokenTree};
 
 trace_fields! {
-    parse::Filter => left, filter;
-    parse::InclusionTag => call, filename, engine;
-    parse::Include => template_name, engine, kwargs;
-    parse::SimpleTag => func, args, kwargs;
-    parse::SimpleBlockTag => func, nodes, args, kwargs;
-    parse::PythonNode => 0;
-    parse::Regroup => target, expression;
-    parse::PartialDefinition => nodes;
-    parse::Url => view_name, args, kwargs;
-    parse::For => iterable, body, empty;
-    parse::ForIterable => iterable;
-    parse::CycleValue => value;
-    parse::SimpleCycle => values;
-    parse::NamedCycle => cycle;
-    parse::SilentNamedCycle => cycle;
+    parse::Filter { left, filter; at, all_at }
+    parse::InclusionTag { call, filename, engine; id, admin_template }
+    parse::Include { template_name, engine, kwargs; id, origin, only }
+    parse::SimpleTag { func, args, kwargs; at, takes_context, target_var }
+    parse::SimpleBlockTag { func, nodes, args, kwargs; at, takes_context, target_var }
+    parse::Regroup { target, expression; asvar, lookup }
+    parse::PartialDefinition { nodes; name, span }
+    parse::Url { view_name, args, kwargs; at, asvar }
+    parse::For { iterable, body, empty; variables, reversed, callback_free }
+    parse::ForIterable { iterable; at }
+    parse::CycleValue { value; at }
+    parse::SimpleCycle { values; id }
+    parse::NamedCycle { cycle; asvar }
+    parse::SilentNamedCycle { cycle; }
+    parse::Lorem { count; method, common }
+    parse::Now { expression; format, escape, asvar }
+    parse::FirstOf { vars; asvar }
+}
+
+impl Trace for parse::PythonNode {
+    fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        let Self(node) = self;
+        node.trace(visit)
+    }
 }
 
 impl Trace for FilterType {
@@ -454,41 +487,66 @@ impl Trace for TokenTree {
 impl Trace for StockNode {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         match self {
-            Self::Static { path, .. } => path.trace(visit)?,
-            Self::Prefix { .. } => {}
+            Self::Static { path, target: _ } => path.trace(visit)?,
+            Self::Prefix {
+                setting: _,
+                target: _,
+            } => {}
             Self::Node(node) => node.trace(visit)?,
-            Self::Flag { nodes, .. } => nodes.trace(visit)?,
-            Self::Override { value, nodes, .. } => {
+            Self::Flag {
+                nodes,
+                kind: _,
+                enabled: _,
+            } => nodes.trace(visit)?,
+            Self::Override {
+                value,
+                nodes,
+                kind: _,
+            } => {
                 value.trace(visit)?;
                 nodes.trace(visit)?;
             }
-            Self::Assign { value, .. } => value.trace(visit)?,
+            Self::Assign {
+                value,
+                kind: _,
+                target: _,
+            } => value.trace(visit)?,
             Self::Translate {
                 root,
                 filters,
                 message_context,
-                ..
+                cache,
+                noop: _,
+                target: _,
             } => {
                 root.trace(visit)?;
                 filters.trace(visit)?;
                 message_context.trace(visit)?;
+                cache.trace(visit)?;
             }
             Self::BlockTranslate {
                 bindings,
                 counter,
                 message_context,
-                ..
+                singular: _,
+                plural: _,
+                variables: _,
+                trimmed: _,
+                target: _,
+                tag_name: _,
+                cache,
             } => {
                 bindings.trace(visit)?;
                 counter.trace(visit)?;
                 message_context.trace(visit)?;
+                cache.trace(visit)?;
             }
             Self::Cache {
                 timeout,
                 vary,
                 cache,
                 nodes,
-                ..
+                name: _,
             } => {
                 timeout.trace(visit)?;
                 vary.trace(visit)?;
@@ -503,14 +561,25 @@ impl Trace for StockNode {
 impl Trace for Tag {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         match self {
-            Self::Stock { node, .. } => node.trace(visit)?,
-            Self::PartialDef { definition, .. } => definition.trace(visit)?,
+            Self::Stock { node, at: _ } => node.trace(visit)?,
+            Self::PartialDef {
+                definition,
+                inline: _,
+            } => definition.trace(visit)?,
             Self::PythonNode(node) => node.trace(visit)?,
-            Self::Block { nodes, .. } => nodes.trace(visit)?,
-            Self::Autoescape { nodes, .. } | Self::Spaceless(nodes) | Self::Verbatim(nodes) => {
+            Self::Block { nodes, name: _ } => nodes.trace(visit)?,
+            Self::Autoescape { nodes, enabled: _ }
+            | Self::Spaceless(nodes)
+            | Self::Verbatim(nodes) => {
                 nodes.trace(visit)?;
             }
-            Self::Extends { parent, nodes, .. } => {
+            Self::Extends {
+                parent,
+                nodes,
+                at: _,
+                parent_token: _,
+                relative: _,
+            } => {
                 parent.trace(visit)?;
                 nodes.trace(visit)?;
             }
@@ -527,7 +596,7 @@ impl Trace for Tag {
                 values,
                 truthy,
                 falsey,
-                ..
+                id: _,
             } => {
                 values.trace(visit)?;
                 truthy.trace(visit)?;
@@ -548,12 +617,12 @@ impl Trace for Tag {
             Self::InclusionTag(value) => value.trace(visit)?,
             Self::SimpleBlockTag(value) => value.trace(visit)?,
             Self::Url(value) => value.trace(visit)?,
-            Self::Lorem(value) => value.count.trace(visit)?,
-            Self::Now(value) => value.expression.trace(visit)?,
-            Self::FirstOf(value) => value.vars.trace(visit)?,
-            Self::WidthRatio { args, .. } => args.trace(visit)?,
+            Self::Lorem(value) => value.trace(visit)?,
+            Self::Now(value) => value.trace(visit)?,
+            Self::FirstOf(value) => value.trace(visit)?,
+            Self::WidthRatio { args, asvar: _ } => args.trace(visit)?,
             Self::Cycle(value) => value.trace(visit)?,
-            Self::Partial { .. }
+            Self::Partial { name: _, at: _ }
             | Self::Load
             | Self::ResetCycle(_)
             | Self::Debug

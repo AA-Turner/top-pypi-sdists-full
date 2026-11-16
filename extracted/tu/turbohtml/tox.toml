@@ -54,6 +54,7 @@ commands_pre = [
     "--editable",
     "{tox_root}",
     "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dwork_steps=true",
     # instrument for C coverage except where gcov/gcovr are unavailable (Windows, 3.15, free-threaded)
     { replace = "if", condition = "factor.win32 or factor['3.15'] or factor['3.14t'] or factor['3.15t']", then = [], else = [
       "--config-settings=setup-args=-Dbuildtype=debug",
@@ -89,9 +90,34 @@ commands = [
     "--ignore={tox_root}{/}tests{/}conformance",
     # this build compiles neither the operation limit nor the -Dfuzzing=true allocation-failure hook that
     # fuzz-only allocation tests need; fuzz-smoke runs them
-    "--ignore={tox_root}{/}tests{/}test_fuzz_self_test.py",
+    "--ignore={tox_root}{/}tests{/}_html{/}fuzz{/}test_self_test.py",
     { replace = "posargs", default = [ "tests" ], extend = true },
   ],
+  # gcov merges every process into the same .gcda files, so a lost process changes neither their number nor their
+  # size; the per-file run count (one per process that wrote it) is what drops when a process exits without writing
+  { replace = "if", condition = "factor.win32 or factor['3.15'] or factor['3.14t'] or factor['3.15t']", then = [], else = [
+    [
+      "python",
+      "-c",
+      """
+import pathlib
+import struct
+
+def runs(path):
+    data = path.read_bytes()
+    words = struct.unpack('<%dI' % (len(data) // 4), data)
+    if words[4] == 0xA1000000:
+        return words[6]
+    if words[-6] == 0xA1000000:
+        return words[-4]
+    return words[-3] if words[-7] == 0xA3000000 else -1
+
+gcda = sorted(pathlib.Path(r'{env_dir}', 'cbuild').rglob('*.gcda'))
+size = sum(path.stat().st_size for path in gcda)
+print('gcda files:', len(gcda), 'bytes:', size, 'runs per file:', sorted(set(map(runs, gcda))))
+    """,
+    ],
+  ], extend = true },
   { replace = "if", condition = "factor.win32 or factor['3.15'] or factor['3.14t'] or factor['3.15t']", then = [
     "python",
     "-c",
@@ -273,6 +299,7 @@ commands_pre = [
     "--editable",
     "{tox_root}",
     "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dwork_steps=true",
   ],
 ]
 commands = [
@@ -282,7 +309,7 @@ commands = [
     "10",
     "--no-cov",
     "--ignore={tox_root}{/}tests{/}conformance",
-    "--ignore={tox_root}{/}tests{/}test_fuzz_self_test.py",
+    "--ignore={tox_root}{/}tests{/}_html{/}fuzz{/}test_self_test.py",
     { replace = "posargs", default = [ "tests" ], extend = true },
   ],
 ]
@@ -308,6 +335,7 @@ deps = [
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "pytest>=9.1.1",
+  "python-sbom>=0.2",
   "tinycss2>=1.5.1",
   "typing-extensions>=4.16",
 ]
@@ -352,7 +380,7 @@ commands = [
     "python",
     "-m",
     "pytest",
-    "{tox_root}/tests/test_fuzz_self_test.py",
+    "{tox_root}/tests/_html/fuzz/test_self_test.py",
     "-m",
     "atheris_native",
     "--noconftest",
@@ -818,7 +846,7 @@ commands = [
     "pytest",
     "--no-cov",
     "--ignore={tox_root}{/}tests{/}conformance",
-    "--ignore={tox_root}{/}tests{/}test_fuzz_self_test.py",
+    "--ignore={tox_root}{/}tests{/}_html{/}fuzz{/}test_self_test.py",
     { replace = "posargs", default = [ "tests" ], extend = true },
   ],
 ]

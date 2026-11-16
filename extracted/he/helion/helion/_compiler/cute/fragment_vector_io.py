@@ -2,9 +2,9 @@
 
 ``cute_fragment_vector_io``: a host tensor window whose innermost logical
 coordinate walks a unit-stride tensor dimension in whole, aligned groups is
-moved as 16-byte packets (four fp32, eight 16-bit elements) instead of one
-scalar per element.  Unlike ``cute_fragment_packet_loads`` (which evaluates
-the scalar address recipe for every lane and compares the effective
+moved as 16-byte packets (four fp32, eight 16-bit, or sixteen byte elements)
+instead of one scalar per element. Unlike ``cute_fragment_packet_loads``
+(which evaluates the scalar address recipe for every lane and compares the effective
 addresses at run time), the packet here is proved at compile time:
 
 * the tensor's strides are static, the innermost indexed dimension has
@@ -33,8 +33,8 @@ from .packet_loads import PACKET_DTYPES
 
 if TYPE_CHECKING:
     from ..compile_environment import CompileEnvironment
-    from .computed_fragment import FragmentCompiler
-    from .computed_fragment import HostTensor
+    from .fragment_context import FragmentContext
+    from .fragment_context import HostTensor
 
 KEY = "cute_fragment_vector_io"
 PACKET_BYTES = 16
@@ -76,7 +76,7 @@ def static_strides(tensor: torch.Tensor) -> tuple[int, ...] | None:
 
 
 def row_packet_lanes(
-    compiler: FragmentCompiler,
+    compiler: FragmentContext,
     tensor: HostTensor,
     indices: list[object],
     values: dict[Node, object],
@@ -86,7 +86,7 @@ def row_packet_lanes(
 ) -> int | None:
     """The packet width (in elements) when the window's innermost coordinate
     may be moved as whole aligned packets; None keeps the scalar walk."""
-    from .computed_fragment import Fragment
+    from .fragment_context import Fragment
 
     lanes = packet_lanes(dtype)
     if lanes is None or not shape or shape[-1] % lanes or shape[-1] < lanes:

@@ -1922,7 +1922,7 @@ class TwitterNamespace:
         reverse-chronological authored posts, reposts, quotes, and self-thread
         continuations.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.user_posts(handle="levelsio")
@@ -1967,7 +1967,7 @@ class TwitterNamespace:
         (Twitter) account, with engagement, views, language, and cursor pagination
         where available.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.user_tweets(handle="levelsio", limit=20)
@@ -2462,7 +2462,7 @@ class AsyncTwitterNamespace:
         reverse-chronological authored posts, reposts, quotes, and self-thread
         continuations.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.user_posts(handle="levelsio")
@@ -2507,7 +2507,7 @@ class AsyncTwitterNamespace:
         (Twitter) account, with engagement, views, language, and cursor pagination
         where available.
 
-        Price: $0.00045 per request.
+        Price: $0.00044 per request.
 
         Example:
             res = client.twitter.user_tweets(handle="levelsio", limit=20)

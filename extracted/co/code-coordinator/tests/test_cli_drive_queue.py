@@ -1713,6 +1713,18 @@ def test_list_json_emits_the_raw_rows(cli):
     assert rows[0]["after_json"] == []  # a real list on the wire, never a string
 
 
+def test_list_with_repo_filter_does_not_crash(cli):
+    """#4025: `--repo` took the `all_entries = ... else entries_from_rows(
+    list_drive_queue())` branch, which referenced `list_drive_queue` without
+    importing it into `drive_queue_list`'s scope — an unconditional
+    `NameError` on every `--repo`-filtered call, never just the diagnosis
+    path. Must render the same row the unfiltered form does."""
+    cli("add", REPO, "1650")
+    result = cli("list", "--repo", REPO)
+    assert result.exit_code == 0, result.output
+    assert f"{REPO}#1650" in result.output
+
+
 # ── #2133: `last_reason` is a snapshot, never re-validated — its rendering
 # must carry its own age so it can never be mistaken for a current diagnosis.
 # Reproduces the shape of the #2104 incident: a `blocked` entry's reason was
@@ -5170,17 +5182,19 @@ def cli_stale_race(tmp_path: Path):
 
 
 _STALE_RACE_OPTED_OUT_CONFIG_YAML = _STALE_RACE_CONFIG_YAML.replace(
-    "    board_doctor:\n      stale_race: true\n", ""
+    "    board_doctor:\n      stale_race: true\n",
+    "    board_doctor:\n      stale_race: false\n",
 )
 
 
 @pytest.fixture
 def cli_stale_race_opted_out(tmp_path: Path):
     """Same fleet-wide switch as `cli_stale_race`, but `REPO` itself has
-    NOT opted in — today's pre-#3859 behaviour for the reservation half of
-    this feature (the base-SHA-aware retry cap and the absolute cap both
-    still apply regardless of this opt-in; only the merge-gate reservation
-    does not)."""
+    explicitly opted OUT (#4023: the per-repo switch now defaults `True`,
+    so a repo must set `stale_race: false` to get this pre-#3859 behaviour
+    for the reservation half of the feature — the base-SHA-aware retry cap
+    and the absolute cap both still apply regardless of this opt-out; only
+    the merge-gate reservation does not)."""
     path = tmp_path / "coordinator-stale-race-opted-out.yml"
     path.write_text(_STALE_RACE_OPTED_OUT_CONFIG_YAML)
 
@@ -5398,10 +5412,11 @@ def test_stale_race_reservation_cleanup_releases_when_holder_is_no_longer_live(
 def test_stale_race_opted_out_repo_still_dispatches_but_never_reserves(
     cli_stale_race_opted_out, coord_db, stale_ci_backend, monkeypatch,
 ):
-    """The reservation is opt-in per repo; the base-SHA-aware retry cap is
-    not. A repo that has not opted into `board_doctor.stale_race` still
-    gets the #3859 base-move-aware dispatch (today's behaviour, unchanged)
-    but never acquires a merge-gate reservation for it."""
+    """The reservation is opt-OUT per repo (#4023); the base-SHA-aware
+    retry cap is not gated at all. A repo that has explicitly opted out of
+    `board_doctor.stale_race` still gets the #3859 base-move-aware dispatch
+    (unchanged either way) but never acquires a merge-gate reservation for
+    it."""
     import coord.github_ops as github_ops
 
     _seed_pending_merge_row(coord_db, 2534, pr_number=42)

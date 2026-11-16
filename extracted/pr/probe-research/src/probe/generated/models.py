@@ -15,21 +15,32 @@ from .enums import (  # noqa: F401 - re-exported
     AccessSetting,
     AccountStatus,
     AckState,
+    Action,
     AddressKind,
     AnchorLevel,
     AnswerStyle,
     ArtifactKind,
     ArtifactScope,
+    AttemptKind,
+    AttemptOutcome,
+    AttemptPhase,
+    AttemptState,
+    AttemptStateReason,
+    Audience,
     Authorship,
     BackfillState,
     Fn,
     BranchState,
     CursorParameter,
+    BundleKind,
     Cadence,
     CanvasEndType,
     CanvasInclude,
     CanvasPaperEdgeType,
+    Source,
+    CaptureField,
     Mode,
+    CaptureReasonCode,
     CaptureStatus,
     ChannelError,
     ChartSettingsTier,
@@ -37,72 +48,111 @@ from .enums import (  # noqa: F401 - re-exported
     ReasoningEffort,
     ToolChoice,
     ClaimDecision,
+    ClaimOutcome,
     AutoUpdate,
-    Capture,
+    Capture1,
     Tracking,
     Mcp,
     Skills,
     ClientKind,
     ClientMode,
+    ClientSurface,
     ClientUpdateStatus,
     Fn1,
     CodeAccess,
     CodeSourceStatus,
     CodeSourceVia,
     CodeUnavailableReason,
+    CommandKind,
+    WriterRole,
+    CommandListPart,
+    CommandState,
+    CommandWriter,
     CompanionErrorCode,
     Role1,
     Op,
+    ContributionSource,
     CreatorKind,
     Role2,
+    DeletionState,
+    DeliveryStallCause,
     Role3,
     Decision,
     Status,
     CaptureSource,
     Status1,
-    DirectionOutput,
     Status2,
+    Agent,
+    DirectionOutput,
+    Status3,
     DisconnectReason,
+    DocsState,
+    Dtype,
+    EditActorKind,
+    EditOp,
+    EditPhase,
+    EditState,
     EffortWindow,
+    Ending,
     DisabledFilter,
     EntityType,
+    ExampleProfile,
+    ExampleStage,
     Kind1,
     ExperimentOutcome,
     Nonfinite,
+    FailureEvidence,
+    FailureGap,
     FeedbackKind,
     FieldSource,
     Key,
+    FinishReason1,
     Frame,
+    GenerationPhase,
     GitHubIntegrationState,
     GitHubSetupFlow,
+    GpuUnsupported,
     Grant,
     GrantLevel,
     GraphState,
+    Grouping,
+    GuardRule,
     HierarchyEntityKind,
     HintReason,
     IdentityStrength,
     Outcome,
     IndexCorpus,
     InheritedKind,
-    CaptureSources1Enum,
     Role5,
-    IntegrationState,
     IntentEntity,
     Role6,
     JobState,
+    KeyDropFailure,
+    KeyDropOutcome,
+    KeyDropStatus,
     SourceReadContractEnum,
+    ExitStatus,
     LineageEntityType,
     LineageRelation,
+    LintRule,
+    ListOrder,
     LiveError,
     LiveState,
+    LogSource,
     LogSourceKind,
+    LossRole,
+    MaskEvidence,
     MatchSource,
+    MessageCode,
+    MessageSource,
     MessageState,
+    MetricAgg,
     Origin,
     MetricCoverage,
     MetricDataSource,
     MetricExactness,
     MetricGoal,
+    MetricMode,
     Agg,
     MetricReadErrorCode,
     MetricReduce,
@@ -110,24 +160,46 @@ from .enums import (  # noqa: F401 - re-exported
     NextStep,
     NodeKind,
     NoteKind,
+    NoteSource,
+    NoticeSurface,
     OnboardingFlow,
     OnboardingStep,
     OriginType,
     OriginVia,
     Content,
     Job,
-    Source,
+    Source1,
+    PaneAnchorKind,
+    PaneCheckErrorKind,
+    PaneCheckOnData,
+    PaneCheckReason,
+    PaneCheckState,
+    PaneCheckStatus,
+    PanePartialReason,
+    PanePreviewMode,
+    PanePreviewState,
+    PaneRule,
+    PaneSourceState,
+    PaneWriterKind,
     PaperExpansion,
     PaperMode,
     PaperProvenance,
     ParentProvenance,
     ParentRelation,
+    PartRole,
     PickEvent,
+    PinAnchorKind,
+    PinKind,
+    PingEvent,
+    PointBy,
+    PointsCheck,
+    PointsStore,
+    PointsUnavailable,
     ProjectKind,
     ProjectSetting,
     Content2,
     Job3,
-    Source4,
+    Source5,
     ProvenanceFormat,
     Content3,
     Readiness,
@@ -135,16 +207,20 @@ from .enums import (  # noqa: F401 - re-exported
     ReadmeUnavailableReason,
     Recency,
     RecordKind,
+    AllowedMode,
     Fn2,
+    Reducer,
     RefType,
     ReferenceDirection,
+    ReferenceRelation,
     Refusal,
     Registered,
     Relation,
     Relayout,
+    Representation,
     ResourceKind,
     Job4,
-    RunAlertKind,
+    RollupSource,
     RunCodeState,
     RunCompareState,
     LivenessProtocolEnum,
@@ -152,13 +228,21 @@ from .enums import (  # noqa: F401 - re-exported
     RunStatus,
     RunType,
     ObservedBy,
-    Status3,
+    SQLSource,
+    SampleErrorReason,
+    SampleEventKind,
+    SampleOutcome,
+    SampleResult,
+    SampleSplit,
+    Status4,
     CompareMode,
     Phase,
     Fn3,
     Scope,
+    ScorerKind,
     SearchEntityType,
     SearchRetrieval,
+    SearchSort,
     SearchState,
     SemanticRefKind,
     SenderKind,
@@ -166,35 +250,44 @@ from .enums import (  # noqa: F401 - re-exported
     SourceReadContract1Enum,
     XAxis,
     SessionOrder,
+    Severity,
+    SlowAgainst,
     Fn4,
     SourceKind,
     SourceProvider,
+    StageState,
     StoredState,
     SummaryDetail,
     SummaryFormat,
     SummaryState,
+    SwitchedBy,
     SyncState,
     Role9,
+    TailKind,
     Role10,
     Role11,
     Role12,
+    Tier,
     TimelineState,
+    TraceSourceName,
+    TranscriptState,
     Trigger,
     TriggerClass,
+    TurnsSource,
     Fn5,
-    UnitStatus,
+    UpdateLevel,
     Via,
     VisualsState,
     WandbSourceState,
     WebSearchCategory,
     WebState,
     Fn6,
-    State1,
+    WorkKind,
+    State2,
     WorkspaceKind,
     WriteMode,
     Lease,
-    ExitStatus,
-    WriterRole,
+    WriterRoleModel,
     AppBranchesScopeScopeType,
     AppCatalogProvenanceDirection,
     AppMetricsVocabularyAnchorType,
@@ -203,8 +296,6 @@ from .enums import (  # noqa: F401 - re-exported
     AppPapersCitationStoreDirection,
     AppProjectsTwinScopeKind,
     AppSummariesSchemasAnchorType,
-    Source5,
-    DocsState,
 )
 
 
@@ -240,6 +331,16 @@ class AccountOut(BaseModel):
     customer_id: str | None = Field(None, title='Customer Id')
     email: str | None = Field(None, title='Email')
     role: str | None = Field(None, title='Role')
+
+
+class AfterHint(BaseModel):
+    seconds: float = Field(
+        ...,
+        description='Since the hint was handed over.',
+        ge=0.0,
+        le=3600.0,
+        title='Seconds',
+    )
 
 
 class AgentSessionOut(BaseModel):
@@ -455,6 +556,70 @@ class Name(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
+class Activity(RootModel[str]):
+    root: str = Field(..., max_length=512, title='Activity')
+
+
+class PhaseLimitS(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=604800.0, title='Phase Limit S')
+
+
+class Tokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Tokens')
+
+
+class Turns(RootModel[int]):
+    root: int = Field(..., ge=0, title='Turns')
+
+
+class AttemptProgress(BaseModel):
+    """
+    The `progress` part's snapshot, sent whole on every beat (never sparse: the newest replaces the last).
+    """
+
+    activity: Activity | None = Field(None, title='Activity')
+    is_output_visible: bool | None = Field(None, title='Is Output Visible')
+    last_progress_at: AwareDatetime | None = Field(None, title='Last Progress At')
+    phase: AttemptPhase | None = None
+    phase_limit_s: PhaseLimitS | None = Field(None, title='Phase Limit S')
+    tokens: Tokens | None = Field(None, title='Tokens')
+    turns: Turns | None = Field(None, title='Turns')
+
+
+class GroupKey(RootModel[str]):
+    root: str = Field(..., max_length=512, title='Group Key')
+
+
+class RetryOf(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Retry Of')
+
+
+class ScheduledStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Scheduled Step')
+
+
+class TryNumber(RootModel[int]):
+    root: int = Field(..., ge=1, title='Try Number')
+
+
+class WeightVersion(RootModel[int]):
+    root: int = Field(..., ge=0, title='Weight Version')
+
+
+class AttemptStart(BaseModel):
+    """
+    The `start` part's own facts. Task, host, engine and sandbox ride the part itself; producer and epoch the batch.
+    """
+
+    command_id: UUID | None = Field(None, title='Command Id')
+    group_key: GroupKey | None = Field(None, title='Group Key')
+    retry_of: RetryOf | None = Field(None, title='Retry Of')
+    scheduled_step: ScheduledStep | None = Field(None, title='Scheduled Step')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    try_number: TryNumber | None = Field(None, title='Try Number')
+    weight_version: WeightVersion | None = Field(None, title='Weight Version')
+
+
 class Reason(RootModel[str]):
     root: str = Field(
         ...,
@@ -482,6 +647,16 @@ class BestPickPost(BaseModel):
         description='Why, in one or two sentences. Required from an agent (any token).',
         title='Reason',
     )
+
+
+class BlobRef(BaseModel):
+    """
+    Text over 64 KiB, stored whole in R2: the row keeps the pointer and the sha256.
+    """
+
+    artifact_id: UUID | None = Field(None, title='Artifact Id')
+    sha256: str = Field(..., title='Sha256')
+    size_bytes: int = Field(..., ge=0, title='Size Bytes')
 
 
 class BodyConsentOauthConsentPost(BaseModel):
@@ -556,6 +731,47 @@ class BundleCompleted(BaseModel):
     id: UUID = Field(..., title='Id')
 
 
+class BundleRef(BaseModel):
+    """
+    One sample's gzip member inside a per-(step, producer) bundle in R2: a read fetches one byte range.
+    """
+
+    is_cut: bool | None = Field(False, title='Is Cut')
+    length: int = Field(..., ge=0, title='Length')
+    offset: int = Field(..., ge=0, title='Offset')
+    sha256: str = Field(..., title='Sha256')
+
+
+class CandidateExperiment(BaseModel):
+    """
+    An open experiment (no conclusion, not a dead end) of a candidate project.
+    """
+
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    question: str = Field(..., title='Question')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class CandidateProject(BaseModel):
+    """
+    One project the caller can see, short: enough to pick it, or to see that none fits.
+    """
+
+    description: str | None = Field(None, title='Description')
+    experiments: list[CandidateExperiment] | None = Field(None, title='Experiments')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    last_run_at: AwareDatetime | None = Field(None, title='Last Run At')
+    name: str | None = Field(None, title='Name')
+    open_experiments: int | None = Field(None, title='Open Experiments')
+    repo_runs: int | None = Field(0, title='Repo Runs')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    workspace_id: UUID = Field(..., title='Workspace Id')
+
+
 class Span(RootModel[tuple[AwareDatetime, AwareDatetime]]):
     root: tuple[AwareDatetime, AwareDatetime] = Field(..., max_length=2, min_length=2)
 
@@ -571,6 +787,18 @@ class CanvasLiveRun(BaseModel):
     name: str | None = Field(None, title='Name')
 
 
+class CanvasPreview(BaseModel):
+    """
+    The pane a project chose as its canvas preview (`app/projects/panes/preview/`): a ref the
+    dashboard fetches near the viewport, never its HTML, recipe or data. `updated_at` is the pane's
+    revision: a newer one on a poll reloads it.
+    """
+
+    pane_id: UUID = Field(..., title='Pane Id')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
 class CanvasRef(BaseModel):
     id: UUID = Field(..., title='Id')
     type: CanvasEndType
@@ -579,6 +807,8 @@ class CanvasRef(BaseModel):
 class CanvasReference(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     from_project_id: UUID = Field(..., title='From Project Id')
+    reason: str | None = Field(None, title='Reason')
+    relation: str | None = Field('references', title='Relation')
     to_project_id: UUID = Field(..., title='To Project Id')
     via: str | None = Field(None, title='Via')
 
@@ -644,6 +874,23 @@ class CanvasWorkspace(BaseModel):
     name: str = Field(..., title='Name')
 
 
+class Unsupported(RootModel[str]):
+    root: str = Field(..., max_length=1024, min_length=1)
+
+
+class CaptureCredentialIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    source: Source = Field(..., title='Source')
+
+
+class CaptureCredentialOut(BaseModel):
+    capture_source: str = Field(..., title='Capture Source')
+    device_id: str = Field(..., title='Device Id')
+    token: str = Field(..., title='Token')
+
+
 class CaptureItem(BaseModel):
     """
     One captured file. `name` is the manifest's full relative path -- the
@@ -666,15 +913,24 @@ class CaptureItemOut(BaseModel):
     upload_url: str | None = Field(None, title='Upload Url')
 
 
-class CardEffortOut(BaseModel):
+class CaptureRepairAppliedIn(BaseModel):
     """
-    The experiment card's effort (D6).
+    What the machine wrote (`applied`) and what it kept off because the person
+    turned that agent off after staff asked (`kept_off`).
     """
 
-    agent_h: float = Field(..., title='Agent H')
-    busy_h: float = Field(..., title='Busy H')
-    cost_usd: float | None = Field(..., title='Cost Usd')
-    run_h: float = Field(..., title='Run H')
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    applied: list[str] | None = Field([], title='Applied')
+    kept_off: list[str] | None = Field([], title='Kept Off')
+    requested_at: str = Field(..., title='Requested At')
+    unsupported: list[str] | None = Field([], title='Unsupported')
+
+
+class CaptureRepairOut(BaseModel):
+    credentials: list[CaptureCredentialOut] = Field(..., title='Credentials')
+    requested_at: str | None = Field(..., title='Requested At')
 
 
 class Note(RootModel[str]):
@@ -754,6 +1010,26 @@ class ChatUsageOut(BaseModel):
     total_tokens: int = Field(..., title='Total Tokens')
 
 
+class Step(RootModel[int]):
+    root: int = Field(..., ge=0, title='Step')
+
+
+class Uri(RootModel[str]):
+    root: str = Field(..., max_length=2048, title='Uri')
+
+
+class CheckpointRef(BaseModel):
+    """
+    A checkpoint by artifact id, or by uri (+ sha256 when the producer can hash it).
+    """
+
+    artifact_id: UUID | None = Field(None, title='Artifact Id')
+    kind: Literal['checkpoint'] = Field('checkpoint', title='Kind')
+    sha256: str | None = Field(None, title='Sha256')
+    step: Step | None = Field(None, title='Step')
+    uri: Uri | None = Field(None, title='Uri')
+
+
 class UserCode(RootModel[str]):
     root: str = Field(..., max_length=16, title='User Code')
 
@@ -762,21 +1038,6 @@ class ClaimViewIn(BaseModel):
     claim_attempt_token: str = Field(
         ..., max_length=200, min_length=1, title='Claim Attempt Token'
     )
-
-
-class ClientCapabilitiesOut(BaseModel):
-    """
-    Always answered in v2, whatever the caller sent.
-
-    A v1 client ignores the extra field, and a v2 client gets the shape it
-    asked in -- so the response never has to be versioned alongside the request.
-    """
-
-    auto_update: AutoUpdate = Field(..., title='Auto Update')
-    capture: Capture = Field(..., title='Capture')
-    reported_at: AwareDatetime = Field(..., title='Reported At')
-    schema_version: Literal[2] = Field(2, title='Schema Version')
-    tracking: Tracking = Field(..., title='Tracking')
 
 
 class ClientCapabilitiesV1In(BaseModel):
@@ -808,7 +1069,7 @@ class ClientCapabilitiesV2In(BaseModel):
         extra='forbid',
     )
     auto_update: AutoUpdate = Field(..., title='Auto Update')
-    capture: Capture = Field(..., title='Capture')
+    capture: Capture1 = Field(..., title='Capture')
     schema_version: Literal[2] = Field(..., title='Schema Version')
     tracking: Tracking = Field(..., title='Tracking')
 
@@ -819,6 +1080,17 @@ class Cli(RootModel[str]):
 
 class Harness(RootModel[str]):
     root: str = Field(..., max_length=64, title='Harness')
+
+
+class ClientMessageTextIn(BaseModel):
+    """
+    The PUT's body. JSON only, which is also the CSRF guard: a cross-site form cannot send it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    text: str = Field(..., title='Text')
 
 
 class ClientName(RootModel[str]):
@@ -894,6 +1166,22 @@ class CodeSourcePatch(BaseModel):
     start_sha: StartSha1 | None = Field(None, title='Start Sha')
 
 
+class Reason2(RootModel[str]):
+    root: str = Field(..., max_length=1024, title='Reason')
+
+
+class Note1(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Note')
+
+
+class CommandAsk(BaseModel):
+    """
+    What the asker adds to an ask (`POST .../samples/live/{attempt}/cancel|retry|watch`).
+    """
+
+    note: Note1 | None = Field(None, title='Note')
+
+
 class WorkingFolder(RootModel[str]):
     root: str = Field(..., max_length=1024)
 
@@ -944,6 +1232,18 @@ class CommandCheckOut(BaseModel):
     )
 
 
+class CommandClaim(BaseModel):
+    """
+    A producer takes a command: only a live writer session of the command's epoch can, and only one does.
+    """
+
+    session_id: UUID = Field(..., title='Session Id')
+
+
+class AttemptKey(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Attempt Key')
+
+
 class CommitAuthor(BaseModel):
     login: str | None = Field(None, title='Login')
     name: str | None = Field(None, title='Name')
@@ -954,6 +1254,15 @@ class CommitFile(BaseModel):
     deletions: int | None = Field(None, title='Deletions')
     path: str = Field(..., title='Path')
     status: str | None = Field(None, title='Status')
+
+
+class CommitIn(BaseModel):
+    """
+    The trainer's optimizer step succeeded: its consumed samples read `trained`.
+    """
+
+    consumed_at: AwareDatetime = Field(..., title='Consumed At')
+    step: int = Field(..., ge=0, title='Step')
 
 
 class CommitMark(BaseModel):
@@ -992,6 +1301,7 @@ class CommitRunLink(BaseModel):
 class CompanionErrorDetail(BaseModel):
     code: CompanionErrorCode
     message: str = Field(..., title='Message')
+    scope: str | None = Field(None, title='Scope')
     upstream_status: int | None = Field(None, title='Upstream Status')
 
 
@@ -1076,6 +1386,28 @@ class ConfirmBatchResponse(BaseModel):
     unknown: list[UUID] | None = Field(None, title='Unknown')
 
 
+class ConfirmManyItem(BaseModel):
+    """
+    One upload's confirm, as `confirm_upload` answers it: `status` 200 with
+    the stored `artifact`, or the status and `detail` it refuses with.
+    """
+
+    artifact: ArtifactOut | None = None
+    artifact_id: UUID = Field(..., title='Artifact Id')
+    detail: Any | None = Field(None, title='Detail')
+    status: int = Field(..., title='Status')
+
+
+class ConfirmManyRequest(BaseModel):
+    artifact_ids: list[UUID] = Field(
+        ..., max_length=100, min_length=1, title='Artifact Ids'
+    )
+
+
+class ConfirmManyResponse(BaseModel):
+    items: list[ConfirmManyItem] = Field(..., title='Items')
+
+
 class ConstNode(BaseModel):
     op: Literal['const'] = Field(..., title='Op')
     value: float = Field(..., title='Value')
@@ -1140,12 +1472,33 @@ class CurrentTokenReleaseOut(BaseModel):
     still_used_by: list[str] | None = Field(None, title='Still Used By')
 
 
+class CurvePoint(BaseModel):
+    count: int | None = Field(0, title='Count')
+    errors: int | None = Field(0, title='Errors')
+    run_id: UUID = Field(..., title='Run Id')
+    step: int = Field(..., title='Step')
+    values: dict[str, float | None] | None = Field(None, title='Values')
+
+
 class Composition(RootModel[list[CompositionPartIn]]):
     root: list[CompositionPartIn] = Field(..., max_length=100, title='Composition')
 
 
 class Description(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Description')
+
+
+class Row(RootModel[int]):
+    root: int = Field(..., ge=0, title='Row')
+
+
+class DatasetRow(BaseModel):
+    """
+    Where the task came from: a dataset file (by sha256, as the data catalog records it) and a row.
+    """
+
+    file_sha256: str = Field(..., title='File Sha256')
+    row: Row | None = Field(None, title='Row')
 
 
 class DeleteAccountRequest(BaseModel):
@@ -1165,8 +1518,104 @@ class DeleteAccountRequest(BaseModel):
     confirm: str = Field(..., max_length=254, min_length=1, title='Confirm')
 
 
+class LastErrorKind(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Last Error Kind')
+
+
+class LastProgressAgeS(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=315360000.0, title='Last Progress Age S')
+
+
+class DeliveryBacklog(BaseModel):
+    """
+    What the machine's sender still holds for this run, carried on a beat (`delivery`).
+    """
+
+    failed: int | None = Field(0, ge=0, le=9223372036854776000, title='Failed')
+    held: int | None = Field(0, ge=0, le=9223372036854776000, title='Held')
+    last_error_kind: LastErrorKind | None = Field(None, title='Last Error Kind')
+    last_progress_age_s: LastProgressAgeS | None = Field(
+        None, title='Last Progress Age S'
+    )
+    oldest_pending_age_s: float | None = Field(
+        0.0, ge=0.0, le=315360000.0, title='Oldest Pending Age S'
+    )
+    pending: int | None = Field(0, ge=0, le=9223372036854776000, title='Pending')
+    pending_bytes: int | None = Field(
+        0, ge=0, le=9223372036854776000, title='Pending Bytes'
+    )
+    worker_alive: bool | None = Field(None, title='Worker Alive')
+
+
+class Deliverer(RootModel[str]):
+    root: str = Field(..., max_length=32, title='Deliverer')
+
+
+class HeartbeatAgeS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Heartbeat Age S')
+
+
+class LastShownAgeS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Last Shown Age S')
+
+
+class State(RootModel[str]):
+    root: str = Field(..., max_length=32, title='State')
+
+
+class DeliveryReceipt(BaseModel):
+    """
+    What happened to the hints the Probe service posted to this session,
+    counted from its per-session ledger (plan hints-relevance A). Logged on
+    `hints.lookup`, never used to decide a hint.
+
+    `state` is a string, not a `DeliveryState`: a value a later client adds
+    must not refuse the whole lookup (nor does a receipt out of its bounds:
+    `HintsIn` drops it).
+    """
+
+    claimed: int | None = Field(0, ge=0, le=100000, title='Claimed')
+    deliverer: Deliverer | None = Field(None, title='Deliverer')
+    heartbeat_age_s: HeartbeatAgeS | None = Field(None, title='Heartbeat Age S')
+    last_shown_age_s: LastShownAgeS | None = Field(None, title='Last Shown Age S')
+    missed: int | None = Field(0, ge=0, le=100000, title='Missed')
+    posted: int | None = Field(0, ge=0, le=100000, title='Posted')
+    shown: int | None = Field(0, ge=0, le=100000, title='Shown')
+    state: State | None = Field(None, title='State')
+    unshown_since_shown: int | None = Field(
+        0, ge=0, le=100000, title='Unshown Since Shown'
+    )
+    withdrawn: int | None = Field(0, ge=0, le=100000, title='Withdrawn')
+
+
+class DeliveryStallOut(BaseModel):
+    """
+    The receipt. `is_new_report` is False for a repeat of the stored report (nothing opened).
+    """
+
+    cause: DeliveryStallCause
+    is_new_report: bool = Field(..., title='Is New Report')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class DeliveryStallReport(BaseModel):
+    """
+    `POST /v1/runs/{run}/delivery-stalled`: the sender set writes aside or cannot send.
+    """
+
+    cause: DeliveryStallCause
+    failed: int | None = Field(0, ge=0, le=9223372036854776000, title='Failed')
+    first_error: str | None = Field('', title='First Error')
+    held: int | None = Field(0, ge=0, le=9223372036854776000, title='Held')
+    op_count: int | None = Field(0, ge=0, le=9223372036854776000, title='Op Count')
+
+
 class CodeRef(RootModel[str]):
     root: str = Field(..., max_length=512, title='Code Ref')
+
+
+class Note3(RootModel[str]):
+    root: str = Field(..., max_length=2000, title='Note')
 
 
 class DesktopGroup(BaseModel):
@@ -1201,11 +1650,19 @@ class DesktopUser(BaseModel):
     picture: str | None = Field(..., title='Picture')
 
 
+class ExpectedCustomerId(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Expected Customer Id')
+
+
 class DeviceAuthorizationDecision(BaseModel):
     decision: Decision = Field(..., title='Decision')
+    expected_customer_id: ExpectedCustomerId | None = Field(
+        None, title='Expected Customer Id'
+    )
 
 
 class DeviceAuthorizationDecisionOut(BaseModel):
+    onboarding_url: str | None = Field(None, title='Onboarding Url')
     status: Status = Field(..., title='Status')
 
 
@@ -1228,25 +1685,64 @@ class DeviceAuthorizationStartOut(BaseModel):
     verification_uri_complete: str = Field(..., title='Verification Uri Complete')
 
 
+class DeviceAuthorizationStatusOut(BaseModel):
+    """
+    Where a request stands, for the client holding its secret: no token, nothing consumed (PR39).
+    """
+
+    account: str | None = Field(None, title='Account')
+    status: Status2 = Field(..., title='Status')
+
+
+class DeviceAuthorizationStatusRead(BaseModel):
+    """
+    `POST /auth/device/status`: the same proof the exchange takes (PR39).
+    """
+
+    code_verifier: str = Field(
+        ...,
+        max_length=128,
+        min_length=43,
+        pattern='^[A-Za-z0-9._~-]+$',
+        title='Code Verifier',
+    )
+    device_code: str = Field(..., max_length=256, min_length=32, title='Device Code')
+
+
 class PriorEmail(RootModel[str]):
     root: str = Field(..., max_length=254, title='Prior Email')
 
 
 class DeviceClientContext(BaseModel):
     """
-    Client-declared context shown on the approval page. DISPLAY-ONLY.
+    Client-declared context shown on the approval page. NEVER AN ACCESS INPUT.
 
     `prior_email` is the CLI's claim about which account this device is
     currently set up for — the server cannot know that (it lives in the
     machine's config file), and the approval page needs it to warn "approving
     switches this device from X to Y". Nothing authorizes against it; the page
-    renders it as a claim. `install` marks a guided-install approval, which is
+    renders it as a claim. `prior_team_id` is the same claim about the team
+    (fixes-1107b T7): the page names it from the person's own teams, or says
+    "another team", to warn that new work moves from team A to team B. `install` marks a guided-install approval, which is
     what tells the page to stay open afterwards and wait for the install's
-    capability registration instead of saying "return to the CLI".
+    capability registration instead of saying "return to the CLI". `surface`
+    says whether the person returns to a terminal, the Probe app or an agent;
+    older CLIs omit it (the page reads that as a terminal). `agent` is the
+    harness id of the chat an agent's sign-in runs in (D79), so the page can say
+    "Go back to Claude Code."; an id this server's registry lacks reads as none.
+
+    `surface = "agent"` shapes the FLOW only (agent-prompt install D2): the request
+    stays pending while the person finishes the team and workspace pages, and its
+    approval finishes onboarding. It changes when a member may approve, never what an
+    approval grants: the scopes, grants, role checks and exchange are the same for every surface
+    and every agent (`tests/unit/accounts/auth/test_device_auth.py` pins it).
     """
 
+    agent: Agent | None = Field(None, title='Agent')
     install: bool | None = Field(False, title='Install')
     prior_email: PriorEmail | None = Field(None, title='Prior Email')
+    prior_team_id: str | None = Field(None, title='Prior Team Id')
+    surface: ClientSurface | None = None
 
 
 class DeviceTokenExchange(BaseModel):
@@ -1289,7 +1785,28 @@ class DirectionPatch(BaseModel):
     name: Name1 | None = Field(None, title='Name')
     parent_id: UUID | None = Field(None, title='Parent Id')
     statement: Statement | None = Field(None, title='Statement')
-    status: Status2 | None = Field(None, title='Status')
+    status: Status3 | None = Field(None, title='Status')
+
+
+class DocsSectionOut(BaseModel):
+    heading: str = Field(
+        ...,
+        description="The section's `##` heading; the page title for the text before the first one. A long section split at `###` reads `<##> — <###>`.",
+        title='Heading',
+    )
+    page: str = Field(
+        ..., description="The page's title (its `# Title`).", title='Page'
+    )
+    path: str = Field(
+        ...,
+        description='The page path on docs.prbe.ai, e.g. `wizard/flags`.',
+        title='Path',
+    )
+    rank: int = Field(..., description='1-based position, best first.', title='Rank')
+    text: str = Field(..., description="The section's markdown, whole.", title='Text')
+    url: str = Field(
+        ..., description="The page's URL, as the docs publish it.", title='Url'
+    )
 
 
 class DownloadBatchRequest(BaseModel):
@@ -1300,6 +1817,58 @@ class DownloadBatchRequest(BaseModel):
 
 class DownloadResponse(BaseModel):
     download_url: str = Field(..., title='Download Url')
+
+
+class Reason4(RootModel[str]):
+    root: str = Field(..., max_length=500, title='Reason')
+
+
+class EditCounts(BaseModel):
+    """
+    What an edit changed, for its receipt and History.
+    """
+
+    collisions: int | None = Field(0, title='Collisions')
+    config_keys: int | None = Field(0, title='Config Keys')
+    files: int | None = Field(0, title='Files')
+    findings: int | None = Field(0, title='Findings')
+    points: int | None = Field(0, title='Points')
+    spans: int | None = Field(0, title='Spans')
+    written: int | None = Field(0, title='Written')
+
+
+class EditPreview(BaseModel):
+    """
+    A dry run: what the edit would change. `collisions` > 0 is refused unless `replace` is sent.
+    """
+
+    counts: EditCounts
+    op: EditOp
+
+
+class EditRevert(BaseModel):
+    """
+    `POST /v1/edits/{edit}/revert`.
+    """
+
+    reason: str = Field(..., max_length=2000, min_length=1, title='Reason')
+
+
+class EditTarget(BaseModel):
+    """
+    Which recorded data an edit touches. Steps are the half-open range [from_step, to_step), clocks
+    [from_time, to_time). No `keys` means every key; no `kinds` means every kind but `hardware`.
+    """
+
+    dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
+    file_ids: list[UUID] | None = Field(None, title='File Ids')
+    from_step: int | None = Field(None, title='From Step')
+    from_time: AwareDatetime | None = Field(None, title='From Time')
+    keys: list[str] | None = Field(None, title='Keys')
+    kinds: list[str] | None = Field(None, title='Kinds')
+    step_spans: bool | None = Field(False, title='Step Spans')
+    to_step: int | None = Field(None, title='To Step')
+    to_time: AwareDatetime | None = Field(None, title='To Time')
 
 
 class Span1(RootModel[tuple[AwareDatetime, AwareDatetime]]):
@@ -1317,6 +1886,11 @@ class EffortOut(BaseModel):
         ...,
         description='Agent-session time attributed here: parallel agents add up.',
         title='Agent H',
+    )
+    agent_wall_h: float = Field(
+        ...,
+        description="Wall-clock agent time: the union of those agents' time, parallel agents once.",
+        title='Agent Wall H',
     )
     busy_h: float = Field(
         ...,
@@ -1346,6 +1920,30 @@ class EffortOut(BaseModel):
 class EffortTruncatedOut(BaseModel):
     sessions_counted: int = Field(..., title='Sessions Counted')
     sessions_total: int = Field(..., title='Sessions Total')
+
+
+class NonGenerationS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Non Generation S')
+
+
+class PrefixCacheHitRate(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=1.0, title='Prefix Cache Hit Rate')
+
+
+class SpecAcceptRate(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=1.0, title='Spec Accept Rate')
+
+
+class EngineStats(BaseModel):
+    """
+    The inference engine's view of one attempt.
+    """
+
+    non_generation_s: NonGenerationS | None = Field(None, title='Non Generation S')
+    prefix_cache_hit_rate: PrefixCacheHitRate | None = Field(
+        None, title='Prefix Cache Hit Rate'
+    )
+    spec_accept_rate: SpecAcceptRate | None = Field(None, title='Spec Accept Rate')
 
 
 class Project(RootModel[str]):
@@ -1381,6 +1979,50 @@ class Evidence(BaseModel):
     resolution: str = Field(..., title='Resolution')
 
 
+class ExampleFacts(BaseModel):
+    """
+    What exists in the example workspace now: one SQL read, each stage's evidence.
+    """
+
+    chat_captured: bool = Field(..., title='Chat Captured')
+    chat_linked: bool = Field(..., title='Chat Linked')
+    conclusion: bool = Field(..., title='Conclusion')
+    fork: bool = Field(..., title='Fork')
+    fork_checkpoint: bool = Field(..., title='Fork Checkpoint')
+    new_chat_session_id: str | None = Field(..., title='New Chat Session Id')
+    project: bool = Field(..., title='Project')
+    runs: int = Field(..., title='Runs')
+    runs_finished: int = Field(..., title='Runs Finished')
+
+
+class ExampleItem(BaseModel):
+    """
+    A workspace, project or experiment the example made: what an agent passes to `probe.init`.
+    """
+
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    slug: str = Field(..., title='Slug')
+
+
+class SessionId(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Session Id')
+
+
+class ExampleStart(BaseModel):
+    """
+    `POST /v1/onboarding/example`. Both fields optional: a bare first start is a Full example
+    with the chat named by the request's `X-Probe-Agent-Session` header, if any; on a later start
+    an omitted field keeps what the example has.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    profile: ExampleProfile | None = None
+    session_id: SessionId | None = Field(None, title='Session Id')
+
+
 class ExecutionRecordCreate(BaseModel):
     code: dict[str, Any] | None = Field(None, title='Code')
     deps: dict[str, Any] | None = Field(None, title='Deps')
@@ -1398,12 +2040,6 @@ class ExecutionRecordOut(BaseModel):
     hardware: dict[str, Any] | None = Field(None, title='Hardware')
     paths: dict[str, Any] | None = Field(None, title='Paths')
     settings: dict[str, Any] | None = Field(None, title='Settings')
-
-
-class ExperimentEffortOut(BaseModel):
-    agent_h: float = Field(..., title='Agent H')
-    busy_h: float = Field(..., title='Busy H')
-    run_h: float = Field(..., title='Run H')
 
 
 class Name2(RootModel[str]):
@@ -1583,7 +2219,7 @@ class ExperimentValueOut(BaseModel):
 
     live: bool = Field(
         ...,
-        description='That run is still running, so the value can still move.',
+        description='That run is live (running and reporting in the live window), so the value can still move.',
         title='Live',
     )
     run_id: UUID = Field(
@@ -1637,14 +2273,85 @@ class ExportPoint(BaseModel):
     wall_clock: AwareDatetime = Field(..., title='Wall Clock')
 
 
+class Provider(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Provider')
+
+
+class Revision(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Revision')
+
+
+class ExternalRef(BaseModel):
+    """
+    A model Probe holds no weights for: a hub model, an API model.
+    """
+
+    kind: Literal['external'] = Field('external', title='Kind')
+    name: str = Field(..., max_length=512, min_length=1, title='Name')
+    provider: Provider | None = Field(None, title='Provider')
+    revision: Revision | None = Field(None, title='Revision')
+
+
+class FailingGroup(BaseModel):
+    """
+    Errors in the window for one error reason, host or task.
+    """
+
+    ended: int | None = Field(0, title='Ended')
+    errors: int | None = Field(0, title='Errors')
+    task_id: UUID | None = Field(None, title='Task Id')
+    value: str = Field(..., title='Value')
+
+
+class FailureCause(BaseModel):
+    note: str = Field(..., title='Note')
+    short: str = Field(..., title='Short')
+    title: str = Field(..., title='Title')
+
+
+class FailureException(BaseModel):
+    """
+    The deepest link of the recorded chain (the diagnosis), and the head when it differs.
+    """
+
+    message: str = Field(..., title='Message')
+    surfaced_type: str | None = Field(None, title='Surfaced Type')
+    type: str = Field(..., title='Type')
+
+
 class FeedbackAccepted(BaseModel):
     duplicate: bool = Field(..., title='Duplicate')
     id: UUID = Field(..., title='Id')
 
 
+class FilingCandidates(BaseModel):
+    """
+    Every project the caller can see, up to 200: runs from this repo first, then most recently
+    active. `truncated` means more exist; narrow with `match`.
+    """
+
+    match: list[str] | None = Field(None, title='Match')
+    projects: list[CandidateProject] | None = Field(None, title='Projects')
+    repo: str | None = Field(None, title='Repo')
+    total: int | None = Field(0, title='Total')
+    truncated: bool | None = Field(False, title='Truncated')
+
+
 class FilterChip(BaseModel):
     key: Key = Field(..., title='Key')
     label: str = Field(..., title='Label')
+
+
+class FinalMetricOut(BaseModel):
+    """
+    A run's final value of one metric (`GET /v1/runs?latest_metrics=`): its last value, extent and last
+    step. A W&B-backed run's snapshot knows only `last`; the rest are null.
+    """
+
+    last: float | None = Field(None, title='Last')
+    last_step: int | None = Field(None, title='Last Step')
+    max: float | None = Field(None, title='Max')
+    min: float | None = Field(None, title='Min')
 
 
 class FunctionCall(BaseModel):
@@ -1671,6 +2378,14 @@ class GapOut(BaseModel):
     )
 
 
+class FirstToken(RootModel[int]):
+    root: int = Field(..., ge=0, title='First Token')
+
+
+class LastToken(RootModel[int]):
+    root: int = Field(..., ge=0, title='Last Token')
+
+
 class GitHubBranchOut(BaseModel):
     name: str = Field(..., title='Name')
     protected: bool | None = Field(False, title='Protected')
@@ -1687,7 +2402,7 @@ class Code(RootModel[str]):
     root: str = Field(..., max_length=512, title='Code')
 
 
-class State(RootModel[str]):
+class State1(RootModel[str]):
     root: str = Field(..., max_length=2048, title='State')
 
 
@@ -1710,7 +2425,7 @@ class GitHubInstallationClaim(BaseModel):
 
     code: Code | None = Field(None, title='Code')
     installation_id: int = Field(..., ge=1, title='Installation Id')
-    state: State | None = Field(None, title='State')
+    state: State1 | None = Field(None, title='State')
 
 
 class GitHubInstallationOut(BaseModel):
@@ -1730,6 +2445,18 @@ class GitHubRepositoryOut(BaseModel):
     private: bool = Field(..., title='Private')
     repo: str = Field(..., title='Repo')
     repo_id: int = Field(..., title='Repo Id')
+
+
+class ConsumedStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Consumed Step')
+
+
+class Size(RootModel[int]):
+    root: int = Field(..., ge=1, title='Size')
+
+
+class TaskKey(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Task Key')
 
 
 class GroupedPoint(BaseModel):
@@ -1800,7 +2527,7 @@ class Segment(RootModel[str]):
     root: str = Field(..., max_length=8000)
 
 
-class SessionId(RootModel[str]):
+class SessionId1(RootModel[str]):
     root: str = Field(
         ...,
         description="The coding agent's session id: its own documents are never shown.",
@@ -1924,26 +2651,6 @@ class ImportFailureOut(BaseModel):
     notified: bool = Field(..., title='Notified')
 
 
-class TargetSlug(RootModel[str]):
-    root: str = Field(..., max_length=64, title='Target Slug')
-
-
-class ImportSelection(BaseModel):
-    """
-    One W&B project the user chose, with the mapping THEY decided.
-
-    Either `target_project_id` (import into an existing Probe project) or
-    `target_slug` (create one). The picker is the "named" creation act that
-    `app/ingestion/router.py` requires -- nothing here is inferred.
-    """
-
-    entity: str = Field(..., max_length=128, min_length=1, title='Entity')
-    project: str = Field(..., max_length=128, min_length=1, title='Project')
-    target_project_id: UUID | None = Field(None, title='Target Project Id')
-    target_slug: TargetSlug | None = Field(None, title='Target Slug')
-    target_workspace_id: UUID = Field(..., title='Target Workspace Id')
-
-
 class IngestArtifact(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
@@ -2027,16 +2734,6 @@ class InputMatchOut(BaseModel):
     written_path: str | None = Field(None, title='Written Path')
 
 
-class InstallCodeCreated(BaseModel):
-    code: str = Field(..., title='Code')
-    expires_at: AwareDatetime = Field(..., title='Expires At')
-    expires_in: int = Field(..., title='Expires In')
-
-
-class CaptureSources1(RootModel[list[CaptureSources1Enum]]):
-    root: list[CaptureSources1Enum] = Field(..., min_length=1, title='Capture Sources')
-
-
 class InstallationCaptureOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     device_id: str = Field(..., title='Device Id')
@@ -2114,6 +2811,83 @@ class InviteOut(BaseModel):
     role: Role6 = Field(..., title='Role')
 
 
+class ItemTagChange(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    expected_revision: int = Field(
+        ..., ge=0, le=9223372036854776000, title='Expected Revision'
+    )
+    item_key: str = Field(
+        ...,
+        max_length=1100,
+        min_length=1,
+        pattern='^(task:stable:[^\\x00-\\x1f\\x7f]+|task:(train|eval):step:[0-9]+:group:[^\\x00-\\x1f\\x7f]+|rollout:sample:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|rollout:(train|eval):step:[0-9]+:sample:[0-9]+:occurrence:[0-9]+)$',
+        title='Item Key',
+    )
+    tags: list[str] = Field(..., title='Tags')
+
+
+class ItemTagsOut(BaseModel):
+    item_key: str = Field(
+        ...,
+        max_length=1100,
+        min_length=1,
+        pattern='^(task:stable:[^\\x00-\\x1f\\x7f]+|task:(train|eval):step:[0-9]+:group:[^\\x00-\\x1f\\x7f]+|rollout:sample:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|rollout:(train|eval):step:[0-9]+:sample:[0-9]+:occurrence:[0-9]+)$',
+        title='Item Key',
+    )
+    revision: int | None = Field(0, title='Revision')
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime | None = Field(None, title='Updated At')
+
+
+class KeyDropCreate(BaseModel):
+    """
+    The CLI's request: its one-time public key, and two display-only claims for the page.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    hostname: str = Field(..., max_length=255, min_length=1, title='Hostname')
+    netrc_path: str = Field(..., max_length=1024, min_length=1, title='Netrc Path')
+    public_key: str = Field(..., pattern='^[A-Za-z0-9_-]{87}$', title='Public Key')
+
+
+class KeyDropCreated(BaseModel):
+    code: str = Field(..., title='Code')
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    request_id: UUID = Field(..., title='Request Id')
+    url: str = Field(..., title='Url')
+
+
+class KeyDropResult(BaseModel):
+    """
+    The CLI's report after pickup: `saved` only after it wrote the key and read it back.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    failure: KeyDropFailure | None = None
+    outcome: KeyDropOutcome
+
+
+class KeyDropView(BaseModel):
+    """
+    What the page shows. Another account's drop names only who asked (`requester_email`).
+    """
+
+    code: str = Field(..., title='Code')
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    failure: KeyDropFailure | None = None
+    hostname: str | None = Field(None, title='Hostname')
+    netrc_path: str | None = Field(None, title='Netrc Path')
+    public_key: str | None = Field(None, title='Public Key')
+    requester_email: str | None = Field(None, title='Requester Email')
+    status: KeyDropStatus
+
+
 class Keys(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=200, title='Keys')
 
@@ -2144,6 +2918,27 @@ class LatestScalarsRequest(BaseModel):
     )
 
 
+class LaunchRelease(BaseModel):
+    """
+    Body of `POST /v1/runs/{id}/launches/{launch_id}/release` (rl-trajectory-gaps D29): a Ray
+    launcher's job ended, and Ray stopped its workers before their exit hooks could release their
+    leases. Releases, in one transaction, every lease that launch started and that still beats on
+    the run's current epoch, with the job's verdict.
+    """
+
+    exit_status: ExitStatus = Field(..., title='Exit Status')
+    session_id: UUID | None = Field(None, title='Session Id')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
+class LaunchReleaseOut(BaseModel):
+    closed: bool = Field(..., title='Closed')
+    left: int = Field(..., title='Left')
+    liveness_protocol: str | None = Field(None, title='Liveness Protocol')
+    released: int = Field(..., title='Released')
+    run_status: str = Field(..., title='Run Status')
+
+
 class LeaderChangeOut(BaseModel):
     at: AwareDatetime = Field(..., title='At')
     branch: UUID = Field(..., title='Branch')
@@ -2160,7 +2955,9 @@ class LineOut(BaseModel):
         ..., description='Branches in the line, in the scope.', title='Branches'
     )
     dead_end: bool = Field(
-        ..., description='Every branch of the line reads `dead_end`.', title='Dead End'
+        ...,
+        description="Every branch where the line's work ends (one no other branch of it continues) reads `dead_end`, and none of its branches is live.",
+        title='Dead End',
     )
     line: UUID = Field(
         ..., description="The line's first branch (its first experiment).", title='Line'
@@ -2181,6 +2978,17 @@ class LineageEdgeOut(BaseModel):
     source_type: str = Field(..., title='Source Type')
     target_id: UUID = Field(..., title='Target Id')
     target_type: str = Field(..., title='Target Type')
+
+
+class LineageInput(BaseModel):
+    """
+    A base model or data file the run declared (`use_checkpoint`, `use_dataset`).
+    """
+
+    artifact_id: UUID | None = Field(None, title='Artifact Id')
+    name: str | None = Field(None, title='Name')
+    sha256: str | None = Field(None, title='Sha256')
+    uri: str | None = Field(None, title='Uri')
 
 
 class LineageRunRef(BaseModel):
@@ -2222,6 +3030,115 @@ class LinkedSessionsOut(BaseModel):
     sessions: list[AgentSessionOut] | None = Field(None, title='Sessions')
 
 
+class LiveCounts(BaseModel):
+    """
+    Attempts in the scan, by state; `slow` counts running ones that are slow.
+    """
+
+    abandoned: int | None = Field(0, title='Abandoned')
+    ended: int | None = Field(0, title='Ended')
+    hung: int | None = Field(0, title='Hung')
+    running: int | None = Field(0, title='Running')
+    slow: int | None = Field(0, title='Slow')
+    superseded: int | None = Field(0, title='Superseded')
+
+
+class LiveFailing(BaseModel):
+    """
+    What is failing right now: attempts that ended `error` in the window, against the run's rate before it.
+    """
+
+    by_host: list[FailingGroup] | None = Field(None, title='By Host')
+    by_reason: list[FailingGroup] | None = Field(None, title='By Reason')
+    by_task: list[FailingGroup] | None = Field(None, title='By Task')
+    ended: int | None = Field(0, title='Ended')
+    error_rate: float | None = Field(None, title='Error Rate')
+    error_rate_before: float | None = Field(None, title='Error Rate Before')
+    errors: int | None = Field(0, title='Errors')
+    window_s: int | None = Field(600, title='Window S')
+
+
+class LiveRefs(BaseModel):
+    """
+    What the event is about, outermost first. The server fills every ancestor it knows at emit time.
+    """
+
+    experiment: UUID | None = Field(None, title='Experiment')
+    project: UUID | None = Field(None, title='Project')
+    run: UUID | None = Field(None, title='Run')
+    sample: UUID | None = Field(None, title='Sample')
+
+
+class ElapsedS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Elapsed S')
+
+
+class Engine(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Engine')
+
+
+class Host(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Host')
+
+
+class IdleS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Idle S')
+
+
+class RetryOf1(RootModel[str]):
+    root: str = Field(..., max_length=512, title='Retry Of')
+
+
+class SandboxId(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Sandbox Id')
+
+
+class TaskKey1(RootModel[str]):
+    root: str = Field(..., max_length=512, title='Task Key')
+
+
+class Worker(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Worker')
+
+
+class ToolName(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Tool Name')
+
+
+class LiveTurnIn(BaseModel):
+    """
+    A live turn on the wire (`SampleBatchIn.live_turns`): the server derives the attempt id from the batch's epoch.
+    """
+
+    at: AwareDatetime = Field(..., title='At')
+    attempt_key: str = Field(..., max_length=512, min_length=1, title='Attempt Key')
+    content: str | None = Field('', title='Content')
+    role: str = Field(..., max_length=64, min_length=1, title='Role')
+    seq: int = Field(..., ge=0, title='Seq')
+    tokens: Tokens | None = Field(None, title='Tokens')
+    tool_name: ToolName | None = Field(None, title='Tool Name')
+    weight_version: WeightVersion | None = Field(None, title='Weight Version')
+
+
+class LiveTurnOut(BaseModel):
+    """
+    A live turn as `GET .../samples/live/{attempt}/turns` answers it.
+    """
+
+    at: AwareDatetime = Field(..., title='At')
+    attempt_id: UUID = Field(..., title='Attempt Id')
+    attempt_key: str = Field(..., max_length=512, min_length=1, title='Attempt Key')
+    content: str | None = Field('', title='Content')
+    received_at: AwareDatetime | None = Field(None, title='Received At')
+    role: str = Field(..., max_length=64, min_length=1, title='Role')
+    run_id: UUID = Field(..., title='Run Id')
+    seq: int = Field(..., ge=0, title='Seq')
+    tokens: Tokens | None = Field(None, title='Tokens')
+    tool_name: ToolName | None = Field(None, title='Tool Name')
+    weight_version: WeightVersion | None = Field(None, title='Weight Version')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
 class WriteEpoch(RootModel[int]):
     root: int = Field(..., ge=1, title='Write Epoch')
 
@@ -2261,9 +3178,44 @@ class LogStreamOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class Member(BaseModel):
+    """
+    An active member of the team (`GET /v1/people`); pending invites are not people yet (D14).
+    """
+
+    email: str | None = Field(None, title='Email')
+    joined_at: AwareDatetime = Field(..., title='Joined At')
+    name: str | None = Field(None, title='Name')
+    role: str = Field(..., title='Role')
+    user_id: UUID = Field(..., title='User Id')
+
+
 class MergedInto(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
+
+
+class Name3(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Name')
+
+
+class ToolCallId(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Tool Call Id')
+
+
+class Id(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Id')
+
+
+class MessageToolCall(BaseModel):
+    """
+    One tool call an assistant message asked for, as the framework handed it to the tool (not `ToolCall`: that
+    name collided in OpenAPI, #4640). Its run's stats are the `TurnToolCall` with the same `id`.
+    """
+
+    arguments: str | None = Field('', title='Arguments')
+    id: Id | None = Field(None, title='Id')
+    name: str = Field(..., max_length=256, title='Name')
 
 
 class Kind2(RootModel[str]):
@@ -2420,7 +3372,7 @@ class MetricViewOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Name3(RootModel[str]):
+class Name4(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -2457,7 +3409,7 @@ class MirrorBlock(BaseModel):
     state: str = Field(..., title='State')
 
 
-class Name4(RootModel[str]):
+class Name5(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -2615,6 +3567,7 @@ class OpenAIErrorBody(BaseModel):
     code: str | None = Field(None, title='Code')
     message: str = Field(..., title='Message')
     param: str | None = Field(None, title='Param')
+    scope: str | None = Field(None, title='Scope')
     type: str = Field(..., title='Type')
 
 
@@ -2664,6 +3617,19 @@ class OptionsRunOut(BaseModel):
     status: str = Field(..., title='Status')
 
 
+class OutsideProject(BaseModel):
+    """
+    A project or experiment the install chat created OUTSIDE the example workspace (D68):
+    the delete leaves it, so the agent names it first.
+    """
+
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    name: str = Field(..., title='Name')
+    slug: str = Field(..., title='Slug')
+    workspace_id: UUID = Field(..., title='Workspace Id')
+
+
 class OverlapOut(BaseModel):
     branch: UUID = Field(..., title='Branch')
     hours: float = Field(..., title='Hours')
@@ -2696,7 +3662,7 @@ class OverviewOut(BaseModel):
     scheduled_for: AwareDatetime | None = Field(None, title='Scheduled For')
     series: dict[str, Any] | None = Field(None, title='Series')
     skip_reason: str | None = Field(None, title='Skip Reason')
-    source: Source | None = Field(None, title='Source')
+    source: Source1 | None = Field(None, title='Source')
     summaries_by: str | None = Field('lane', title='Summaries By')
     version: int | None = Field(0, title='Version')
 
@@ -2762,7 +3728,7 @@ class OverviewStatusOut(BaseModel):
     queue_ahead: int | None = Field(None, title='Queue Ahead')
     scheduled_for: AwareDatetime | None = Field(None, title='Scheduled For')
     skip_reason: str | None = Field(None, title='Skip Reason')
-    source: Source | None = Field(None, title='Source')
+    source: Source1 | None = Field(None, title='Source')
     summaries_by: str | None = Field('lane', title='Summaries By')
     version: int | None = Field(0, title='Version')
 
@@ -2781,7 +3747,7 @@ class OverviewVersionOut(BaseModel):
     plan: str | None = Field(None, title='Plan')
     prompt_version: str | None = Field(None, title='Prompt Version')
     series: dict[str, Any] | None = Field(None, title='Series')
-    source: Source = Field(..., title='Source')
+    source: Source1 = Field(..., title='Source')
     version: int = Field(..., title='Version')
 
 
@@ -2800,7 +3766,7 @@ class OverviewVersionSummaryOut(BaseModel):
     prompt_version: str | None = Field(None, title='Prompt Version')
     session_id: UUID | None = Field(None, title='Session Id')
     size_chars: int = Field(..., title='Size Chars')
-    source: Source | None = Field('lane', title='Source')
+    source: Source1 | None = Field('lane', title='Source')
     version: int = Field(..., title='Version')
     via: str | None = Field('', title='Via')
 
@@ -2856,6 +3822,239 @@ class PairingTokenResponse(BaseModel):
     pairing_token: str = Field(..., title='Pairing Token')
 
 
+class PaneCountValue(BaseModel):
+    count: int = Field(..., title='Count')
+    value: str | None = Field(..., title='Value')
+
+
+class PaneFileRow(BaseModel):
+    """
+    A file's metadata; what PROBE.image/text/json/bytes take and PROBE.open({file}) opens.
+    """
+
+    content_hash: str | None = Field(None, title='Content Hash')
+    content_type: str | None = Field(None, title='Content Type')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    name: str = Field(..., title='Name')
+    run_id: UUID = Field(..., title='Run Id')
+    size_bytes: int | None = Field(None, title='Size Bytes')
+    span_id: UUID | None = Field(None, title='Span Id')
+    step: int | None = Field(None, title='Step')
+
+
+class Name7(RootModel[str]):
+    root: str = Field(..., max_length=256, min_length=1, title='Name')
+
+
+class Prefix(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Prefix')
+
+
+class Span2(RootModel[str]):
+    root: str = Field(..., max_length=64, min_length=1, title='Span')
+
+
+class PaneFilesEntry(BaseModel):
+    """
+    Artifact metadata of the runs; every filter given must match.
+    """
+
+    id: str = Field(
+        ...,
+        description="Named by page code as PROBE.<source>('<id>').",
+        pattern='^[A-Za-z][A-Za-z0-9_-]{0,63}$',
+        title='Id',
+    )
+    kind: ArtifactKind | None = None
+    limit: int | None = Field(2000, ge=1, le=2000, title='Limit')
+    name: Name7 | None = Field(None, title='Name')
+    prefix: Prefix | None = Field(None, title='Prefix')
+    source: Literal['files'] = Field(..., title='Source')
+    span: Span2 | None = Field(None, title='Span')
+
+
+class Position(RootModel[int]):
+    root: int = Field(..., ge=0, le=1000, title='Position')
+
+
+class Title(RootModel[str]):
+    root: str = Field(..., max_length=200, min_length=1, title='Title')
+
+
+class PaneRef(BaseModel):
+    """
+    An agent-written pane; its row says whether it sits on the project or an experiment.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    kind: Literal['pane'] = Field(..., title='Kind')
+    pane_id: UUID = Field(..., title='Pane Id')
+
+
+class RunIds(RootModel[list[UUID]]):
+    root: list[UUID] = Field(..., max_length=50, min_length=1, title='Run Ids')
+
+
+class PaneRun(BaseModel):
+    """
+    One run of the set a pane's data was read over, in order.
+    """
+
+    experiment_id: UUID | None = Field(None, title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    locked: bool | None = Field(False, title='Locked')
+    name: str = Field(..., title='Name')
+
+
+class ConfigItem(RootModel[str]):
+    root: str = Field(..., max_length=256, min_length=1)
+
+
+class Config(RootModel[list[ConfigItem]]):
+    root: list[ConfigItem] = Field(..., max_length=32, title='Config')
+
+
+class Key1(RootModel[str]):
+    root: str = Field(..., max_length=256, min_length=1)
+
+
+class PaneRunsEntry(BaseModel):
+    """
+    One row per run: name, status, experiment, config, created_at, and last/min/max of `keys`.
+    """
+
+    config: Config | None = Field(None, title='Config')
+    id: str = Field(
+        ...,
+        description="Named by page code as PROBE.<source>('<id>').",
+        pattern='^[A-Za-z][A-Za-z0-9_-]{0,63}$',
+        title='Id',
+    )
+    keys: list[Key1] | None = Field(None, max_length=32, title='Keys')
+    source: Literal['runs'] = Field(..., title='Source')
+
+
+class PaneSampleCount(BaseModel):
+    """
+    One field's counts on one run: the most common values, the rest summed in `other`.
+    """
+
+    other: int | None = Field(0, title='Other')
+    values: list[PaneCountValue] = Field(..., title='Values')
+
+
+class PaneSampleRow(BaseModel):
+    """
+    One rollout span: one attempt at one task. `id` is its span id, which is its trial id.
+    """
+
+    cut: list[str] | None = Field(None, title='Cut')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    external_key: str | None = Field(None, title='External Key')
+    fields: dict[str, Any] | None = Field(None, title='Fields')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    run_id: UUID = Field(..., title='Run Id')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: str = Field(..., title='Status')
+    step: int | None = Field(None, title='Step')
+
+
+class PaneSampleTotal(BaseModel):
+    """
+    A run's exact totals over ALL its rollout spans, however many rows were cut.
+    """
+
+    counts: dict[str, PaneSampleCount] = Field(..., title='Counts')
+    run_id: UUID = Field(..., title='Run Id')
+    total: int = Field(..., title='Total')
+
+
+class Count(RootModel[str]):
+    root: str = Field(
+        ...,
+        max_length=320,
+        pattern='^(?:attributes|summary)(?:\\.[^.\\x00-\\x1f]{1,64}){1,4}$',
+    )
+
+
+class FieldModel(RootModel[str]):
+    root: str = Field(
+        ...,
+        max_length=320,
+        pattern='^(?:attributes|summary)(?:\\.[^.\\x00-\\x1f]{1,64}){1,4}$',
+    )
+
+
+class PaneSamplesEntry(BaseModel):
+    """
+    Rollout spans of the runs, with `fields` projected and exact counts by status and `counts`.
+    """
+
+    counts: list[Count] | None = Field(None, max_length=3, title='Counts')
+    fields: list[FieldModel] | None = Field(None, max_length=32, title='Fields')
+    id: str = Field(
+        ...,
+        description="Named by page code as PROBE.<source>('<id>').",
+        pattern='^[A-Za-z][A-Za-z0-9_-]{0,63}$',
+        title='Id',
+    )
+    limit: int | None = Field(5000, ge=1, le=5000, title='Limit')
+    source: Literal['samples'] = Field(..., title='Source')
+
+
+class PaneScalar(BaseModel):
+    """
+    A metric key's summary on one run, from the series catalog.
+    """
+
+    last: float | None = Field(None, title='Last')
+    max: float | None = Field(None, title='Max')
+    min: float | None = Field(None, title='Min')
+    step: int | None = Field(None, title='Step')
+
+
+class PaneSeriesEntry(BaseModel):
+    """
+    Step curves of `keys`, one line per run and key.
+    """
+
+    id: str = Field(
+        ...,
+        description="Named by page code as PROBE.<source>('<id>').",
+        pattern='^[A-Za-z][A-Za-z0-9_-]{0,63}$',
+        title='Id',
+    )
+    keys: list[Key1] = Field(..., max_length=32, min_length=1, title='Keys')
+    max_points: int | None = Field(300, ge=2, le=300, title='Max Points')
+    source: Literal['series'] = Field(..., title='Source')
+
+
+class Point(RootModel[tuple[int, float]]):
+    root: tuple[int, float] = Field(..., max_length=2, min_length=2)
+
+
+class PaneSeriesLine(BaseModel):
+    key: str = Field(..., title='Key')
+    points: list[Point] = Field(..., title='Points')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class PaneViolation(BaseModel):
+    """
+    One rule a push would break: its 1-based line in the HTML (None for the page or recipe as a
+    whole), the rule's name, and the refusal's words, the same a push that stops at it answers.
+    """
+
+    line: int | None = Field(None, title='Line')
+    rule: LintRule | GuardRule | PaneRule = Field(..., title='Rule')
+    text: str = Field(..., title='Text')
+
+
 class Paper(BaseModel):
     """
     One paper. Every field beyond `title` may be absent upstream.
@@ -2887,7 +4086,7 @@ class SummaryMd(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Summary Md')
 
 
-class Title(RootModel[str]):
+class Title1(RootModel[str]):
     root: str = Field(..., max_length=500, min_length=1, title='Title')
 
 
@@ -2986,7 +4185,7 @@ class PaperPatch(BaseModel):
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     summary_md: SummaryMd | None = Field(None, title='Summary Md')
     tags: list[str] | None = Field(None, title='Tags')
-    title: Title | None = Field(None, title='Title')
+    title: Title1 | None = Field(None, title='Title')
 
 
 class PaperRelatesToIn(BaseModel):
@@ -3007,7 +4206,7 @@ class PaperRelatesToIn(BaseModel):
 
     paper: UUID | None = Field(None, title='Paper')
     provenance: PaperProvenance | None = None
-    reason: Reason1 | None = Field(None, title='Reason')
+    reason: Reason4 | None = Field(None, title='Reason')
 
 
 class Authors2(RootModel[str]):
@@ -3096,6 +4295,24 @@ class PendingInviteOut(BaseModel):
     role: Role6 = Field(..., title='Role')
 
 
+class PeopleOut(BaseModel):
+    """
+    `GET /v1/people`: every active member with the `user_id` that `owner=` takes.
+    """
+
+    people: list[Member] | None = Field(None, title='People')
+
+
+class Person(BaseModel):
+    """
+    A teammate as a row or hit names them (D5): never a bare id.
+    """
+
+    email: str | None = Field(None, title='Email')
+    name: str | None = Field(None, title='Name')
+    user_id: UUID = Field(..., title='User Id')
+
+
 class PickedExperimentOut(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
@@ -3110,6 +4327,79 @@ class PickedOut(BaseModel):
     slug: str = Field(..., title='Slug')
 
 
+class AskId(RootModel[str]):
+    root: str = Field(..., pattern='^[A-Za-z0-9_-]{1,128}$', title='Ask Id')
+
+
+class At(RootModel[float]):
+    root: float = Field(
+        ...,
+        description='When it happened on the machine (epoch s).',
+        ge=0.0,
+        title='At',
+    )
+
+
+class MessageId(RootModel[str]):
+    root: str = Field(..., pattern='^[A-Za-z0-9_-]{1,128}$', title='Message Id')
+
+
+class Question(RootModel[str]):
+    root: str = Field(..., max_length=4000, title='Question')
+
+
+class Seconds(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=86400.0, title='Seconds')
+
+
+class Text(RootModel[str]):
+    root: str = Field(..., max_length=6000, title='Text')
+
+
+class Thread(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Thread')
+
+
+class PingIn(BaseModel):
+    """
+    One event. Per event: `asked` needs ask_id + question (after_hint optional);
+    `ended` ask_id + question + kind (early, text, seconds, thread); `injected`
+    message_id + source + text.
+    """
+
+    after_hint: AfterHint | None = None
+    ask_id: AskId | None = Field(None, title='Ask Id')
+    at: At | None = Field(
+        None, description='When it happened on the machine (epoch s).', title='At'
+    )
+    dropped: int | None = Field(
+        0,
+        description='Events the sender dropped since its last send.',
+        ge=0,
+        le=1000000,
+        title='Dropped',
+    )
+    early: bool | None = Field(False, title='Early')
+    event: PingEvent
+    kind: Ending | None = None
+    message_id: MessageId | None = Field(None, title='Message Id')
+    question: Question | None = Field(None, title='Question')
+    seconds: Seconds | None = Field(None, title='Seconds')
+    session_id: str = Field(..., pattern='^[A-Za-z0-9_-]{1,128}$', title='Session Id')
+    source: NoteSource | None = None
+    text: Text | None = Field(None, title='Text')
+    thread: Thread | None = Field(None, title='Thread')
+
+
+class PingOut(BaseModel):
+    posted: bool = Field(..., description='Slack took the line.', title='Posted')
+    thread: str | None = Field(
+        None,
+        description="`asked` only: send it back with the ask's ending.",
+        title='Thread',
+    )
+
+
 class PinnedExperiment(BaseModel):
     experiment_id: UUID = Field(..., title='Experiment Id')
     experiment_name: str = Field(..., title='Experiment Name')
@@ -3119,6 +4409,106 @@ class PinnedProject(BaseModel):
     experiments: list[PinnedExperiment] | None = Field(None, title='Experiments')
     project_id: UUID = Field(..., title='Project Id')
     project_name: str = Field(..., title='Project Name')
+
+
+class ExpectedSteps(RootModel[int]):
+    root: int = Field(..., ge=0, title='Expected Steps')
+
+
+class FinalStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Final Step')
+
+
+class MaxStaleness(RootModel[int]):
+    root: int = Field(..., ge=0, title='Max Staleness')
+
+
+class Producers(RootModel[list[str]]):
+    root: list[str] = Field(..., max_length=256, title='Producers')
+
+
+class Refusals(RootModel[str]):
+    root: str = Field(..., max_length=1024, min_length=1)
+
+
+class PointConflict(BaseModel):
+    """
+    One point delivered more than once with values further apart than `CONFLICT_TOLERANCE`.
+    """
+
+    deliveries: int = Field(..., title='Deliveries')
+    first: float = Field(..., title='First')
+    name: str = Field(..., title='Name')
+    other: float = Field(..., title='Other')
+    sample_id: UUID = Field(..., title='Sample Id')
+    step: int = Field(..., title='Step')
+    update: int | None = Field(None, title='Update')
+
+
+class PointSeriesRow(BaseModel):
+    """
+    One step (or update, or the whole run) of a key: its `agg` with the sufficient statistics, so steps, ranks and
+    runs combine exactly (never an average of averages).
+    """
+
+    count: int | None = Field(0, title='Count')
+    is_committed: bool | None = Field(None, title='Is Committed')
+    max: float | None = Field(None, title='Max')
+    min: float | None = Field(None, title='Min')
+    step: int | None = Field(None, title='Step')
+    sum: float | None = Field(None, title='Sum')
+    update: int | None = Field(None, title='Update')
+    value: float | None = Field(None, title='Value')
+    weight: float | None = Field(None, title='Weight')
+
+
+class PointValue(BaseModel):
+    """
+    One value with what it averages over (usually the sample's trained tokens); weight 1 by default.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    value: float = Field(..., title='Value')
+    weight: float | None = Field(1.0, ge=0.0, title='Weight')
+
+
+class PolicyRef(BaseModel):
+    """
+    This run's policy at a weight version. The epoch is the sample's own.
+    """
+
+    kind: Literal['policy'] = Field('policy', title='Kind')
+    policy_id: str | None = Field(
+        'policy', max_length=128, min_length=1, title='Policy Id'
+    )
+    version: int = Field(..., ge=0, title='Version')
+
+
+class Slug(RootModel[str]):
+    root: str = Field(..., pattern='^[a-z0-9][a-z0-9-]{0,62}$', title='Slug')
+
+
+class PreviewChoice(BaseModel):
+    """
+    `PUT .../preview`: null turns previews off; a slug (choosing a pane by hand) is refused while
+    previews are agent-managed.
+    """
+
+    slug: Slug | None = Field(..., title='Slug')
+
+
+class PreviewPane(BaseModel):
+    """
+    A project's chosen preview pane, as the canvas box and a client name it; never its HTML.
+    """
+
+    id: UUID = Field(..., title='Id')
+    is_static: bool | None = Field(False, title='Is Static')
+    slug: str = Field(..., title='Slug')
+    title: str = Field(..., title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
 class ProjectAncestorOut(BaseModel):
@@ -3166,8 +4556,9 @@ class ProjectContributorAdd(BaseModel):
 
 class ProjectContributorOut(BaseModel):
     """
-    One credited person, named. `direct` false means their work is in a
-    SUBPROJECT and `via_project_id` says which.
+    One credited person, named. Projects are flat (T7a): every credit is
+    the project's own, so `direct` is always true and `via_project_id` null
+    (kept on the wire for the clients that read them).
     """
 
     direct: bool | None = Field(True, title='Direct')
@@ -3185,11 +4576,15 @@ class Document(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Document')
 
 
-class Name6(RootModel[str]):
+class Name8(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
-class Name7(RootModel[str]):
+class PartOfReason(RootModel[str]):
+    root: str = Field(..., max_length=500, title='Part Of Reason')
+
+
+class Name9(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
@@ -3211,7 +4606,7 @@ class ProjectExperimentCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name7 | None = Field(
+    name: Name9 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
         title='Name',
@@ -3503,7 +4898,7 @@ class ExpectedDocument(RootModel[str]):
     )
 
 
-class Name8(RootModel[str]):
+class Name10(RootModel[str]):
     root: str = Field(
         ...,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
@@ -3531,7 +4926,7 @@ class OutcomeReason(RootModel[str]):
     )
 
 
-class Question(RootModel[str]):
+class Question1(RootModel[str]):
     root: str = Field(
         ...,
         description='The new question. Blank is refused: an experiment always has one.',
@@ -3577,7 +4972,7 @@ class ProjectExperimentPatch(BaseModel):
         description='Replace the notes WITHOUT a precondition: the one way to say "I know the notes moved and I mean to overwrite them" (an operator\'s escape hatch, and the way forward when no read version is at hand). Only with `notes`, and never with `base_version`.',
         title='Force',
     )
-    name: Name8 | None = Field(
+    name: Name10 | None = Field(
         None,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
         title='Name',
@@ -3606,7 +5001,7 @@ class ProjectExperimentPatch(BaseModel):
         description='MOVES the experiment to another project, with its runs, files and groups, in one statement. Needs edit access on both projects. Another experiment as the target is 422, `null` is 422 (an experiment is always filed under a project), a project being purged is 409. The response names the new project; address the experiment under it from then on.',
         title='Project Id',
     )
-    question: Question | None = Field(
+    question: Question1 | None = Field(
         None,
         description='The new question. Blank is refused: an experiment always has one.',
         title='Question',
@@ -3641,6 +5036,7 @@ class ProjectMutationOut(BaseModel):
     notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    part_of: list[UUID] | None = Field(None, title='Part Of')
     read_setting: str | None = Field('inherit', title='Read Setting')
     repo: str | None = Field(None, title='Repo')
     slug: str = Field(..., title='Slug')
@@ -3668,6 +5064,7 @@ class ProjectOut(BaseModel):
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    part_of: list[UUID] | None = Field(None, title='Part Of')
     read_setting: str | None = Field('inherit', title='Read Setting')
     repo: str | None = Field(None, title='Repo')
     slug: str = Field(..., title='Slug')
@@ -3686,7 +5083,7 @@ class ExpectedDocument1(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Expected Document')
 
 
-class Name9(RootModel[str]):
+class Name11(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -3721,7 +5118,7 @@ class ProjectPatch(BaseModel):
     force: bool | None = Field(False, title='Force')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name9 | None = Field(None, title='Name')
+    name: Name11 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -3732,28 +5129,41 @@ class ProjectPatch(BaseModel):
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
-class ProjectReferenceCreate(BaseModel):
+class ProjectPointsStoreOut(BaseModel):
     """
-    The other end of the edge. Direction comes from the ROUTE: the project
-    in the path references the one named here.
+    Where a project's metric points live (I24): `clickhouse` (that store alone), `dual` (Postgres
+    plus a ClickHouse copy) or `postgres`. From the resolver the metric store routes by, so a caller
+    that must not fill Postgres (the stress fleet's guard) can refuse a project that would.
     """
 
-    to_project_id: UUID = Field(..., title='To Project Id')
+    points_store: PointsStore
+    project_id: UUID = Field(..., title='Project Id')
+    synthetic: bool | None = Field(False, title='Synthetic')
+
+
+class ProjectPreview(BaseModel):
+    """
+    Which of a project's own panes fills its canvas box (`preview/`), answered for the caller.
+    """
+
+    can_choose: bool | None = Field(False, title='Can Choose')
+    is_explicit: bool | None = Field(False, title='Is Explicit')
+    needs_data: bool | None = Field(False, title='Needs Data')
+    pane: PreviewPane | None = None
+    project_id: UUID = Field(..., title='Project Id')
+    set_via: PaneWriterKind | None = None
+    state: PanePreviewState
+    updated_at: AwareDatetime | None = Field(None, title='Updated At')
 
 
 class ProjectSubtreeOut(BaseModel):
     """
-    Every descendant of one project, in one response (0148).
-
-    Flat, not nested: each row already carries `parent_project_id`, so a
-    consumer folds the tree itself — which is exactly what the front door's
-    project list has always done with the same rows. Nesting here would invent
-    a second wire shape for a structure the caller can derive, and would make
-    the rows stop matching `GET /v1/projects`.
-
-    ORDERED shallowest-first, then newest-first within a level. A consumer that
-    wants the activity order the directory shows re-sorts per level; the server
-    order is deterministic so the response is diffable, not so it is final.
+    A project's PARTS (0402: the projects linked `part_of` it, one hop), in
+    one response -- what was every descendant of the 0148 tree before projects
+    stopped nesting. Rows match `GET /v1/projects`, each serving the project as
+    its `parent_project_id`, so a directory built on the old tree folds them
+    one level deep. Newest first; the server order is deterministic so the
+    response is diffable, not so it is final.
     """
 
     items: list[ProjectOut] = Field(..., title='Items')
@@ -3770,6 +5180,25 @@ class ProjectSummaryMarkdownCAS(BaseModel):
     )
     document: str = Field(..., max_length=100000, title='Document')
     expected_document: ExpectedDocument1 | None = Field(..., title='Expected Document')
+
+
+class ProjectTokenIn(BaseModel):
+    name: str = Field(..., max_length=120, min_length=1, title='Name')
+    ttl_seconds: int = Field(..., ge=1, le=604800, title='Ttl Seconds')
+
+
+class ProjectTokenOut(BaseModel):
+    """
+    The minted token: the plaintext ONCE, never stored or shown again.
+    """
+
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    project_id: UUID = Field(..., title='Project Id')
+    scopes: list[str] = Field(..., title='Scopes')
+    token: str = Field(..., title='Token')
+    token_prefix: str = Field(..., title='Token Prefix')
 
 
 class ProjectUsage(BaseModel):
@@ -3802,6 +5231,11 @@ class ProjectWorkspaceRunsOut(BaseModel):
         title='Next Offset',
     )
     offset: int = Field(..., title='Offset')
+    rl_ids: list[UUID] | None = Field(
+        None,
+        description='The ids of this page that open the RL workspace (an `rl` run with rollouts or captured samples), in `ids` order, so a page can open one without reading its bundle first.',
+        title='Rl Ids',
+    )
     series_cap: int | None = Field(
         50,
         description='The most run ids one series request accepts; `limit` never exceeds it.',
@@ -3859,7 +5293,7 @@ class ProjectWorkspaceSummaryOut(BaseModel):
         None, description='Always null, as `eta_seconds`.', title='Scheduled For'
     )
     skip_reason: str | None = Field(None, title='Skip Reason')
-    source: Source4 | None = Field(
+    source: Source5 | None = Field(
         None, description='Who wrote the page: lane, agent or human.', title='Source'
     )
     version: int | None = Field(
@@ -3873,8 +5307,9 @@ class ProjectWorkspacesOut(BaseModel):
     """
     Where a project shows (0356): its one home and the other workspaces it
     is listed in. Home decides access and filing; a listing only shows it.
-    A subproject answers with its root's listings, because it shows wherever
-    its root does. Listings in workspaces the caller cannot see are omitted.
+    Projects are flat (T7a): a project answers with its own listings, never
+    those of a project it is part of. Listings in workspaces the caller cannot
+    see are omitted.
     """
 
     extra_workspace_ids: list[UUID] = Field(..., title='Extra Workspace Ids')
@@ -3976,6 +5411,7 @@ class PublicMetricSeriesOut(BaseModel):
     """
 
     agg: str | None = Field(None, title='Agg')
+    data_revision: str | None = Field(None, title='Data Revision')
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
     first_step_index: int | None = Field(None, title='First Step Index')
     first_wall_clock: AwareDatetime | None = Field(None, title='First Wall Clock')
@@ -4077,6 +5513,34 @@ class PublicOverviewOut(BaseModel):
     version: int = Field(..., title='Version')
 
 
+class PublicPaneSampleRow(BaseModel):
+    """
+    `PaneSampleRow` without the span's `external_key`, and without its mark in `cut`.
+    """
+
+    cut: list[str] | None = Field(None, title='Cut')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    fields: dict[str, Any] | None = Field(None, title='Fields')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    run_id: UUID = Field(..., title='Run Id')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: str = Field(..., title='Status')
+    step: int | None = Field(None, title='Step')
+
+
+class PublicPaneSamplesData(BaseModel):
+    is_unseen_checked: bool | None = Field(False, title='Is Unseen Checked')
+    locked_runs: int | None = Field(0, title='Locked Runs')
+    reason: PanePartialReason | None = None
+    rows: list[PublicPaneSampleRow] | None = Field(None, title='Rows')
+    rows_read: int | None = Field(0, title='Rows Read')
+    source: Literal['samples'] = Field('samples', title='Source')
+    state: PaneSourceState
+    totals: list[PaneSampleTotal] | None = Field(None, title='Totals')
+    unseen_fields: list[str] | None = Field(None, title='Unseen Fields')
+
+
 class PublicPaperOut(BaseModel):
     """
     A deliberately published literature record, minus its tenant identity.
@@ -4113,6 +5577,38 @@ class PublicProjectOut(BaseModel):
     owner_name: str | None = Field(None, title='Owner Name')
     slug: str = Field(..., title='Slug')
     updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class PublicScopeParent(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    slug: str | None = Field(None, title='Slug')
+
+
+class PublicScopeRun(BaseModel):
+    """
+    A run as a Data row names it. `locked`: behind the retention window, listed but never
+    detailed, as the private read lists it.
+    """
+
+    id: UUID = Field(..., title='Id')
+    locked: bool | None = Field(False, title='Locked')
+    name: str | None = Field(None, title='Name')
+    ref: str = Field(..., title='Ref')
+    slug: str | None = Field(None, title='Slug')
+    status: str | None = Field(None, title='Status')
+
+
+class PublicScopeSource(BaseModel):
+    """
+    An external source the run used, as its public link.
+    """
+
+    license: str | None = Field(None, title='License')
+    ref: str = Field(..., title='Ref')
+    revision: str | None = Field(None, title='Revision')
+    title: str | None = Field(None, title='Title')
+    url: str = Field(..., title='Url')
 
 
 class PublicSpanOut(BaseModel):
@@ -4229,13 +5725,15 @@ class Tables(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=30, min_length=1, title='Tables')
 
 
-class QuerySQLRequest(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    max_rows: int | None = Field(200, ge=1, le=500, title='Max Rows')
-    sql: Sql | None = Field(None, title='Sql')
-    tables: Tables | None = Field(None, title='Tables')
+class RLViews(BaseModel):
+    """
+    What an rl run's Rollouts tab, Compute timeline and Trials tab can draw; all false for any other run.
+    """
+
+    captured_samples: bool | None = Field(False, title='Captured Samples')
+    compute_timeline: bool | None = Field(False, title='Compute Timeline')
+    has_trials: bool | None = Field(False, title='Has Trials')
+    rollouts: bool | None = Field(False, title='Rollouts')
 
 
 class ReadPageRequest(BaseModel):
@@ -4249,7 +5747,7 @@ class ReconnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
 
 
-class Host(RootModel[str]):
+class Host1(RootModel[str]):
     root: str = Field(..., max_length=255, title='Host')
 
 
@@ -4264,7 +5762,7 @@ class ReferenceSpec(BaseModel):
     """
 
     content_hash: str = Field(..., title='Content Hash')
-    host: Host | None = Field(None, title='Host')
+    host: Host1 | None = Field(None, title='Host')
     identity: IdentityStrength | None = None
     local_path: LocalPath | None = Field(None, title='Local Path')
     meta: dict[str, Any] | None = Field(None, title='Meta')
@@ -4338,6 +5836,23 @@ class RevokeRequest(BaseModel):
     reason: DisconnectReason | None = 'unspecified'
 
 
+class Approximate(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Approximate')
+
+
+class LoggingWindow(RootModel[int]):
+    root: int = Field(..., ge=1, le=100000, title='Logging Window')
+
+
+class Tolerance(RootModel[float]):
+    root: float = Field(..., gt=0.0, le=0.03125, title='Tolerance')
+
+
+class RollupLevel(BaseModel):
+    by: Grouping
+    reducer: Reducer
+
+
 class RunAlertOut(BaseModel):
     """
     One run alert, as one plain sentence the agent reads as-is.
@@ -4345,9 +5860,45 @@ class RunAlertOut(BaseModel):
 
     created_at: AwareDatetime = Field(..., title='Created At')
     id: int = Field(..., title='Id')
-    kind: RunAlertKind
+    kind: str = Field(..., title='Kind')
     run_id: UUID = Field(..., title='Run Id')
     text: str = Field(..., title='Text')
+
+
+class RunBeatIn(BaseModel):
+    """
+    The run heartbeat's optional body. Old clients send none.
+    """
+
+    delivery: DeliveryBacklog | None = None
+
+
+class RunCapabilities(BaseModel):
+    """
+    What a run's script can be asked, sent on its writer beat: the built-in run kinds it has a handler for, and
+    the values of its own `StrEnum` kinds. A beat without it comes from an SDK older than run commands.
+
+    Lenient on purpose: it rides the writer beat, which must never fail on it. A kind this server does not know (a
+    newer SDK's), a sample kind, a name that is not a custom kind's and names past the first 64 are dropped, not
+    refused; the SDK checks a name when the script registers it.
+    """
+
+    custom: list[str] | None = Field(None, title='Custom')
+    kinds: list[CommandKind] | None = Field(None, title='Kinds')
+
+
+class Note4(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Note')
+
+
+class RunCommandAsk(BaseModel):
+    """
+    `POST /v1/runs/{run}/commands`: ask the run's script for a run kind, with that kind's arguments.
+    """
+
+    args: dict[str, Any] | None = Field(None, title='Args')
+    kind: CommandKind
+    note: Note4 | None = Field(None, title='Note')
 
 
 class RunCounts(BaseModel):
@@ -4358,6 +5909,20 @@ class RunCounts(BaseModel):
     artifacts: int = Field(..., title='Artifacts')
     metrics: int = Field(..., title='Metrics')
     spans: int = Field(..., title='Spans')
+
+
+class RunCountsOut(BaseModel):
+    """
+    `GET /v1/runs/counts`: how many runs the runs list's filter matches, in all and per stored
+    status. A page is one page; this is the whole listing. With `owner`: who it matched and how many
+    runs in the same scope and window have no known creator (D4, D8).
+    """
+
+    by_status: dict[str, int] = Field(..., title='By Status')
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
+    query_note: str | None = Field(None, title='Query Note')
+    total: int = Field(..., title='Total')
+    unowned_count: int | None = Field(None, title='Unowned Count')
 
 
 class CreationKey(RootModel[str]):
@@ -4378,8 +5943,35 @@ class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
     root: LivenessProtocolEnum | None = Field(None, title='Liveness Protocol')
 
 
-class Name10(RootModel[str]):
+class Name12(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
+
+
+class RunEditOut(BaseModel):
+    """
+    An edit: what it does, to which data, who made it and why, and where it is.
+    """
+
+    actor: str = Field(..., title='Actor')
+    actor_kind: EditActorKind
+    applied_at: AwareDatetime | None = Field(None, title='Applied At')
+    args: dict[str, Any] | None = Field(None, title='Args')
+    config_before: dict[str, Any] | None = Field(None, title='Config Before')
+    counts: EditCounts
+    created_at: AwareDatetime = Field(..., title='Created At')
+    customer_id: str = Field(..., title='Customer Id')
+    error: str | None = Field(None, title='Error')
+    id: UUID = Field(..., title='Id')
+    op: EditOp
+    phase: EditPhase
+    reason: str = Field(..., title='Reason')
+    revert_of: UUID | None = Field(None, title='Revert Of')
+    reverted_by: UUID | None = Field(None, title='Reverted By')
+    run_id: UUID = Field(..., title='Run Id')
+    seq: int = Field(..., title='Seq')
+    session_id: UUID | None = Field(None, title='Session Id')
+    state: EditState
+    target: EditTarget
 
 
 class RunFileOut(BaseModel):
@@ -4437,7 +6029,7 @@ class RunGroupPatch(BaseModel):
 
     base_version: int | None = Field(None, deprecated=True, title='Base Version')
     force: bool | None = Field(False, deprecated=True, title='Force')
-    name: Name10 | None = Field(None, title='Name')
+    name: Name12 | None = Field(None, title='Name')
     notes: str | None = Field(None, deprecated=True, title='Notes')
     notes_append: str | None = Field(None, deprecated=True, title='Notes Append')
     notes_edit: dict[str, Any] | None = Field(None, deprecated=True, title='Notes Edit')
@@ -4465,7 +6057,7 @@ class RunInputIn(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     fingerprint: Fingerprint | None = Field(None, title='Fingerprint')
     first_seen_at: AwareDatetime = Field(..., title='First Seen At')
-    host: Host | None = Field(None, title='Host')
+    host: Host1 | None = Field(None, title='Host')
     observation_id: str | None = Field(None, title='Observation Id')
     path: str = Field(..., max_length=4096, min_length=1, title='Path')
     rows: Rows1 | None = Field(None, title='Rows')
@@ -4529,6 +6121,17 @@ class RunNode(BaseModel):
     status: str = Field(..., title='Status')
 
 
+class RunOriginSessionOut(BaseModel):
+    """
+    The coding-agent session that created the run (`runs.origin_session_id`) and whether its
+    transcript is held here: an agent reads this instead of trusting a note that says so.
+    """
+
+    agent: str | None = Field(None, title='Agent')
+    id: str = Field(..., title='Id')
+    recorded: bool = Field(..., title='Recorded')
+
+
 class RunOutputIn(BaseModel):
     """
     One file a run wrote, as it stood when the SDK recorded it.
@@ -4574,6 +6177,10 @@ class RunOutputsWriteOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class ExpectedName(RootModel[str]):
+    root: str = Field(..., min_length=1, title='Expected Name')
+
+
 class ProjectId(RootModel[str]):
     root: str = Field(
         ...,
@@ -4581,6 +6188,24 @@ class ProjectId(RootModel[str]):
         min_length=1,
         title='Project Id',
     )
+
+
+class Version(RootModel[int]):
+    root: int = Field(..., ge=0, title='Version')
+
+
+class RunRef(BaseModel):
+    """
+    Another run's weights, named by its weight version or by its step (exactly one).
+    """
+
+    kind: Literal['run'] = Field('run', title='Kind')
+    policy_id: str | None = Field(
+        'policy', max_length=128, min_length=1, title='Policy Id'
+    )
+    run_id: UUID = Field(..., title='Run Id')
+    step: Step | None = Field(None, title='Step')
+    version: Version | None = Field(None, title='Version')
 
 
 class ExpectedWriteEpoch(RootModel[int]):
@@ -4614,6 +6239,33 @@ class RunReproduceSummary(BaseModel):
     status: str = Field(..., title='Status')
 
 
+class RunTokenExtendIn(BaseModel):
+    ttl_seconds: int = Field(..., ge=1, le=31536000, title='Ttl Seconds')
+
+
+class TtlSeconds(RootModel[int]):
+    root: int = Field(..., ge=1, le=31536000, title='Ttl Seconds')
+
+
+class RunTokenIn(BaseModel):
+    ttl_seconds: TtlSeconds | None = Field(None, title='Ttl Seconds')
+
+
+class RunTokenOut(BaseModel):
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    gen: int = Field(..., title='Gen')
+    run_id: UUID = Field(..., title='Run Id')
+    token: str = Field(..., title='Token')
+    ttl_seconds: int = Field(..., title='Ttl Seconds')
+
+
+class RunTokenStateOut(BaseModel):
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    gen: int = Field(..., title='Gen')
+    run_id: UUID = Field(..., title='Run Id')
+    ttl_seconds: int = Field(..., title='Ttl Seconds')
+
+
 class Signal(RootModel[int]):
     root: int = Field(..., ge=1, le=128, title='Signal')
 
@@ -4644,7 +6296,7 @@ class RunWriterGone(BaseModel):
     """
 
     exit: RunWriterExit | None = None
-    host: Host | None = Field(None, title='Host')
+    host: Host1 | None = Field(None, title='Host')
     observed_by: ObservedBy = Field(..., title='Observed By')
     pid: Pid | None = Field(None, title='Pid')
     session_id: UUID = Field(..., title='Session Id')
@@ -4657,6 +6309,194 @@ class RunWriterGoneOut(BaseModel):
     reason: str = Field(..., title='Reason')
     run_id: UUID = Field(..., title='Run Id')
     status: str = Field(..., title='Status')
+
+
+class SampleBatchOut(BaseModel):
+    """
+    201, once applied: `unchanged` parts were already stored by an earlier delivery (a retry).
+    """
+
+    accepted: int = Field(..., title='Accepted')
+    unchanged: int = Field(..., title='Unchanged')
+    written: int = Field(..., title='Written')
+
+
+class SampleBatchQueued(BaseModel):
+    """
+    202 with `X-Probe-Async-Ack: 1`: durable in the ingest queue, applied later in order.
+    """
+
+    accepted: int = Field(..., title='Accepted')
+    messages: list[str] | None = Field(None, title='Messages')
+    queued: bool | None = Field(True, title='Queued')
+
+
+class Detail(RootModel[str]):
+    root: str = Field(..., max_length=1024, title='Detail')
+
+
+class Turn(RootModel[int]):
+    root: int = Field(..., ge=0, title='Turn')
+
+
+class SampleHardwarePoint(BaseModel):
+    dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
+    key: str = Field(..., title='Key')
+    request_id: str = Field(..., title='Request Id')
+    value: float = Field(..., title='Value')
+    wall_clock: AwareDatetime = Field(..., title='Wall Clock')
+
+
+class EvalPass(RootModel[int]):
+    root: int = Field(..., ge=0, title='Eval Pass')
+
+
+class MicroBatch(RootModel[int]):
+    root: int = Field(..., ge=0, title='Micro Batch')
+
+
+class OptimizerStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Optimizer Step')
+
+
+class TokenCount(RootModel[int]):
+    root: int = Field(..., ge=0, title='Token Count')
+
+
+class Update(RootModel[int]):
+    root: int = Field(..., ge=0, title='Update')
+
+
+class WeightsVersion(RootModel[int]):
+    root: int = Field(..., ge=0, title='Weights Version')
+
+
+class ConsumedUntilStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Consumed Until Step')
+
+
+class ConsumedVersion(RootModel[int]):
+    root: int = Field(..., ge=0, title='Consumed Version')
+
+
+class DurationS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Duration S')
+
+
+class EnvironmentType(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Environment Type')
+
+
+class ErrorMessage(RootModel[str]):
+    root: str = Field(..., max_length=1024, title='Error Message')
+
+
+class Host4(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Host')
+
+
+class Occurrence(RootModel[int]):
+    root: int = Field(..., ge=1, title='Occurrence')
+
+
+class PromptTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Prompt Tokens')
+
+
+class ResponseTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Response Tokens')
+
+
+class Segment1(RootModel[int]):
+    root: int = Field(..., ge=0, title='Segment')
+
+
+class SegmentCount(RootModel[int]):
+    root: int = Field(..., ge=1, title='Segment Count')
+
+
+class ToolCallCount(RootModel[int]):
+    root: int = Field(..., ge=0, title='Tool Call Count')
+
+
+class TrainerRank(RootModel[int]):
+    root: int = Field(..., ge=0, title='Trainer Rank')
+
+
+class TurnCount(RootModel[int]):
+    root: int = Field(..., ge=0, title='Turn Count')
+
+
+class SealStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='Seal Step')
+
+
+class SupersedesKey(RootModel[str]):
+    root: str = Field(..., max_length=512, title='Supersedes Key')
+
+
+class TaskKey2(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Task Key')
+
+
+class SampleStep(BaseModel):
+    """
+    How one sample occurrence entered one optimizer update (its loss bookkeeping).
+    """
+
+    applied: bool | None = Field(None, title='Applied')
+    contribution: float | None = Field(None, title='Contribution')
+    contribution_source: ContributionSource | None = None
+    contribution_terms: dict[str, float] | None = Field(
+        None, title='Contribution Terms'
+    )
+    fragment: int | None = Field(0, title='Fragment')
+    fragments_expected: int | None = Field(1, title='Fragments Expected')
+    is_committed: bool | None = Field(False, title='Is Committed')
+    is_contribution_derived: bool | None = Field(False, title='Is Contribution Derived')
+    loss_sum: float | None = Field(None, title='Loss Sum')
+    mask: MaskEvidence | None = None
+    mask_sha256: str | None = Field(None, title='Mask Sha256')
+    micro_batch: int | None = Field(None, title='Micro Batch')
+    normalizer: float | None = Field(None, title='Normalizer')
+    occurrence: int | None = Field(0, title='Occurrence')
+    optimizer_step: int | None = Field(None, title='Optimizer Step')
+    producer: str = Field(..., title='Producer')
+    rank: int | None = Field(0, title='Rank')
+    role: LossRole | None = 'actor'
+    scale: float | None = Field(None, title='Scale')
+    split: SampleSplit | None = 'train'
+    step: int = Field(..., title='Step')
+    token_count: int | None = Field(None, title='Token Count')
+    update: int = Field(..., title='Update')
+    weights_version: int | None = Field(None, title='Weights Version')
+
+
+class SampleTokens(BaseModel):
+    """
+    `GET /v1/samples/{id}/tokens?start=&end=`: a slice, plus what the read derives.
+    """
+
+    advantages: list[float | None] | None = Field(None, title='Advantages')
+    end: int | None = Field(0, title='End')
+    entropy: list[float | None] | None = Field(None, title='Entropy')
+    importance_ratio: list[float | None] | None = Field(None, title='Importance Ratio')
+    inference_logprobs: list[float | None] | None = Field(
+        None, title='Inference Logprobs'
+    )
+    logprob_diff: list[float | None] | None = Field(None, title='Logprob Diff')
+    loss_mask: list[int] | None = Field(None, title='Loss Mask')
+    ref_entropy: list[float | None] | None = Field(None, title='Ref Entropy')
+    ref_logprobs: list[float | None] | None = Field(None, title='Ref Logprobs')
+    returns: list[float | None] | None = Field(None, title='Returns')
+    sample_id: UUID = Field(..., title='Sample Id')
+    start: int | None = Field(0, title='Start')
+    token_ids: list[int] | None = Field(None, title='Token Ids')
+    token_text: list[str] | None = Field(None, title='Token Text')
+    top_k_ids: list[list[int]] | None = Field(None, title='Top K Ids')
+    top_k_logprobs: list[list[float]] | None = Field(None, title='Top K Logprobs')
+    total: int | None = Field(0, title='Total')
+    trainer_logprobs: list[float | None] | None = Field(None, title='Trainer Logprobs')
 
 
 class SandboxBaseStateClaim(BaseModel):
@@ -4727,6 +6567,29 @@ class SandboxFileSide(BaseModel):
     size: int | None = Field(None, title='Size')
 
 
+class ScenarioFile(BaseModel):
+    """
+    Large outside data (a market snapshot). Identity reads the sha256 only: the uri may move.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    sha256: str = Field(..., title='Sha256')
+    uri: Uri | None = Field(None, title='Uri')
+
+
+class ScenarioTime(BaseModel):
+    """
+    A point in time (an as-of date). A zone is required; identity reads it in UTC.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    time: AwareDatetime = Field(..., title='Time')
+
+
 class ScopeEntry(BaseModel):
     external_id: str = Field(..., max_length=1024, min_length=1, title='External Id')
     label: str | None = Field('', max_length=1024, title='Label')
@@ -4772,6 +6635,63 @@ class ScopedUploadRequest(BaseModel):
         title='Notes',
     )
     size_bytes: SizeBytes7 | None = Field(None, title='Size Bytes')
+
+
+class Version1(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Version')
+
+
+class SealBundle(BaseModel):
+    """
+    A bundle the seal promises; capture checks its sha256 against stored artifacts.
+    """
+
+    kind: BundleKind
+    sha256: str = Field(..., title='Sha256')
+
+
+class SealIn(BaseModel):
+    """
+    This producer's declared counts for one step.
+    """
+
+    bundles: list[SealBundle] | None = Field(None, title='Bundles')
+    dropped: dict[str, int] | None = Field(None, title='Dropped')
+    sent: int = Field(..., ge=0, title='Sent')
+    step: int = Field(..., ge=0, title='Step')
+
+
+class SealedKey(BaseModel):
+    """
+    The key as the browser encrypted it (ECDH P-256 + HKDF-SHA256 + AES-256-GCM); base64url fields.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ciphertext: str = Field(
+        ...,
+        max_length=1024,
+        min_length=22,
+        pattern='^[A-Za-z0-9_-]+$',
+        title='Ciphertext',
+    )
+    ephemeral_public_key: str = Field(
+        ..., pattern='^[A-Za-z0-9_-]{87}$', title='Ephemeral Public Key'
+    )
+    iv: str = Field(..., pattern='^[A-Za-z0-9_-]{16}$', title='Iv')
+
+
+class Owner(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Owner')
+
+
+class Since(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Since')
+
+
+class Until(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Until')
 
 
 class SectionOut(BaseModel):
@@ -4847,6 +6767,32 @@ class SemanticPlaceIn(BaseModel):
         dict[constr(max_length=64), dict[constr(max_length=64), Positions1]] | None
     ) = Field(None, max_length=4001, title='Positions')
     relayout: Relayout1 | Relayout | None = Field(None, title='Relayout')
+
+
+class SeriesCatalogReceipt(BaseModel):
+    """
+    One catalog mutation digest from the points database, before any scan.
+    """
+
+    data_revision: str = Field(..., title='Data Revision')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class SeriesDigestOut(BaseModel):
+    digest: str = Field(..., title='Digest')
+    first_step: int | None = Field(None, title='First Step')
+    key: str = Field(..., title='Key')
+    last_step: int | None = Field(None, title='Last Step')
+    last_value: float | None = Field(None, title='Last Value')
+    max_value: float | None = Field(None, title='Max Value')
+    min_value: float | None = Field(None, title='Min Value')
+    points: int = Field(..., title='Points')
+
+
+class SeriesDigestsOut(BaseModel):
+    kind: str = Field(..., title='Kind')
+    run_id: UUID = Field(..., title='Run Id')
+    series: list[SeriesDigestOut] = Field(..., title='Series')
 
 
 class SeriesNode(BaseModel):
@@ -4994,6 +6940,25 @@ class SessionCreatedOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class SessionDeletionOut(BaseModel):
+    """
+    One session's deletion request, or (a dry run) the one it would be.
+    """
+
+    agent: str = Field(..., title='Agent')
+    can_undo: bool = Field(..., title='Can Undo')
+    cancelled_at: AwareDatetime | None = Field(None, title='Cancelled At')
+    dry_run: bool | None = Field(False, title='Dry Run')
+    erased_at: AwareDatetime | None = Field(None, title='Erased At')
+    first_seen_at: AwareDatetime | None = Field(None, title='First Seen At')
+    last_seen_at: AwareDatetime | None = Field(None, title='Last Seen At')
+    note: str = Field(..., title='Note')
+    purge_after: AwareDatetime = Field(..., title='Purge After')
+    requested_at: AwareDatetime | None = Field(None, title='Requested At')
+    session_id: str = Field(..., title='Session Id')
+    state: DeletionState | None
+
+
 class SessionEntityOut(BaseModel):
     """
     One entity a session touched.
@@ -5006,6 +6971,19 @@ class SessionEntityOut(BaseModel):
     inactive: bool | None = Field(False, title='Inactive')
     name: str | None = Field(None, title='Name')
     slug: str | None = Field(None, title='Slug')
+
+
+class SessionHoursOut(BaseModel):
+    """
+    One session's agent-hours on one experiment (R5).
+    """
+
+    agent_h: float = Field(..., title='Agent H')
+    harness: str | None = Field(..., title='Harness')
+    person: str | None = Field(
+        ..., description='`user:<uuid>`; an agent reads as its person.', title='Person'
+    )
+    session: str = Field(..., title='Session')
 
 
 class SessionIngestStateOut(BaseModel):
@@ -5183,6 +7161,48 @@ class SessionsByOut(BaseModel):
     sessions: int = Field(..., title='Sessions')
 
 
+class MovedSession(RootModel[str]):
+    root: str = Field(..., max_length=200)
+
+
+class SettingsAppliedIn(BaseModel):
+    """
+    What the machine did with the request it fetched.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    default_changed: bool | None = Field(False, title='Default Changed')
+    env_shadowed: bool | None = Field(False, title='Env Shadowed')
+    moved_sessions: list[MovedSession] | None = Field(
+        None, max_length=2000, title='Moved Sessions'
+    )
+    requested_at: str = Field(..., max_length=64, title='Requested At')
+    sessions_moved: int | None = Field(0, ge=0, le=1000000, title='Sessions Moved')
+    unsupported: bool | None = Field(False, title='Unsupported')
+
+
+class SettingsRequestIn(BaseModel):
+    """
+    The POST's body, `{"setting": "session_default", "value": "off"}`: one setting
+    from the closed list, only toward quieter. A JSON body is also the CSRF guard
+    (`UpdateRequestIn`).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    setting: str = Field(..., title='Setting')
+    value: str = Field(..., title='Value')
+
+
+class SettingsRequestOut(BaseModel):
+    requested_at: str = Field(..., title='Requested At')
+    setting: str = Field(..., title='Setting')
+    value: str = Field(..., title='Value')
+
+
 class SharedDeviceOut(BaseModel):
     """
     Another machine this same credential is bound to.
@@ -5213,11 +7233,7 @@ class License(RootModel[str]):
     root: str = Field(..., max_length=200, title='License')
 
 
-class Revision(RootModel[str]):
-    root: str = Field(..., max_length=256, title='Revision')
-
-
-class Title2(RootModel[str]):
+class Title3(RootModel[str]):
     root: str = Field(..., max_length=500, title='Title')
 
 
@@ -5355,6 +7371,14 @@ class StandaloneCredentialOut(BaseModel):
     token_prefix: str = Field(..., title='Token Prefix')
 
 
+class StatsRow(BaseModel):
+    count: int | None = Field(0, title='Count')
+    errors: int | None = Field(0, title='Errors')
+    keys: dict[str, Any] | None = Field(None, title='Keys')
+    values: dict[str, float | None] | None = Field(None, title='Values')
+    variance_unknown_groups: int | None = Field(None, title='Variance Unknown Groups')
+
+
 class StepBatchResult(BaseModel):
     """
     Counted per distinct step_index: `written` inserted or changed, `unchanged` already stored.
@@ -5462,7 +7486,7 @@ class BodyAppend(RootModel[str]):
     root: str = Field(..., max_length=150000, title='Body Append')
 
 
-class Title3(RootModel[str]):
+class Title4(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Title')
 
 
@@ -5480,7 +7504,7 @@ class SubNotePatch(BaseModel):
     body_edit: NotesEdit | None = None
     force: bool | None = Field(False, title='Force')
     op_key: OpKey | None = Field(None, title='Op Key')
-    title: Title3 | None = Field(None, title='Title')
+    title: Title4 | None = Field(None, title='Title')
 
 
 class SubNoteTitleWrite(BaseModel):
@@ -5538,7 +7562,7 @@ class Series1(RootModel[list[Any]]):
     root: list[Any] = Field(..., max_length=64, title='Series')
 
 
-class SessionId1(RootModel[str]):
+class SessionId2(RootModel[str]):
     root: str = Field(..., max_length=200, title='Session Id')
 
 
@@ -5554,7 +7578,8 @@ class SummaryIn(BaseModel):
     html: Html | None = Field(None, title='Html')
     markdown: Markdown | None = Field(None, title='Markdown')
     series: Series1 | None = Field(None, title='Series')
-    session_id: SessionId1 | None = Field(None, title='Session Id')
+    session_id: SessionId2 | None = Field(None, title='Session Id')
+    whole_page: bool | None = Field(False, title='Whole Page')
 
 
 class SummaryOut(BaseModel):
@@ -5663,8 +7688,77 @@ class SyncSummary(BaseModel):
     stale: bool | None = Field(False, title='Stale')
 
 
-class Name13(RootModel[str]):
+class Name15(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
+
+
+class TaskCurve(BaseModel):
+    """
+    One point per (run, step) for one task: its reward across every step.
+    """
+
+    measures: list[str] | None = Field(None, title='Measures')
+    points: list[CurvePoint] | None = Field(None, title='Points')
+    task_id: UUID = Field(..., title='Task Id')
+
+
+class Name16(RootModel[str]):
+    root: str = Field(..., max_length=256, min_length=1, title='Name')
+
+
+class TaskIn(BaseModel):
+    """
+    A task instance, once per run: the server derives its id from the key and the scenario.
+    """
+
+    dataset: DatasetRow | None = None
+    description: Description3 | None = Field(None, title='Description')
+    label: Any = None
+    name: Name16 | None = Field(None, title='Name')
+    prompt: str | None = Field(None, title='Prompt')
+    prompt_blob: BlobRef | None = None
+    reward_max: float | None = Field(None, title='Reward Max')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    task_key: str = Field(..., max_length=512, min_length=1, title='Task Key')
+
+
+class ExpectedName1(RootModel[str]):
+    root: str = Field(..., max_length=256, title='Expected Name')
+
+
+class StableTaskId(RootModel[str]):
+    root: str = Field(..., max_length=1024, min_length=1, title='Stable Task Id')
+
+
+class TaskNameChange(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    expected_name: ExpectedName1 | None = Field(..., title='Expected Name')
+    is_evaluation: bool | None = Field(False, title='Is Evaluation')
+    name: str = Field(..., max_length=256, min_length=1, title='Name')
+    stable_task_id: StableTaskId | None = Field(None, title='Stable Task Id')
+    step: int = Field(..., ge=0, title='Step')
+    task_id: str = Field(..., max_length=1024, min_length=1, title='Task Id')
+
+
+class TaskTotals(BaseModel):
+    """
+    A task's samples on the surviving lineage, counted the default way (DESIGN.md "Which samples count").
+    """
+
+    duration_max_s: float | None = Field(None, title='Duration Max S')
+    duration_p50_s: float | None = Field(None, title='Duration P50 S')
+    duration_p90_s: float | None = Field(None, title='Duration P90 S')
+    errors: int | None = Field(0, title='Errors')
+    first_step: int | None = Field(None, title='First Step')
+    last_step: int | None = Field(None, title='Last Step')
+    mean_reward: float | None = Field(None, title='Mean Reward')
+    pass_rate: float | None = Field(None, title='Pass Rate')
+    samples: int | None = Field(0, title='Samples')
+    steps: int | None = Field(0, title='Steps')
 
 
 class TeamCreate(BaseModel):
@@ -5759,7 +7853,7 @@ class TeamNoteParagraph(BaseModel):
     text: str = Field(..., max_length=8192, min_length=1, title='Text')
 
 
-class Version(RootModel[int]):
+class Version2(RootModel[int]):
     root: int = Field(..., ge=0, title='Version')
 
 
@@ -5774,7 +7868,7 @@ class TeamNoteReplace(BaseModel):
     """
 
     body: str = Field(..., max_length=150000, title='Body')
-    version: Version | None = Field(None, title='Version')
+    version: Version2 | None = Field(None, title='Version')
 
 
 class TeamNoteSpan(BaseModel):
@@ -5853,6 +7947,36 @@ class TextPart(BaseModel):
     type: Literal['text'] = Field(..., title='Type')
 
 
+class EnvironmentS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Environment S')
+
+
+class GenerationS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Generation S')
+
+
+class QueuedS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Queued S')
+
+
+class VerifierS(RootModel[float]):
+    root: float = Field(..., ge=0.0, title='Verifier S')
+
+
+class Timing(BaseModel):
+    """
+    Where one attempt's time went, in seconds.
+    """
+
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    environment_s: EnvironmentS | None = Field(None, title='Environment S')
+    generation_s: GenerationS | None = Field(None, title='Generation S')
+    queued_s: QueuedS | None = Field(None, title='Queued S')
+    scored_at: AwareDatetime | None = Field(None, title='Scored At')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    verifier_s: VerifierS | None = Field(None, title='Verifier S')
+
+
 class TokenCreate(BaseModel):
     """
     POST /v1/tokens (session-only mint). `scopes=None` inherits the caller's
@@ -5897,6 +8021,27 @@ class TokenOut(BaseModel):
     token_prefix: str = Field(..., title='Token Prefix')
 
 
+class MaskedTokens(RootModel[int]):
+    root: int = Field(..., ge=0, title='Masked Tokens')
+
+
+class TokenStats(BaseModel):
+    """
+    Per-sample summaries of the per-token arrays, computed by the SDK when it writes them: sortable columns.
+    """
+
+    advantage_mean: float | None = Field(None, title='Advantage Mean')
+    advantage_std: float | None = Field(None, title='Advantage Std')
+    entropy_max: float | None = Field(None, title='Entropy Max')
+    entropy_mean: float | None = Field(None, title='Entropy Mean')
+    importance_ratio_mean: float | None = Field(None, title='Importance Ratio Mean')
+    logprob_diff_abs_max: float | None = Field(None, title='Logprob Diff Abs Max')
+    logprob_diff_abs_mean: float | None = Field(None, title='Logprob Diff Abs Mean')
+    masked_tokens: MaskedTokens | None = Field(None, title='Masked Tokens')
+    ref_entropy_mean: float | None = Field(None, title='Ref Entropy Mean')
+    return_mean: float | None = Field(None, title='Return Mean')
+
+
 class Tool(BaseModel):
     function: FunctionDefinition
     type: Literal['function'] = Field(..., title='Type')
@@ -5912,6 +8057,15 @@ class ToolMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
     role: Literal['tool'] = Field(..., title='Role')
     tool_call_id: str = Field(..., max_length=16384, min_length=1, title='Tool Call Id')
+
+
+class SourceVersion(RootModel[str]):
+    root: str = Field(None, max_length=64, title='Source Version')
+
+
+class TraceBatchResult(BaseModel):
+    trial_ids: list[UUID] = Field(..., title='Trial Ids')
+    upserted: int = Field(..., title='Upserted')
 
 
 class TracesOut(BaseModel):
@@ -5935,6 +8089,31 @@ class TrashCountOut(BaseModel):
     groups: int = Field(..., title='Groups')
     projects: int = Field(..., title='Projects')
     runs: int = Field(..., title='Runs')
+
+
+class Kind3(RootModel[str]):
+    root: str = Field(..., max_length=32, title='Kind')
+
+
+class Sha256(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Sha256')
+
+
+class SizeBytes8(RootModel[int]):
+    root: int = Field(..., ge=0, title='Size Bytes')
+
+
+class TrialFile(BaseModel):
+    """
+    One captured file of a Harbor trial that a sample links as a log or an output (its bytes are the artifact).
+    """
+
+    artifact_id: UUID = Field(..., title='Artifact Id')
+    kind: Kind3 | None = Field(None, title='Kind')
+    path: str = Field(..., max_length=1024, title='Path')
+    role: str = Field(..., max_length=64, title='Role')
+    sha256: Sha256 | None = Field(None, title='Sha256')
+    size_bytes: SizeBytes8 | None = Field(None, title='Size Bytes')
 
 
 class TrialListOut(BaseModel):
@@ -5985,11 +8164,11 @@ class TrialOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Description4(RootModel[str]):
+class Description6(RootModel[str]):
     root: str = Field(..., max_length=2000, title='Description')
 
 
-class Name14(RootModel[str]):
+class Name19(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -6013,8 +8192,24 @@ class TrialPatch(BaseModel):
     a training run's own scale.
     """
 
-    description: Description4 | None = Field(None, title='Description')
-    name: Name14 | None = Field(None, title='Name')
+    description: Description6 | None = Field(None, title='Description')
+    name: Name19 | None = Field(None, title='Name')
+
+
+class Error(RootModel[str]):
+    root: str = Field(..., max_length=1024, title='Error')
+
+
+class TurnToolCall(BaseModel):
+    """
+    One tool call's stats: what ran, whether it worked, how long it took.
+    """
+
+    duration_s: DurationS | None = Field(None, title='Duration S')
+    error: Error | None = Field(None, title='Error')
+    id: Id | None = Field(None, title='Id')
+    is_ok: bool | None = Field(None, title='Is Ok')
+    name: str = Field(..., max_length=256, title='Name')
 
 
 class UnresolvedReference(BaseModel):
@@ -6022,6 +8217,63 @@ class UnresolvedReference(BaseModel):
     ordinal: int = Field(..., title='Ordinal')
     raw_reference: str | None = Field(None, title='Raw Reference')
     reason: str | None = Field(None, title='Reason')
+
+
+class UpdateCapture(BaseModel):
+    """
+    One update (or eval pass) of a step: declared vs received, and the shard check (rows' contributions + batch
+    terms vs the micro-batch's reported loss).
+    """
+
+    applied: bool | None = Field(None, title='Applied')
+    micro_batches_expected: int | None = Field(None, title='Micro Batches Expected')
+    micro_batches_received: int | None = Field(0, title='Micro Batches Received')
+    missing: list[str] | None = Field(None, title='Missing')
+    padding_micro_batches: int | None = Field(0, title='Padding Micro Batches')
+    padding_rows: int | None = Field(0, title='Padding Rows')
+    ranks_expected: int | None = Field(None, title='Ranks Expected')
+    ranks_received: int | None = Field(0, title='Ranks Received')
+    reported_loss: float | None = Field(None, title='Reported Loss')
+    role: LossRole | None = 'actor'
+    rows_expected: int | None = Field(None, title='Rows Expected')
+    rows_received: int | None = Field(0, title='Rows Received')
+    shard_residual: float | None = Field(None, title='Shard Residual')
+    skipped_reason: str | None = Field(None, title='Skipped Reason')
+    split: SampleSplit | None = 'train'
+    tolerance: float | None = Field(1e-05, title='Tolerance')
+    update: int = Field(..., title='Update')
+
+
+class MicroBatchesExpected(RootModel[int]):
+    root: int = Field(..., ge=1, title='Micro Batches Expected')
+
+
+class PaddingMicroBatches(RootModel[list[int]]):
+    root: list[int] = Field(..., max_length=4096, title='Padding Micro Batches')
+
+
+class PaddingRows(RootModel[int]):
+    root: int = Field(..., ge=0, title='Padding Rows')
+
+
+class RanksExpected(RootModel[int]):
+    root: int = Field(..., ge=1, title='Ranks Expected')
+
+
+class Reduction(RootModel[str]):
+    root: str = Field(..., max_length=128, min_length=1, title='Reduction')
+
+
+class RowsExpected(RootModel[int]):
+    root: int = Field(..., ge=0, title='Rows Expected')
+
+
+class SkippedReason(RootModel[str]):
+    root: str = Field(..., max_length=512, min_length=1, title='Skipped Reason')
+
+
+class UpdatesInStep(RootModel[int]):
+    root: int = Field(..., ge=1, title='Updates In Step')
 
 
 class UpdateReportAccepted(BaseModel):
@@ -6051,6 +8303,34 @@ class UploadGcResult(BaseModel):
     swept: int = Field(..., title='Swept')
 
 
+class UploadManyItem(BaseModel):
+    """
+    One file's answer, as `presign_upload` gives it: `status` 201 with the
+    `UploadResponse` fields, or the status and `detail` it refuses with.
+    """
+
+    artifact_id: UUID | None = Field(None, title='Artifact Id')
+    detail: Any | None = Field(None, title='Detail')
+    have: bool | None = Field(False, title='Have')
+    key: str | None = Field(None, title='Key')
+    status: int = Field(..., title='Status')
+    upload_headers: dict[str, str] | None = Field(None, title='Upload Headers')
+    upload_url: str | None = Field(None, title='Upload Url')
+
+
+class UploadManyRequest(BaseModel):
+    items: list[Any] = Field(..., max_length=100, min_length=1, title='Items')
+
+
+class UploadManyResponse(BaseModel):
+    items: list[UploadManyItem] = Field(..., title='Items')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class SizeBytes9(RootModel[int]):
+    root: int = Field(..., ge=0, le=9223372036854776000, title='Size Bytes')
+
+
 class UploadRequest(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
@@ -6063,7 +8343,7 @@ class UploadRequest(BaseModel):
         description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
         title='Notes',
     )
-    size_bytes: SizeBytes7 | None = Field(None, title='Size Bytes')
+    size_bytes: SizeBytes9 | None = Field(None, title='Size Bytes')
     span_id: UUID | None = Field(None, title='Span Id')
     step_index: int | None = Field(None, title='Step Index')
 
@@ -6138,20 +8418,14 @@ class Target(RootModel[str]):
     root: str = Field(..., max_length=2048, min_length=1, title='Target')
 
 
-class UseIn(BaseModel):
+class UseSource(BaseModel):
     """
-    Either ONE use `{target, roles, share?}` or ONE mixture
-    `{mixture: [{target, share}], role}`.
+    An outside model or dataset by its uri: its catalog source is found or registered here.
     """
 
-    evidence: Evidence1 | None = Field(None, title='Evidence')
-    mixture: Mixture | None = Field(None, title='Mixture')
-    provenance: PaperProvenance | None = None
-    reason: Reason1 | None = Field(None, title='Reason')
-    role: str | None = Field(None, title='Role')
-    roles: list[str] | None = Field(None, title='Roles')
-    share: float | None = Field(None, title='Share')
-    target: Target | None = Field(None, title='Target')
+    kind: SourceKind | None = None
+    revision: Revision | None = Field(None, title='Revision')
+    uri: str = Field(..., max_length=2048, min_length=1, title='Uri')
 
 
 class UseTargetOut(BaseModel):
@@ -6160,13 +8434,13 @@ class UseTargetOut(BaseModel):
     type: str = Field(..., title='Type')
 
 
-class Name15(RootModel[str]):
+class Name20(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
 class UserMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name15 | None = Field(None, title='Name')
+    name: Name20 | None = Field(None, title='Name')
     role: Literal['user'] = Field(..., title='Role')
 
 
@@ -6202,7 +8476,7 @@ class ValueOut(BaseModel):
     experiment: UUID = Field(..., title='Experiment')
     live: bool = Field(
         ...,
-        description='That run is still running: the value can still move.',
+        description='That run is live (running and reporting in the live window): the value can still move.',
         title='Live',
     )
     run: UUID = Field(..., title='Run')
@@ -6222,6 +8496,20 @@ class VersionRefOut(BaseModel):
     identity: str | None = Field(None, title='Identity')
     n: int = Field(..., title='N')
     ref: str = Field(..., title='Ref')
+
+
+class VisualRef(BaseModel):
+    """
+    An AI-generated visual of an experiment, or of the project when `experiment_id` is null (sent
+    either way). `visual_id` is checked as a visual's own id is (`clean_visual_id`).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    kind: Literal['visual'] = Field(..., title='Kind')
+    visual_id: str = Field(..., title='Visual Id')
 
 
 class VisualSetEntryOut(BaseModel):
@@ -6298,7 +8586,7 @@ class VisualsSetOut(BaseModel):
     visuals: list[VisualSetEntryOut] = Field(..., title='Visuals')
 
 
-class Name16(RootModel[str]):
+class Name21(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -6323,47 +8611,50 @@ class WandbBackfillLaunch(BaseModel):
     idempotency_key: UUID = Field(..., title='Idempotency Key')
 
 
-class WandbConnectIn(BaseModel):
+class WandbCopyOut(BaseModel):
     """
-    The paste. W&B has no OAuth, so this is the whole handshake.
-    """
-
-    api_key: str = Field(..., max_length=256, min_length=8, title='Api Key')
-
-
-class WandbConnectOut(BaseModel):
-    batch_id: UUID = Field(..., title='Batch Id')
-    entities: list[str] | None = Field(None, title='Entities')
-    key_last_four: str | None = Field('', title='Key Last Four')
-    secret_expires_at: AwareDatetime = Field(..., title='Secret Expires At')
-    wandb_entity: str | None = Field(None, title='Wandb Entity')
-
-
-class WandbIntegrationOut(BaseModel):
-    """
-    Can this deployment import from W&B? Asked before anything is rendered.
-
-    `not_configured` is not a failure state to apologise for -- the API image
-    deliberately does not carry the W&B client, because the import runs in its own
-    deployment. It is the honest answer for the process being asked.
+    A copy after its parity passed: `copied`, or None when no W&B connection holds it.
     """
 
-    state: IntegrationState
+    reads_from_wandb: bool | None = Field(False, title='Reads From Wandb')
+    representation: Representation | None = None
 
 
-class WandbProjectOut(BaseModel):
-    entity: str = Field(..., title='Entity')
-    project: str = Field(..., title='Project')
-    run_count: int | None = Field(None, title='Run Count')
-    slug_taken: bool | None = Field(False, title='Slug Taken')
-    suggested_slug: str = Field(..., title='Suggested Slug')
+class Name22(RootModel[str]):
+    root: str = Field(..., min_length=1, title='Name')
 
 
-class WandbProjectsOut(BaseModel):
-    note: str | None = Field(None, title='Note')
-    partial: bool | None = Field(False, title='Partial')
-    projects: list[WandbProjectOut] | None = Field(None, title='Projects')
-    state: IntegrationState
+class ParentExternalId(RootModel[str]):
+    root: str = Field(
+        ...,
+        max_length=1024,
+        pattern='^wandb:[^/\\s]+/[^/\\s]+/[^/\\s]+$',
+        title='Parent External Id',
+    )
+
+
+class WandbRunClaim(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    authored_by: Authorship | None = None
+    config: dict[str, Any] | None = Field(None, title='Config')
+    experiment_id: UUID | None = Field(None, title='Experiment Id')
+    external_id: str = Field(
+        ...,
+        max_length=1024,
+        pattern='^wandb:[^/\\s]+/[^/\\s]+/[^/\\s]+$',
+        title='External Id',
+    )
+    metadata: dict[str, Any] | None = Field(None, title='Metadata')
+    name: Name22 | None = Field(None, title='Name')
+    notes: Notes1 | None = Field(None, title='Notes')
+    parent_external_id: ParentExternalId | None = Field(
+        None, title='Parent External Id'
+    )
+    project_id: UUID = Field(..., title='Project Id')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    tags: list[str] | None = Field(None, title='Tags')
 
 
 class WandbSourceCreate(BaseModel):
@@ -6429,6 +8720,42 @@ class WebSearchRequest(BaseModel):
     recency: Recency | None = None
 
 
+class AfterStep(RootModel[int]):
+    root: int = Field(..., ge=0, title='After Step')
+
+
+class WeightVersionIn(BaseModel):
+    """
+    One weight push; a checkpoint ref is resolved to its artifact by the server.
+    """
+
+    after_step: AfterStep | None = Field(None, title='After Step')
+    checkpoint: CheckpointRef | None = None
+    policy_id: str | None = Field(
+        'policy', max_length=128, min_length=1, title='Policy Id'
+    )
+    pushed_at: AwareDatetime | None = Field(None, title='Pushed At')
+    version: int = Field(..., ge=0, title='Version')
+
+
+class WeightVersionOut(BaseModel):
+    """
+    A weight version as `GET /v1/runs/{id}/samples/weights` lists it.
+    """
+
+    after_step: AfterStep | None = Field(None, title='After Step')
+    checkpoint: CheckpointRef | None = None
+    is_rewound: bool | None = Field(False, title='Is Rewound')
+    nearest_checkpoint_step: int | None = Field(None, title='Nearest Checkpoint Step')
+    policy_id: str | None = Field(
+        'policy', max_length=128, min_length=1, title='Policy Id'
+    )
+    pushed_at: AwareDatetime | None = Field(None, title='Pushed At')
+    run_id: UUID = Field(..., title='Run Id')
+    version: int = Field(..., ge=0, title='Version')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
 class WhitelistEntry(BaseModel):
     """
     One name on a whitelist, with what it gets.
@@ -6476,6 +8803,10 @@ class WithoutSectionOut(BaseModel):
     state: VisualsState
 
 
+class Name23(RootModel[str]):
+    root: str = Field(..., max_length=120, min_length=1, title='Name')
+
+
 class WorkspaceDigestOut(BaseModel):
     """
     One workspace lens's digest plus the server-owned facts about it.
@@ -6490,7 +8821,7 @@ class WorkspaceDigestOut(BaseModel):
     model: str | None = Field(None, title='Model')
     prompt_version: str | None = Field(None, title='Prompt Version')
     skip_reason: str | None = Field(None, title='Skip Reason')
-    state: State1 = Field(..., title='State')
+    state: State2 = Field(..., title='State')
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
@@ -6514,6 +8845,10 @@ class WriteOut(BaseModel):
 
 class DrainingForSeconds(RootModel[float]):
     root: float = Field(..., ge=0.0, title='Draining For Seconds')
+
+
+class Host7(RootModel[str]):
+    root: str = Field(..., max_length=255, title='Host')
 
 
 class LocalRank(RootModel[int]):
@@ -6549,6 +8884,7 @@ class WriterBeatOut(BaseModel):
     Slim on purpose: a beat is the hottest request a run has.
     """
 
+    commands_seq: int | None = Field(0, title='Commands Seq')
     lease: Lease | None = Field(None, title='Lease')
     liveness_protocol: str | None = Field(None, title='Liveness Protocol')
     run_status: str = Field(..., title='Run Status')
@@ -6568,6 +8904,7 @@ class WriterOut(BaseModel):
     interactive: bool = Field(..., title='Interactive')
     interval_seconds: float = Field(..., title='Interval Seconds')
     last_beat_at: AwareDatetime = Field(..., title='Last Beat At')
+    launch_id: UUID | None = Field(None, title='Launch Id')
     lease_until: AwareDatetime = Field(..., title='Lease Until')
     local_rank: int | None = Field(None, title='Local Rank')
     pid: int | None = Field(None, title='Pid')
@@ -6586,7 +8923,6 @@ class WriterOut(BaseModel):
     state: str = Field(..., title='State')
     world_size: int | None = Field(None, title='World Size')
     write_epoch: int = Field(..., title='Write Epoch')
-    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterReleaseOut(BaseModel):
@@ -6595,25 +8931,15 @@ class WriterReleaseOut(BaseModel):
     run_status: str = Field(..., title='Run Status')
 
 
-class LaunchRelease(BaseModel):
+class AppClientVersionCaptureRepairRouterCaptureRepairIn(BaseModel):
     """
-    Body of `POST /v1/runs/{id}/launches/{launch_id}/release` (rl-trajectory-gaps D29): a Ray
-    launcher's job ended, and Ray stopped its workers before their exit hooks could release their
-    leases. Releases, in one transaction, every lease that launch started and that still beats on
-    the run's current epoch, with the job's verdict.
+    `{}`: the delivery takes nothing from the caller; the staff request names
+    the agents.
     """
 
-    exit_status: ExitStatus = Field(..., title='Exit Status')
-    session_id: UUID | None = Field(None, title='Session Id')
-    write_epoch: int = Field(..., ge=1, title='Write Epoch')
-
-
-class LaunchReleaseOut(BaseModel):
-    closed: bool = Field(..., title='Closed')
-    left: int = Field(..., title='Left')
-    liveness_protocol: str | None = Field(None, title='Liveness Protocol')
-    released: int = Field(..., title='Released')
-    run_status: str = Field(..., title='Run Status')
+    model_config = ConfigDict(
+        extra='forbid',
+    )
 
 
 class AppIntegrationsGithubControlSchemasBackfillRetry(BaseModel):
@@ -6656,74 +8982,21 @@ class AppIntegrationsOperationsBackfillRetry(BaseModel):
     idempotency_key: UUID = Field(..., title='Idempotency Key')
 
 
-class AppOverviewsVisualsScopeOut(BaseModel):
-    id: UUID = Field(..., title='Id')
-    kind: AppOverviewsVisualsScopeKind
+class AppOpsStaffRouterCaptureRepairIn(BaseModel):
+    """
+    The POST's body, `{"sources": [...]}`: the coding agents whose capture
+    credentials to re-issue. A JSON body is also the CSRF guard (`UpdateRequestIn`).
+    """
 
-
-class CaptureCredentialIn(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    source: Source5 = Field(..., title='Source')
+    sources: list[str] = Field(..., title='Sources')
 
 
-class DocsSectionOut(BaseModel):
-    heading: str = Field(
-        ...,
-        description="The section's `##` heading; the page title for the text before the first one. A long section split at `###` reads `<##> — <###>`.",
-        title='Heading',
-    )
-    page: str = Field(
-        ..., description="The page's title (its `# Title`).", title='Page'
-    )
-    path: str = Field(
-        ...,
-        description='The page path on docs.prbe.ai, e.g. `wizard/flags`.',
-        title='Path',
-    )
-    rank: int = Field(..., description='1-based position, best first.', title='Rank')
-    text: str = Field(..., description="The section's markdown, whole.", title='Text')
-    url: str = Field(
-        ..., description="The page's URL, as the docs publish it.", title='Url'
-    )
-
-
-class UploadManyRequest(BaseModel):
-    items: list[Any] = Field(..., max_length=100, min_length=1, title='Items')
-
-
-class UploadManyItem(BaseModel):
-    """
-    One file's answer, as `presign_upload` gives it: `status` 201 with the
-    `UploadResponse` fields, or the status and `detail` it refuses with.
-    """
-
-    artifact_id: UUID | None = Field(None, title='Artifact Id')
-    detail: Any | None = Field(None, title='Detail')
-    have: bool | None = Field(False, title='Have')
-    key: str | None = Field(None, title='Key')
-    status: int = Field(..., title='Status')
-    upload_headers: dict[str, str] | None = Field(None, title='Upload Headers')
-    upload_url: str | None = Field(None, title='Upload Url')
-
-
-class ConfirmManyItem(BaseModel):
-    """
-    One upload's confirm, as `confirm_upload` answers it: `status` 200 with
-    the stored `artifact`, or the status and `detail` it refuses with.
-    """
-
-    artifact: ArtifactOut | None = None
-    artifact_id: UUID = Field(..., title='Artifact Id')
-    detail: Any | None = Field(None, title='Detail')
-    status: int = Field(..., title='Status')
-
-
-class ConfirmManyRequest(BaseModel):
-    artifact_ids: list[UUID] = Field(
-        ..., max_length=100, min_length=1, title='Artifact Ids'
-    )
+class AppOverviewsVisualsScopeOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    kind: AppOverviewsVisualsScopeKind
 
 
 class ArtifactDetailOut(BaseModel):
@@ -6817,6 +9090,16 @@ class AssistantMessage(BaseModel):
     name: Name | None = Field(None, title='Name')
     role: Literal['assistant'] = Field(..., title='Role')
     tool_calls: ToolCalls | None = Field(None, title='Tool Calls')
+
+
+class AttemptEnd(BaseModel):
+    """
+    The `end` part's facts. Why it broke rides the part's `error_reason` and `error_message`.
+    """
+
+    command_id: UUID | None = Field(None, title='Command Id')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    outcome: AttemptOutcome
 
 
 class BackfillJobOut(BaseModel):
@@ -7001,6 +9284,7 @@ class CanvasProject(BaseModel):
     live_run_count: int | None = Field(0, title='Live Run Count')
     name: str = Field(..., title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    preview: CanvasPreview | None = None
     ref: str | None = Field(None, title='Ref')
     repo: str | None = Field(None, title='Repo')
     semantic: Readiness | None = 'pending'
@@ -7009,11 +9293,6 @@ class CanvasProject(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
     workspace_id: UUID = Field(..., title='Workspace Id')
     workspace_name: str = Field(..., title='Workspace Name')
-
-
-class CapabilityRegistrationOut(BaseModel):
-    capabilities: ClientCapabilitiesOut
-    installation_id: UUID = Field(..., title='Installation Id')
 
 
 class CaptureBatchRequest(BaseModel):
@@ -7027,6 +9306,44 @@ class CaptureBatchResponse(BaseModel):
     n_need: int = Field(..., title='N Need')
     n_rejected: int = Field(..., title='N Rejected')
     run_id: UUID = Field(..., title='Run Id')
+
+
+class CaptureReason(BaseModel):
+    code: CaptureReasonCode
+    expected: int | None = Field(None, title='Expected')
+    message: str = Field(..., title='Message')
+    producer: str | None = Field(None, title='Producer')
+    received: int | None = Field(None, title='Received')
+    silent_seconds: int | None = Field(None, title='Silent Seconds')
+    step: int | None = Field(None, title='Step')
+
+
+class CardEffortOut(BaseModel):
+    """
+    The experiment card's effort (D6).
+    """
+
+    agent_h: float = Field(
+        ...,
+        description='Agent-session time attributed here: parallel agents add up.',
+        title='Agent H',
+    )
+    agent_wall_h: float = Field(
+        ...,
+        description="Wall-clock agent time: the union of those agents' time, parallel agents once.",
+        title='Agent Wall H',
+    )
+    busy_h: float = Field(..., title='Busy H')
+    cost_usd: float | None = Field(..., title='Cost Usd')
+    run_h: float = Field(..., title='Run H')
+    sessions: list[SessionHoursOut] = Field(
+        ...,
+        description="Each session's agent-hours here, most first, at most 5; when `sessions_total` is no more, they add up to `agent_h` (each rounded to 3 significant figures).",
+        title='Sessions',
+    )
+    sessions_total: int = Field(
+        ..., description='Sessions with time here.', title='Sessions Total'
+    )
 
 
 class ChartSettingsOut(BaseModel):
@@ -7059,6 +9376,16 @@ class ChatMessageOut(BaseModel):
     tool_calls: list[ChatToolCallOut] | None = Field(None, title='Tool Calls')
 
 
+class CheckpointLineage(BaseModel):
+    base_models: list[LineageInput] | None = Field(None, title='Base Models')
+    commit: str | None = Field(None, title='Commit')
+    config: dict[str, Any] | None = Field(None, title='Config')
+    datasets: list[LineageInput] | None = Field(None, title='Datasets')
+    derived_from: list[UUID] | None = Field(None, title='Derived From')
+    is_dirty: bool | None = Field(None, title='Is Dirty')
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+
+
 class CitationLinkOut(BaseModel):
     authors: list[str] | None = Field(None, title='Authors')
     cited_by_count: int | None = Field(None, title='Cited By Count')
@@ -7088,10 +9415,97 @@ class ClaimCompleteIn(BaseModel):
     user_code: UserCode | None = Field(None, title='User Code')
 
 
+class ClientCapabilitiesOut(BaseModel):
+    """
+    Always answered in v2's shape plus the v3 transcript fields, whatever the caller sent.
+
+    An older client ignores the extra fields, and a newer one gets the shape it
+    asked in -- so the response never has to be versioned alongside the request.
+    """
+
+    auto_update: AutoUpdate = Field(..., title='Auto Update')
+    capture: Capture1 = Field(..., title='Capture')
+    reported_at: AwareDatetime = Field(..., title='Reported At')
+    schema_version: Literal[2] = Field(2, title='Schema Version')
+    tracking: Tracking = Field(..., title='Tracking')
+    transcript_off_at: AwareDatetime | None = Field(None, title='Transcript Off At')
+    transcript_off_by: SwitchedBy | None = None
+    transcript_state: TranscriptState | None = None
+
+
+class ClientCapabilitiesV3In(BaseModel):
+    """
+    Wire v3: v2 plus WHY transcripts are not uploading (`capture` alone cannot tell a chosen off
+    from a fault). Null transcript fields mean the client did not say: the stored value stays.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    auto_update: AutoUpdate = Field(..., title='Auto Update')
+    capture: Capture1 = Field(..., title='Capture')
+    schema_version: Literal[3] = Field(..., title='Schema Version')
+    tracking: Tracking = Field(..., title='Tracking')
+    transcript_off_at: AwareDatetime | None = Field(None, title='Transcript Off At')
+    transcript_off_by: SwitchedBy | None = None
+    transcript_state: TranscriptState | None = None
+
+
 class ClientInfo(BaseModel):
     cli: Cli | None = Field(None, title='Cli')
     harness: Harness | None = Field(None, title='Harness')
     mode: ClientMode | None = 'daemon'
+
+
+class ClientMessage(BaseModel):
+    """
+    One message from the server: a stable id, the code clients key on, and the sentence to show.
+
+    `message_id` names the message (several share a `code`: every floor answers `client_too_old`);
+    `text` is the server's current sentence, a staff override or the default.
+    """
+
+    action: Action
+    audience: Audience
+    code: str = Field(..., title='Code')
+    docs_url: str | None = Field(None, title='Docs Url')
+    message_id: str = Field(..., title='Message Id')
+    min_version: str | None = Field(None, title='Min Version')
+    revision: int | None = Field(0, title='Revision')
+    severity: Severity
+    text: str = Field(..., max_length=500, title='Text')
+
+
+class ClientMessageList(BaseModel):
+    """
+    `GET /v1/client/messages`: the notices that apply to the caller now. `set_revision` is the
+    `X-Probe-Notices` value for this set (None when it is empty); refetch when the header differs.
+    """
+
+    messages: list[ClientMessage] = Field(..., title='Messages')
+    set_revision: str | None = Field(None, title='Set Revision')
+
+
+class ClientMessageView(BaseModel):
+    """
+    One message: the sentence clients get now (`text`), its default, and who last changed it.
+    """
+
+    action: Action
+    audience: Audience
+    body_shape: str = Field(..., title='Body Shape')
+    code: str = Field(..., title='Code')
+    default_text: str = Field(..., title='Default Text')
+    docs_url: str | None = Field(None, title='Docs Url')
+    has_override: bool = Field(..., title='Has Override')
+    message_id: str = Field(..., title='Message Id')
+    min_version: str | None = Field(None, title='Min Version')
+    revision: int | None = Field(0, title='Revision')
+    severity: Severity
+    status: int = Field(..., title='Status')
+    text: str = Field(..., max_length=500, title='Text')
+    updated_at: AwareDatetime | None = Field(None, title='Updated At')
+    updated_by: str | None = Field(None, title='Updated By')
 
 
 class ClientStatusOut(BaseModel):
@@ -7144,6 +9558,41 @@ class CodeSourceOut(BaseModel):
     status: CodeSourceStatus
     status_reason: str | None = Field(None, title='Status Reason')
     updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class CommandAnswer(BaseModel):
+    """
+    The claiming producer's answer; the same answer twice changes nothing.
+    """
+
+    reason: Reason2 | None = Field(None, title='Reason')
+    result: dict[str, Any] | None = Field(None, title='Result')
+    session_id: UUID = Field(..., title='Session Id')
+    state: CommandState
+
+
+class CommandOut(BaseModel):
+    """
+    One command as the routes answer it.
+    """
+
+    args: dict[str, Any] | None = Field(None, title='Args')
+    attempt_id: UUID | None = Field(None, title='Attempt Id')
+    attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
+    claimed_at: AwareDatetime | None = Field(None, title='Claimed At')
+    claimed_by: UUID | None = Field(None, title='Claimed By')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    id: UUID = Field(..., title='Id')
+    kind: CommandKind
+    note: Note1 | None = Field(None, title='Note')
+    reason: Reason2 | None = Field(None, title='Reason')
+    requested_by: str | None = Field(None, title='Requested By')
+    result: dict[str, Any] | None = Field(None, title='Result')
+    run_id: UUID = Field(..., title='Run Id')
+    seq: int = Field(..., ge=1, title='Seq')
+    state: CommandState | None = 'open'
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
 
 
 class CommitCard(BaseModel):
@@ -7262,21 +9711,8 @@ class DerivedProvenance(BaseModel):
 
     code_ref: CodeRef | None = Field(None, title='Code Ref')
     inputs: Inputs | None = Field(None, title='Inputs')
-    note: Note | None = Field(None, title='Note')
+    note: Note3 | None = Field(None, title='Note')
     producer: str = Field(..., max_length=128, min_length=1, title='Producer')
-
-
-class DesktopProfile(BaseModel):
-    groups: list[DesktopGroup] = Field(..., max_length=100, title='Groups')
-    groups_total: int = Field(..., ge=0, title='Groups Total')
-    groups_truncated: bool = Field(..., title='Groups Truncated')
-    members: list[DesktopMember] = Field(..., max_length=200, title='Members')
-    members_total: int = Field(..., ge=0, title='Members Total')
-    members_truncated: bool = Field(..., title='Members Truncated')
-    onboarding_step: OnboardingStep
-    schema_version: Literal[1] = Field(1, title='Schema Version')
-    team: DesktopTeam
-    user: DesktopUser
 
 
 class DeviceAuthorizationOut(BaseModel):
@@ -7286,6 +9722,7 @@ class DeviceAuthorizationOut(BaseModel):
     client_name: str = Field(..., title='Client Name')
     expires_at: AwareDatetime = Field(..., title='Expires At')
     grants: list[str] | None = Field(None, title='Grants')
+    onboarding_url: str | None = Field(None, title='Onboarding Url')
     scopes: list[str] | None = Field(None, title='Scopes')
     status: Status1 = Field(..., title='Status')
     token_name: str = Field(..., title='Token Name')
@@ -7409,6 +9846,14 @@ class DirectionTree(BaseModel):
     unfiled: list[DirectionOut] = Field(..., title='Unfiled')
 
 
+class DocsOut(BaseModel):
+    sections: list[DocsSectionOut] = Field(..., title='Sections')
+    state: DocsState = Field(
+        ...,
+        description='`ok`: a current copy. `stale`: the last good copy, because docs.prbe.ai could not be read. `unavailable`: no copy has loaded yet; `sections` is empty.',
+    )
+
+
 class DownloadBatchResponse(BaseModel):
     items: dict[str, DownloadResponse] = Field(..., title='Items')
     refused: dict[str, str] | None = Field(None, title='Refused')
@@ -7418,12 +9863,25 @@ class DownloadBatchResponse(BaseModel):
 class EdgeCreate(BaseModel):
     meta: dict[str, Any] | None = Field(None, title='Meta')
     provenance: PaperProvenance | None = None
-    reason: Reason1 | None = Field(None, title='Reason')
+    reason: Reason4 | None = Field(None, title='Reason')
     relation: LineageRelation
     source_id: UUID = Field(..., title='Source Id')
     source_type: LineageEntityType
     target_id: UUID = Field(..., title='Target Id')
     target_type: LineageEntityType
+
+
+class EditCreate(BaseModel):
+    """
+    `POST /v1/runs/{run}/edits`.
+    """
+
+    args: dict[str, Any] | None = Field(None, title='Args')
+    dry_run: bool | None = Field(False, title='Dry Run')
+    op: EditOp
+    reason: str = Field(..., max_length=2000, min_length=1, title='Reason')
+    replace: bool | None = Field(False, title='Replace')
+    target: EditTarget | None = None
 
 
 class EntityFilters(BaseModel):
@@ -7482,11 +9940,24 @@ class EntitySearchResult(BaseModel):
     status: str | None = Field(None, title='Status')
 
 
+class EnvironmentLink(BaseModel):
+    """
+    The attempt's captured environment: the Harbor trial span and its files (sandbox, verifier, logs), with the
+    log files and the outputs named apart.
+    """
+
+    artifact_ids: list[UUID] | None = Field(None, title='Artifact Ids')
+    logs: list[TrialFile] | None = Field(None, max_length=256, title='Logs')
+    outputs: list[TrialFile] | None = Field(None, max_length=256, title='Outputs')
+    span_id: UUID | None = Field(None, title='Span Id')
+
+
 class ExactHit(BaseModel):
     entity_type: SearchEntityType
     experiment_id: UUID | None = Field(None, title='Experiment Id')
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
+    people: list[Person] | None = Field(None, title='People')
     project_id: UUID | None = Field(None, title='Project Id')
     run_id: UUID | None = Field(None, title='Run Id')
     score: float = Field(..., title='Score')
@@ -7521,6 +9992,29 @@ class ExperimentCodeWindow(BaseModel):
     source_attached: bool | None = Field(False, title='Source Attached')
     to_run_id: UUID | None = Field(None, title='To Run Id')
     to_sha: str | None = Field(None, title='To Sha')
+
+
+class ExperimentEffortOut(BaseModel):
+    agent_h: float = Field(
+        ...,
+        description='Agent-session time attributed here: parallel agents add up.',
+        title='Agent H',
+    )
+    agent_wall_h: float = Field(
+        ...,
+        description="Wall-clock agent time: the union of those agents' time, parallel agents once.",
+        title='Agent Wall H',
+    )
+    busy_h: float = Field(..., title='Busy H')
+    run_h: float = Field(..., title='Run H')
+    sessions: list[SessionHoursOut] = Field(
+        ...,
+        description="Each session's agent-hours here, most first, at most 5; when `sessions_total` is no more, they add up to `agent_h` (each rounded to 3 significant figures).",
+        title='Sessions',
+    )
+    sessions_total: int = Field(
+        ..., description='Sessions with time here.', title='Sessions Total'
+    )
 
 
 class ExperimentForkOut(BaseModel):
@@ -7803,11 +10297,34 @@ class ExperimentTrashedOut(BaseModel):
     type: Literal['experiment'] = Field(..., title='Type')
 
 
+class FailureLogTail(BaseModel):
+    """
+    The last lines of one console log, live log or captured output file.
+    """
+
+    kind: TailKind
+    lines: list[str] = Field(..., title='Lines')
+    source: str = Field(..., title='Source')
+
+
 class FeedbackIn(BaseModel):
     edition_id: UUID | None = Field(None, title='Edition Id')
     kind: FeedbackKind
     milestone_id: UUID | None = Field(None, title='Milestone Id')
     other_ids: list[UUID] | None = Field(None, title='Other Ids')
+
+
+class Generation(BaseModel):
+    """
+    One piece of the response and the model that made it. No token range = somewhere in this attempt.
+    """
+
+    first_token: FirstToken | None = Field(None, title='First Token')
+    last_token: LastToken | None = Field(None, title='Last Token')
+    model: PolicyRef | RunRef | CheckpointRef | ExternalRef = Field(
+        ..., discriminator='kind', title='Model'
+    )
+    phase: GenerationPhase | None = 'decode'
 
 
 class GitHubCommitOut(BaseModel):
@@ -7888,6 +10405,22 @@ class GraphNode(BaseModel):
     year: int | None = Field(None, title='Year')
 
 
+class GroupIn(BaseModel):
+    """
+    Group facts only; reward mean and variance are read from the members.
+    """
+
+    consumed_step: ConsumedStep | None = Field(None, title='Consumed Step')
+    drop_reason: str | None = Field(None, title='Drop Reason')
+    group_key: str = Field(..., max_length=512, min_length=1, title='Group Key')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    scheduled_step: ScheduledStep | None = Field(None, title='Scheduled Step')
+    size: Size | None = Field(None, title='Size')
+    task_key: TaskKey | None = Field(None, title='Task Key')
+
+
 class HTTPValidationError(BaseModel):
     detail: list[ValidationError] | None = Field(None, title='Detail')
 
@@ -7916,8 +10449,9 @@ class HashWriteOut(BaseModel):
 
 class HeadlineMetricPut(BaseModel):
     """
-    Declare the headline metric on a project (its experiments and subprojects
-    inherit it) or on one experiment (an override).
+    Declare the headline metric on a project (its experiments inherit it;
+    projects are flat, so no other project does) or on one experiment (an
+    override).
     """
 
     model_config = ConfigDict(
@@ -7964,6 +10498,10 @@ class HintRecord(BaseModel):
 
 class HintsIn(BaseModel):
     client: ClientInfo | None = None
+    delivery: DeliveryReceipt | None = Field(
+        None,
+        description='What happened to the hints the Probe service posted to this session: counts from its ledger; null from older clients.',
+    )
     exclude_doc_ids: list[ExcludeDocId] | None = Field(
         None,
         description='Records already delivered to this session: never shown again (a fresh one fills the slot).',
@@ -7982,7 +10520,7 @@ class HintsIn(BaseModel):
         max_length=128,
         title='Segments',
     )
-    session_id: SessionId | None = Field(
+    session_id: SessionId1 | None = Field(
         None,
         description="The coding agent's session id: its own documents are never shown.",
         title='Session Id',
@@ -8021,26 +10559,6 @@ class HintsOut(BaseModel):
     z: float | None = Field(None, title='Z')
 
 
-class ImportLaunch(BaseModel):
-    batch_id: UUID = Field(..., title='Batch Id')
-    selections: list[ImportSelection] = Field(
-        ..., max_length=200, min_length=1, title='Selections'
-    )
-
-
-class ImportUnitOut(BaseModel):
-    artifacts_written: int | None = Field(0, title='Artifacts Written')
-    entity: str = Field(..., title='Entity')
-    error: str | None = Field(None, title='Error')
-    id: UUID = Field(..., title='Id')
-    points_written: int | None = Field(0, title='Points Written')
-    project: str = Field(..., title='Project')
-    runs_done: int | None = Field(0, title='Runs Done')
-    runs_total: int | None = Field(0, title='Runs Total')
-    status: UnitStatus
-    warnings: list[str] | None = Field(None, title='Warnings')
-
-
 class IngestRun(BaseModel):
     config: dict[str, Any] | None = Field(None, title='Config')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
@@ -8071,24 +10589,6 @@ class IngestRunRequest(BaseModel):
     project_slug: str = Field(..., title='Project Slug')
     run: IngestRun
     spans: list[SpanCreate] | None = Field(None, max_length=10000, title='Spans')
-
-
-class InstallCodeExchange(BaseModel):
-    capture_source: CaptureSource | None = Field(None, title='Capture Source')
-    capture_sources: CaptureSources1 | None = Field(None, title='Capture Sources')
-    client_context: DeviceClientContext | None = None
-    code: str = Field(..., pattern='^[23456789A-HJ-NP-Z]{10}$', title='Code')
-    code_challenge: str = Field(
-        ..., pattern='^[A-Za-z0-9_-]{43}$', title='Code Challenge'
-    )
-    device_instance_id: DeviceInstanceId | None = Field(
-        None, title='Device Instance Id'
-    )
-    grants: list[Grant] | None = Field(None, min_length=1, title='Grants')
-    scopes: Scopes | None = Field(None, title='Scopes')
-    token_name: str | None = Field(
-        'Research OS CLI', max_length=120, min_length=1, title='Token Name'
-    )
 
 
 class InstallationCredentialOut(BaseModel):
@@ -8134,6 +10634,24 @@ class JobOut(BaseModel):
 class JobsOut(BaseModel):
     jobs: list[JobOut] = Field(..., title='Jobs')
     next_cursor: str | None = Field(None, title='Next Cursor')
+
+
+class KeyDropPoll(BaseModel):
+    """
+    What the CLI reads: the sealed key only while the drop is `sent`.
+    """
+
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    request_id: UUID = Field(..., title='Request Id')
+    sealed_key: SealedKey | None = None
+    status: KeyDropStatus
+
+
+class KeyDropSend(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    sealed_key: SealedKey
 
 
 class LatestScalarOut(BaseModel):
@@ -8187,11 +10705,132 @@ class LeaderOut(BaseModel):
     name: str = Field(..., title='Name')
 
 
+class LineageEndOut(BaseModel):
+    """
+    The far end of one of the project's links, named (swarm friction P6).
+    """
+
+    name: str | None = Field(None, title='Name')
+    slug: str | None = Field(None, title='Slug')
+    type: OriginType
+
+
 class LinkRefOut(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
     relation: str = Field(..., title='Relation')
     type: RefType
+
+
+class LiveEvent(BaseModel):
+    """
+    One published notice. `seq` is its place in the one global order; a client's cursor is the last one it saw.
+    """
+
+    at: AwareDatetime = Field(..., title='At')
+    data: dict[str, Any] | None = Field(None, title='Data')
+    kind: str = Field(
+        ...,
+        max_length=128,
+        pattern='^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$',
+        title='Kind',
+    )
+    refs: LiveRefs | None = None
+    seq: int = Field(..., ge=0, title='Seq')
+
+
+class LivePoll(BaseModel):
+    """
+    `GET /v1/live/events/poll`: the events after `since`, in seq order, and where to poll from next.
+    """
+
+    cursor: int = Field(..., ge=0, title='Cursor')
+    events: list[LiveEvent] | None = Field(None, title='Events')
+    has_more: bool | None = Field(False, title='Has More')
+
+
+class LiveSample(BaseModel):
+    """
+    One attempt as the live read sees it. Elapsed, idle and hung run on the server's receipt time of each part;
+    the producer's own times are shown, never judged, so a GPU box with a wrong clock changes nothing.
+    """
+
+    activity: Activity | None = Field(None, title='Activity')
+    attempt_id: UUID = Field(..., title='Attempt Id')
+    attempt_key: str = Field(..., max_length=512, min_length=1, title='Attempt Key')
+    capabilities: list[CommandKind] | None = Field(None, title='Capabilities')
+    elapsed_s: ElapsedS | None = Field(None, title='Elapsed S')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    ends_by: AwareDatetime | None = Field(None, title='Ends By')
+    engine: Engine | None = Field(None, title='Engine')
+    error_reason: SampleErrorReason | None = None
+    group_key: GroupKey | None = Field(None, title='Group Key')
+    host: Host | None = Field(None, title='Host')
+    idle_s: IdleS | None = Field(None, title='Idle S')
+    is_output_visible: bool | None = Field(None, title='Is Output Visible')
+    is_slow: bool | None = Field(False, title='Is Slow')
+    is_watched: bool | None = Field(False, title='Is Watched')
+    last_progress_at: AwareDatetime | None = Field(None, title='Last Progress At')
+    outcome: AttemptOutcome | None = None
+    phase: AttemptPhase | None = None
+    producer: str = Field(..., title='Producer')
+    producer_ended_at: AwareDatetime | None = Field(None, title='Producer Ended At')
+    producer_started_at: AwareDatetime | None = Field(None, title='Producer Started At')
+    progress_at: AwareDatetime | None = Field(None, title='Progress At')
+    reason: AttemptStateReason | None = None
+    retry_of: RetryOf1 | None = Field(None, title='Retry Of')
+    run_id: UUID = Field(..., title='Run Id')
+    sample_ids: list[UUID] | None = Field(None, title='Sample Ids')
+    sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    scheduled_step: int | None = Field(None, title='Scheduled Step')
+    slow_against: SlowAgainst | None = None
+    slow_baseline_s: float | None = Field(None, title='Slow Baseline S')
+    slow_by: float | None = Field(None, title='Slow By')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    state: AttemptState
+    task_id: UUID | None = Field(None, title='Task Id')
+    task_key: TaskKey1 | None = Field(None, title='Task Key')
+    tokens: int | None = Field(None, title='Tokens')
+    try_number: int | None = Field(1, ge=1, title='Try Number')
+    turns: int | None = Field(None, title='Turns')
+    waiting_on: str | None = Field(None, title='Waiting On')
+    weight_version: int | None = Field(None, title='Weight Version')
+    worker: Worker | None = Field(None, title='Worker')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
+class LiveSampleList(BaseModel):
+    """
+    `GET /v1/runs/{id}/samples/live`: which samples run now, which are slow, hung or abandoned, what is failing.
+    """
+
+    as_of: AwareDatetime = Field(..., title='As Of')
+    counts: LiveCounts | None = None
+    failing: LiveFailing | None = None
+    hung_after_s: int | None = Field(600, title='Hung After S')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    run_id: UUID = Field(..., title='Run Id')
+    samples: list[LiveSample] | None = Field(None, title='Samples')
+
+
+class LiveTurnList(BaseModel):
+    attempt_id: UUID = Field(..., title='Attempt Id')
+    next_after: int | None = Field(None, title='Next After')
+    turns: list[LiveTurnOut] | None = Field(None, title='Turns')
+
+
+class Message(BaseModel):
+    content: str | None = Field('', title='Content')
+    is_trainable: bool | None = Field(False, title='Is Trainable')
+    name: Name3 | None = Field(None, title='Name')
+    reasoning: str | None = Field(None, title='Reasoning')
+    role: str = Field(..., max_length=64, title='Role')
+    source: MessageSource
+    tool_call_id: ToolCallId | None = Field(None, title='Tool Call Id')
+    tool_calls: list[MessageToolCall] | None = Field(None, title='Tool Calls')
 
 
 class MetricAnchorOut(BaseModel):
@@ -8230,7 +10869,7 @@ class MetricViewData(BaseModel):
 
 class MirrorConnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
-    name: Name4 | None = Field(None, title='Name')
+    name: Name5 | None = Field(None, title='Name')
     scope: list[ScopeEntry] | None = Field(None, max_length=1000, title='Scope')
     source: MirrorSource
     sync_enabled: bool | None = Field(False, title='Sync Enabled')
@@ -8271,7 +10910,7 @@ class Scope1(RootModel[list[ScopeEntry]]):
 
 class MirrorPatchIn(BaseModel):
     expected_revision: ExpectedRevision | None = Field(None, title='Expected Revision')
-    name: Name4 | None = Field(None, title='Name')
+    name: Name5 | None = Field(None, title='Name')
     scope: Scope1 | None = Field(None, title='Scope')
     sync_enabled: bool | None = Field(None, title='Sync Enabled')
 
@@ -8370,11 +11009,92 @@ class NoteCatalogItem(BaseModel):
 
 class NoteCatalogOut(BaseModel):
     """
-    Root/child hierarchy rows or one stable search/catalog page.
+    Root/child hierarchy rows or one stable search/catalog page; with `owner`, who it matched and how many
+    notes in the window nobody known wrote (D4, D8).
     """
 
     items: list[NoteCatalogItem] = Field(..., title='Items')
     next_cursor: str | None = Field(None, title='Next Cursor')
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
+    query_note: str | None = Field(None, title='Query Note')
+    unowned_count: int | None = Field(None, title='Unowned Count')
+
+
+class NoticeContent(BaseModel):
+    """
+    What staff set on a notice: what it says, who sees it and when. `check_notice_content` holds
+    the rules; a PUT replaces the whole of it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    action: Action | None = 'none'
+    audience: Audience | None = 'both'
+    client_kinds: list[ClientKind] | None = Field(None, title='Client Kinds')
+    code: MessageCode
+    docs_url: str | None = Field(None, title='Docs Url')
+    ends_at: AwareDatetime | None = Field(None, title='Ends At')
+    max_version: str | None = Field(None, title='Max Version')
+    min_version: str | None = Field(None, title='Min Version')
+    severity: Severity | None = 'info'
+    starts_at: AwareDatetime | None = Field(None, title='Starts At')
+    surfaces: list[NoticeSurface] | None = Field(None, title='Surfaces')
+    team_ids: list[str] | None = Field(None, title='Team Ids')
+    text: str = Field(..., title='Text')
+
+
+class NoticeIn(BaseModel):
+    """
+    The POST's body: the content, and the id clients' seen ledgers will key on (generated when
+    left out). JSON only, which is also the CSRF guard: a cross-site form cannot send it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    action: Action | None = 'none'
+    audience: Audience | None = 'both'
+    client_kinds: list[ClientKind] | None = Field(None, title='Client Kinds')
+    code: MessageCode
+    docs_url: str | None = Field(None, title='Docs Url')
+    ends_at: AwareDatetime | None = Field(None, title='Ends At')
+    max_version: str | None = Field(None, title='Max Version')
+    message_id: str | None = Field(None, title='Message Id')
+    min_version: str | None = Field(None, title='Min Version')
+    severity: Severity | None = 'info'
+    starts_at: AwareDatetime | None = Field(None, title='Starts At')
+    surfaces: list[NoticeSurface] | None = Field(None, title='Surfaces')
+    team_ids: list[str] | None = Field(None, title='Team Ids')
+    text: str = Field(..., title='Text')
+
+
+class NoticeView(BaseModel):
+    """
+    One notice: what clients are sent, who it is for and when, whether it shows now, and who set it.
+    `min_version`/`max_version` here are the audience's range, not the wire message's `min_version`.
+    """
+
+    action: Action
+    audience: Audience
+    client_kinds: list[ClientKind] = Field(..., title='Client Kinds')
+    code: str = Field(..., title='Code')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str = Field(..., title='Created By')
+    docs_url: str | None = Field(None, title='Docs Url')
+    ends_at: AwareDatetime | None = Field(None, title='Ends At')
+    is_live: bool = Field(..., title='Is Live')
+    max_version: str | None = Field(None, title='Max Version')
+    message_id: str = Field(..., title='Message Id')
+    min_version: str | None = Field(None, title='Min Version')
+    revision: int | None = Field(0, title='Revision')
+    severity: Severity
+    starts_at: AwareDatetime | None = Field(None, title='Starts At')
+    surfaces: list[NoticeSurface] = Field(..., title='Surfaces')
+    team_ids: list[str] = Field(..., title='Team Ids')
+    text: str = Field(..., max_length=500, title='Text')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    updated_by: str = Field(..., title='Updated By')
 
 
 class OnboardingProgressRequest(BaseModel):
@@ -8382,7 +11102,93 @@ class OnboardingProgressRequest(BaseModel):
         extra='forbid',
     )
     flow: OnboardingFlow
+    skipped: bool | None = Field(False, title='Skipped')
     step: OnboardingStep
+
+
+class PaneCheckError(BaseModel):
+    """
+    One page error, with the state and frame width it was raised at.
+    """
+
+    kind: PaneCheckErrorKind
+    message: str = Field(..., title='Message')
+    source: str | None = Field(None, title='Source')
+    state: PaneCheckState
+    width: int = Field(..., title='Width')
+
+
+class PaneFilesData(BaseModel):
+    reason: PanePartialReason | None = None
+    rows: list[PaneFileRow] | None = Field(None, title='Rows')
+    source: Literal['files'] = Field('files', title='Source')
+    state: PaneSourceState
+
+
+class PaneRecipe(BaseModel):
+    """
+    The runs a pane reads and the data entries it reads of them.
+    """
+
+    data: list[
+        Annotated[
+            PaneRunsEntry | PaneSeriesEntry | PaneSamplesEntry | PaneFilesEntry,
+            Field(discriminator='source'),
+        ]
+    ] = Field(..., max_length=16, min_length=0, title='Data')
+    runs: Literal['scope'] | list[UUID] | None = Field('scope', title='Runs')
+
+
+class PaneResolve(BaseModel):
+    """
+    `POST .../panes:resolve`: an unsaved recipe, resolved so its author sees the data's shape.
+    """
+
+    recipe: PaneRecipe
+    run_ids: RunIds | None = Field(None, title='Run Ids')
+
+
+class PaneRunRow(BaseModel):
+    config: dict[str, Any] | None = Field(None, title='Config')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    cut: list[str] | None = Field(None, title='Cut')
+    experiment_id: UUID | None = Field(None, title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    locked: bool | None = Field(False, title='Locked')
+    name: str = Field(..., title='Name')
+    scalars: dict[str, PaneScalar] | None = Field(None, title='Scalars')
+    status: str = Field(..., title='Status')
+
+
+class PaneRunsData(BaseModel):
+    locked_runs: int | None = Field(0, title='Locked Runs')
+    reason: PanePartialReason | None = None
+    rows: list[PaneRunRow] | None = Field(None, title='Rows')
+    source: Literal['runs'] = Field('runs', title='Source')
+    state: PaneSourceState
+    unmatched: list[str] | None = Field(None, title='Unmatched')
+
+
+class PaneSamplesData(BaseModel):
+    is_unseen_checked: bool | None = Field(False, title='Is Unseen Checked')
+    locked_runs: int | None = Field(0, title='Locked Runs')
+    reason: PanePartialReason | None = None
+    rows: list[PaneSampleRow] | None = Field(None, title='Rows')
+    rows_read: int | None = Field(0, title='Rows Read')
+    source: Literal['samples'] = Field('samples', title='Source')
+    state: PaneSourceState
+    totals: list[PaneSampleTotal] | None = Field(None, title='Totals')
+    unseen_fields: list[str] | None = Field(None, title='Unseen Fields')
+
+
+class PaneSeriesData(BaseModel):
+    is_unmatched_checked: bool | None = Field(False, title='Is Unmatched Checked')
+    locked_runs: int | None = Field(0, title='Locked Runs')
+    reason: PanePartialReason | None = None
+    rows: list[PaneSeriesLine] | None = Field(None, title='Rows')
+    source: Literal['series'] = Field('series', title='Source')
+    state: PaneSourceState
+    unmatched: list[str] | None = Field(None, title='Unmatched')
 
 
 class PaperCitationsOut(BaseModel):
@@ -8423,7 +11229,7 @@ class PaperLineageIn(BaseModel):
     """
 
     provenance: PaperProvenance | None = None
-    reason: Reason1 | None = Field(None, title='Reason')
+    reason: Reason4 | None = Field(None, title='Reason')
     via: UUID | None = Field(None, title='Via')
 
 
@@ -8448,14 +11254,41 @@ class PickScopeOut(BaseModel):
     type: AppMetricsVocabularyScopeType
 
 
+class PinAnchor(BaseModel):
+    """
+    Where a view lives: the project, or one of its experiments.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    id: UUID = Field(..., title='Id')
+    kind: PinAnchorKind
+
+
+class PointKeyOut(BaseModel):
+    """
+    One key a run logged per sample, in one split.
+    """
+
+    agg: MetricAgg | None = None
+    first_step: int | None = Field(None, title='First Step')
+    last_step: int | None = Field(None, title='Last Step')
+    name: str = Field(..., title='Name')
+    rows: int | None = Field(0, title='Rows')
+    split: SampleSplit
+
+
 class ProjectCreate(BaseModel):
     authored_by: Authorship | None = None
     description: Description1 | None = Field(None, title='Description')
     document: Document | None = Field(None, title='Document')
-    kind: ProjectKind | None = None
+    kind: ProjectKind
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name6 | None = Field(None, title='Name')
+    name: Name8 | None = Field(None, title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    part_of: list[UUID] | None = Field(None, max_length=100, title='Part Of')
+    part_of_reason: PartOfReason | None = Field(None, title='Part Of Reason')
     slug: str = Field(..., title='Slug')
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     tags: list[str] | None = Field(None, title='Tags')
@@ -8500,6 +11333,7 @@ class ProjectNode(BaseModel):
     kind: str | None = Field('general', title='Kind')
     name: str = Field(..., title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    part_of: list[UUID] | None = Field(None, title='Part Of')
     repo: str | None = Field(None, title='Repo')
     slug: str | None = Field(None, title='Slug')
     subproject_count: int | None = Field(0, title='Subproject Count')
@@ -8517,6 +11351,17 @@ class ProjectReadmeOut(BaseModel):
     reason: ReadmeUnavailableReason | None = None
     repo: str | None = Field(None, title='Repo')
     state: ReadmeState
+
+
+class ProjectReferenceCreate(BaseModel):
+    """
+    The other end of the edge. Direction comes from the ROUTE: the project
+    in the path references the one named here.
+    """
+
+    reason: Reason4 | None = Field(None, title='Reason')
+    relation: ReferenceRelation | None = 'references'
+    to_project_id: UUID = Field(..., title='To Project Id')
 
 
 class ProjectReferenceOut(BaseModel):
@@ -8540,6 +11385,8 @@ class ProjectReferenceOut(BaseModel):
     project_slug: str = Field(..., title='Project Slug')
     project_tags: list[str] | None = Field(None, title='Project Tags')
     project_updated_at: AwareDatetime | None = Field(None, title='Project Updated At')
+    reason: str | None = Field(None, title='Reason')
+    relation: str | None = Field('references', title='Relation')
 
 
 class ProjectTablesOut(BaseModel):
@@ -8607,7 +11454,22 @@ class PublicPageResource(BaseModel):
     status: RunStatus | None = None
 
 
+class PublicPaneData(BaseModel):
+    """
+    `PaneData` as a shared page reads it: each samples row without `external_key`.
+    """
+
+    elapsed_ms: int = Field(..., title='Elapsed Ms')
+    entries: dict[
+        str, PaneRunsData | PaneSeriesData | PublicPaneSamplesData | PaneFilesData
+    ] = Field(..., title='Entries')
+    is_live: bool | None = Field(False, title='Is Live')
+    revision: AwareDatetime | None = Field(None, title='Revision')
+    runs: list[PaneRun] = Field(..., title='Runs')
+
+
 class PublicRunDetailOut(BaseModel):
+    alive: bool | None = Field(False, title='Alive')
     config: dict[str, Any] | None = Field(None, title='Config')
     counts: RunCounts | None = None
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -8623,6 +11485,7 @@ class PublicRunDetailOut(BaseModel):
     parent_relation: str | None = Field(None, title='Parent Relation')
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     project_id: UUID | None = Field(None, title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8642,6 +11505,7 @@ class PublicRunLineageNodeOut(BaseModel):
     A redacted run plus its generation relative to the requested run.
     """
 
+    alive: bool | None = Field(False, title='Alive')
     config: dict[str, Any] | None = Field(None, title='Config')
     created_at: AwareDatetime = Field(..., title='Created At')
     depth: int = Field(..., ge=1, title='Depth')
@@ -8658,6 +11522,7 @@ class PublicRunLineageNodeOut(BaseModel):
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     parent_run_ids: list[UUID] | None = Field(None, title='Parent Run Ids')
     project_id: UUID | None = Field(None, title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -8673,6 +11538,7 @@ class PublicRunLineageNodeOut(BaseModel):
 
 
 class PublicRunOut(BaseModel):
+    alive: bool | None = Field(False, title='Alive')
     config: dict[str, Any] | None = Field(None, title='Config')
     created_at: AwareDatetime = Field(..., title='Created At')
     description: str | None = Field(None, title='Description')
@@ -8702,11 +11568,67 @@ class PublicRunOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class PublicScopeAddress(BaseModel):
+    """
+    The project or experiment a run is filed at (an experiment names its project).
+    """
+
+    id: UUID = Field(..., title='Id')
+    kind: str | None = Field(None, title='Kind')
+    name: str | None = Field(None, title='Name')
+    project: PublicScopeParent | None = None
+    slug: str | None = Field(None, title='Slug')
+
+
+class PublicScopeItem(BaseModel):
+    """
+    One dataset, version, checkpoint or source a Data read lists. `producer` is the run
+    that made it (always inside the share); `url` is a source's public link.
+    """
+
+    best: bool | None = Field(None, title='Best')
+    created_at: AwareDatetime | None = Field(None, title='Created At')
+    deleted: bool | None = Field(False, title='Deleted')
+    id: UUID | None = Field(None, title='Id')
+    kind: str | None = Field(None, title='Kind')
+    name: str | None = Field(None, title='Name')
+    producer: PublicScopeRun | None = None
+    project: PublicScopeAddress | None = None
+    ref: str = Field(..., title='Ref')
+    rewound: bool | None = Field(None, title='Rewound')
+    roles: list[str] | None = Field(None, title='Roles')
+    rows: int | None = Field(None, title='Rows')
+    run_count: int | None = Field(None, title='Run Count')
+    run_id: UUID | None = Field(None, title='Run Id')
+    runs: list[PublicScopeRun] | None = Field(None, title='Runs')
+    share: float | None = Field(None, title='Share')
+    size_bytes: int | None = Field(None, title='Size Bytes')
+    step: int | None = Field(None, title='Step')
+    type: str | None = Field(None, title='Type')
+    url: str | None = Field(None, title='Url')
+    version: int | None = Field(None, title='Version')
+
+
+class PublicScopeProduced(BaseModel):
+    checkpoints: list[PublicScopeItem] | None = Field(None, title='Checkpoints')
+    datasets: list[PublicScopeItem] | None = Field(None, title='Datasets')
+
+
 class PullsPage(BaseModel):
     cursor: str | None = Field(None, title='Cursor')
     items: list[PullRow] | None = Field(None, title='Items')
     reason: CodeUnavailableReason | None = None
     state: TimelineState
+
+
+class QuerySQLRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    max_rows: int | None = Field(200, ge=1, le=500, title='Max Rows')
+    source: SQLSource | None = 'postgres'
+    sql: Sql | None = Field(None, title='Sql')
+    tables: Tables | None = Field(None, title='Tables')
 
 
 class ReadPageResponse(BaseModel):
@@ -8715,6 +11637,17 @@ class ReadPageResponse(BaseModel):
     title: str | None = Field(None, title='Title')
     truncated: bool | None = Field(False, title='Truncated')
     url: str = Field(..., title='Url')
+
+
+class RecordingConfig(BaseModel):
+    allowed_modes: list[AllowedMode] = Field(..., title='Allowed Modes')
+    daemon_monthly_budget_usd: float | None = Field(
+        ..., title='Daemon Monthly Budget Usd'
+    )
+    daemon_unavailable_reason: str | None = Field(
+        ..., title='Daemon Unavailable Reason'
+    )
+    plan: Tier | None
 
 
 class ReleasesPage(BaseModel):
@@ -8747,6 +11680,30 @@ class ResolvedMetricOut(BaseModel):
     source: FieldSource = Field(
         ..., description='`human` (a dashboard login) or `agent` (any token).'
     )
+
+
+class Rollup(BaseModel):
+    """
+    How the framework computes the run-level series of one per-sample key (or every key a `*` pattern matches).
+    verl / SkyRL `update_mean`: [update: sum (the weight is the row's share of the update), step: mean]; TRL: [call:
+    mean of each rank's weighted mean, step: mean]; `clip_ratio/low_min`: [micro_batch: min, step: min]. A pass's
+    declared denominator (`UpdateIn.denominators`) replaces sum(weight) where a level groups by update with
+    `weighted_mean`; padding micro-batches (`UpdateIn.padding_micro_batches`) count as 0 where a level takes a mean.
+    """
+
+    approximate: Approximate | None = Field(None, title='Approximate')
+    dtype: Dtype | None = 'fp32'
+    levels: list[RollupLevel] | None = Field(
+        None, max_length=6, min_length=1, title='Levels'
+    )
+    logged_per: Grouping | None = 'step'
+    logging_window: LoggingWindow | None = Field(None, title='Logging Window')
+    role: LossRole | None = 'actor'
+    run_key: str | None = Field(None, title='Run Key')
+    source: RollupSource | None = 'value'
+    split: SampleSplit | None = 'train'
+    term: str | None = Field(None, title='Term')
+    tolerance: Tolerance | None = Field(None, title='Tolerance')
 
 
 class RunCodeOut(BaseModel):
@@ -8782,6 +11739,7 @@ class RunDetailOut(BaseModel):
     run's owning project.
     """
 
+    alive: bool | None = Field(False, title='Alive')
     attached_at: AwareDatetime | None = Field(None, title='Attached At')
     config: dict[str, Any] | None = Field(None, title='Config')
     counts: RunCounts | None = None
@@ -8834,147 +11792,31 @@ class RunDetailOut(BaseModel):
     write_epoch: int | None = Field(1, title='Write Epoch')
 
 
-class FinalMetricOut(BaseModel):
+class RunEditList(BaseModel):
     """
-    A run's final value of one metric (`GET /v1/runs?latest_metrics=`): its last value, extent and last
-    step. A W&B-backed run's snapshot knows only `last`; the rest are null.
-    """
-
-    last: float | None = Field(None, title='Last')
-    last_step: int | None = Field(None, title='Last Step')
-    max: float | None = Field(None, title='Max')
-    min: float | None = Field(None, title='Min')
-
-class RunCountsOut(BaseModel):
-    """
-    `GET /v1/runs/counts`: how many runs the runs list's filter matches, in all and per stored
-    status. A page is one page; this is the whole listing.
+    A run's edits, newest first.
     """
 
-    by_status: dict[str, int] = Field(..., title='By Status')
-    total: int = Field(..., title='Total')
+    edits: list[RunEditOut] | None = Field(None, title='Edits')
 
-class RunListLightOut(BaseModel):
+
+class RunFailure(BaseModel):
     """
-    A `GET /v1/runs?view=light` row: `RunDetailOut` without its heavy fields (config, metadata,
-    notes, description, foreign keys, summary). Keeps `project_id` and `tags`, which the SDK's
-    list guards read off rows. Field meanings: `RunDetailOut`.
+    One failed or crashed run's reason. Every field but `run_id` may be absent.
     """
 
-    attached_at: AwareDatetime | None = Field(None, title='Attached At')
-    created_at: AwareDatetime = Field(..., title='Created At')
-    created_by: str | None = Field(None, title='Created By')
-    ended_at: AwareDatetime | None = Field(None, title='Ended At')
-    experiment_id: UUID | None = Field(..., title='Experiment Id')
-    group_id: UUID | None = Field(None, title='Group Id')
-    id: UUID = Field(..., title='Id')
-    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
-    liveness_mode: str | None = Field(None, title='Liveness Mode')
-    mirror_state: str | None = Field(None, title='Mirror State')
-    name: str = Field(..., title='Name')
-    observer_heartbeat_at: AwareDatetime | None = Field(
-        None, title='Observer Heartbeat At'
-    )
-    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID = Field(..., title='Project Id')
-    run_type: RunType | None = 'general'
-    slug: str | None = Field(None, title='Slug')
-    started_at: AwareDatetime | None = Field(None, title='Started At')
-    status: RunStatus
-    tags: list[str] | None = Field(None, title='Tags')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
+    cause: FailureCause | None = None
+    evidence: FailureEvidence | None = None
+    exception: FailureException | None = None
+    exit_code: int | None = Field(None, title='Exit Code')
+    log_tails: list[FailureLogTail] | None = Field(None, title='Log Tails')
+    missing: list[FailureGap] | None = Field(None, title='Missing')
+    run_id: UUID = Field(..., title='Run Id')
+    status: RunStatus | None = None
 
-class RunListLightRowOut(BaseModel):
-    """
-    A `GET /v1/runs?view=light&latest_metrics=` row.
-    """
 
-    attached_at: AwareDatetime | None = Field(None, title='Attached At')
-    created_at: AwareDatetime = Field(..., title='Created At')
-    created_by: str | None = Field(None, title='Created By')
-    ended_at: AwareDatetime | None = Field(None, title='Ended At')
-    experiment_id: UUID | None = Field(..., title='Experiment Id')
-    group_id: UUID | None = Field(None, title='Group Id')
-    id: UUID = Field(..., title='Id')
-    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
-    latest_metrics: dict[str, FinalMetricOut] | None = Field(
-        None, title='Latest Metrics'
-    )
-    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
-    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
-    liveness_mode: str | None = Field(None, title='Liveness Mode')
-    mirror_state: str | None = Field(None, title='Mirror State')
-    name: str = Field(..., title='Name')
-    observer_heartbeat_at: AwareDatetime | None = Field(
-        None, title='Observer Heartbeat At'
-    )
-    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID = Field(..., title='Project Id')
-    slug: str | None = Field(None, title='Slug')
-    started_at: AwareDatetime | None = Field(None, title='Started At')
-    status: RunStatus
-    tags: list[str] | None = Field(None, title='Tags')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
-
-class RunListRowOut(BaseModel):
-    """
-    A full `GET /v1/runs?latest_metrics=` row.
-    """
-
-    attached_at: AwareDatetime | None = Field(None, title='Attached At')
-    config: dict[str, Any] | None = Field(None, title='Config')
-    counts: RunCounts | None = None
-    created_at: AwareDatetime = Field(..., title='Created At')
-    created_by: str | None = Field(None, title='Created By')
-    customer_id: str = Field(..., title='Customer Id')
-    description: str | None = Field(None, title='Description')
-    description_customized: bool | None = Field(False, title='Description Customized')
-    ended_at: AwareDatetime | None = Field(None, title='Ended At')
-    env_ref: str | None = Field(None, title='Env Ref')
-    experiment_id: UUID | None = Field(..., title='Experiment Id')
-    external_id: str | None = Field(None, title='External Id')
-    foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
-    group_id: UUID | None = Field(None, title='Group Id')
-    id: UUID = Field(..., title='Id')
-    labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
-    labeled_point_count: int | None = Field(0, title='Labeled Point Count')
-    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
-    latest_metrics: dict[str, FinalMetricOut] | None = Field(
-        None, title='Latest Metrics'
-    )
-    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
-    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
-    liveness_mode: str | None = Field(None, title='Liveness Mode')
-    metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    mirror_state: str | None = Field(None, title='Mirror State')
-    name: str = Field(..., title='Name')
-    name_customized: bool | None = Field(False, title='Name Customized')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
-    notes_tokens: int | None = Field(None, title='Notes Tokens')
-    notes_version: int | None = Field(None, title='Notes Version')
-    observer_heartbeat_at: AwareDatetime | None = Field(
-        None, title='Observer Heartbeat At'
-    )
-    parent_relation: ParentRelation | None = None
-    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID = Field(..., title='Project Id')
-    slug: str | None = Field(None, title='Slug')
-    source: str = Field(..., title='Source')
-    started_at: AwareDatetime | None = Field(None, title='Started At')
-    status: RunStatus
-    summary: dict[str, Any] = Field(
-        ...,
-        description='Deprecated alias for `summary_metrics`; drops in the release after next.',
-        title='Summary',
-    )
-    summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
-    tags: list[str] | None = Field(None, title='Tags')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
-    write_epoch: int | None = Field(1, title='Write Epoch')
+class RunFailuresOut(BaseModel):
+    failures: list[RunFailure] = Field(..., title='Failures')
 
 
 class RunInputOut(BaseModel):
@@ -9011,6 +11853,7 @@ class RunLineageNodeOut(BaseModel):
     nullable pseudo-field onto every run surface.
     """
 
+    alive: bool | None = Field(False, title='Alive')
     attached_at: AwareDatetime | None = Field(None, title='Attached At')
     config: dict[str, Any] | None = Field(None, title='Config')
     counts: RunCounts | None = None
@@ -9049,6 +11892,137 @@ class RunLineageNodeOut(BaseModel):
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
     parent_run_ids: list[UUID] | None = Field(None, title='Parent Run Ids')
     project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
+    slug: str | None = Field(None, title='Slug')
+    source: str = Field(..., title='Source')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    summary: dict[str, Any] = Field(
+        ...,
+        description='Deprecated alias for `summary_metrics`; drops in the release after next.',
+        title='Summary',
+    )
+    summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    write_epoch: int | None = Field(1, title='Write Epoch')
+
+
+class RunListLightOut(BaseModel):
+    """
+    A `GET /v1/runs?view=light` row: `RunDetailOut` without its heavy fields (config, metadata,
+    notes, description, foreign keys, summary). Keeps `project_id` and `tags`, which the SDK's
+    list guards read off rows. Field meanings: `RunDetailOut`.
+    """
+
+    alive: bool | None = Field(False, title='Alive')
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
+    slug: str | None = Field(None, title='Slug')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class RunListLightRowOut(BaseModel):
+    """
+    A `GET /v1/runs?view=light&latest_metrics=` row.
+    """
+
+    alive: bool | None = Field(False, title='Alive')
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    latest_metrics: dict[str, FinalMetricOut] | None = Field(
+        None, title='Latest Metrics'
+    )
+    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
+    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
+    slug: str | None = Field(None, title='Slug')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class RunListRowOut(BaseModel):
+    """
+    A full `GET /v1/runs?latest_metrics=` row.
+    """
+
+    alive: bool | None = Field(False, title='Alive')
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    config: dict[str, Any] | None = Field(None, title='Config')
+    counts: RunCounts | None = None
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    customer_id: str = Field(..., title='Customer Id')
+    description: str | None = Field(None, title='Description')
+    description_customized: bool | None = Field(False, title='Description Customized')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    env_ref: str | None = Field(None, title='Env Ref')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    external_id: str | None = Field(None, title='External Id')
+    foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
+    labeled_point_count: int | None = Field(0, title='Labeled Point Count')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    latest_metrics: dict[str, FinalMetricOut] | None = Field(
+        None, title='Latest Metrics'
+    )
+    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
+    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    metadata: dict[str, Any] | None = Field(None, title='Metadata')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    name_customized: bool | None = Field(False, title='Name Customized')
+    notes: str | None = Field(None, title='Notes')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
+    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
+    notes_version: int | None = Field(None, title='Notes Version')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_relation: ParentRelation | None = None
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    run_type: RunType | None = 'general'
     slug: str | None = Field(None, title='Slug')
     source: str = Field(..., title='Source')
     started_at: AwareDatetime | None = Field(None, title='Started At')
@@ -9092,77 +12066,19 @@ class RunOut(BaseModel):
     tags: list[str] | None = Field(None, title='Tags')
 
 
-class RunPageDetailOut(BaseModel):
-    """
-    The id-addressed run read plus its display containment path.
-
-    ``RunDetailOut`` also backs bounded lists and unbounded genealogy reads, so
-    adding a recursive project path there would repeat detail-only data across
-    every row. The one-run GET can carry it without that amplification.
-    """
-
-    attached_at: AwareDatetime | None = Field(None, title='Attached At')
-    config: dict[str, Any] | None = Field(None, title='Config')
-    counts: RunCounts | None = None
-    created_at: AwareDatetime = Field(..., title='Created At')
-    created_by: str | None = Field(None, title='Created By')
-    customer_id: str = Field(..., title='Customer Id')
-    description: str | None = Field(None, title='Description')
-    description_customized: bool | None = Field(False, title='Description Customized')
-    ended_at: AwareDatetime | None = Field(None, title='Ended At')
-    env_ref: str | None = Field(None, title='Env Ref')
-    experiment_id: UUID | None = Field(..., title='Experiment Id')
-    external_id: str | None = Field(None, title='External Id')
-    foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
-    group_id: UUID | None = Field(None, title='Group Id')
-    hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
-    id: UUID = Field(..., title='Id')
-    labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
-    labeled_point_count: int | None = Field(0, title='Labeled Point Count')
-    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
-    liveness_mode: str | None = Field(None, title='Liveness Mode')
-    metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    mirror_state: str | None = Field(None, title='Mirror State')
-    name: str = Field(..., title='Name')
-    name_customized: bool | None = Field(False, title='Name Customized')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
-    notes_tokens: int | None = Field(None, title='Notes Tokens')
-    notes_version: int | None = Field(None, title='Notes Version')
-    observer_heartbeat_at: AwareDatetime | None = Field(
-        None, title='Observer Heartbeat At'
-    )
-    parent_relation: ParentRelation | None = None
-    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
-    project_id: UUID = Field(..., title='Project Id')
-    repo: str | None = Field(None, title='Repo')
-    slug: str | None = Field(None, title='Slug')
-    source: str = Field(..., title='Source')
-    started_at: AwareDatetime | None = Field(None, title='Started At')
-    status: RunStatus
-    summary: dict[str, Any] = Field(
-        ...,
-        description='Deprecated alias for `summary_metrics`; drops in the release after next.',
-        title='Summary',
-    )
-    summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
-    tags: list[str] | None = Field(None, title='Tags')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
-    write_epoch: int | None = Field(1, title='Write Epoch')
-
-
 class RunPatch(BaseModel):
     authored_by: Authorship | None = None
     base_version: int | None = Field(None, title='Base Version')
     config: Any | None = Field(None, title='Config')
+    config_if_absent_or_equal: dict[str, dict[str, Any]] | None = Field(
+        None, title='Config If Absent Or Equal'
+    )
     config_merge: dict[str, Any] | None = Field(None, title='Config Merge')
     description: str | None = Field(None, title='Description')
     document: str | None = Field(None, title='Document')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     env_ref: str | None = Field(None, title='Env Ref')
+    expected_name: ExpectedName | None = Field(None, title='Expected Name')
     experiment_id: UUID | None = Field(
         None,
         description='Move (file) the run into this experiment, by its uuid: the run lands in the experiment, under the project the experiment is filed in. Not together with project_id (422); null is refused (to take a run out of its experiment, send the project as project_id). group_id, when sent, must be a group of this experiment.',
@@ -9175,7 +12091,7 @@ class RunPatch(BaseModel):
     metric_expectations: dict[str, MetricExpectation | None] | None = Field(
         None, title='Metric Expectations'
     )
-    name: Name10 | None = Field(None, title='Name')
+    name: Name12 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
@@ -9193,6 +12109,23 @@ class RunPatch(BaseModel):
     summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
     tags: list[str] | None = Field(None, title='Tags')
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
+
+
+class RunRefusalOut(BaseModel):
+    """
+    One late refusal on a run (I15d): what the ingest queue's apply refused for one write epoch
+    (None: the batches carried none) and kind, and the server's sentence for it (the server-messages
+    registry, so staff may reword it). `detail` is the last refusal's, as an old client got it.
+    """
+
+    detail: Any | None = Field(None, title='Detail')
+    first_at: AwareDatetime | None = Field(None, title='First At')
+    kind: str = Field(..., title='Kind')
+    last_at: AwareDatetime | None = Field(None, title='Last At')
+    message: ClientMessage
+    messages: int = Field(..., title='Messages')
+    points: int = Field(..., title='Points')
+    write_epoch: int | None = Field(None, title='Write Epoch')
 
 
 class RunReopenReceipt(BaseModel):
@@ -9226,6 +12159,7 @@ class RunReopenReceipt(BaseModel):
 
     deleted_points: int | None = Field(None, title='Deleted Points')
     deleted_spans: int | None = Field(None, title='Deleted Spans')
+    edit_id: UUID | None = Field(None, title='Edit Id')
     last_step: int | None = Field(None, title='Last Step')
     rewound_to: int | None = Field(None, title='Rewound To')
     run: RunDetailOut
@@ -9260,6 +12194,167 @@ class RunUpstreamOut(BaseModel):
     truncated: bool = Field(..., title='Truncated')
 
 
+class SampleEvent(BaseModel):
+    at: AwareDatetime = Field(..., title='At')
+    detail: Detail | None = Field(None, title='Detail')
+    kind: SampleEventKind
+    turn: Turn | None = Field(None, title='Turn')
+    weight_version: WeightVersion | None = Field(None, title='Weight Version')
+
+
+class SampleHardware(BaseModel):
+    points: list[SampleHardwarePoint] | None = Field(None, title='Points')
+    run_id: UUID = Field(..., title='Run Id')
+    sample_id: UUID = Field(..., title='Sample Id')
+    truncated: bool | None = Field(False, title='Truncated')
+    unsupported: GpuUnsupported | None = None
+
+
+class SampleLog(BaseModel):
+    artifact_ids: list[UUID] | None = Field(None, title='Artifact Ids')
+    files: list[TrialFile] | None = Field(None, title='Files')
+    is_cut: bool | None = Field(False, title='Is Cut')
+    sample_id: UUID = Field(..., title='Sample Id')
+    source: LogSource
+    text: str | None = Field('', title='Text')
+
+
+class SampleMetricsIn(BaseModel):
+    """
+    One sample occurrence's metrics at one step: like one `run.log` call for one sample.
+
+    Identity: (`key`, `step`, `update` or `eval_pass`, `split`, `role`, `rank`, `micro_batch`, `occurrence`,
+    `fragment`).
+    `micro_batch` is the call ordinal every process shares within an update (or eval pass). `occurrence` numbers
+    repeats of one key in one micro-batch in batch order (the same on a replay), so two genuine uses never collapse.
+    A sample split over context- or sequence-parallel ranks sends `fragments_expected` fragments: an additive value
+    and its weight sum across fragments into the occurrence before any aggregate (each fragment sends its own mean
+    and its own tokens); a non-additive value is sent by fragment 0 only. Inside an update (`update` set) the row is
+    train; an eval pass is `split` eval with its `eval_pass` id and no update; either may carry the loss bookkeeping.
+    A consumed row with no trained token is valid: `token_count` 0, `contribution` 0 and no metric values.
+    """
+
+    agg: dict[str, MetricAgg] | None = Field(None, title='Agg')
+    contribution: float | None = Field(None, title='Contribution')
+    contribution_source: ContributionSource | None = None
+    contribution_terms: dict[str, float] | None = Field(
+        None, title='Contribution Terms'
+    )
+    eval_pass: EvalPass | None = Field(None, title='Eval Pass')
+    fragment: int | None = Field(0, ge=0, title='Fragment')
+    fragments_expected: int | None = Field(1, ge=1, title='Fragments Expected')
+    key: str = Field(..., max_length=512, min_length=1, title='Key')
+    loss_sum: float | None = Field(None, title='Loss Sum')
+    mask_sha256: str | None = Field(None, title='Mask Sha256')
+    metrics: dict[str, float | PointValue] | None = Field(
+        None, max_length=256, title='Metrics'
+    )
+    micro_batch: MicroBatch | None = Field(None, title='Micro Batch')
+    normalizer: float | None = Field(None, title='Normalizer')
+    occurrence: int | None = Field(0, ge=0, title='Occurrence')
+    optimizer_step: OptimizerStep | None = Field(None, title='Optimizer Step')
+    rank: int | None = Field(0, ge=0, title='Rank')
+    role: LossRole | None = 'actor'
+    scale: float | None = Field(None, title='Scale')
+    split: SampleSplit | None = 'train'
+    step: int = Field(..., ge=0, title='Step')
+    token_count: TokenCount | None = Field(None, title='Token Count')
+    update: Update | None = Field(None, title='Update')
+    weights_version: WeightsVersion | None = Field(None, title='Weights Version')
+
+
+class SamplePoint(BaseModel):
+    """
+    One stored point of one sample (its first delivery).
+    """
+
+    fragment: int | None = Field(0, title='Fragment')
+    micro_batch: int | None = Field(None, title='Micro Batch')
+    name: str = Field(..., title='Name')
+    occurrence: int | None = Field(0, title='Occurrence')
+    producer: str = Field(..., title='Producer')
+    rank: int | None = Field(0, title='Rank')
+    role: LossRole | None = 'actor'
+    split: SampleSplit
+    step: int = Field(..., title='Step')
+    update: int | None = Field(None, title='Update')
+    value: float = Field(..., title='Value')
+    weight: float = Field(..., title='Weight')
+
+
+class SamplePoints(BaseModel):
+    """
+    `GET /v1/samples/{id}/points[?key=]`.
+    """
+
+    conflicts: int | None = Field(0, title='Conflicts')
+    is_available: bool = Field(..., title='Is Available')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    key: str | None = Field(None, title='Key')
+    points: list[SamplePoint] | None = Field(None, title='Points')
+    reason: PointsUnavailable | None = None
+    run_id: UUID = Field(..., title='Run Id')
+    sample_id: UUID = Field(..., title='Sample Id')
+    steps: list[SampleStep] | None = Field(None, title='Steps')
+    why: str | None = Field(None, title='Why')
+
+
+class SampleStats(BaseModel):
+    by: list[str] | None = Field(None, title='By')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    measures: list[str] | None = Field(None, title='Measures')
+    rows: list[StatsRow] | None = Field(None, title='Rows')
+    run_ids: list[UUID] | None = Field(None, title='Run Ids')
+
+
+class SampleSummary(BaseModel):
+    """
+    A list row: the response cut to 4 KiB.
+    """
+
+    attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
+    consumed_step: ConsumedStep | None = Field(None, title='Consumed Step')
+    consumed_until_step: ConsumedUntilStep | None = Field(
+        None, title='Consumed Until Step'
+    )
+    consumed_version: ConsumedVersion | None = Field(None, title='Consumed Version')
+    drop_reason: str | None = Field(None, title='Drop Reason')
+    duration_s: DurationS | None = Field(None, title='Duration S')
+    engine: Engine | None = Field(None, title='Engine')
+    error_message: ErrorMessage | None = Field(None, title='Error Message')
+    error_reason: SampleErrorReason | None = None
+    finish_reason: FinishReason1 | None = None
+    generated_by: list[Generation] | None = Field(None, title='Generated By')
+    group_key: GroupKey | None = Field(None, title='Group Key')
+    host: Host4 | None = Field(None, title='Host')
+    id: UUID = Field(..., title='Id')
+    is_over_limit: bool | None = Field(False, title='Is Over Limit')
+    is_response_cut: bool | None = Field(False, title='Is Response Cut')
+    is_rewound: bool | None = Field(False, title='Is Rewound')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    normalized_reward: float | None = Field(None, title='Normalized Reward')
+    outcome: SampleOutcome | None = 'generated'
+    response: str | None = Field(None, title='Response')
+    response_tokens: ResponseTokens | None = Field(None, title='Response Tokens')
+    result: SampleResult | None = None
+    reward: float | None = Field(None, title='Reward')
+    reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
+    run_id: UUID = Field(..., title='Run Id')
+    sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    scheduled_step: ScheduledStep | None = Field(None, title='Scheduled Step')
+    split: SampleSplit | None = 'train'
+    staleness_max: int | None = Field(None, title='Staleness Max')
+    staleness_min: int | None = Field(None, title='Staleness Min')
+    step: int | None = Field(None, title='Step')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., max_length=512, min_length=1, title='Task Key')
+    worker: Worker | None = Field(None, title='Worker')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
 class SandboxDiffEntry(BaseModel):
     """
     One changed (or, when include_unchanged, unchanged) path in the diff.
@@ -9270,7 +12365,7 @@ class SandboxDiffEntry(BaseModel):
     has_begin_content: bool | None = Field(False, title='Has Begin Content')
     has_content: bool | None = Field(False, title='Has Content')
     path: str = Field(..., title='Path')
-    status: Status3 = Field(..., title='Status')
+    status: Status4 = Field(..., title='Status')
     symlink_target: str | None = Field(None, title='Symlink Target')
     type: str = Field(..., title='Type')
 
@@ -9304,6 +12399,19 @@ class ScopeOptionOut(BaseModel):
     state: WandbSourceState | None = None
 
 
+class Scorer(BaseModel):
+    """
+    Who graded an attempt. `name` is the key regrades replace by (Harbor: the verifier's import path).
+    """
+
+    kind: ScorerKind
+    model: PolicyRef | RunRef | CheckpointRef | ExternalRef | None = Field(
+        None, title='Model'
+    )
+    name: str = Field(..., max_length=256, min_length=1, title='Name')
+    version: Version1 | None = Field(None, title='Version')
+
+
 class SearchRequest(BaseModel):
     corpus: list[IndexCorpus] | None = Field(None, title='Corpus')
     curated_only: bool | None = Field(False, title='Curated Only')
@@ -9312,12 +12420,16 @@ class SearchRequest(BaseModel):
     exclude_agent_session: str | None = Field(None, title='Exclude Agent Session')
     exclude_origin_session: str | None = Field(None, title='Exclude Origin Session')
     include_semantic: bool | None = Field(True, title='Include Semantic')
+    owner: Owner | None = Field(None, title='Owner')
     project_id: UUID | None = Field(None, title='Project Id')
     query: str = Field(..., max_length=500, min_length=1, title='Query')
     retrieval: SearchRetrieval | None = 'agentic'
     semantic_cursor: str | None = Field(None, title='Semantic Cursor')
+    since: Since | None = Field(None, title='Since')
+    sort: SearchSort | None = 'relevance'
     top_k: int | None = Field(20, ge=1, le=50, title='Top K')
     turn_id: UUID | None = Field(None, title='Turn Id')
+    until: Until | None = Field(None, title='Until')
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
@@ -9338,20 +12450,12 @@ class Series(RootModel[list[SeriesSelector]]):
     root: list[SeriesSelector] = Field(..., max_length=10000, title='Series')
 
 
-class SeriesCatalogReceipt(BaseModel):
-    """
-    One catalog mutation digest from the points database, before any scan.
-    """
-
-    data_revision: str = Field(..., title='Data Revision')
-    run_id: UUID = Field(..., title='Run Id')
-
-
 class SeriesQueryRequest(BaseModel):
     """
     Multi-run, multi-series read for the run page AND N-run comparison (D9).
     """
 
+    include_hidden: bool | None = Field(False, title='Include Hidden')
     include_read_catalog: bool | None = Field(False, title='Include Read Catalog')
     keys: Keys1 | None = Field(None, title='Keys')
     max_points: MaxPoints1 | None = Field(None, title='Max Points')
@@ -9372,6 +12476,7 @@ class SeriesQueryRequest(BaseModel):
 
 
 class SeriesQueryResult(BaseModel):
+    edit_applying: list[UUID] | None = Field(None, title='Edit Applying')
     errors: list[MetricSeriesReadError] | None = Field(None, title='Errors')
     read_catalog: list[SeriesCatalogReceipt] | None = Field(None, title='Read Catalog')
     series: list[SeriesResult] = Field(..., title='Series')
@@ -9391,6 +12496,16 @@ class SessionMessagesOut(BaseModel):
     revoked: list[UUID] | None = Field([], title='Revoked')
 
 
+class SessionWorkItem(BaseModel):
+    """
+    One project, experiment or run the session touched.
+    """
+
+    id: UUID = Field(..., title='Id')
+    kind: WorkKind
+    name: str | None = Field(None, title='Name')
+
+
 class SourceIn(BaseModel):
     """
     `POST /v1/sources`.
@@ -9403,19 +12518,27 @@ class SourceIn(BaseModel):
     license: License | None = Field(None, title='License')
     retrieved_at: AwareDatetime | None = Field(None, title='Retrieved At')
     revision: Revision | None = Field(None, title='Revision')
-    title: Title2 | None = Field(None, title='Title')
+    title: Title3 | None = Field(None, title='Title')
     uri: str = Field(..., max_length=2048, min_length=1, title='Uri')
 
 
 class SourceListOut(BaseModel):
     items: list[SourceOut] = Field(..., title='Items')
     next_cursor: str | None = Field(None, title='Next Cursor')
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
+    query_note: str | None = Field(None, title='Query Note')
+    unowned_count: int | None = Field(None, title='Unowned Count')
 
 
 class SpanBatch(BaseModel):
     session_id: UUID | None = Field(None, title='Session Id')
     spans: list[SpanCreate] = Field(..., max_length=10000, title='Spans')
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
+
+
+class StageOut(BaseModel):
+    id: ExampleStage
+    state: StageState
 
 
 class StandingOut(BaseModel):
@@ -9480,8 +12603,150 @@ class SyncOut(BaseModel):
 
 class SystemMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name13 | None = Field(None, title='Name')
+    name: Name15 | None = Field(None, title='Name')
     role: Literal['developer', 'system'] = Field(..., title='Role')
+
+
+class TaskDetail(BaseModel):
+    """
+    What the task is: key, full prompt, scenario, dataset row, label, plus its totals.
+    """
+
+    dataset: DatasetRow | None = None
+    description: Description3 | None = Field(None, title='Description')
+    label: Any = None
+    name: Name16 | None = Field(None, title='Name')
+    prompt: str | None = Field(None, title='Prompt')
+    prompt_blob: BlobRef | None = None
+    reward_max: float | None = Field(None, title='Reward Max')
+    run_id: UUID | None = Field(None, title='Run Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., max_length=512, min_length=1, title='Task Key')
+    totals: TaskTotals | None = None
+
+
+class TaskSummary(BaseModel):
+    """
+    A `GET /v1/runs/{id}/tasks` row, to pick one.
+    """
+
+    dataset: DatasetRow | None = None
+    name: Name16 | None = Field(None, title='Name')
+    run_id: UUID | None = Field(None, title='Run Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., max_length=512, min_length=1, title='Task Key')
+    totals: TaskTotals | None = None
+
+
+class TraceBatch(BaseModel):
+    """
+    Raw spans of one or more traces. A trace is one agent call and becomes one trial.
+    """
+
+    source: TraceSourceName
+    source_version: SourceVersion | None = Field(None, title='Source Version')
+    spans: list[dict[str, Any]] = Field(..., title='Spans')
+
+
+class TrainerCheck(BaseModel):
+    """
+    A per-sample key rolled up the declared way, against the run's own logged series of the same step (a rollup
+    logged per update: one check per update, at the step its series has there).
+    """
+
+    approximate: str | None = Field(None, title='Approximate')
+    is_within: bool | None = Field(None, title='Is Within')
+    key: str = Field(..., title='Key')
+    logged: float | None = Field(None, title='Logged')
+    logged_step: int | None = Field(None, title='Logged Step')
+    rebuilt: float | None = Field(None, title='Rebuilt')
+    residual: float | None = Field(None, title='Residual')
+    rollup: Rollup
+    run_key: str = Field(..., title='Run Key')
+    tolerance: float | None = Field(1e-05, title='Tolerance')
+    unchecked_reason: str | None = Field(None, title='Unchecked Reason')
+    update: int | None = Field(None, title='Update')
+
+
+class TrainingPlan(BaseModel):
+    """
+    One producer's declaration, replaced whole each time it is sent.
+    """
+
+    rollups: dict[str, Rollup] | None = Field(None, max_length=256, title='Rollups')
+    sends_loss_bookkeeping: bool | None = Field(False, title='Sends Loss Bookkeeping')
+    unsupported: dict[constr(min_length=1, max_length=128), Unsupported] | None = Field(
+        None, max_length=64, title='Unsupported'
+    )
+
+
+class TurnModel(BaseModel):
+    messages: list[Message] | None = Field(None, title='Messages')
+    reward: float | None = Field(None, title='Reward')
+    tool_calls: list[TurnToolCall] | None = Field(None, title='Tool Calls')
+
+
+class UpdateIn(BaseModel):
+    """
+    One level of one optimizer update (train: `update` set) or eval pass (`split` eval, `eval_pass` set, no update)
+    of a step. lr, gradient norm and anything else the update has go in `metrics` (never copied onto samples);
+    `batch_terms` are the loss terms no sample owns (a KL to a reference batch, an auxiliary loss).
+    """
+
+    applied: bool | None = Field(None, title='Applied')
+    batch_terms: dict[str, float] | None = Field(None, title='Batch Terms')
+    denominators: dict[str, float] | None = Field(None, title='Denominators')
+    dtype: Dtype | None = None
+    eval_pass: EvalPass | None = Field(None, title='Eval Pass')
+    level: UpdateLevel
+    metrics: dict[str, float] | None = Field(None, title='Metrics')
+    micro_batch: MicroBatch | None = Field(None, title='Micro Batch')
+    micro_batches_expected: MicroBatchesExpected | None = Field(
+        None, title='Micro Batches Expected'
+    )
+    normalizer: float | None = Field(None, title='Normalizer')
+    optimizer_step: OptimizerStep | None = Field(None, title='Optimizer Step')
+    padding_micro_batches: PaddingMicroBatches | None = Field(
+        None, title='Padding Micro Batches'
+    )
+    padding_rows: PaddingRows | None = Field(None, title='Padding Rows')
+    rank: int | None = Field(0, ge=0, title='Rank')
+    ranks_expected: RanksExpected | None = Field(None, title='Ranks Expected')
+    reduction: Reduction | None = Field(None, title='Reduction')
+    reported_loss: float | None = Field(None, title='Reported Loss')
+    role: LossRole | None = 'actor'
+    rows: Rows1 | None = Field(None, title='Rows')
+    rows_expected: RowsExpected | None = Field(None, title='Rows Expected')
+    scale: float | None = Field(None, title='Scale')
+    skipped_reason: SkippedReason | None = Field(None, title='Skipped Reason')
+    split: SampleSplit | None = 'train'
+    step: int = Field(..., ge=0, title='Step')
+    update: Update | None = Field(None, title='Update')
+    updates_in_step: UpdatesInStep | None = Field(None, title='Updates In Step')
+    weights_version: WeightsVersion | None = Field(None, title='Weights Version')
+
+
+class UseIn(BaseModel):
+    """
+    Either ONE use `{target | source, roles, share?}` or ONE mixture
+    `{mixture: [{target, share}], role}`.
+    """
+
+    evidence: Evidence1 | None = Field(None, title='Evidence')
+    mixture: Mixture | None = Field(None, title='Mixture')
+    provenance: PaperProvenance | None = None
+    reason: Reason4 | None = Field(None, title='Reason')
+    role: str | None = Field(None, title='Role')
+    roles: list[str] | None = Field(None, title='Roles')
+    share: float | None = Field(None, title='Share')
+    source: UseSource | None = None
+    target: Target | None = Field(None, title='Target')
 
 
 class UseOut(BaseModel):
@@ -9499,14 +12764,14 @@ class WandbAccountConnect(BaseModel):
         extra='forbid',
     )
     credentials: WandbAccountCredentials
-    name: Name16 | None = Field(None, title='Name')
+    name: Name21 | None = Field(None, title='Name')
 
 
-class WandbBatchOut(BaseModel):
-    finished: bool | None = Field(False, title='Finished')
-    holds_credential: bool | None = Field(True, title='Holds Credential')
-    id: UUID = Field(..., title='Id')
-    units: list[ImportUnitOut] | None = Field(None, title='Units')
+class WandbRunClaimOut(BaseModel):
+    outcome: ClaimOutcome
+    reads_from_wandb: bool | None = Field(False, title='Reads From Wandb')
+    representation: Representation | None = None
+    run: RunDetailOut
 
 
 class WandbSourceOut(BaseModel):
@@ -9514,6 +12779,9 @@ class WandbSourceOut(BaseModel):
         extra='forbid',
     )
     connection_id: UUID = Field(..., title='Connection Id')
+    copied_runs: int | None = Field(0, title='Copied Runs')
+    copy_authorized_at: AwareDatetime | None = Field(None, title='Copy Authorized At')
+    copying_runs: int | None = Field(0, title='Copying Runs')
     experiment_id: UUID | None = Field(None, title='Experiment Id')
     external_id: str = Field(..., title='External Id')
     features: list[str] | None = Field(None, title='Features')
@@ -9536,6 +12804,10 @@ class WebSearchResponse(BaseModel):
     state: WebState
 
 
+class WeightList(BaseModel):
+    weights: list[WeightVersionOut] | None = Field(None, title='Weights')
+
+
 class WorkspaceOut(BaseModel):
     """
     One dropdown entry: the dashboard's workspace switcher builds on this.
@@ -9548,6 +12820,7 @@ class WorkspaceOut(BaseModel):
         title='Created By',
     )
     customer_id: str = Field(..., title='Customer Id')
+    home_eligible: bool | None = Field(False, title='Home Eligible')
     id: UUID = Field(..., title='Id')
     is_default: bool | None = Field(False, title='Is Default')
     kind: WorkspaceKind
@@ -9596,12 +12869,15 @@ class WriterBeat(BaseModel):
     """
 
     attached: bool | None = Field(False, title='Attached')
+    capabilities: RunCapabilities | None = None
+    delivery: DeliveryBacklog | None = None
     draining_for_seconds: DrainingForSeconds | None = Field(
         None, title='Draining For Seconds'
     )
-    host: Host | None = Field(None, title='Host')
+    host: Host7 | None = Field(None, title='Host')
     interactive: bool | None = Field(False, title='Interactive')
     interval_seconds: float | None = Field(60.0, gt=0.0, title='Interval Seconds')
+    launch_id: UUID | None = Field(None, title='Launch Id')
     local_rank: LocalRank | None = Field(None, title='Local Rank')
     pid: Pid | None = Field(None, title='Pid')
     progress: Progress | None = Field(None, title='Progress')
@@ -9615,11 +12891,10 @@ class WriterBeat(BaseModel):
         None, title='Progress Longest Gap Seconds'
     )
     rank: Rank | None = Field(None, title='Rank')
-    role: WriterRole
+    role: WriterRoleModel
     session_id: UUID | None = Field(None, title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
     write_epoch: int = Field(..., ge=1, title='Write Epoch')
-    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterLeaseFields(BaseModel):
@@ -9627,16 +12902,16 @@ class WriterLeaseFields(BaseModel):
     The lease fields on a route whose path names the session.
     """
 
-    host: Host | None = Field(None, title='Host')
+    host: Host7 | None = Field(None, title='Host')
     interactive: bool | None = Field(False, title='Interactive')
     interval_seconds: float | None = Field(60.0, gt=0.0, title='Interval Seconds')
+    launch_id: UUID | None = Field(None, title='Launch Id')
     local_rank: LocalRank | None = Field(None, title='Local Rank')
     pid: Pid | None = Field(None, title='Pid')
     rank: Rank | None = Field(None, title='Rank')
-    role: WriterRole
+    role: WriterRoleModel
     session_id: UUID | None = Field(None, title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
-    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterLeaseIn(BaseModel):
@@ -9645,16 +12920,16 @@ class WriterLeaseIn(BaseModel):
     writer (so a `leases` run never has zero leases) and on every beat.
     """
 
-    host: Host | None = Field(None, title='Host')
+    host: Host7 | None = Field(None, title='Host')
     interactive: bool | None = Field(False, title='Interactive')
     interval_seconds: float | None = Field(60.0, gt=0.0, title='Interval Seconds')
+    launch_id: UUID | None = Field(None, title='Launch Id')
     local_rank: LocalRank | None = Field(None, title='Local Rank')
     pid: Pid | None = Field(None, title='Pid')
     rank: Rank | None = Field(None, title='Rank')
-    role: WriterRole
+    role: WriterRoleModel
     session_id: UUID = Field(..., title='Session Id')
     world_size: WorldSize | None = Field(None, title='World Size')
-    launch_id: UUID | None = Field(None, title='Launch Id')
 
 
 class WriterRelease(BaseModel):
@@ -9698,23 +12973,6 @@ class AppExperimentsReadSchemasScopeOut(BaseModel):
     )
 
 
-class DocsOut(BaseModel):
-    sections: list[DocsSectionOut] = Field(..., title='Sections')
-    state: DocsState = Field(
-        ...,
-        description='`ok`: a current copy. `stale`: the last good copy, because docs.prbe.ai could not be read. `unavailable`: no copy has loaded yet; `sections` is empty.',
-    )
-
-
-class UploadManyResponse(BaseModel):
-    items: list[UploadManyItem] = Field(..., title='Items')
-    run_id: UUID = Field(..., title='Run Id')
-
-
-class ConfirmManyResponse(BaseModel):
-    items: list[ConfirmManyItem] = Field(..., title='Items')
-
-
 class AccessGroupNode(BaseModel):
     """
     A workspace or project whose whitelist names an access group.
@@ -9739,6 +12997,22 @@ class ArtifactLineageOut(BaseModel):
 class BackfillHistoryOut(BaseModel):
     jobs: list[BackfillJobOut] = Field(..., title='Jobs')
     next_cursor: str | None = Field(None, title='Next Cursor')
+
+
+class BestCheckpoint(BaseModel):
+    """
+    `GET /v1/runs/{id}/checkpoints/best`: the checkpoint whose step's value of a NAMED metric is best.
+    """
+
+    checkpoint_artifact_id: UUID = Field(..., title='Checkpoint Artifact Id')
+    lineage: CheckpointLineage | None = None
+    metric: str = Field(..., title='Metric')
+    mode: MetricMode | None = 'max'
+    name: str = Field(..., title='Name')
+    run_id: UUID = Field(..., title='Run Id')
+    step: int = Field(..., title='Step')
+    uri: str | None = Field(None, title='Uri')
+    value: float = Field(..., title='Value')
 
 
 class BestPickOut(BaseModel):
@@ -9866,11 +13140,14 @@ class BrowseResponse(BaseModel):
     origin_exclusion_applied: bool | None = Field(
         False, title='Origin Exclusion Applied'
     )
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
     projects: list[ProjectNode] | None = Field(None, title='Projects')
+    query_note: str | None = Field(None, title='Query Note')
     runs: list[RunNode] | None = Field(None, title='Runs')
     subprojects: list[ProjectNode] | None = Field(None, title='Subprojects')
     team_note: TeamNoteExcerpt | None = None
     truncated: bool | None = Field(False, title='Truncated')
+    unowned_count: int | None = Field(None, title='Unowned Count')
 
 
 class CanvasBestOut(BaseModel):
@@ -9905,6 +13182,28 @@ class CanvasEffortOut(BaseModel):
         ...,
         description='The server ran out of time: experiments missing from `experiments` are unknown.',
         title='Partial',
+    )
+
+
+class CapabilityRegistrationOut(BaseModel):
+    capabilities: ClientCapabilitiesOut
+    installation_id: UUID = Field(..., title='Installation Id')
+
+
+class Capture(BaseModel):
+    """
+    Question 5: yes or no, never unknown. Read on the surviving lineage (rewound rows left out).
+    """
+
+    complete_through_step: int | None = Field(None, title='Complete Through Step')
+    final_step: int | None = Field(None, title='Final Step')
+    is_complete: bool = Field(..., title='Is Complete')
+    is_final_step_observed: bool | None = Field(False, title='Is Final Step Observed')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    reasons: list[CaptureReason] | None = Field(None, title='Reasons')
+    run_id: UUID = Field(..., title='Run Id')
+    unsupported: dict[str, dict[CaptureField, Unsupported]] | None = Field(
+        None, title='Unsupported'
     )
 
 
@@ -9994,6 +13293,49 @@ class ClientInstallationsOut(BaseModel):
     )
 
 
+class CommandList(BaseModel):
+    """
+    `GET /v1/runs/{id}/commands?after=`: who asked for what, and what happened, by `seq`.
+    """
+
+    accepts: list[str] | None = Field(None, title='Accepts')
+    commands: list[CommandOut] | None = Field(None, title='Commands')
+    next_after: int | None = Field(None, title='Next After')
+    run_status: RunStatus | None = None
+    seq: int | None = Field(0, title='Seq')
+    writer: CommandWriter | None = None
+    writer_role: WriterRole | None = Field(None, title='Writer Role')
+    writer_seen_at: AwareDatetime | None = Field(None, title='Writer Seen At')
+
+
+class CompareColumn(BaseModel):
+    """
+    One `--at`: a run at a step, a weight version or a checkpoint, and the task's samples there.
+    """
+
+    at: str = Field(..., title='At')
+    checkpoint_artifact_id: UUID | None = Field(None, title='Checkpoint Artifact Id')
+    run_id: UUID = Field(..., title='Run Id')
+    samples: list[SampleSummary] | None = Field(None, title='Samples')
+    split: SampleSplit | None = None
+    step: int | None = Field(None, title='Step')
+    version: int | None = Field(None, title='Version')
+
+
+class DesktopProfile(BaseModel):
+    groups: list[DesktopGroup] = Field(..., max_length=100, title='Groups')
+    groups_total: int = Field(..., ge=0, title='Groups Total')
+    groups_truncated: bool = Field(..., title='Groups Truncated')
+    members: list[DesktopMember] = Field(..., max_length=200, title='Members')
+    members_total: int = Field(..., ge=0, title='Members Total')
+    members_truncated: bool = Field(..., title='Members Truncated')
+    onboarding_step: OnboardingStep
+    recording: RecordingConfig
+    schema_version: Literal[1] = Field(1, title='Schema Version')
+    team: DesktopTeam
+    user: DesktopUser
+
+
 class EffectivePublicAccessOut(BaseModel):
     """
     Effective sharing for display, separate from the editable direct grant.
@@ -10010,6 +13352,25 @@ class EntitySearchResponse(BaseModel):
     results: list[EntitySearchResult] | None = Field(None, title='Results')
     state: SearchState
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class Example(BaseModel):
+    """
+    The person's live example.
+    """
+
+    created_at: AwareDatetime = Field(..., title='Created At')
+    dashboard_url: str = Field(..., title='Dashboard Url')
+    experiment: ExampleItem | None
+    facts: ExampleFacts
+    kept_at: AwareDatetime | None = Field(..., title='Kept At')
+    next_stage: ExampleStage | None
+    outside: list[OutsideProject] = Field(..., title='Outside')
+    profile: ExampleProfile
+    project: ExampleItem | None
+    session_id: str | None = Field(..., title='Session Id')
+    stages: list[StageOut] = Field(..., title='Stages')
+    workspace: ExampleItem
 
 
 class ExperimentCodeOut(BaseModel):
@@ -10102,6 +13463,18 @@ class HeadlineMetricOut(BaseModel):
     )
 
 
+class KeyMetricsRef(BaseModel):
+    """
+    The anchor's whole Key metrics block.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    anchor: PinAnchor
+    kind: Literal['key_metrics'] = Field(..., title='Kind')
+
+
 class LineageNodeOut(BaseModel):
     """
     One child of the project: a sub-project or experiment, a group, or a
@@ -10114,10 +13487,136 @@ class LineageNodeOut(BaseModel):
     type: OriginType
 
 
+class MetricChartRef(BaseModel):
+    """
+    One metric's line chart over the anchor's runs. `metric_kind` is any kind a run logs (the
+    write side's free namespace, `PinMetricKind` names Probe's own), lowercased as writes store it.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    anchor: PinAnchor
+    kind: Literal['metric_chart'] = Field(..., title='Kind')
+    metric_key: str = Field(..., max_length=1024, min_length=1, title='Metric Key')
+    metric_kind: str = Field(
+        ...,
+        description="Any kind a run logs, lowercased; Probe's own are model, hardware, system.",
+        max_length=64,
+        min_length=1,
+        title='Metric Kind',
+    )
+
+
 class MixtureOut(BaseModel):
     cleared: int = Field(..., title='Cleared')
     items: list[UseOut] = Field(..., title='Items')
     role: str = Field(..., title='Role')
+
+
+class Pane(BaseModel):
+    """
+    One pane: an agent-written visual and the recipe of the data it reads.
+    """
+
+    anchor_id: UUID = Field(..., title='Anchor Id')
+    anchor_kind: PaneAnchorKind
+    created_at: AwareDatetime = Field(..., title='Created At')
+    html: str = Field(..., title='Html')
+    id: UUID = Field(..., title='Id')
+    position: int = Field(..., title='Position')
+    recipe: PaneRecipe
+    slug: str = Field(..., title='Slug')
+    title: str = Field(..., title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    updated_via: PaneWriterKind
+    url: str = Field(..., title='Url')
+
+
+class PaneCheck(BaseModel):
+    """
+    What the render check at push found. A push never answers a `failed` check: it is the 422;
+    `POST .../check` lists its errors as violations too.
+    """
+
+    elapsed_ms: int | None = Field(0, title='Elapsed Ms')
+    errors: list[PaneCheckError] | None = Field(None, title='Errors')
+    on_data: PaneCheckOnData | None = 'not_run'
+    reason: PaneCheckReason | None = None
+    status: PaneCheckStatus
+
+
+class PaneData(BaseModel):
+    """
+    A recipe resolved: the run set, then each entry by its recipe id, in recipe order.
+    """
+
+    elapsed_ms: int = Field(..., title='Elapsed Ms')
+    entries: dict[
+        str, PaneRunsData | PaneSeriesData | PaneSamplesData | PaneFilesData
+    ] = Field(..., title='Entries')
+    is_live: bool | None = Field(False, title='Is Live')
+    revision: AwareDatetime | None = Field(None, title='Revision')
+    runs: list[PaneRun] = Field(..., title='Runs')
+
+
+class PaneList(BaseModel):
+    """
+    An anchor's panes, in `position` order, and a project's canvas preview (None for an experiment).
+    """
+
+    panes: list[Pane] = Field(..., title='Panes')
+    preview: ProjectPreview | None = None
+
+
+class PanePushCheck(BaseModel):
+    """
+    `POST .../panes/{slug}/check`: every rule a push of this body would break, in the order a
+    push meets them (its refusal is the first), and the render check a push would carry. Nothing
+    is written.
+    """
+
+    check: PaneCheck | None = None
+    ok: bool = Field(..., title='Ok')
+    truncated: bool | None = Field(False, title='Truncated')
+    violations: list[PaneViolation] = Field(..., title='Violations')
+    violations_total: int | None = Field(0, title='Violations Total')
+
+
+class PanePut(BaseModel):
+    """
+    A push: the pane's whole HTML and recipe. Upserts by slug; the last write wins.
+    """
+
+    html: str = Field(..., max_length=300000, min_length=1, title='Html')
+    position: Position | None = Field(None, title='Position')
+    preview: PanePreviewMode | None = None
+    recipe: PaneRecipe
+    title: Title | None = Field(None, title='Title')
+
+
+class PaneSaved(BaseModel):
+    """
+    A push's answer: the pane as stored, whether it replaced one under that slug, and its render
+    check (None: no check is configured here).
+    """
+
+    anchor_id: UUID = Field(..., title='Anchor Id')
+    anchor_kind: PaneAnchorKind
+    check: PaneCheck | None = None
+    created_at: AwareDatetime = Field(..., title='Created At')
+    html: str = Field(..., title='Html')
+    id: UUID = Field(..., title='Id')
+    position: int = Field(..., title='Position')
+    preview: ProjectPreview | None = None
+    previous_updated_at: AwareDatetime | None = Field(None, title='Previous Updated At')
+    recipe: PaneRecipe
+    replaced: bool = Field(..., title='Replaced')
+    slug: str = Field(..., title='Slug')
+    title: str = Field(..., title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    updated_via: PaneWriterKind
+    url: str = Field(..., title='Url')
 
 
 class PaperCreate(BaseModel):
@@ -10135,7 +13634,112 @@ class PaperCreate(BaseModel):
     )
     summary_md: SummaryMd | None = Field(None, title='Summary Md')
     tags: list[str] | None = Field(None, title='Tags')
-    title: Title | None = Field(None, title='Title')
+    title: Title1 | None = Field(None, title='Title')
+
+
+class ParallelCoordinatesRef(BaseModel):
+    """
+    The anchor's parallel coordinates plot.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    anchor: PinAnchor
+    kind: Literal['parallel_coordinates'] = Field(..., title='Kind')
+
+
+class PinIn(BaseModel):
+    """
+    `POST /v1/projects/{id}/pins`: the view to pin.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    ref: (
+        PaneRef | MetricChartRef | KeyMetricsRef | ParallelCoordinatesRef | VisualRef
+    ) = Field(..., discriminator='kind', title='Ref')
+
+
+class PinOut(BaseModel):
+    """
+    One pin: its ref and ref key, and `anchor`, where the view lives (a pane pin's is its
+    pane's project or experiment, so a client can read the pane without asking again).
+    `pane_slug` is a pane pin's slug: `GET /v1/projects/{anchor.id}/panes/{pane_slug}` reads it.
+    """
+
+    anchor: PinAnchor
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    kind: PinKind
+    pane_slug: str | None = Field(..., title='Pane Slug')
+    position: int = Field(..., title='Position')
+    project_id: UUID = Field(..., title='Project Id')
+    ref: (
+        PaneRef | MetricChartRef | KeyMetricsRef | ParallelCoordinatesRef | VisualRef
+    ) = Field(..., discriminator='kind', title='Ref')
+    ref_key: str = Field(..., title='Ref Key')
+
+
+class PlanIn(BaseModel):
+    """
+    A change to the run's plan: only the fields sent change (`model_fields_set`). `capabilities` is what THIS
+    batch's producer can be asked (it replaces that producer's list on the plan row); `refusals` why it refuses the
+    kinds it cannot do (it replaces that producer's map). `adapter_hooks_missing` is also
+    about THIS batch's producer: true adds it to the plan row's list (never removed). `training`: what this producer
+    says about its per-sample metrics (it replaces that producer's declaration). `unsupported` is what THIS
+    producer's framework cannot give a sample, with why (it replaces that producer's map).
+    """
+
+    adapter_hooks_missing: bool | None = Field(None, title='Adapter Hooks Missing')
+    capabilities: list[CommandKind] | None = Field(None, title='Capabilities')
+    expected_steps: ExpectedSteps | None = Field(None, title='Expected Steps')
+    final_step: FinalStep | None = Field(None, title='Final Step')
+    is_closed: bool | None = Field(None, title='Is Closed')
+    max_staleness: MaxStaleness | None = Field(None, title='Max Staleness')
+    producers: Producers | None = Field(None, title='Producers')
+    refusals: dict[CommandKind, Refusals] | None = Field(None, title='Refusals')
+    reward_max: float | None = Field(None, title='Reward Max')
+    training: TrainingPlan | None = None
+    unsupported: dict[CaptureField, Unsupported] | None = Field(
+        None, title='Unsupported'
+    )
+
+
+class PointKeyList(BaseModel):
+    """
+    `GET /v1/runs/{id}/samples/points/keys`. `is_recorded` false: the run has no per-sample metrics (a run from
+    before this shipped reads so; nothing is rebuilt for it).
+    """
+
+    is_recorded: bool = Field(..., title='Is Recorded')
+    keys: list[PointKeyOut] | None = Field(None, title='Keys')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class PointSeries(BaseModel):
+    """
+    `GET /v1/runs/{id}/samples/points?key=&split=&by=`. A key whose producer declared how its framework reduces it
+    (`rollup`) reads each row's value that way; any other key reads `agg` (the weighted mean by default).
+    """
+
+    agg: MetricAgg
+    by: PointBy
+    conflicts: int | None = Field(0, title='Conflicts')
+    is_recorded: bool = Field(..., title='Is Recorded')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    key: str = Field(..., title='Key')
+    population: str = Field(..., title='Population')
+    rollup: Rollup | None = None
+    rows: list[PointSeriesRow] | None = Field(None, title='Rows')
+    run_id: UUID = Field(..., title='Run Id')
+    split: SampleSplit
+
+
+class ProducerTraining(BaseModel):
+    plan: TrainingPlan
+    producer: str = Field(..., title='Producer')
 
 
 class ProjectDetailOut(BaseModel):
@@ -10173,6 +13777,9 @@ class ProjectDetailOut(BaseModel):
     notes_version: int | None = Field(None, title='Notes Version')
     paper_count: int | None = Field(0, title='Paper Count')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    part_of: list[UUID] | None = Field(None, title='Part Of')
+    part_of_links: list[ProjectReferenceOut] | None = Field(None, title='Part Of Links')
+    part_of_links_truncated: bool | None = Field(False, title='Part Of Links Truncated')
     read_setting: str | None = Field('inherit', title='Read Setting')
     references: list[ProjectReferenceOut] | None = Field(None, title='References')
     references_truncated: bool | None = Field(False, title='References Truncated')
@@ -10222,7 +13829,7 @@ class ProjectExperimentDetailOut(BaseModel):
     )
     effort: CardEffortOut | None = Field(
         None,
-        description='Its effort, all time: `busy_h` (run and agent time, parallel work once), `run_h` (run durations summed), `agent_h` (agent-session time attributed to it) and `cost_usd` (daemon dollars plus worker tokens at list price, split by time; null when unknown).',
+        description="Its effort, all time: `busy_h` (run and agent time, parallel work once), `run_h` (run durations summed), `agent_h` (agent-session time attributed to it, parallel agents add up), `agent_wall_h` (the same time with parallel agents once), `sessions` (each session's `agent_h` here, most first, at most 5, of `sessions_total`) and `cost_usd` (daemon dollars plus worker tokens at list price, split by time; null when unknown).",
     )
     fork_count: int | None = Field(
         0, description='How many forks were made from this one.', title='Fork Count'
@@ -10362,6 +13969,7 @@ class ProjectLineageOut(BaseModel):
     derived_truncated: bool | None = Field(False, title='Derived Truncated')
     edges: list[LineageEdgeOut] | None = Field(None, title='Edges')
     edges_truncated: bool | None = Field(False, title='Edges Truncated')
+    ends: dict[str, LineageEndOut] | None = Field(None, title='Ends')
     kind: str = Field(..., title='Kind')
     nodes: list[LineageNodeOut] | None = Field(None, title='Nodes')
     origin: NodeOrigin | None = None
@@ -10471,6 +14079,7 @@ class PublicRunBundle(BaseModel):
     child_run_ids: list[UUID] | None = Field(None, title='Child Run Ids')
     hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    rl_views: RLViews | None = None
     run: PublicRunDetailOut
     series: list[PublicMetricSeriesOut] = Field(..., title='Series')
     span_types: list[PublicSpanTypeCount] = Field(..., title='Span Types')
@@ -10481,6 +14090,28 @@ class PublicRunLineage(BaseModel):
     ancestors: list[PublicRunLineageNodeOut] = Field(..., title='Ancestors')
     descendants: list[PublicRunLineageNodeOut] = Field(..., title='Descendants')
     run_id: UUID = Field(..., title='Run Id')
+
+
+class PublicScopeConsumers(BaseModel):
+    """
+    `GET /public/v1/runs/{ref}/data/consumers`: runs in the share that used what this run
+    made. `hidden` is always None: runs outside the share are not counted either.
+    """
+
+    hidden: None = Field(None, title='Hidden')
+    items: list[PublicScopeItem] = Field(..., title='Items')
+    locked: int | None = Field(0, title='Locked')
+    truncated: bool | None = Field(False, title='Truncated')
+
+
+class PublicScopeGroup(BaseModel):
+    """
+    Runs of another project or experiment IN THE SHARE that used this scope's data. `project`
+    is None when the share does not show that address (a run share, or a parent above it).
+    """
+
+    items: list[PublicScopeItem] = Field(..., title='Items')
+    project: PublicScopeAddress | None = None
 
 
 class RunBundle(BaseModel):
@@ -10497,6 +14128,7 @@ class RunBundle(BaseModel):
     hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
     mirror: MirrorBlock | None = None
     parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    rl_views: RLViews | None = None
     run: RunDetailOut
     series: list[MetricSeriesOut] = Field(..., title='Series')
     session_total: int | None = Field(0, title='Session Total')
@@ -10536,7 +14168,7 @@ class RunCreate(BaseModel):
     liveness_mode: str | None = Field(None, title='Liveness Mode')
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name10 | None = Field(None, title='Name')
+    name: Name12 | None = Field(None, title='Name')
     notes: Notes1 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
@@ -10551,6 +14183,23 @@ class RunCreate(BaseModel):
     writer: WriterLeaseIn | None = None
 
 
+class RunIngestOut(BaseModel):
+    """
+    A run's queued data (I15d). Served on the one-run read only while its team's telemetry goes
+    through the ingest queue; absent means no queue (today's behaviour). `pending_points` can
+    under-report by the last second's accepts; `applied_offset` is the applied watermark.
+    """
+
+    accepted_offset: int | None = Field(None, title='Accepted Offset')
+    accepted_points: int | None = Field(0, title='Accepted Points')
+    applied_at: AwareDatetime | None = Field(None, title='Applied At')
+    applied_offset: int | None = Field(None, title='Applied Offset')
+    applied_points: int | None = Field(0, title='Applied Points')
+    is_caught_up: bool | None = Field(True, title='Is Caught Up')
+    pending_points: int | None = Field(0, title='Pending Points')
+    refusals: list[RunRefusalOut] | None = Field(None, title='Refusals')
+
+
 class RunLineage(BaseModel):
     """
     Ancestors + descendants of a run, each with relative traversal depth.
@@ -10561,6 +14210,72 @@ class RunLineage(BaseModel):
     origin: NodeOrigin | None = None
     run_id: UUID = Field(..., title='Run Id')
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class RunPageDetailOut(BaseModel):
+    """
+    The id-addressed run read plus its display containment path.
+
+    ``RunDetailOut`` also backs bounded lists and unbounded genealogy reads, so
+    adding a recursive project path there would repeat detail-only data across
+    every row. The one-run GET can carry it without that amplification.
+    """
+
+    alive: bool | None = Field(False, title='Alive')
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    config: dict[str, Any] | None = Field(None, title='Config')
+    counts: RunCounts | None = None
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    customer_id: str = Field(..., title='Customer Id')
+    description: str | None = Field(None, title='Description')
+    description_customized: bool | None = Field(False, title='Description Customized')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    env_ref: str | None = Field(None, title='Env Ref')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    external_id: str | None = Field(None, title='External Id')
+    foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
+    group_id: UUID | None = Field(None, title='Group Id')
+    hierarchy: list[HierarchyPathSegment] | None = Field(None, title='Hierarchy')
+    id: UUID = Field(..., title='Id')
+    ingest: RunIngestOut | None = None
+    labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
+    labeled_point_count: int | None = Field(0, title='Labeled Point Count')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    metadata: dict[str, Any] | None = Field(None, title='Metadata')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    name_customized: bool | None = Field(False, title='Name Customized')
+    notes: str | None = Field(None, title='Notes')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
+    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
+    notes_version: int | None = Field(None, title='Notes Version')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    origin_session: RunOriginSessionOut | None = None
+    parent_relation: ParentRelation | None = None
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    repo: str | None = Field(None, title='Repo')
+    run_type: RunType | None = 'general'
+    slug: str | None = Field(None, title='Slug')
+    source: str = Field(..., title='Source')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    summary: dict[str, Any] = Field(
+        ...,
+        description='Deprecated alias for `summary_metrics`; drops in the release after next.',
+        title='Summary',
+    )
+    summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    write_epoch: int | None = Field(1, title='Write Epoch')
 
 
 class RunReopen(BaseModel):
@@ -10598,12 +14313,192 @@ class RunReopen(BaseModel):
     writer: WriterLeaseIn | None = None
 
 
+class SampleCompare(BaseModel):
+    """
+    One task instance across runs, steps, versions and checkpoints. `match` widens to shared scenario keys.
+    """
+
+    columns: list[CompareColumn] | None = Field(None, title='Columns')
+    match: list[str] | None = Field(None, title='Match')
+    task: TaskDetail | None = None
+
+
+class SampleList(BaseModel):
+    next_cursor: str | None = Field(None, title='Next Cursor')
+    samples: list[SampleSummary] | None = Field(None, title='Samples')
+
+
+class SampleOut(BaseModel):
+    """
+    `GET /v1/samples/{id}`: the whole merged sample, text uncut.
+    """
+
+    attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
+    consumed_step: ConsumedStep | None = Field(None, title='Consumed Step')
+    consumed_until_step: ConsumedUntilStep | None = Field(
+        None, title='Consumed Until Step'
+    )
+    consumed_version: ConsumedVersion | None = Field(None, title='Consumed Version')
+    drop_reason: str | None = Field(None, title='Drop Reason')
+    duration_s: DurationS | None = Field(None, title='Duration S')
+    engine: Engine | None = Field(None, title='Engine')
+    engine_stats: EngineStats | None = None
+    environment: EnvironmentLink | None = None
+    environment_type: EnvironmentType | None = Field(None, title='Environment Type')
+    error_message: ErrorMessage | None = Field(None, title='Error Message')
+    error_reason: SampleErrorReason | None = None
+    events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
+    extras: dict[str, Any] | None = Field(None, title='Extras')
+    finish_reason: FinishReason1 | None = None
+    generated_by: list[Generation] | None = Field(None, title='Generated By')
+    group_id: UUID | None = Field(None, title='Group Id')
+    group_key: GroupKey | None = Field(None, title='Group Key')
+    has_conflict: bool | None = Field(False, title='Has Conflict')
+    host: Host4 | None = Field(None, title='Host')
+    id: UUID = Field(..., title='Id')
+    is_misaligned: bool | None = Field(None, title='Is Misaligned')
+    is_mixed_version: bool | None = Field(False, title='Is Mixed Version')
+    is_over_limit: bool | None = Field(False, title='Is Over Limit')
+    is_rewound: bool | None = Field(False, title='Is Rewound')
+    key: str = Field(..., max_length=512, min_length=1, title='Key')
+    last_command_at: AwareDatetime | None = Field(None, title='Last Command At')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    log: BundleRef | None = None
+    log_tail: str | None = Field(None, title='Log Tail')
+    metrics: dict[str, float] | None = Field(None, title='Metrics')
+    normalized_reward: float | None = Field(None, title='Normalized Reward')
+    occurrence: Occurrence | None = Field(None, title='Occurrence')
+    outcome: SampleOutcome | None = 'generated'
+    producers: list[str] | None = Field(None, title='Producers')
+    prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
+    received_at: AwareDatetime | None = Field(None, title='Received At')
+    response: str | None = Field(None, title='Response')
+    response_blob: BlobRef | None = None
+    response_tokens: ResponseTokens | None = Field(None, title='Response Tokens')
+    result: SampleResult | None = None
+    reward: float | None = Field(None, title='Reward')
+    reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
+    run_id: UUID = Field(..., title='Run Id')
+    sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    scheduled_step: ScheduledStep | None = Field(None, title='Scheduled Step')
+    scored_by: list[Scorer] | None = Field(None, title='Scored By')
+    segment: Segment1 | None = Field(None, title='Segment')
+    segment_count: SegmentCount | None = Field(None, title='Segment Count')
+    split: SampleSplit | None = 'train'
+    staleness_max: int | None = Field(None, title='Staleness Max')
+    staleness_min: int | None = Field(None, title='Staleness Min')
+    step: int | None = Field(None, title='Step')
+    task_id: UUID = Field(..., title='Task Id')
+    task_key: str = Field(..., max_length=512, min_length=1, title='Task Key')
+    timing: Timing | None = None
+    token_stats: TokenStats | None = None
+    tokens: BundleRef | None = None
+    tool_call_count: ToolCallCount | None = Field(None, title='Tool Call Count')
+    trace_span_id: UUID | None = Field(None, title='Trace Span Id')
+    trainer_rank: TrainerRank | None = Field(None, title='Trainer Rank')
+    trainer_tokens: BundleRef | None = None
+    turn_count: TurnCount | None = Field(None, title='Turn Count')
+    turns: list[TurnModel] | None = Field(None, title='Turns')
+    turns_blob: BlobRef | None = None
+    turns_source: TurnsSource | None = None
+    worker: Worker | None = Field(None, title='Worker')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
+class SamplePartIn(BaseModel):
+    """
+    One part on the wire. The server derives the sample id from `key` and the batch's write epoch.
+    """
+
+    attempt_key: AttemptKey | None = Field(None, title='Attempt Key')
+    attempt_kind: AttemptKind | None = None
+    consumed_step: ConsumedStep | None = Field(None, title='Consumed Step')
+    consumed_until_step: ConsumedUntilStep | None = Field(
+        None, title='Consumed Until Step'
+    )
+    consumed_version: ConsumedVersion | None = Field(None, title='Consumed Version')
+    drop_reason: str | None = Field(None, title='Drop Reason')
+    duration_s: DurationS | None = Field(None, title='Duration S')
+    end: AttemptEnd | None = None
+    engine: Engine | None = Field(None, title='Engine')
+    engine_stats: EngineStats | None = None
+    environment: EnvironmentLink | None = None
+    environment_type: EnvironmentType | None = Field(None, title='Environment Type')
+    error_message: ErrorMessage | None = Field(None, title='Error Message')
+    error_reason: SampleErrorReason | None = None
+    events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
+    extras: dict[str, Any] | None = Field(None, title='Extras')
+    finish_reason: FinishReason1 | None = None
+    generated_by: list[Generation] | None = Field(None, title='Generated By')
+    group_key: GroupKey | None = Field(None, title='Group Key')
+    heartbeat_at: AwareDatetime | None = Field(None, title='Heartbeat At')
+    host: Host4 | None = Field(None, title='Host')
+    is_misaligned: bool | None = Field(None, title='Is Misaligned')
+    key: str = Field(..., max_length=512, min_length=1, title='Key')
+    last_command_at: AwareDatetime | None = Field(None, title='Last Command At')
+    log: BundleRef | None = None
+    log_tail: str | None = Field(None, title='Log Tail')
+    metrics: dict[str, float] | None = Field(None, title='Metrics')
+    normalized_reward: float | None = Field(None, title='Normalized Reward')
+    occurrence: Occurrence | None = Field(None, title='Occurrence')
+    progress: AttemptProgress | None = None
+    prompt_tokens: PromptTokens | None = Field(None, title='Prompt Tokens')
+    response: str | None = Field(None, title='Response')
+    response_blob: BlobRef | None = None
+    response_tokens: ResponseTokens | None = Field(None, title='Response Tokens')
+    reward: float | None = Field(None, title='Reward')
+    reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
+    role: PartRole
+    sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
+    scenario: (
+        dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
+    ) = Field(None, title='Scenario')
+    scheduled_step: ScheduledStep | None = Field(None, title='Scheduled Step')
+    scored_by: list[Scorer] | None = Field(None, title='Scored By')
+    seal_step: SealStep | None = Field(None, title='Seal Step')
+    segment: Segment1 | None = Field(None, title='Segment')
+    segment_count: SegmentCount | None = Field(None, title='Segment Count')
+    split: SampleSplit | None = None
+    start: AttemptStart | None = None
+    supersedes_key: SupersedesKey | None = Field(None, title='Supersedes Key')
+    task_key: TaskKey2 | None = Field(None, title='Task Key')
+    timing: Timing | None = None
+    token_stats: TokenStats | None = None
+    tokens: BundleRef | None = None
+    tool_call_count: ToolCallCount | None = Field(None, title='Tool Call Count')
+    trace_span_id: UUID | None = Field(None, title='Trace Span Id')
+    trainer_rank: TrainerRank | None = Field(None, title='Trainer Rank')
+    trainer_tokens: BundleRef | None = None
+    turn_count: TurnCount | None = Field(None, title='Turn Count')
+    turns: list[TurnModel] | None = Field(None, title='Turns')
+    turns_blob: BlobRef | None = None
+    turns_source: TurnsSource | None = None
+    worker: Worker | None = Field(None, title='Worker')
+
+
+class SamplePointsIn(BaseModel):
+    """
+    `POST /v1/runs/{id}/samples/points`: one producer's per-sample metrics and update records, in one write epoch.
+    Its own route, so an older server answers 404 instead of dropping them unread (the batch is a plain model).
+    """
+
+    points: list[SampleMetricsIn] | None = Field(None, max_length=1000, title='Points')
+    producer: str = Field(..., title='Producer')
+    session_id: UUID | None = Field(None, title='Session Id')
+    updates: list[UpdateIn] | None = Field(None, max_length=1000, title='Updates')
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
 class SemanticHit(BaseModel):
     author_id: str | None = Field(None, title='Author Id')
     chunks: list[SemanticChunk] | None = Field(None, title='Chunks')
     corpus: IndexCorpus | None = None
     doc_id: str = Field(..., title='Doc Id')
     matched_via: list[dict[str, Any]] | None = Field(None, title='Matched Via')
+    people: list[Person] | None = Field(None, title='People')
     ref: SemanticRef | None = None
     score: float = Field(..., title='Score')
     snippet: str = Field(..., title='Snippet')
@@ -10638,6 +14533,39 @@ class SemanticSection(BaseModel):
     trace_ids: list[str] | None = Field(None, title='Trace Ids')
 
 
+class SessionRowOut(BaseModel):
+    """
+    One captured coding session, newest activity first.
+    """
+
+    agent: str = Field(..., title='Agent')
+    device_label: str | None = Field(None, title='Device Label')
+    first_seen_at: AwareDatetime = Field(..., title='First Seen At')
+    last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
+    name: str = Field(..., title='Name')
+    owner: Person | None = None
+    session_id: str = Field(..., title='Session Id')
+    summary: str | None = Field(None, title='Summary')
+    title: str | None = Field(None, title='Title')
+    work: list[SessionWorkItem] | None = Field(None, title='Work')
+
+
+class StepCapture(BaseModel):
+    critic_updates_expected: int | None = Field(None, title='Critic Updates Expected')
+    is_committed: bool | None = Field(False, title='Is Committed')
+    missing: list[str] | None = Field(None, title='Missing')
+    state: PointsCheck
+    step: int = Field(..., title='Step')
+    trainer: list[TrainerCheck] | None = Field(None, title='Trainer')
+    updates: list[UpdateCapture] | None = Field(None, title='Updates')
+    updates_expected: int | None = Field(None, title='Updates Expected')
+
+
+class TaskList(BaseModel):
+    next_cursor: str | None = Field(None, title='Next Cursor')
+    tasks: list[TaskSummary] | None = Field(None, title='Tasks')
+
+
 class WorkspaceCanvasOut(BaseModel):
     best: list[CanvasBestOut] | None = Field([], title='Best', validate_default=True)
     edges: list[CanvasEdge] = Field(..., title='Edges')
@@ -10652,6 +14580,9 @@ class WorkspaceCanvasOut(BaseModel):
     paper_edges_truncated: bool | None = Field(False, title='Paper Edges Truncated')
     papers: list[CanvasPaper] | None = Field([], title='Papers', validate_default=True)
     papers_truncated: bool | None = Field(False, title='Papers Truncated')
+    part_of: list[CanvasReference] | None = Field(
+        [], title='Part Of', validate_default=True
+    )
     projects: list[CanvasProject] = Field(..., title='Projects')
     projects_truncated: bool = Field(..., title='Projects Truncated')
     references: list[CanvasReference] = Field(..., title='References')
@@ -10674,7 +14605,7 @@ class WorkspaceCreate(BaseModel):
     requires an explicit opt-in and the necessary write access.
     """
 
-    name: Name16 | None = Field(None, title='Name')
+    name: Name23 | None = Field(None, title='Name')
     slug: str = Field(..., max_length=120, min_length=1, title='Slug')
     writers: WorkspaceWriters | None = None
 
@@ -10738,6 +14669,52 @@ class BranchesOut(BaseModel):
     )
 
 
+class PinList(BaseModel):
+    """
+    `GET /v1/projects/{id}/pins`: the pins the project shows, oldest first (at most
+    `MAX_LISTED_PINS`).
+    """
+
+    pins: list[PinOut] = Field(..., title='Pins')
+
+
+class PointsCapture(BaseModel):
+    """
+    `GET /v1/runs/{id}/samples/points/capture`: per producer what it sends and cannot (with why), per step declared
+    vs received and both checks. A run from before this shipped reads `is_recorded` false: nothing is rebuilt.
+    """
+
+    conflicts: list[PointConflict] | None = Field(None, title='Conflicts')
+    is_recorded: bool = Field(..., title='Is Recorded')
+    is_truncated: bool | None = Field(False, title='Is Truncated')
+    producers: list[ProducerTraining] | None = Field(None, title='Producers')
+    run_id: UUID = Field(..., title='Run Id')
+    steps: list[StepCapture] | None = Field(None, title='Steps')
+    tolerance: float | None = Field(1e-05, title='Tolerance')
+
+
+class PublicScopeData(BaseModel):
+    """
+    `GET /public/v1/runs/{ref}/data` and `/public/v1/projects/{id}/data`: the same-share
+    subset of the private Data read. No `from_other_projects`: data made outside the share
+    is never named or counted.
+    """
+
+    locked_runs: int | None = Field(None, title='Locked Runs')
+    produced: PublicScopeProduced | None = None
+    project_id: UUID | None = Field(None, title='Project Id')
+    run: PublicScopeRun | None = None
+    runs: int | None = Field(None, title='Runs')
+    sources: list[PublicScopeSource] | None = Field(None, title='Sources')
+    used: list[PublicScopeItem] | None = Field(None, title='Used')
+    used_by_other_projects: list[PublicScopeGroup] | None = Field(
+        None, title='Used By Other Projects'
+    )
+    used_by_other_projects_truncated: bool | None = Field(
+        False, title='Used By Other Projects Truncated'
+    )
+
+
 class RunCodeCompareOut(BaseModel):
     """
     `GET /v1/runs/{ref}/code/compare?to=...`: what changed in code between
@@ -10761,6 +14738,30 @@ class RunCodeCompareOut(BaseModel):
     swapped: bool | None = Field(False, title='Swapped')
 
 
+class SampleBatchIn(BaseModel):
+    """
+    One producer, one write epoch. Any epoch of the run is accepted: no fence, no status gate (DESIGN.md).
+    """
+
+    commits: list[CommitIn] | None = Field(None, max_length=1000, title='Commits')
+    groups: list[GroupIn] | None = Field(None, max_length=1000, title='Groups')
+    live_turns: list[LiveTurnIn] | None = Field(
+        None, max_length=1000, title='Live Turns'
+    )
+    plan: PlanIn | None = None
+    points: list[SampleMetricsIn] | None = Field(None, max_length=1000, title='Points')
+    producer: str = Field(..., title='Producer')
+    samples: list[SamplePartIn] | None = Field(None, max_length=1000, title='Samples')
+    seals: list[SealIn] | None = Field(None, max_length=1000, title='Seals')
+    session_id: UUID | None = Field(None, title='Session Id')
+    tasks: list[TaskIn] | None = Field(None, max_length=1000, title='Tasks')
+    updates: list[UpdateIn] | None = Field(None, max_length=1000, title='Updates')
+    weights: list[WeightVersionIn] | None = Field(
+        None, max_length=1000, title='Weights'
+    )
+    write_epoch: int = Field(..., ge=1, title='Write Epoch')
+
+
 class SearchResponse(BaseModel):
     dropped_chunk_count: int | None = Field(0, title='Dropped Chunk Count')
     dropped_result_count: int | None = Field(0, title='Dropped Result Count')
@@ -10769,11 +14770,25 @@ class SearchResponse(BaseModel):
     origin_exclusion_applied: bool | None = Field(
         False, title='Origin Exclusion Applied'
     )
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
+    owner_note: str | None = Field(None, title='Owner Note')
     project_id: UUID | None = Field(None, title='Project Id')
     query: str = Field(..., title='Query')
     semantic: SemanticSection
     state: SearchState
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class SessionListOut(BaseModel):
+    """
+    One page; `next_cursor` continues it with the same filters.
+    """
+
+    next_cursor: str | None = Field(None, title='Next Cursor')
+    owner_matched: list[Person] | None = Field(None, title='Owner Matched')
+    query_note: str | None = Field(None, title='Query Note')
+    sessions: list[SessionRowOut] | None = Field(None, title='Sessions')
+    unowned_count: int | None = Field(None, title='Unowned Count')
 
 
 class BinaryNode(BaseModel):
@@ -11014,7 +15029,7 @@ class MetricViewCreate(BaseModel):
 
 class MetricViewPatch(BaseModel):
     expected_updated_at: AwareDatetime | None = Field(None, title='Expected Updated At')
-    name: Name3 | None = Field(None, title='Name')
+    name: Name4 | None = Field(None, title='Name')
     spec: MetricViewSpec | None = None
 
 

@@ -1,32 +1,36 @@
 use crate::gc::{Gc, GcOnceLock, Trace};
 use pyo3::{PyTraverseError, PyVisit};
 use std::borrow::Cow;
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::iter::zip;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use html_escape::{encode_quoted_attribute, encode_quoted_attribute_to_string};
 use miette::SourceSpan;
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
-use pyo3::exceptions::{PyAttributeError, PyKeyError, PyTypeError};
+use pyo3::exceptions::{PyAttributeError, PyKeyError, PyRuntimeError, PyTypeError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::{MutexExt, PyOnceLock};
-use pyo3::types::{PyBool, PyDict, PyInt, PyString, PyType};
+use pyo3::types::{PyBool, PyDict, PyInt, PyList, PyString, PyTuple, PyType};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
+use super::common::interned_name;
 use super::dateformat::localize_datetime;
 use super::filters::FileSizeStrings;
 use super::filters::FloatNumberFormats;
 use super::filters::TruncationText;
+use super::filters::python_float_str;
 use super::humanize::HumanizeStrings;
 use super::inheritance::{BlockEntry, BlockMarker};
 use super::l10n::{NumberFormat, localize_int, localize_number};
 use super::language_cache::{LanguageCache, LanguageInfo};
+use super::stack::RenderStack;
 use super::timesince::TimeStrings;
 use crate::error::{AnnotatePyErr, PyRenderError, RenderError};
 use crate::parse::CycleId;
@@ -38,6 +42,32 @@ use dtl_lexer::types::{At, TemplateString};
 
 static DJANGO_CONTEXT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static RENDER_VALUE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static LOCALIZABLE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// Whether Django's `render_value_in_context` would do more than `str()`
+/// and escaping: `localize` formats numbers, dates and times (and bools,
+/// as `str()`), and `template_localtime` only converts datetimes. Anything
+/// else, such as `None`, a list or a model instance, renders natively.
+fn is_localizable(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = value.py();
+    let types = LOCALIZABLE.get_or_try_init(py, || -> PyResult<_> {
+        let decimal = py.import("decimal")?.getattr("Decimal")?;
+        let datetime = py.import("datetime")?;
+        Ok(pyo3::types::PyTuple::new(
+            py,
+            [
+                py.get_type::<PyInt>().into_any(),
+                py.get_type::<pyo3::types::PyFloat>().into_any(),
+                decimal,
+                datetime.getattr("date")?,
+                datetime.getattr("time")?,
+            ],
+        )?
+        .into_any()
+        .unbind())
+    })?;
+    value.is_instance(types.bind(py))
+}
 static CONDITIONAL_ESCAPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 static SAFE_STRING: PyOnceLock<Py<PyType>> = PyOnceLock::new();
@@ -66,6 +96,12 @@ fn formatting_flag_index(flag: Option<bool>) -> usize {
 
 #[derive(Clone)]
 pub struct ForLoop {
+    /// How many values `forloop` had as a variable when the loop began.
+    /// More than this means something in the body rebound the name.
+    forloop_values: usize,
+    /// The scope holding the loop's variables, once an iteration began,
+    /// and whether the loop unpacks each item into several variables.
+    scope: Option<(usize, bool)>,
     count: usize,
     len: usize,
     dictionary: Gc<GcOnceLock<Py<PyDict>>>,
@@ -117,34 +153,9 @@ pub enum IncludeTemplateKey {
     Vec(Vec<String>),
 }
 
-type BindingMap = HashMap<String, Vec<Py<PyAny>>>;
-
-/// Bindings shared by a parent and its child scopes. The `Arc` lets the
-/// parent take them back without copying once no child or retained snapshot
-/// holds them. It never outlives its `Gc` container, so Python's GC still
-/// sees every reference.
-#[derive(Debug)]
-struct SharedBindings(Arc<BindingMap>);
-
-impl Trace for SharedBindings {
-    fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        self.0.as_ref().trace(visit)
-    }
-}
-
-fn clone_bindings(bindings: &BindingMap) -> BindingMap {
-    Python::attach(|py| {
-        bindings
-            .iter()
-            .map(|(key, values)| {
-                (
-                    key.clone(),
-                    values.iter().map(|value| value.clone_ref(py)).collect(),
-                )
-            })
-            .collect()
-    })
-}
+/// Hashed on every variable read and loop iteration. Template variable names
+/// are short and come from template source, so a fast hash beats `SipHash`.
+type BindingMap = FxHashMap<String, Vec<Py<PyAny>>>;
 
 impl Trace for ForLoop {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
@@ -152,10 +163,45 @@ impl Trace for ForLoop {
     }
 }
 
-#[derive(Clone, Debug)]
-struct ScopeBindings {
-    base: Gc<SharedBindings>,
-    overlay: bool,
+/// A live render's Django `Context`, set aside while a callback-free loop
+/// renders natively. Python can't see the loop's scopes, so names bound since
+/// `names`/`loops` were the depths resolve natively; every other name is read
+/// from the live context, where callbacks may have changed it.
+#[derive(Debug)]
+struct Shadow {
+    live: Py<PyAny>,
+    names: usize,
+    loops: usize,
+}
+
+/// Whether the filters of the expression being resolved still apply.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum FilterChain {
+    #[default]
+    Run,
+    Skip,
+}
+
+/// The names in Django's first context layer.
+const BUILTIN_NAMES: [&str; 3] = ["True", "False", "None"];
+
+/// One of `Context.dicts`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Layer {
+    Builtins,
+    /// The caller's values.
+    Base,
+    /// The scope at this index in `Context::names`.
+    Scope(usize),
+}
+
+/// Whether a render ever bound `forloop` as a variable. Until one does,
+/// the name inside a loop can only be the loop object.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum ForloopName {
+    #[default]
+    Unbound,
+    Bound,
 }
 
 #[derive(Debug, Default)]
@@ -163,9 +209,8 @@ pub struct Context {
     context: BindingMap,
     // The caller's context dict, read on lookup instead of being copied in.
     // A name is copied into `context` before its first write, so a name in
-    // `context` (or the scope base) always hides the same name here.
+    // `context` always hides the same name here.
     source: Option<Py<PyDict>>,
-    scope_bindings: Option<ScopeBindings>,
     loops: Vec<ForLoop>,
     pub request: Option<Py<PyAny>>,
     pub autoescape: bool,
@@ -176,10 +221,19 @@ pub struct Context {
     pub format_values: bool,
     pub instrument_render: bool,
     pub formatting_context: Option<Py<PyAny>>,
+    // Set while a callback-free loop of a live render runs on native scopes.
+    shadow: Option<Shadow>,
+    // For a live context this render created, how many references Python
+    // might use to reach it once installed (`live::outside_references`).
+    // While there are no more, only this render can reach it.
+    pub(crate) live_refs: Option<isize>,
+    live_methods: Cell<Option<super::live::Methods>>,
     // Number formats of the active language, read on the first localized
     // number. `{% language %}` replaces it for its body. It holds only Rust
-    // strings, so `Trace` has nothing to visit.
-    pub(crate) number_format: OnceCell<Option<NumberFormat>>,
+    // strings, so `Trace` has nothing to visit. Child scopes share the cell,
+    // so a number printed in a `{% with %}` body fills it for the parent and
+    // later scopes rather than reading the formats again in each scope.
+    pub(crate) number_format: Arc<OnceLock<Option<NumberFormat>>>,
     // Weak reference to an input Context, used only while calling Python code.
     pub callback_input: Option<Gc<Py<PyAny>>>,
     pub inheritance_blocks: HashMap<String, Vec<BlockEntry>>,
@@ -197,10 +251,29 @@ pub struct Context {
     pub(crate) cycle_indices: HashMap<CycleId, usize>,
     changed_states: Vec<HashMap<CycleId, Py<PyAny>>>,
     assigned: HashSet<String>,
+    /// The scope depth at each `takes_context` call in progress: a tag
+    /// can't pop below it.
+    callback_floors: Vec<usize>,
+    /// Django's `RenderContext` for this render, made when a tag asks.
+    render_context: Option<Py<PyAny>>,
+    /// `Skip` while a filter chain unwinds from a missing variable that
+    /// `string_if_invalid` replaces; see `Filter::resolve`.
+    pub(crate) filter_chain: FilterChain,
+    /// Names first bound by a scoped write, with how many values that write
+    /// found: a copy of the caller's value, or none.
+    scope_bases: FxHashMap<String, usize>,
+    /// Whether anything ever bound the name `forloop` as a variable.
+    forloop_name: ForloopName,
+    /// Names a tag wrote to `dicts[0]`, the built-ins layer.
+    builtins_layer: Vec<String>,
+    /// What `bind_template()` bound, on a context no template is rendering.
+    bound_template: Option<Py<PyAny>>,
     cycle_variables: HashSet<String>,
     // Created on first use: most renders never need them, and a smaller
     // `Context` is cheaper to move into and out of Python callbacks.
     caches: Option<Box<LanguageCaches>>,
+    // How deep in nested templates this render is. Child contexts copy it.
+    pub(crate) render_stack: RenderStack,
 }
 
 /// Translated strings and formats a render keeps for its active language.
@@ -208,6 +281,10 @@ pub struct Context {
 pub(crate) struct LanguageCaches {
     pub(crate) float_number_format: LanguageCache<FloatNumberFormats>,
     pub(crate) truncation_text: LanguageCache<TruncationText>,
+    /// `yesno`'s translated default, "yes,no,maybe".
+    pub(crate) yesno_default: LanguageCache<String>,
+    /// Whether `urlize` can link natively, checked once per render.
+    pub(crate) urlize_rules: crate::render::urlize::NativeLinks,
     pub(crate) time_strings: LanguageCache<TimeStrings>,
     pub(crate) file_size_strings: LanguageCache<FileSizeStrings>,
     pub(crate) humanize_strings: LanguageCache<HumanizeStrings>,
@@ -228,12 +305,14 @@ impl Trace for Context {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.context.trace(visit)?;
         self.source.trace(visit)?;
-        if let Some(shared) = &self.scope_bindings {
-            shared.base.trace(visit)?;
-        }
+        self.bound_template.trace(visit)?;
+        self.render_context.trace(visit)?;
         self.loops.trace(visit)?;
         self.request.trace(visit)?;
         self.formatting_context.trace(visit)?;
+        if let Some(shadow) = &self.shadow {
+            shadow.live.trace(visit)?;
+        }
         // A collection can run while a format call holds the cache.
         if let Ok(date_cache) = self.date_cache.try_borrow() {
             date_cache.trace(visit)?;
@@ -284,16 +363,19 @@ impl Context {
         autoescape: bool,
     ) -> Self {
         let context = context.into_iter();
-        let mut bindings = BindingMap::with_capacity(context.size_hint().0);
+        let mut bindings =
+            BindingMap::with_capacity_and_hasher(context.size_hint().0, FxBuildHasher);
         for (key, value) in context {
             bindings.insert(key, vec![value]);
         }
         let context = bindings;
         Self {
+            forloop_name: ForloopName::Unbound,
+            builtins_layer: Vec::new(),
+            bound_template: None,
             request,
             context,
             source: None,
-            scope_bindings: None,
             autoescape,
             use_l10n: None,
             use_tz: None,
@@ -301,7 +383,10 @@ impl Context {
             format_values: false,
             instrument_render: true,
             formatting_context: None,
-            number_format: OnceCell::new(),
+            shadow: None,
+            live_refs: None,
+            live_methods: Cell::new(None),
+            number_format: Arc::default(),
             callback_input: None,
             inheritance_blocks: HashMap::new(),
             python_blocks: None,
@@ -317,8 +402,13 @@ impl Context {
             cycle_indices: HashMap::new(),
             changed_states: vec![HashMap::new()],
             assigned: HashSet::new(),
+            callback_floors: Vec::new(),
+            render_context: None,
+            filter_chain: FilterChain::Run,
+            scope_bases: FxHashMap::default(),
             cycle_variables: HashSet::new(),
             caches: None,
+            render_stack: RenderStack::default(),
         }
     }
 
@@ -326,10 +416,41 @@ impl Context {
     /// bindings given to `new`, as later pairs there do.
     #[must_use]
     pub fn with_source(mut self, source: &Bound<'_, PyDict>) -> Self {
-        self.context
-            .retain(|key, _| !source.contains(key.as_str()).unwrap_or(false));
+        let py = source.py();
+        self.context.retain(|key, _| {
+            // The built-in names are checked on every render; interned
+            // strings spare allocating and hashing each one.
+            let shadowed = match key.as_str() {
+                "None" => source.contains(intern!(py, "None")),
+                "True" => source.contains(intern!(py, "True")),
+                "False" => source.contains(intern!(py, "False")),
+                key => source.contains(key),
+            };
+            !shadowed.unwrap_or(false)
+        });
         self.source = Some(source.clone().unbind());
         self
+    }
+
+    /// Whether `input`, a Django `Context`, already shows exactly what this
+    /// context holds: its dicts are the built-in names and this context's
+    /// source, and nothing native shadows or adds to them. A callback can then
+    /// see `input` as it is, without a snapshot copied into it and back.
+    pub(crate) fn is_live_view_of(&self, py: Python<'_>, dicts: &Bound<'_, PyList>) -> bool {
+        let Some(source) = &self.source else {
+            return false;
+        };
+        dicts.len() == 2
+            && dicts.get_item(1).is_ok_and(|dict| dict.is(source.bind(py)))
+            && self.loops.is_empty()
+            && self.names.is_empty()
+            && self.assigned.is_empty()
+            && self.cycle_variables.is_empty()
+            && self.django_context_changes.is_empty()
+            && self
+                .context
+                .keys()
+                .all(|key| matches!(key.as_str(), "None" | "True" | "False"))
     }
 
     /// Whether the caller's dict has `key`.
@@ -349,7 +470,6 @@ impl Context {
                 .map(|(k, v)| (k.clone(), v.iter().map(|v| v.clone_ref(py)).collect()))
                 .collect(),
             source: self.source.as_ref().map(|source| source.clone_ref(py)),
-            scope_bindings: self.scope_bindings.clone(),
             autoescape: self.autoescape,
             use_l10n: self.use_l10n,
             use_tz: self.use_tz,
@@ -357,21 +477,49 @@ impl Context {
             format_values: self.format_values,
             instrument_render: self.instrument_render,
             formatting_context: self.formatting_context.as_ref().map(|v| v.clone_ref(py)),
-            number_format: self.number_format.clone(),
-            callback_input: self.callback_input.clone(),
+            shadow: self.shadow.as_ref().map(|shadow| Shadow {
+                live: shadow.live.clone_ref(py),
+                names: shadow.names,
+                loops: shadow.loops,
+            }),
+            live_refs: None,
+            live_methods: self.live_methods.clone(),
+            number_format: Arc::clone(&self.number_format),
+            callback_input: self.callback_input.as_ref().map(|v| v.clone_ref(py)),
             inheritance_blocks: self.inheritance_blocks.clone(),
             python_blocks: self.python_blocks.as_ref().map(|v| v.clone_ref(py)),
-            current_template: self.current_template.clone(),
-            root_template: self.root_template.clone(),
-            inheritance_history: self.inheritance_history.clone(),
+            current_template: self.current_template.as_ref().map(|v| v.clone_ref(py)),
+            root_template: self.root_template.as_ref().map(|v| v.clone_ref(py)),
+            inheritance_history: self
+                .inheritance_history
+                .iter()
+                .map(|v| v.clone_ref(py))
+                .collect(),
             django_context_base: RefCell::new(None),
             django_context_changes: HashSet::new(),
             string_if_invalid: self.string_if_invalid.clone(),
-            loops: self.loops.clone(),
+            loops: self
+                .loops
+                .iter()
+                .map(|loop_| ForLoop {
+                    forloop_values: loop_.forloop_values,
+                    scope: loop_.scope,
+                    count: loop_.count,
+                    len: loop_.len,
+                    dictionary: loop_.dictionary.clone_ref(py),
+                })
+                .collect(),
             names: self.names.clone(),
+            forloop_name: self.forloop_name,
+            builtins_layer: self.builtins_layer.clone(),
+            bound_template: self.bound_template.as_ref().map(|v| v.clone_ref(py)),
             include_cache: self.include_cache.clone(),
             cycle_indices: self.cycle_indices.clone(),
             assigned: self.assigned.clone(),
+            callback_floors: self.callback_floors.clone(),
+            render_context: self.render_context.as_ref().map(|v| v.clone_ref(py)),
+            filter_chain: FilterChain::Run,
+            scope_bases: self.scope_bases.clone(),
             cycle_variables: self.cycle_variables.clone(),
             changed_states: self
                 .changed_states
@@ -384,63 +532,21 @@ impl Context {
                 })
                 .collect(),
             caches: self.caches.clone(),
+            render_stack: self.render_stack,
         }
     }
 
-    /// Freeze bindings once per render; child writes copy only the affected stack.
-    /// Parent writes use copy-on-write so retained callback snapshots stay valid,
-    /// and take the bindings back without copying once nothing else holds them.
-    pub(crate) fn clone_scope(&mut self, py: Python<'_>) -> Self {
-        if self.scope_bindings.is_none() {
-            self.scope_bindings = Some(ScopeBindings {
-                base: Gc::new(SharedBindings(Arc::new(std::mem::take(&mut self.context)))),
-                overlay: false,
-            });
-        }
-        let mut scoped = self.clone_ref(py);
-        scoped
-            .scope_bindings
-            .as_mut()
-            .expect("scope initialized")
-            .overlay = true;
-        scoped
+    /// Hand the render's caches (date formats, translated strings) to a
+    /// context that renders in this one's place, with the same language and
+    /// time zone, so what it looks up is still there afterwards. The other
+    /// context hands them back the same way.
+    pub(crate) fn move_caches_to(&mut self, other: &mut Self) {
+        other.date_cache = std::mem::take(&mut self.date_cache);
+        other.caches = self.caches.take();
     }
 
     fn visible_bindings(&self) -> impl Iterator<Item = (&String, &Vec<Py<PyAny>>)> {
-        self.scope_bindings
-            .as_ref()
-            .into_iter()
-            .flat_map(|shared| shared.base.0.iter())
-            .filter(|(key, _)| !self.context.contains_key(*key))
-            .chain(self.context.iter())
-    }
-
-    fn bindings_mut(&mut self) -> &mut BindingMap {
-        if let Some(shared) = self.scope_bindings.take_if(|shared| !shared.overlay) {
-            // Materialize parent writes while retained child snapshots keep
-            // their immutable GC-visible base. Dropping this handle frees the
-            // container when nothing else holds it, so the map moves back
-            // instead of being copied on every write after a child scope.
-            let map = Arc::clone(&shared.base.0);
-            drop(shared);
-            let mut bindings =
-                Arc::try_unwrap(map).unwrap_or_else(|shared| clone_bindings(&shared));
-            bindings.extend(std::mem::take(&mut self.context));
-            self.context = bindings;
-        }
-        &mut self.context
-    }
-
-    fn has_rust_binding(&self, key: &str) -> bool {
-        self.context.contains_key(key)
-            || self
-                .scope_bindings
-                .as_ref()
-                .is_some_and(|shared| shared.base.0.contains_key(key))
-    }
-
-    fn has_binding_key(&self, key: &str) -> bool {
-        self.has_rust_binding(key) || self.source_contains(key)
+        self.context.iter()
     }
 
     pub fn invalid_value<'py>(
@@ -483,7 +589,7 @@ impl Context {
         let names: Vec<_> = self.assigned.iter().cloned().collect();
         for name in names {
             match live.get_item(&name) {
-                Ok(value) => self._insert(name, value, true),
+                Ok(value) => self._insert(&name, value, true),
                 Err(error) if error.is_instance_of::<PyKeyError>(py) => {
                     self.assigned.remove(&name);
                 }
@@ -618,14 +724,8 @@ impl Context {
         if let Some(values) = self.context.get(key) {
             return values.last().map(|value| value.bind(py).clone());
         }
-        if let Some(values) = self
-            .scope_bindings
-            .as_ref()
-            .and_then(|shared| shared.base.0.get(key))
-        {
-            return values.last().map(|value| value.bind(py).clone());
-        }
-        self.source.as_ref()?.bind(py).get_item(key).ok().flatten()
+        let source = self.source.as_ref()?.bind(py);
+        source.get_item(interned_name(py, key)).ok().flatten()
     }
 
     pub fn resolve_root<'py>(
@@ -634,13 +734,26 @@ impl Context {
         key: &str,
     ) -> PyResult<Option<Bound<'py, PyAny>>> {
         if let Some(context) = &self.formatting_context {
-            return match context.bind(py).get_item(key) {
-                Ok(value) => Ok(Some(value)),
-                Err(error) if error.is_instance_of::<PyKeyError>(py) => Ok(None),
-                Err(error) => Err(error),
-            };
+            let context = context.bind(py);
+            let methods = super::live::Methods::cached(&self.live_methods, context)?;
+            return super::live::get(context, methods, &interned_name(py, key));
         }
-        if key == "forloop" && !self.loops.is_empty() {
+        if let Some(shadow) = &self.shadow {
+            if key == "forloop" && !self.forloop_rebound() {
+                if self.loops.len() > shadow.loops {
+                    return self.loop_dictionary(py, 0).map(Some);
+                }
+            } else if self.names[shadow.names..]
+                .iter()
+                .any(|names| names.contains(key))
+            {
+                return Ok(self.get(py, key));
+            }
+            let live = shadow.live.bind(py);
+            let methods = super::live::Methods::cached(&self.live_methods, live)?;
+            return super::live::get(live, methods, &interned_name(py, key));
+        }
+        if key == "forloop" && !self.loops.is_empty() && !self.forloop_rebound() {
             return self.loop_dictionary(py, 0).map(Some);
         }
         Ok(self.get(py, key))
@@ -659,12 +772,64 @@ impl Context {
         ))
     }
 
+    /// Render `render` on native scopes over this live render's Django
+    /// `Context`, for nodes that never hand the context to Python. Returns
+    /// `None` without calling `render` when Python might still reach the
+    /// context, so the caller renders on the live context as usual.
+    pub(crate) fn shadowed<T>(
+        &mut self,
+        py: Python<'_>,
+        render: impl FnOnce(&mut Self) -> T,
+    ) -> PyResult<Option<T>> {
+        let Some(live) = self.formatting_context.take_if(|live| {
+            Self::unreachable_from_python(py, live, self.live_refs).unwrap_or(false)
+        }) else {
+            return Ok(None);
+        };
+        if let Err(error) = self.refresh_live_flags(py, &live) {
+            self.formatting_context = Some(live);
+            return Err(error);
+        }
+        self.shadow = Some(Shadow {
+            live,
+            names: self.names.len(),
+            loops: self.loops.len(),
+        });
+        let result = render(self);
+        let shadow = self.shadow.take().expect("shadow set above");
+        self.formatting_context = Some(shadow.live);
+        Ok(Some(result))
+    }
+
+    /// Whether only this render holds `live`, so Python code that runs
+    /// meanwhile (a callable value, `__str__`, a filter) cannot reach it.
+    fn unreachable_from_python(
+        py: Python<'_>,
+        live: &Py<PyAny>,
+        live_refs: Option<isize>,
+    ) -> PyResult<bool> {
+        let Some(live_refs) = live_refs else {
+            return Ok(false);
+        };
+        Ok(super::live::outside_references(live.bind(py))?.is_some_and(|refs| refs <= live_refs))
+    }
+
+    fn refresh_live_flags(&mut self, py: Python<'_>, live: &Py<PyAny>) -> PyResult<()> {
+        (self.autoescape, self.use_l10n, self.use_tz) = super::live::flags(live.bind(py))?;
+        Ok(())
+    }
+
+    /// Whether `forloop` at `depth` (or the whole `{{ forloop }}`) belongs to
+    /// a loop outside the shadow, so it has to be read as a dict.
+    pub(crate) fn shadowed_loop(&self, depth: usize, whole: bool) -> bool {
+        self.shadow
+            .as_ref()
+            .is_some_and(|shadow| whole || self.loops.len() <= shadow.loops + depth)
+    }
+
     pub fn refresh_formatting_flags(&mut self, py: Python<'_>) -> PyResult<()> {
         if let Some(context) = &self.formatting_context {
-            let context = context.bind(py);
-            self.autoescape = context.getattr("autoescape")?.extract()?;
-            self.use_l10n = context.getattr("use_l10n")?.extract()?;
-            self.use_tz = context.getattr("use_tz")?.extract()?;
+            (self.autoescape, self.use_l10n, self.use_tz) = super::live::flags(context.bind(py))?;
         }
         Ok(())
     }
@@ -687,51 +852,49 @@ impl Context {
         format!("{context:?}")
     }
 
-    fn _insert(&mut self, key: String, value: Bound<'_, PyAny>, replace: bool) {
+    /// `key` is borrowed so a loop rebinding the same name on every
+    /// iteration allocates the `String` once, on the first insert.
+    fn _insert(&mut self, key: &str, value: Bound<'_, PyAny>, replace: bool) {
         // Pure native renders never need a Python snapshot. Start tracking
         // mutations only after the first conversion has captured a base.
         if self.django_context_base.get_mut().is_some() {
-            self.django_context_changes.insert(key.clone());
+            self.django_context_changes.insert(key.to_string());
         }
-        let inherited = self
-            .scope_bindings
-            .as_ref()
-            .filter(|shared| shared.overlay)
-            .map(|shared| shared.base.clone());
+        if key == "forloop" {
+            self.forloop_name = ForloopName::Bound;
+        }
         let py = value.py();
         let value = value.unbind();
-        let source = self.source.as_ref().map(|source| source.clone_ref(py));
-        let source = source.as_ref();
-        match self.bindings_mut().entry(key) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                let values = entry.get_mut();
-                if replace {
-                    values.pop();
-                }
-                values.push(value);
+        if let Some(values) = self.context.get_mut(key) {
+            if replace {
+                values.pop();
             }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let mut values: Vec<_> = inherited
-                    .as_ref()
-                    .and_then(|base| base.0.get(entry.key()))
-                    .map(|values| values.iter().map(|value| value.clone_ref(py)).collect())
-                    .or_else(|| {
-                        // First write to a name from the caller's dict.
-                        let value = source?.bind(py).get_item(entry.key()).ok().flatten()?;
-                        Some(vec![value.unbind()])
-                    })
-                    .unwrap_or_default();
-                if replace {
-                    values.pop();
-                }
-                values.push(value);
-                entry.insert(values);
+            let left = values.len();
+            values.push(value);
+            // The write replaced the copy of the caller's value.
+            if self.scope_bases.get(key).is_some_and(|base| left < *base) {
+                self.scope_bases.remove(key);
             }
+            return;
         }
+        // First write to this name. A scoped write keeps a copy of the
+        // caller's value below the new one, so the name still resolves if a
+        // later write replaces only the top.
+        let mut values = Vec::new();
+        if !replace {
+            if let Some(source) = &self.source
+                && let Some(value) = source.bind(py).get_item(key).ok().flatten()
+            {
+                values.push(value.unbind());
+            }
+            self.scope_bases.insert(key.to_string(), values.len());
+        }
+        values.push(value);
+        self.context.insert(key.to_string(), values);
     }
 
     pub fn append(&mut self, key: String, value: Bound<'_, PyAny>) {
-        self._insert(key, value, false);
+        self._insert(&key, value, false);
     }
 
     pub fn insert(&mut self, key: String, value: Bound<'_, PyAny>) -> PyResult<()> {
@@ -743,18 +906,12 @@ impl Context {
             .names
             .last_mut()
             .is_none_or(|names| !names.insert(key.clone()));
-        self._insert(key, value, replace);
+        self._insert(&key, value, replace);
         Ok(())
     }
 
     pub(crate) fn clear_variable(&mut self, key: &str) {
-        if self
-            .scope_bindings
-            .as_ref()
-            .is_some_and(|shared| shared.overlay)
-        {
-            self.context.entry(key.to_string()).or_default().clear();
-        } else if let Some(values) = self.bindings_mut().get_mut(key) {
+        if let Some(values) = self.context.get_mut(key) {
             values.clear();
         } else if self.source_contains(key) {
             // Hide the caller's value.
@@ -771,8 +928,9 @@ impl Context {
             let mut names_set = HashSet::new();
             names_set.insert(name.clone());
             self.names.push(names_set);
+            self.note_loop_scope(false);
         }
-        self._insert(name, value, replace);
+        self._insert(&name, value, replace);
     }
 
     pub fn push_variables(
@@ -785,12 +943,8 @@ impl Context {
         template: TemplateString<'_>,
     ) -> Result<(), PyRenderError> {
         let replace = index != 0;
-        if !replace {
-            let names_set = names.iter().cloned().collect();
-            self.names.push(names_set);
-        }
         if names.len() == 1 {
-            self._insert(names[0].clone(), values, replace);
+            self._insert(&names[0], values, replace);
         } else {
             let py = values.py();
             let values: Vec<_> = match values.try_iter() {
@@ -817,7 +971,7 @@ impl Context {
             };
             if names.len() == values.len() {
                 for (name, value) in zip(names, values) {
-                    self._insert(name.clone(), value, replace);
+                    self._insert(name, value, replace);
                 }
             } else {
                 return Err(RenderError::TupleUnpackError {
@@ -828,6 +982,12 @@ impl Context {
                 }
                 .into());
             }
+        }
+        // Open the scope only once its names are bound, so a failed first
+        // unpacking leaves nothing for the loop's cleanup to pop.
+        if !replace {
+            self.names.push(names.iter().cloned().collect());
+            self.note_loop_scope(names.len() > 1);
         }
         Ok(())
     }
@@ -840,15 +1000,225 @@ impl Context {
             self.django_context_changes.insert(name.to_string());
         }
         let values = self
-            .bindings_mut()
+            .context
             .get_mut(name)
             .expect("Variable should have been pushed before");
         values.pop();
+        // Back to what the first scoped write found, so the name is the
+        // caller's again: their dict may have changed since.
+        if self.scope_bases.get(name) == Some(&values.len()) {
+            self.scope_bases.remove(name);
+            self.context.remove(name);
+        }
     }
 
     pub(crate) fn push_scope(&mut self, names: &[&str]) {
         self.names
             .push(names.iter().map(|name| (*name).to_string()).collect());
+    }
+
+    /// Open a scope that binds `values`, as Django's
+    /// `context.push(**values)` does. `pop_variables` closes it, and takes
+    /// with it whatever the body assigns in the meantime. The scope is open
+    /// even when this fails.
+    pub(crate) fn push_bindings<'a, 'py>(
+        &mut self,
+        py: Python<'py>,
+        values: impl IntoIterator<Item = (&'a str, Bound<'py, PyAny>)>,
+    ) -> PyResult<()> {
+        self.names.push(HashSet::new());
+        for (name, value) in values {
+            if let Some(live) = &self.formatting_context {
+                live.bind(py).set_item(name, &value)?;
+            }
+            // A name given twice keeps its last value.
+            let first = self
+                .names
+                .last_mut()
+                .expect("the scope was just opened")
+                .insert(name.to_string());
+            self._insert(name, value, !first);
+        }
+        Ok(())
+    }
+
+    /// The newest loop's variables live in the scope just opened.
+    fn note_loop_scope(&mut self, unpacked: bool) {
+        let scope = self.names.len() - 1;
+        if let Some(loop_) = self.loops.last_mut() {
+            loop_.scope = Some((scope, unpacked));
+        }
+    }
+
+    /// Where `key`'s values sit in its stack: how many belong to no scope
+    /// (the caller's value, at the bottom), then the scopes that bind it.
+    fn placement(&self, key: &str) -> (usize, Vec<usize>) {
+        let values = self.context.get(key).map_or(0, Vec::len);
+        let mut holders: Vec<usize> = self
+            .names
+            .iter()
+            .enumerate()
+            .filter(|(_, names)| names.contains(key))
+            .map(|(scope, _)| scope)
+            .collect();
+        // A cleared name has scopes without values; keep the newest.
+        let extra = holders.len().saturating_sub(values);
+        holders.drain(..extra);
+        (values - holders.len(), holders)
+    }
+
+    /// Django's `Context.dicts`: the built-in names, the caller's values,
+    /// then one dict per open scope. A loop that unpacks its items has two,
+    /// `forloop` and then the variables, as Django pushes them.
+    fn layers<'py>(&self, py: Python<'py>) -> PyResult<Vec<(Layer, Bound<'py, PyDict>)>> {
+        let builtins = PyDict::new(py);
+        let base = match &self.source {
+            Some(source) => source.bind(py).copy()?,
+            None => PyDict::new(py),
+        };
+        let scopes: Vec<_> = self.names.iter().map(|_| PyDict::new(py)).collect();
+        for name in BUILTIN_NAMES {
+            if let Some(value) = self.context.get(name).and_then(|values| values.first()) {
+                builtins.set_item(name, value)?;
+            }
+        }
+        for (key, values) in &self.context {
+            let (below, holders) = self.placement(key);
+            if below > 0 {
+                let layer = if self.in_builtins_layer(key) {
+                    &builtins
+                } else {
+                    &base
+                };
+                layer.set_item(key, &values[below - 1])?;
+            } else if base.contains(key)? {
+                // A scope's value was written over the caller's, or cleared.
+                base.del_item(key)?;
+            }
+            for (scope, value) in holders.iter().zip(&values[below..]) {
+                scopes[*scope].set_item(key, value)?;
+            }
+        }
+        let mut loops: Vec<Option<(usize, bool)>> = vec![None; scopes.len()];
+        for (depth, loop_) in self.loops.iter().rev().enumerate() {
+            if let Some((scope, unpacked)) = loop_.scope
+                && let Some(entry) = loops.get_mut(scope)
+            {
+                *entry = Some((depth, unpacked));
+            }
+        }
+        let mut layers = vec![(Layer::Builtins, builtins), (Layer::Base, base)];
+        for (scope, (variables, loop_)) in scopes.into_iter().zip(loops).enumerate() {
+            let Some((depth, unpacked)) = loop_ else {
+                layers.push((Layer::Scope(scope), variables));
+                continue;
+            };
+            // Django binds `forloop` first, then the loop's variables.
+            let first = PyDict::new(py);
+            if !variables.contains("forloop")? {
+                first.set_item("forloop", self.loop_dictionary(py, depth)?)?;
+            }
+            if unpacked {
+                layers.push((Layer::Scope(scope), first));
+                layers.push((Layer::Scope(scope), variables));
+            } else {
+                first.update(variables.as_mapping())?;
+                layers.push((Layer::Scope(scope), first));
+            }
+        }
+        Ok(layers)
+    }
+
+    fn in_builtins_layer(&self, key: &str) -> bool {
+        BUILTIN_NAMES.contains(&key) || self.builtins_layer.iter().any(|name| name == key)
+    }
+
+    /// `context.dicts[n][key] = value`, for the layer `layers` put at `n`.
+    fn set_in_layer(&mut self, layer: Layer, key: &str, value: Bound<'_, PyAny>) {
+        let (below, holders) = self.placement(key);
+        if self.django_context_base.get_mut().is_some() {
+            self.django_context_changes.insert(key.to_string());
+        }
+        let scope = match layer {
+            Layer::Scope(scope) => scope,
+            Layer::Builtins | Layer::Base => {
+                let in_base =
+                    below > 0 || (!self.context.contains_key(key) && self.source_contains(key));
+                if layer == Layer::Builtins {
+                    if in_base && !self.in_builtins_layer(key) {
+                        // The caller's value hides one in the built-ins layer.
+                        return;
+                    }
+                    if !self.in_builtins_layer(key) {
+                        self.builtins_layer.push(key.to_string());
+                    }
+                } else {
+                    // One slot holds both layers' value; the caller's wins.
+                    self.builtins_layer.retain(|name| name != key);
+                }
+                // Later scope pops must leave this value in place.
+                self.scope_bases.remove(key);
+                match self.context.get_mut(key) {
+                    Some(values) if below > 0 => values[below - 1] = value.unbind(),
+                    Some(values) => values.insert(0, value.unbind()),
+                    None => {
+                        self.context.insert(key.to_string(), vec![value.unbind()]);
+                    }
+                }
+                return;
+            }
+        };
+        if scope >= self.names.len() {
+            // The layer's scope has closed.
+            return;
+        }
+        if key == "forloop" {
+            self.forloop_name = ForloopName::Bound;
+        }
+        let earlier = holders.iter().filter(|holder| **holder < scope).count();
+        if holders.contains(&scope) {
+            if let Some(values) = self.context.get_mut(key) {
+                values[below + earlier] = value.unbind();
+            }
+            return;
+        }
+        self.names[scope].insert(key.to_string());
+        if earlier == holders.len() {
+            // The newest binding: an ordinary scoped write.
+            self._insert(key, value, false);
+        } else if let Some(values) = self.context.get_mut(key) {
+            values.insert(below + earlier, value.unbind());
+        }
+    }
+
+    /// A `takes_context` tag is about to get this context.
+    pub(crate) fn enter_callback(&mut self) {
+        self.callback_floors.push(self.names.len());
+    }
+
+    /// The tag returned. A scope it pushed and never popped stays on the
+    /// stack, as the layer does in Django: the next scope to close, the
+    /// loop or `{% with %}` around the tag, pops it in place of its own.
+    pub(crate) fn leave_callback(&mut self) {
+        self.callback_floors.pop();
+    }
+
+    /// Whether a `takes_context` tag has a scope of its own to pop.
+    fn callback_scope_open(&self) -> bool {
+        self.callback_floors
+            .last()
+            .is_some_and(|floor| self.names.len() > *floor)
+    }
+
+    /// Django's `Context.set_upward`: rebind the name where it is bound,
+    /// or bind it in the current scope.
+    fn set_upward(&mut self, key: String, value: Bound<'_, PyAny>) -> PyResult<()> {
+        if self.get(value.py(), &key).is_some() {
+            self._insert(&key, value, true);
+            Ok(())
+        } else {
+            self.insert(key, value)
+        }
     }
 
     pub fn pop_variables(&mut self) {
@@ -859,11 +1229,28 @@ impl Context {
         }
     }
 
-    pub fn push_for_loop(&mut self, len: usize) {
+    /// Close the newest scope, if one was opened since `scope_depth`
+    /// returned `depth`. A tag that fails part-way may not have opened its
+    /// scope.
+    pub fn pop_scope_above(&mut self, depth: usize) {
+        if self.names.len() > depth {
+            self.pop_variables();
+        }
+    }
+
+    /// How many variable scopes are open, for `pop_scope_above`.
+    pub fn scope_depth(&self) -> usize {
+        self.names.len()
+    }
+
+    pub fn push_for_loop(&mut self, py: Python<'_>, len: usize) {
+        let forloop_values = self.forloop_values();
         self.loops.push(ForLoop {
+            forloop_values,
+            scope: None,
             count: 0,
             len,
-            dictionary: Gc::new(GcOnceLock::new()),
+            dictionary: Gc::new_in(py, GcOnceLock::new()),
         });
         self.changed_states.push(HashMap::new());
     }
@@ -889,6 +1276,62 @@ impl Context {
             .expect("Called when exiting an active for loop");
     }
 
+    fn forloop_values(&self) -> usize {
+        if self.forloop_name == ForloopName::Unbound {
+            return 0;
+        }
+        self.context.get("forloop").map_or(0, Vec::len)
+    }
+
+    /// Whether the innermost loop's body bound `forloop` itself, as a loop
+    /// variable or an assignment. The name is then that variable, as in
+    /// Django, where the binding replaces the loop object in the same dict.
+    pub(crate) fn forloop_rebound(&self) -> bool {
+        self.forloop_name == ForloopName::Bound
+            && self
+                .loops
+                .last()
+                .is_some_and(|loop_| self.forloop_values() > loop_.forloop_values)
+    }
+
+    /// The variable `forloop` that the loop at `depth` found bound inside
+    /// the loop around it. Django makes that the loop's `parentloop`.
+    fn variable_parent<'py>(&self, py: Python<'py>, depth: usize) -> Option<Bound<'py, PyAny>> {
+        if self.forloop_name == ForloopName::Unbound {
+            return None;
+        }
+        let values = self.get_for_loop(depth)?.forloop_values;
+        let outer = self.get_for_loop(depth + 1)?.forloop_values;
+        if values <= outer {
+            return None;
+        }
+        let value = self.context.get("forloop")?.get(values - 1)?;
+        Some(value.bind(py).clone())
+    }
+
+    /// The variable `forloop` as the outermost loop found it.
+    pub(crate) fn forloop_before_loops<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
+        let values = self.loops.first()?.forloop_values;
+        match values.checked_sub(1) {
+            Some(index) => Some(self.context.get("forloop")?.get(index)?.bind(py).clone()),
+            None if self.forloop_name == ForloopName::Bound => None,
+            None => self.get(py, "forloop"),
+        }
+    }
+
+    /// Whether any of the `count` innermost loops has a variable for its
+    /// `parentloop`, so the loop can't be read from the native counters.
+    pub(crate) fn forloop_parent_is_variable(&self, count: usize) -> bool {
+        self.forloop_name == ForloopName::Bound
+            && (0..count).any(|depth| {
+                let Some(inner) = self.get_for_loop(depth) else {
+                    return false;
+                };
+                self.get_for_loop(depth + 1)
+                    .is_some_and(|outer| inner.forloop_values > outer.forloop_values)
+            })
+    }
+
     pub fn get_for_loop(&self, depth: usize) -> Option<&ForLoop> {
         let index = self.loops.len().checked_sub(depth + 1)?;
         self.loops.get(index)
@@ -899,13 +1342,14 @@ impl Context {
             .is_some_and(|loop_| loop_.dictionary.get().is_some())
     }
 
-    fn fill_loop_dictionary(loop_: &ForLoop, dict: &Bound<'_, PyDict>) -> PyResult<()> {
-        dict.set_item("counter", loop_.counter())?;
-        dict.set_item("counter0", loop_.counter0())?;
-        dict.set_item("revcounter", loop_.rev_counter())?;
-        dict.set_item("revcounter0", loop_.rev_counter0())?;
-        dict.set_item("first", loop_.first())?;
-        dict.set_item("last", loop_.last())?;
+    fn fill_loop_dictionary(loop_: &ForLoop, dict: &Bound<'_, PyAny>) -> PyResult<()> {
+        let py = dict.py();
+        dict.set_item(intern!(py, "counter0"), loop_.counter0())?;
+        dict.set_item(intern!(py, "counter"), loop_.counter())?;
+        dict.set_item(intern!(py, "revcounter"), loop_.rev_counter())?;
+        dict.set_item(intern!(py, "revcounter0"), loop_.rev_counter0())?;
+        dict.set_item(intern!(py, "first"), loop_.first())?;
+        dict.set_item(intern!(py, "last"), loop_.last())?;
         Ok(())
     }
 
@@ -914,6 +1358,15 @@ impl Context {
         py: Python<'py>,
         depth: usize,
     ) -> PyResult<Bound<'py, PyAny>> {
+        if let Some(shadow) = &self.shadow
+            && self.loops.len() <= shadow.loops + depth
+        {
+            // The innermost loop outside the shadow is the live `forloop`.
+            let live = shadow.live.bind(py);
+            let methods = super::live::Methods::cached(&self.live_methods, live)?;
+            return Ok(super::live::get(live, methods, intern!(py, "forloop"))?
+                .unwrap_or_else(|| PyDict::new(py).into_any()));
+        }
         let Some(loop_) = self.get_for_loop(depth) else {
             return Ok(self
                 .get(py, "forloop")
@@ -923,11 +1376,16 @@ impl Context {
             .dictionary
             .get_or_try_init(py, || {
                 let dict = PyDict::new(py);
-                dict.set_item("parentloop", self.loop_dictionary(py, depth + 1)?)?;
-                Self::fill_loop_dictionary(loop_, &dict)?;
+                // Django's key order: parentloop, length (6.0+), then counters.
+                let parent = match self.variable_parent(py, depth) {
+                    Some(parent) => parent,
+                    None => self.loop_dictionary(py, depth + 1)?,
+                };
+                dict.set_item("parentloop", parent)?;
                 if self.django_series(py)? >= (6, 0) {
                     dict.set_item("length", loop_.length())?;
                 }
+                Self::fill_loop_dictionary(loop_, dict.as_any())?;
                 Ok(dict.unbind())
             })
             .map(|dict| dict.bind(py).clone().into_any())
@@ -943,40 +1401,38 @@ impl Context {
             if let Some(loop_) = self.loops.last()
                 && let Some(dict) = loop_.dictionary.get()
             {
-                Self::fill_loop_dictionary(loop_, dict.bind(py))?;
+                Self::fill_loop_dictionary(loop_, dict.bind(py).as_any())?;
             }
             return Ok(());
         };
         let context = context.bind(py);
+        let methods = super::live::Methods::cached(&self.live_methods, context)?;
         if let Some(names) = self.names.last() {
             for key in names {
                 if let Some(value) = self.get(py, key) {
-                    context.set_item(key, value)?;
+                    super::live::set(context, methods, &interned_name(py, key), &value)?;
                 }
             }
         }
+        let forloop = intern!(py, "forloop");
+        let for_loop = self.loops.last().expect("inside native loop");
         let dict = if first {
-            let parent = context
-                .get_item("forloop")
-                .unwrap_or_else(|_| PyDict::new(py).into_any());
+            let parent = super::live::get(context, methods, forloop)
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| PyDict::new(py).into_any());
             let dict = PyDict::new(py);
             dict.set_item("parentloop", parent)?;
-            context.set_item("forloop", &dict)?;
+            if self.django_series(py)? >= (6, 0) {
+                dict.set_item("length", for_loop.length())?;
+            }
+            super::live::set(context, methods, forloop, &dict)?;
             dict.into_any()
         } else {
-            context.get_item("forloop")?
+            super::live::get(context, methods, forloop)?
+                .ok_or_else(|| PyKeyError::new_err("forloop"))?
         };
-        let for_loop = self.loops.last().expect("inside native loop");
-        dict.set_item("counter", for_loop.counter())?;
-        dict.set_item("counter0", for_loop.counter0())?;
-        dict.set_item("revcounter", for_loop.rev_counter())?;
-        dict.set_item("revcounter0", for_loop.rev_counter0())?;
-        dict.set_item("first", for_loop.first())?;
-        dict.set_item("last", for_loop.last())?;
-        if first && self.django_series(py)? >= (6, 0) {
-            dict.set_item("length", for_loop.length())?;
-        }
-        Ok(())
+        Self::fill_loop_dictionary(for_loop, &dict)
     }
 
     #[expect(
@@ -1094,12 +1550,12 @@ impl Context {
             live.bind(value.py())
                 .call_method1("set_upward", (&key, &value))?;
             self.assigned.insert(key.clone());
-            self._insert(key, value, true);
+            self._insert(&key, value, true);
             return Ok(());
         }
         if self.get(value.py(), &key).is_some() {
             self.assigned.insert(key.clone());
-            self._insert(key, value, true);
+            self._insert(&key, value, true);
             Ok(())
         } else {
             self.insert(key, value)
@@ -1121,29 +1577,6 @@ impl Context {
             .map(|output| Cow::Owned(output.into_owned()));
         self.changed_states = previous;
         output
-    }
-
-    pub fn merge_render_state(
-        &mut self,
-        py: Python<'_>,
-        scoped: Self,
-        local_names: &[String],
-    ) -> PyResult<()> {
-        for name in &scoped.cycle_variables {
-            if !local_names.contains(name)
-                && self.has_binding_key(name)
-                && let Some(value) = scoped.get(py, name)
-            {
-                self.insert_cycle(name.clone(), value)?;
-            }
-        }
-        self.cycle_indices = scoped.cycle_indices;
-        self.changed_states = scoped.changed_states;
-        self.include_cache = scoped.include_cache;
-        self.autoescape = scoped.autoescape;
-        self.use_l10n = scoped.use_l10n;
-        self.use_tz = scoped.use_tz;
-        Ok(())
     }
 
     pub fn next_cycle_index(
@@ -1211,6 +1644,95 @@ impl PyContext {
             .use_tz
     }
 
+    /// Django's `Context.template`: the template whose render this is,
+    /// which is how a tag reaches `context.template.engine`.
+    #[getter]
+    fn template<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        if let Some(template) = self.rendering_template(py) {
+            return Ok(Some(Bound::new(py, template)?.into_any()));
+        }
+        let guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let bound = guard
+            .bound_template
+            .as_ref()
+            .map(|template| template.bind(py).clone());
+        drop(guard);
+        Ok(bound)
+    }
+
+    /// Django's `Context.bind_template()`: a context manager that sets
+    /// `template` on a context no template is rendering, such as one from
+    /// `new()`.
+    fn bind_template(&self, template: Py<PyAny>) -> PyContextBinding {
+        PyContextBinding {
+            context: self.clone(),
+            template,
+        }
+    }
+
+    /// The layers, innermost first, as Django's `Context.__iter__` yields.
+    fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.dicts(py)?.call_method0("__reversed__")
+    }
+
+    /// Django's `Context.template_name`: that template's name, `None` for
+    /// one compiled from a string.
+    #[getter]
+    fn template_name(&self, py: Python<'_>) -> Option<String> {
+        self.rendering_template(py)?.template_name
+    }
+
+    /// Django's `Context.dicts`: the built-in names, the caller's values,
+    /// then a dict per open scope. Assigning to a key of one writes to that
+    /// scope; the list itself is a copy.
+    #[getter]
+    fn dicts<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        let guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let layers = guard.layers(py);
+        drop(guard);
+        let dicts = PyList::empty(py);
+        for (layer, values) in layers? {
+            let dict = Bound::new(
+                py,
+                ContextLayer {
+                    context: self.context.clone_ref(py),
+                    layer,
+                },
+            )?;
+            dict.as_any()
+                .cast::<PyDict>()?
+                .update(values.as_mapping())?;
+            dicts.append(dict)?;
+        }
+        Ok(dicts)
+    }
+
+    /// Django's `Context`, or `RequestContext` when there is a request, so
+    /// `isinstance(context, Context)` holds for code that checks before
+    /// calling `flatten()`. `type(context)` is still this class.
+    #[getter(__class__)]
+    fn class<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let has_request = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned")
+            .request
+            .is_some();
+        let name = if has_request {
+            intern!(py, "RequestContext")
+        } else {
+            intern!(py, "Context")
+        };
+        py.import(intern!(py, "django.template.context"))?
+            .getattr(name)
+    }
+
     #[getter]
     fn request<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
         let guard = self
@@ -1239,12 +1761,13 @@ impl PyContext {
         }
     }
 
-    fn __contains__(&self, py: Python<'_>, key: String) -> bool {
+    fn __contains__(&self, py: Python<'_>, key: String) -> PyResult<bool> {
         let guard = self
             .context
             .lock_py_attached(py)
             .expect("Mutex should not be poisoned");
-        guard.get(py, &key).is_some()
+        // As `__getitem__` resolves it, so `forloop` is found inside a loop.
+        Ok(guard.resolve_root(py, &key)?.is_some())
     }
 
     fn __getitem__<'py>(&self, py: Python<'py>, key: String) -> PyResult<Bound<'py, PyAny>> {
@@ -1279,12 +1802,23 @@ impl PyContext {
             .context
             .lock_py_attached(py)
             .expect("Mutex should not be poisoned");
-        guard.insert(key, value)
+        // Keep the replaced value alive until the lock is released, so its
+        // `__del__` cannot re-enter this context while it is locked.
+        let replaced = guard.get(py, &key);
+        let result = guard.insert(key, value);
+        drop(guard);
+        drop(replaced);
+        result
     }
 
-    /// Like Django's `Context.update()`. Django pushes a layer that stays
-    /// until a later pop; here the values join the current scope.
-    fn update<'py>(&self, py: Python<'py>, other_dict: Bound<'py, PyAny>) -> PyResult<()> {
+    /// Django's `Context.update()`: a new scope holding the mapping's values.
+    /// The result is a context manager; without one, the scope lasts as
+    /// long as the scope the tag was called in.
+    fn update<'py>(
+        &self,
+        py: Python<'py>,
+        other_dict: Bound<'py, PyAny>,
+    ) -> PyResult<PyContextScope> {
         if !other_dict.hasattr("__getitem__")? {
             return Err(PyTypeError::new_err(
                 "other_dict must be a mapping (dictionary-like) object.",
@@ -1295,19 +1829,350 @@ impl PyContext {
         } else {
             other_dict
         };
+        let scope = self.open_scope(py);
         for item in other_dict.call_method0("items")?.try_iter()? {
             let (key, value): (String, Bound<'py, PyAny>) = item?.extract()?;
             self.__setitem__(py, key, value)?;
         }
+        Ok(scope)
+    }
+
+    /// Django's `Context.push()`: a new scope, holding any mappings and
+    /// keyword values given. The result is a context manager.
+    #[pyo3(signature = (*args, **kwargs))]
+    fn push<'py>(
+        &self,
+        py: Python<'py>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: Option<&Bound<'py, PyDict>>,
+    ) -> PyResult<PyContextScope> {
+        let scope = self.open_scope(py);
+        let mut mappings: Vec<_> = args.iter().collect();
+        if let Some(kwargs) = kwargs {
+            mappings.push(kwargs.clone().into_any());
+        }
+        for mapping in mappings {
+            let mapping = if mapping.hasattr("dicts")? {
+                mapping.getattr("dicts")?.get_item(-1)?
+            } else {
+                mapping
+            };
+            for item in mapping.call_method0("items")?.try_iter()? {
+                let (key, value): (String, Bound<'py, PyAny>) = item?.extract()?;
+                self.__setitem__(py, key, value)?;
+            }
+        }
+        Ok(scope)
+    }
+
+    /// Django's `Context.pop()`. A tag can only pop what it pushed.
+    fn pop(&self, py: Python<'_>) -> PyResult<()> {
+        let mut guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        if !guard.callback_scope_open() {
+            drop(guard);
+            let error = py
+                .import("django.template.context")?
+                .getattr("ContextPopException")?;
+            return Err(PyErr::from_value(error.call0()?));
+        }
+        guard.pop_variables();
+        drop(guard);
         Ok(())
+    }
+
+    /// Like Django's `Context.setdefault()`.
+    fn setdefault<'py>(
+        &self,
+        py: Python<'py>,
+        key: String,
+        default: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        match self.__getitem__(py, key.clone()) {
+            Ok(value) => Ok(value),
+            Err(error) if error.is_instance_of::<PyKeyError>(py) => {
+                let default = default.unwrap_or_else(|| py.None().into_bound(py));
+                self.__setitem__(py, key, default.clone())?;
+                Ok(default)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Like Django's `Context.set_upward()`.
+    fn set_upward<'py>(
+        &self,
+        py: Python<'py>,
+        key: String,
+        value: Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        let mut guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        // As in `__setitem__`, a replaced value is dropped after the lock.
+        let replaced = guard.get(py, &key);
+        let result = guard.set_upward(key, value);
+        drop(guard);
+        drop(replaced);
+        result
+    }
+
+    /// Django's `Context.render_context`: state a tag keeps for the render.
+    #[getter]
+    fn render_context<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let mut guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        if let Some(render_context) = &guard.render_context {
+            return Ok(render_context.bind(py).clone());
+        }
+        let render_context = py
+            .import("django.template.context")?
+            .getattr("RenderContext")?
+            .call0()?;
+        guard.render_context = Some(render_context.clone().unbind());
+        drop(guard);
+        Ok(render_context)
+    }
+
+    /// Django's `Context.new()`: a context with only `values`, and this
+    /// one's request and settings.
+    #[pyo3(name = "new", signature = (values=None))]
+    fn new_context(&self, py: Python<'_>, values: Option<Bound<'_, PyAny>>) -> PyResult<Self> {
+        let mut bindings: HashMap<String, Py<PyAny>> = HashMap::from([
+            (
+                "True".to_string(),
+                PyBool::new(py, true).to_owned().into_any().unbind(),
+            ),
+            (
+                "False".to_string(),
+                PyBool::new(py, false).to_owned().into_any().unbind(),
+            ),
+            ("None".to_string(), py.None()),
+        ]);
+        if let Some(values) = values.filter(|values| !values.is_none()) {
+            let values = if values.hasattr("flatten")? {
+                values.call_method0("flatten")?
+            } else {
+                values
+            };
+            for item in values.call_method0("items")?.try_iter()? {
+                let (key, value): (String, Py<PyAny>) = item?.extract()?;
+                bindings.insert(key, value);
+            }
+        }
+        let guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let request = guard.request.as_ref().map(|request| request.clone_ref(py));
+        let mut context = Context::new(bindings, request, guard.autoescape);
+        context.use_l10n = guard.use_l10n;
+        context.use_tz = guard.use_tz;
+        context.format_values = guard.format_values;
+        context.render_stack = guard.render_stack;
+        context.number_format = Arc::clone(&guard.number_format);
+        // Django's `new()` copies the context, so it stays bound.
+        context.root_template = guard
+            .root_template
+            .as_ref()
+            .or(guard.current_template.as_ref())
+            .map(|template| template.clone_ref(py));
+        drop(guard);
+        Ok(Self::new(context))
+    }
+
+    /// Django's copy is shallow: it shares the layers, so a value set
+    /// through the copy shows in the original.
+    fn __copy__(&self) -> Self {
+        self.clone()
     }
 
     /// Like Django's `Context.flatten()`.
     fn flatten<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let values = guard.as_dict(py)?;
+        if let Some(forloop) = guard.resolve_root(py, "forloop")?
+            && !values.contains("forloop")?
+        {
+            values.set_item("forloop", forloop)?;
+        }
+        drop(guard);
+        Ok(values)
+    }
+}
+
+impl PyContext {
+    /// The template whose render this is, if one is rendering.
+    fn rendering_template(&self, py: Python<'_>) -> Option<Template> {
+        let guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let template = guard
+            .root_template
+            .as_ref()
+            .or(guard.current_template.as_ref())
+            .map(|template| Template::clone(template));
+        drop(guard);
+        template
+    }
+
+    /// Open a scope on the render's context and remember where it began.
+    fn open_scope(&self, py: Python<'_>) -> PyContextScope {
+        let mut guard = self
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned");
+        let depth = guard.scope_depth();
+        guard.push_scope(&[]);
+        drop(guard);
+        PyContextScope {
+            context: self.context.clone(),
+            depth,
+        }
+    }
+}
+
+/// What `push()` and `update()` return: leaving its `with` block closes the
+/// scope, as Django's `ContextDict` does.
+#[pyclass]
+pub struct PyContextScope {
+    context: Gc<Mutex<Context>>,
+    depth: usize,
+}
+
+#[pymethods]
+impl PyContextScope {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.context.trace(&visit)
+    }
+
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    #[pyo3(signature = (*_args))]
+    fn __exit__(&self, py: Python<'_>, _args: &Bound<'_, PyTuple>) {
         self.context
             .lock_py_attached(py)
             .expect("Mutex should not be poisoned")
-            .as_dict(py)
+            .pop_scope_above(self.depth);
+    }
+}
+
+/// What `bind_template()` returns.
+#[pyclass]
+pub struct PyContextBinding {
+    context: PyContext,
+    template: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyContextBinding {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.context.context.trace(&visit)?;
+        visit.call(&self.template)
+    }
+
+    fn __enter__(&self, py: Python<'_>) -> PyResult<()> {
+        if self.context.template(py)?.is_some() {
+            return Err(PyRuntimeError::new_err(
+                "Context is already bound to a template",
+            ));
+        }
+        self.context
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned")
+            .bound_template = Some(self.template.clone_ref(py));
+        Ok(())
+    }
+
+    #[pyo3(signature = (*_args))]
+    fn __exit__(&self, py: Python<'_>, _args: &Bound<'_, PyTuple>) {
+        let bound = self
+            .context
+            .context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned")
+            .bound_template
+            .take();
+        // Dropped after the lock: a finalizer may use the context.
+        drop(bound);
+    }
+}
+
+/// One of `context.dicts`: a dict of a layer's values whose item
+/// assignments also write to that layer of the render's context.
+#[pyclass(extends = PyDict)]
+pub struct ContextLayer {
+    context: Gc<Mutex<Context>>,
+    layer: Layer,
+}
+
+#[pymethods]
+impl ContextLayer {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.context.trace(&visit)
+    }
+
+    fn __setitem__(
+        slf: &Bound<'_, Self>,
+        key: Bound<'_, PyAny>,
+        value: Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let py = slf.py();
+        if let Ok(name) = key.extract::<String>() {
+            let layer = slf.borrow();
+            layer
+                .context
+                .lock_py_attached(py)
+                .expect("Mutex should not be poisoned")
+                .set_in_layer(layer.layer, &name, value.clone());
+        }
+        slf.as_any().cast::<PyDict>()?.set_item(key, value)
+    }
+
+    #[pyo3(signature = (other=None, **kwargs))]
+    fn update(
+        slf: &Bound<'_, Self>,
+        other: Option<Bound<'_, PyAny>>,
+        kwargs: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
+        let values = PyDict::new(slf.py());
+        if let Some(other) = other {
+            values.call_method1("update", (other,))?;
+        }
+        if let Some(kwargs) = kwargs {
+            values.update(kwargs.as_mapping())?;
+        }
+        for (key, value) in values {
+            Self::__setitem__(slf, key, value)?;
+        }
+        Ok(())
+    }
+
+    #[pyo3(signature = (key, default=None))]
+    fn setdefault<'py>(
+        slf: &Bound<'py, Self>,
+        key: Bound<'py, PyAny>,
+        default: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let dict = slf.as_any().cast::<PyDict>()?;
+        if let Some(value) = dict.get_item(&key)? {
+            return Ok(value);
+        }
+        let default = default.unwrap_or_else(|| slf.py().None().into_bound(slf.py()));
+        Self::__setitem__(slf, key, default.clone())?;
+        Ok(default)
     }
 }
 
@@ -1363,7 +2228,15 @@ fn resolve_python<'t>(value: Bound<'_, PyAny>, context: &Context) -> PyResult<Co
 
     let value = match value.is_instance_of::<PyString>() {
         true => value,
-        false => value.str()?.into_any(),
+        false => {
+            let text = value.str()?;
+            // `str()` nearly always gives an exact `str`, which has no
+            // `__html__` to look for.
+            if text.is_exact_instance_of::<PyString>() {
+                return Ok(ContentString::HtmlUnsafe(text.extract::<String>()?.into()));
+            }
+            text.into_any()
+        }
     };
     Ok(
         match value
@@ -1433,6 +2306,25 @@ pub(crate) fn append_escaped(text: &str, output: &mut String) {
     }
 }
 
+/// False only for an exact `str` or `SafeString` without a numeric character,
+/// which `int()` would reject.
+fn has_digit(value: &Bound<'_, PyAny>) -> bool {
+    let plain = value.is_exact_instance_of::<PyString>()
+        || crate::render::filters::is_exact_safe_string(value).unwrap_or(false);
+    if !plain {
+        return true;
+    }
+    value
+        .cast::<PyString>()
+        .ok()
+        .and_then(|text| {
+            text.to_cow()
+                .ok()
+                .map(|text| text.chars().any(char::is_numeric))
+        })
+        .unwrap_or(true)
+}
+
 /// Borrow Python text only while its owning handle is alive. `PyO3`'s `to_cow`
 /// preserves the same Unicode conversion and errors as String extraction.
 pub(crate) fn append_python_string(
@@ -1480,7 +2372,6 @@ impl<'t, 'py> Content<'t, 'py> {
                     return append_python_string(&content, autoescape, output);
                 }
                 if context.format_values
-                    && context.formatting_context.is_none()
                     && let Some(number) = localize_number(&content, context.use_l10n, context)?
                 {
                     if context.autoescape {
@@ -1492,7 +2383,6 @@ impl<'t, 'py> Content<'t, 'py> {
                 }
                 // Inside `{% localize %}` the `use_l10n` override goes to Django.
                 if context.format_values
-                    && context.formatting_context.is_none()
                     && context.use_l10n.is_none()
                     && let Some(formatted) = localize_datetime(
                         &content,
@@ -1507,9 +2397,12 @@ impl<'t, 'py> Content<'t, 'py> {
                     }
                     return Ok(());
                 }
+                // Django's `render_value_in_context` changes only numbers and
+                // dates; other values print natively even in a live context.
+                let string = content.is_instance_of::<PyString>();
                 if context.format_values
-                    && (context.formatting_context.is_some()
-                        || !content.is_instance_of::<PyString>())
+                    && ((string && context.formatting_context.is_some())
+                        || (!string && is_localizable(&content)?))
                 {
                     let rendered = if content.is_instance_of::<PyString>() {
                         let autoescape: bool = context
@@ -1536,7 +2429,13 @@ impl<'t, 'py> Content<'t, 'py> {
                 let value = if content.is_instance_of::<PyString>() {
                     content
                 } else {
-                    content.str()?.into_any()
+                    let text = content.str()?.into_any();
+                    // `str()` nearly always gives an exact `str`, which has
+                    // no `__html__` to look for.
+                    if text.is_exact_instance_of::<PyString>() {
+                        return append_python_string(&text, true, output);
+                    }
+                    text
                 };
                 match value
                     .getattr(intern!(py, "__html__"))
@@ -1608,17 +2507,14 @@ impl<'t, 'py> Content<'t, 'py> {
                     && (context.formatting_context.is_some()
                         || !content.is_instance_of::<PyString>()) =>
             {
-                if context.formatting_context.is_none()
-                    && let Some(number) = localize_number(&content, context.use_l10n, context)?
-                {
+                if let Some(number) = localize_number(&content, context.use_l10n, context)? {
                     return Ok(Cow::Owned(if context.autoescape {
                         encode_quoted_attribute(&number).into_owned()
                     } else {
                         number
                     }));
                 }
-                if context.formatting_context.is_none()
-                    && context.use_l10n.is_none()
+                if context.use_l10n.is_none()
                     && let Some(formatted) = localize_datetime(
                         &content,
                         context.use_tz,
@@ -1631,11 +2527,14 @@ impl<'t, 'py> Content<'t, 'py> {
                         formatted
                     }));
                 }
-                let py = content.py();
-                let rendered = RENDER_VALUE
-                    .import(py, "django.template.base", "render_value_in_context")?
-                    .call1((content, context.value_formatting_context(py)?))?;
-                return Ok(Cow::Owned(rendered.extract()?));
+                if is_localizable(&content)? {
+                    let py = content.py();
+                    let rendered = RENDER_VALUE
+                        .import(py, "django.template.base", "render_value_in_context")?
+                        .call1((content, context.value_formatting_context(py)?))?;
+                    return Ok(Cow::Owned(rendered.extract()?));
+                }
+                resolve_python(content, context)?
             }
             Self::Py(content) => resolve_python(content, context)?,
             Self::String(content) => content,
@@ -1646,7 +2545,7 @@ impl<'t, 'py> Content<'t, 'py> {
                         .map(|output| Cow::Owned(output.into_owned()))
                 });
             }
-            Self::Float(content) => return Ok(content.to_string().into()),
+            Self::Float(content) => return Ok(python_float_str(content).into()),
             Self::Int(content) => return render_int(&content, context).map(Cow::Owned),
             Self::Bool(true) => return Ok(Cow::Borrowed("True")),
             Self::Bool(false) => return Ok(Cow::Borrowed("False")),
@@ -1657,7 +2556,7 @@ impl<'t, 'py> Content<'t, 'py> {
     pub fn resolve_string(self, context: &Context) -> PyResult<ContentString<'t>> {
         Ok(match self {
             Self::String(content) => content,
-            Self::Float(content) => ContentString::String(content.to_string().into()),
+            Self::Float(content) => ContentString::String(python_float_str(content).into()),
             Self::Int(content) => ContentString::String(content.to_string().into()),
             Self::Py(content) => return resolve_python(content, context),
             Self::Bool(true) => ContentString::String(Cow::Borrowed("True")),
@@ -1686,10 +2585,28 @@ impl<'t, 'py> Content<'t, 'py> {
     pub fn to_bigint(&self) -> Option<BigInt> {
         match self {
             Self::Int(left) => Some(left.clone()),
-            Self::String(left) => left.as_raw().parse::<BigInt>().ok(),
+            Self::String(left) => {
+                let text = left.as_raw();
+                match text.parse::<BigInt>() {
+                    Ok(number) => Some(number),
+                    // Python's `int()` also takes spaces, underscores and
+                    // other Unicode digits.
+                    Err(_) if text.chars().any(char::is_numeric) => Python::attach(|py| {
+                        PyType::new::<PyInt>(py)
+                            .call1((text.as_ref(),))
+                            .ok()?
+                            .extract::<BigInt>()
+                            .ok()
+                    }),
+                    Err(_) => None,
+                }
+            }
             Self::Float(left) => left.trunc().to_bigint(),
             Self::Py(left) => match left.extract::<BigInt>() {
                 Ok(left) => Some(left),
+                // `int()` needs a digit, and neither `str` nor `SafeString`
+                // overrides `__int__`, so skip a call that can only raise.
+                Err(_) if !has_digit(left) => None,
                 Err(_) => {
                     let int = PyType::new::<PyInt>(left.py());
                     let left = int.call1((left,)).ok()?;
@@ -1726,27 +2643,29 @@ impl<'t, 'py> Content<'t, 'py> {
             },
             Self::Py(obj) => match obj.extract::<BigInt>() {
                 Ok(n) => resolve_bigint(n, argument_at),
+                // Django calls `int(arg)`: a float or `Decimal` truncates, a
+                // string is parsed, and anything else raises Python's error.
                 Err(_) => {
-                    let argument = obj.to_string();
-                    let argument_at = argument_at.into();
-                    match obj.extract::<f64>() {
-                        Ok(_) => Err(RenderError::InvalidArgumentFloat {
-                            argument,
-                            argument_at,
-                        }
-                        .into()),
-                        Err(_) => Err(RenderError::InvalidArgumentInteger {
-                            argument,
-                            argument_at,
-                        }
-                        .into()),
-                    }
+                    let number = PyType::new::<PyInt>(obj.py()).call1((&obj,))?;
+                    resolve_bigint(number.extract()?, argument_at)
                 }
             },
             Self::Bool(true) => Ok(1),
             Self::Bool(false) => Ok(0),
         }
     }
+    /// A float infinity, native or from the context. Python's `int()`
+    /// raises `OverflowError` for one.
+    pub fn is_infinite(&self) -> bool {
+        match self {
+            Self::Float(number) => number.is_infinite(),
+            Self::Py(object) if object.is_exact_instance_of::<pyo3::types::PyFloat>() => {
+                object.extract::<f64>().is_ok_and(f64::is_infinite)
+            }
+            _ => false,
+        }
+    }
+
     pub fn to_bool(&self) -> PyResult<bool> {
         Ok(match self {
             Self::Bool(b) => *b,
@@ -1918,64 +2837,6 @@ mod tests {
                     .unwrap(),
                 "caller"
             );
-        });
-    }
-
-    /// The address of the stored values for `name`, which moves with the map
-    /// but changes when the bindings are copied.
-    fn binding_address(context: &Context, name: &str) -> *const Py<PyAny> {
-        context.context.get(name).expect("binding present").as_ptr()
-    }
-
-    #[test]
-    fn test_parent_write_reclaims_bindings_from_finished_scope() {
-        Python::initialize();
-        Python::attach(|py| {
-            let mut context = Context::new(
-                HashMap::from([(
-                    "kept".to_string(),
-                    1_i64.into_pyobject(py).unwrap().into_any().unbind(),
-                )]),
-                None,
-                false,
-            );
-            let before = binding_address(&context, "kept");
-            let scoped = context.clone_scope(py);
-            context.merge_render_state(py, scoped, &[]).unwrap();
-            context
-                .insert(
-                    "new".to_string(),
-                    2_i64.into_pyobject(py).unwrap().into_any(),
-                )
-                .unwrap();
-            assert_eq!(binding_address(&context, "kept"), before);
-        });
-    }
-
-    #[test]
-    fn test_parent_write_copies_bindings_a_snapshot_still_holds() {
-        Python::initialize();
-        Python::attach(|py| {
-            let mut context = Context::new(
-                HashMap::from([(
-                    "kept".to_string(),
-                    1_i64.into_pyobject(py).unwrap().into_any().unbind(),
-                )]),
-                None,
-                false,
-            );
-            let before = binding_address(&context, "kept");
-            let retained = context.clone_scope(py);
-            context
-                .insert(
-                    "kept".to_string(),
-                    2_i64.into_pyobject(py).unwrap().into_any(),
-                )
-                .unwrap();
-            assert_ne!(binding_address(&context, "kept"), before);
-            // The retained scope still sees the value from before the write.
-            let value: i64 = retained.get(py, "kept").unwrap().extract().unwrap();
-            assert_eq!(value, 1);
         });
     }
 }

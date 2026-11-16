@@ -9,6 +9,10 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
+from probe.sdk.hardware.trace import GpuTrace
+
+#: A try's GPU readings cap (about 6k points, under the hardware read's 20k).
+MAX_TRY_READINGS = 1_024
 #: This process's mark in every request id: two rollout processes on one engine never send the same id (a try key is
 #: unique only within its process).
 PROCESS_TOKEN = secrets.token_hex(4)
@@ -53,6 +57,8 @@ class Rollout:
     retried_as: str | None = None
     is_scoring: bool = False
     done: threading.Event = field(default_factory=threading.Event)
+    #: The GPU readings its model calls came back with (`gpu.py`); incomplete when one came back without them.
+    gpu: GpuTrace = field(default_factory=lambda: GpuTrace(MAX_TRY_READINGS))
 
     @property
     def is_eval(self) -> bool:

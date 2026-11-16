@@ -46,11 +46,10 @@ from cognite_toolkit._cdf_tk.validation import humanize_validation_error
 from cognite_toolkit._cdf_tk.yaml_classes import DataSetYAML, LabelsYAML
 from cognite_toolkit._cdf_tk.yaml_classes.catalog_dataset import CatalogDataSetYAML
 
-from ._auth import GroupAllScopedIO
 from ._base_ios import ResourceType
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError, BuildWarning
+    from cognite_toolkit._cdf_tk.data_classes._insights import BuildError, BuildWarning
 
 
 @final
@@ -61,7 +60,7 @@ class DataSetsIO(ResourceIO[ExternalId, DataSetRequest, DataSetResponse, DataSet
     resource_write_cls = DataSetRequest
     yaml_cls = DataSetYAML
     kind = "DataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
     _doc_url = "Data-sets/operation/createDataSets"
 
     @property
@@ -163,7 +162,7 @@ class LabelIO(ResourceIO[ExternalId, LabelRequest, LabelResponse, LabelsYAML]):
     resource_write_cls = LabelRequest
     yaml_cls = LabelsYAML
     kind = "Label"
-    dependencies = frozenset({DataSetsIO, GroupAllScopedIO})
+    dependencies = frozenset({DataSetsIO})
     _doc_url = "Labels/operation/createLabelDefinitions"
     support_update = False
 
@@ -249,7 +248,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
     folder_name = "data_sets"
     yaml_cls = CatalogDataSetYAML
     kind = "CatalogDataSet"
-    dependencies = frozenset({GroupAllScopedIO})
+    dependencies = frozenset()
 
     @classmethod
     def get_id(cls, item: dict) -> ExternalId:
@@ -292,7 +291,7 @@ class CatalogDataSetsIO(ResourceFileIO[ExternalId, CatalogDataSetYAML]):
             try:
                 validated = DataSetYAML.model_validate(crud_resource)
             except ValidationError as error:
-                from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import BuildError
+                from cognite_toolkit._cdf_tk.data_classes._insights import BuildError
 
                 yield BuildError(
                     code="INVALID-VALUE",

@@ -183,7 +183,7 @@ class _HeldKeys:
         the spans of the regions its rows pair with, and its grain when it
         groups."""
         grain = (
-            sorted(g for g in self.grain_components if g != ALL_ROWS_ADDRESS)
+            sorted(pairing_keys(self.grain_components))
             if self.derivation in GROUPING_DERIVATIONS
             else []
         )
@@ -407,6 +407,9 @@ class ConceptAttrs:
     # WHERE applies on this root's own scan, so it shares the filter columns'
     # row stream and never splits off as a single row or an entity peel.
     scan_filtered: bool = False
+    # An aggregate rolled from a summary at its own grain, coarser than the
+    # select's rows: its own scan, joined back on its grain keys.
+    coarse_rolled: bool = False
     # A row argument of the statement's WHERE: the WHERE filters every scan
     # of the select's rows, so it co-sources with any root bound beside it.
     where_row_arg: bool = False

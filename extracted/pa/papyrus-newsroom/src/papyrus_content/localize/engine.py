@@ -68,6 +68,7 @@ class SourceVersion:
     body: str
     section: str | None = None
     fields: tuple[tuple[str, str], ...] = ()   # (front matter key, text) of the reader-facing fields (blocks.FRONT_MATTER_FIELDS) the Story has
+    images_with_text: tuple[dict[str, Any], ...] = ()   # pictures whose stored record says they hold words (image_variants.images_with_text): advice, never a block
 
 
 @dataclass(frozen=True)
@@ -97,6 +98,8 @@ class LocalizeRequest:
     ceiling_usd: float | None = None
     procedure_version: str = ""
     source_checker: Callable[[str], list[Finding]] | None = None   # the English copy-edit check, for the report back
+    #: The language variants of pictures the previous translation already has (image_variants); they are applied again to the new translation.
+    image_variants: list[Any] = field(default_factory=list)
 
 
 class RunFailed(RuntimeError):
@@ -310,7 +313,7 @@ class Localizer:
             for block_id, slot in pending.items():
                 current = protect_like(slot.protected, proposals[block_id])
                 entry = {"id": block_id, "source": slot.protected.text, "current": current.text,
-                         "problems": [f"{f.message}" + (f" (translation: {f.excerpt!r})" if f.excerpt else "") + (f" (source: {f.source_excerpt!r})" if f.source_excerpt else "")
+                         "problems": [slot.protected.mask(f"{f.message}" + (f" (translation: {f.excerpt!r})" if f.excerpt else "") + (f" (source: {f.source_excerpt!r})" if f.source_excerpt else ""))
                                       for f in remaining[block_id] if f.drives_rewrite]}
                 if block_id in problems:
                     entry["problem"] = f"Your previous repair of this block was refused: {problems[block_id]}."

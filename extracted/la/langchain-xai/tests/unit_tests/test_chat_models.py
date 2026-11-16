@@ -3,6 +3,7 @@ import json
 import pytest  # type: ignore[import-not-found]
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     FunctionMessage,
     HumanMessage,
     SystemMessage,
@@ -11,6 +12,13 @@ from langchain_core.messages import (
 from langchain_openai.chat_models.base import (
     _convert_dict_to_message,
     _convert_message_to_dict,
+)
+from openai.types.chat import ChatCompletion
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from openai.types.completion_usage import (
+    CompletionTokensDetails,
+    CompletionUsage,
 )
 from pydantic import SecretStr
 
@@ -278,3 +286,149 @@ def test_metadata_versions() -> None:
     assert "langchain-core" in versions
     assert "langchain-xai" in versions
     assert "langchain-openai" in versions
+
+
+def test_create_chat_result_recomputes_total_tokens_for_reasoning() -> None:
+    """Adding reasoning tokens to output_tokens must keep total_tokens consistent.
+
+    xAI reports reasoning tokens separately from completion tokens, so ChatXAI
+    adds them into output_tokens. total_tokens must be recomputed afterwards to
+    preserve the UsageMetadata invariant total_tokens == input + output
+    (gh #39634).
+    """
+    llm = ChatXAI(model=MODEL_NAME)
+    response = ChatCompletion(
+        id="chatcmpl-1",
+        object="chat.completion",
+        created=0,
+        model=MODEL_NAME,
+        choices=[
+            Choice(
+                index=0,
+                finish_reason="stop",
+                message=ChatCompletionMessage(
+                    role="assistant",
+                    content="Test response",
+                ),
+            )
+        ],
+        usage=CompletionUsage(
+            prompt_tokens=32,
+            completion_tokens=9,
+            total_tokens=41,
+            completion_tokens_details=CompletionTokensDetails(reasoning_tokens=5),
+        ),
+    )
+
+    result = llm._create_chat_result(response)
+
+    message = result.generations[0].message
+    assert isinstance(message, AIMessage)
+    usage_metadata = message.usage_metadata
+    assert usage_metadata is not None
+    assert usage_metadata["input_tokens"] == 32
+    assert usage_metadata["output_tokens"] == 14  # 9 completion + 5 reasoning
+    assert usage_metadata["total_tokens"] == 46  # 32 + 14, invariant holds
+    assert usage_metadata["output_token_details"]["reasoning"] == 5
+
+
+def test_convert_chunk_recomputes_total_tokens_for_reasoning() -> None:
+    """Streaming chunks must keep the total_tokens invariant as well (gh #39634)."""
+    llm = ChatXAI(model=MODEL_NAME)
+    chunk = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk",
+        "created": 0,
+        "model": MODEL_NAME,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": "Test"},
+                "finish_reason": None,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 32,
+            "completion_tokens": 9,
+            "total_tokens": 41,
+            "completion_tokens_details": {"reasoning_tokens": 5},
+        },
+    }
+
+    generation_chunk = llm._convert_chunk_to_generation_chunk(
+        chunk, AIMessageChunk, None
+    )
+    assert generation_chunk is not None
+
+    message = generation_chunk.message
+    assert isinstance(message, AIMessageChunk)
+    usage_metadata = message.usage_metadata
+    assert usage_metadata is not None
+    assert usage_metadata["input_tokens"] == 32
+    assert usage_metadata["output_tokens"] == 14  # 9 completion + 5 reasoning
+    assert usage_metadata["total_tokens"] == 46  # 32 + 14, invariant holds
+    assert usage_metadata["output_token_details"]["reasoning"] == 5
+
+
+# --- LangSmith gateway ---
+
+
+@pytest.fixture
+def _gateway_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in (
+        "LANGSMITH_GATEWAY",
+        "LANGSMITH_GATEWAY_API_KEY",
+        "LANGSMITH_API_KEY",
+        "XAI_API_BASE",
+        "XAI_API_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGSMITH_GATEWAY", "true")
+    monkeypatch.setenv("LANGSMITH_GATEWAY_API_KEY", "gateway-key")
+    llm = ChatXAI(model="grok-4")
+    assert llm.xai_api_base == "https://gateway.smith.langchain.com/xai/v1"
+    assert llm.xai_api_key is not None
+    assert llm.xai_api_key.get_secret_value() == "gateway-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGSMITH_GATEWAY_API_KEY", "gateway-key")
+    monkeypatch.setenv("XAI_API_KEY", "provider-key")
+    llm = ChatXAI(model="grok-4")
+    assert llm.xai_api_base == "https://api.x.ai/v1/"
+    assert llm.xai_api_key is not None
+    assert llm.xai_api_key.get_secret_value() == "provider-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_provider_env_base_url_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LANGSMITH_GATEWAY", "true")
+    monkeypatch.setenv("XAI_API_BASE", "https://proxy.example.com/v1")
+    monkeypatch.setenv("XAI_API_KEY", "provider-key")
+    llm = ChatXAI(model="grok-4")
+    assert llm.xai_api_base == "https://proxy.example.com/v1"
+    assert llm.xai_api_key is not None
+    assert llm.xai_api_key.get_secret_value() == "provider-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_context_overrides_explicit_values() -> None:
+    gateway = pytest.importorskip("langchain_core.utils._gateway")
+    if not hasattr(gateway, "langsmith_gateway"):
+        pytest.skip("Requires a langchain-core release with `langsmith_gateway`.")
+    with gateway.langsmith_gateway(api_key="service-key"):
+        llm = ChatXAI(
+            model="grok-4",
+            base_url="https://other.example.com/v1",
+            api_key=SecretStr("user-key"),
+        )
+    assert llm.xai_api_base == "https://gateway.smith.langchain.com/xai/v1"
+    assert llm.xai_api_key is not None
+    assert llm.xai_api_key.get_secret_value() == "service-key"

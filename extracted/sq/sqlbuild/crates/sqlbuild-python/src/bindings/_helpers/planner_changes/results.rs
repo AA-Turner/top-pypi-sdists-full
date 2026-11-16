@@ -1,24 +1,23 @@
 //! The planner's Python change-detection result models.
 
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
+use pyo3::prelude::{Bound, PyAny, PyResult, Python};
 use pyo3::types::PyTuple;
 use pyo3::{IntoPyObject, PyErr};
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 
 use sqlbuild_analysis::planner_changes::errors::UnknownReplayPolicy;
 use sqlbuild_analysis::planner_changes::models::{
     Backfill, BackfillAction, ChangeKind, SchemaChangeKind, SchemaColumnSource, SchemaFindingRow,
 };
 
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::{new_record, new_record_with};
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use sqlbuild_python_base::records::main::construct::new_record::new_record;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 /// `PlannerInputError(message)` for an unknown replay policy.
 pub(crate) fn replay_policy_error(py: Python<'_>, error: UnknownReplayPolicy) -> PyErr {
-    match error_class(py, ErrorId::PlannerInput).and_then(|class| class.call1((error.message(),))) {
-        Ok(value) => PyErr::from_value(value),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::PlannerInput, &error.message())
 }
 
 /// `TYPES_MODULE.<enum>(value)`.

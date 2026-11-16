@@ -17,6 +17,8 @@ from .attempt import MAX_ACTIVITY_CHARS, AttemptOutcome, AttemptPhase
 
 #: No progress for this long, with its producer still live, reads `hung` (`?hung_after=`).
 HUNG_AFTER_SECONDS = 600
+#: Past its own phase limit (`ends_by`) by this long with no phase change, an open attempt reads `hung/past_limit`.
+PAST_LIMIT_GRACE_SECONDS = 120
 #: The failing block's window (`?window=`).
 FAILING_WINDOW_SECONDS = 600
 #: The live read scans attempt parts received in the last day (or the run's life, if shorter).
@@ -42,6 +44,7 @@ class AttemptStateReason(StrEnum):
 
     NO_PROGRESS = "no_progress"  # hung: its producer beats, the attempt made no progress
     PRODUCER_SILENT = "producer_silent"  # hung: its producer's lease is past its interval
+    PAST_LIMIT = "past_limit"  # hung: open past its own phase limit (`ends_by`) plus the grace: the limit failed to stop it
     EPOCH_SUPERSEDED = "epoch_superseded"  # abandoned: a resume started a newer write epoch
     PRODUCER_RELEASED = "producer_released"  # abandoned: its producer let go of the run with no end
     PRODUCER_GONE = "producer_gone"  # abandoned: its producer's lease went gone with no end
@@ -101,6 +104,14 @@ class LiveSample(BaseModel):
     turns: int | None = None
     tokens: int | None = None
     activity: str | None = Field(default=None, max_length=MAX_ACTIVITY_CHARS)
+    #: When its producer's own limit on the current phase ends it, server time: the first receipt of the current
+    #: (phase, limit) snapshot plus the limit. None: no limit sent.
+    ends_by: datetime | None = None
+    #: What a hung attempt waits on, in plain words, from its phase (`no new agent output`, `waiting on one model
+    #: reply`); None while it is not hung.
+    waiting_on: str | None = None
+    #: Whether its producer can see the agent's output (`AttemptProgress.is_output_visible`); None: it does not say.
+    is_output_visible: bool | None = None
 
     # The end.
     outcome: AttemptOutcome | None = None

@@ -145,7 +145,7 @@ def do_rearm(cfg_path: str) -> int:
 # Frozen binaries cannot import the package the same way a live run can.
 # The constant is the source of truth for --version; runner/tests/test_version.py
 # fails the build if it drifts from pyproject.toml.
-__version__ = "3.16.26.21"
+__version__ = "3.17.26.7"
 
 SERVICE_NAME = "homing-pigeon"
 FILES = ["runner.py", "wire/__init__.py", "wire/oauth.py",
@@ -2666,9 +2666,10 @@ def macos_seed_probe(cfg):
     `problem` is None when the backend engages here under this
     config -- a trial process under the profile and the
     launcher shim read its staged file, wrote its work
-    directory, was refused a write and a read outside it, and
-    carried a data-size ceiling of its own -- and otherwise the
-    reason, in the backend's own words. `lines` are the posture
+    directory, was refused a write and a read outside it,
+    carried a data-size ceiling of its own and was refused the
+    clipboard -- and otherwise the reason, in the backend's
+    own words. `lines` are the posture
     report's lines for this host under this config. Empty when
     the backend does not engage.
 

@@ -83,6 +83,7 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "judge_assertions",
         "mock",
         "mock_override",
+        "sandboxes",
         "adapt_inputs",
         "db_branch",
         "dry_run",
@@ -831,6 +832,7 @@ def _render_dry_run(pipeline: str, result: ReplayResult, stderr: TextIO) -> None
 _CHILD_OPTION_NAMES = (
     "mock",
     "mock_override",
+    "sandboxes",
     "adapt_inputs",
     "db_branch",
     "dry_run",

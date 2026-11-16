@@ -7,17 +7,14 @@ use pyo3::{pyfunction, wrap_pyfunction};
 use sqlbuild_analysis::auditing::main::evaluate_measurement::evaluate_measurement as evaluate;
 use sqlbuild_analysis::auditing::models::{MeasurementOutcome, Thresholds};
 use sqlbuild_host::entries::models::FacadeHost;
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 
 use crate::bindings::_helpers::auditing::identity::thresholds as read_thresholds;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::ids::ErrorId;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::types::ErrorId;
 
 fn measurement_error(py: Python<'_>, message: &str) -> PyErr {
-    match error_class(py, ErrorId::MeasurementAudit).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::MeasurementAudit, message)
 }
 
 /// The canonical outcome for one finite measured value.
@@ -40,7 +37,7 @@ fn evaluate_measurement<'py>(
         MeasurementOutcome::Error => "ERROR",
         MeasurementOutcome::Insufficient => "INSUFFICIENT",
     };
-    host::entry(py, FacadeHost::AuditOutcome)?.getattr(member)
+    host_entry(py, FacadeHost::AuditOutcome)?.getattr(member)
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

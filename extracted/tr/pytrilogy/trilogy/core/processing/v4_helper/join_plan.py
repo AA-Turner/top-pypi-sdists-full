@@ -19,13 +19,14 @@ from trilogy.core.enums import Derivation, Granularity, Purpose
 from trilogy.core.models.build import (
     BuildConcept,
     BuildRowsetItem,
+    get_concept_row_arguments,
     get_grouped_aggregate_wrapper,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 
 from .concept_graph import _scope_and_phase, _statement_scoped_relation_members
 from .constants import FINAL_NODE_ID, GROUPING_DERIVATIONS
-from .functional_dependency import build_fd_closure, build_fd_determines_all
+from .functional_dependency import build_fd_determines_all, strict_fd_closure
 from .models import GroupAttrs, InputChannel, pairing_keys
 
 
@@ -201,9 +202,7 @@ def lineage_pinned_grain(
     scoped_members = environment.all_scoped_join_group_members()
     stack: list[BuildConcept] = []
     for addr in addresses:
-        concept = environment.concepts.get(addr) or environment.alias_origin_lookup.get(
-            addr
-        )
+        concept = _concept_or_origin(addr, environment)
         if concept is not None:
             stack.append(concept)
     grain: set[str] = set()
@@ -234,6 +233,20 @@ def lineage_pinned_grain(
         elif concept.derivation == Derivation.ROOT and concept.grain:
             row_grain |= set(concept.grain.components)
     return frozenset(grain | row_grain) if grain else frozenset()
+
+
+def _concept_or_origin(
+    address: str, environment: BuildEnvironment
+) -> BuildConcept | None:
+    return environment.concepts.get(address) or environment.alias_origin_lookup.get(
+        address
+    )
+
+
+def _group_parents(
+    group_graph: nx.DiGraph, attrs: dict[str, GroupAttrs], gid: str
+) -> list[str]:
+    return [p for p in group_graph.predecessors(gid) if p in attrs]
 
 
 def authored_axes(
@@ -347,11 +360,7 @@ def row_identity(
     ):
         keys |= group.emitted_grain & axes
     held = frozenset().union(
-        *(
-            attrs[parent].extent_spans
-            for parent in group_graph.predecessors(gid)
-            if parent in attrs
-        )
+        *(attrs[p].extent_spans for p in _group_parents(group_graph, attrs, gid))
     )
     # a WHERE gate over a row expression with no grain of its own
     # (`upper(species) != 'X'`) is its own row stream, identified by the keys
@@ -378,9 +387,7 @@ def _member_keys(members: Iterable[str], environment: BuildEnvironment) -> set[s
 def _fd_determined(
     environment: BuildEnvironment, keys: Iterable[str], concept: BuildConcept
 ) -> bool:
-    return concept.address in build_fd_closure(
-        environment, keys, include_empty_grain=False
-    )
+    return concept.address in strict_fd_closure(environment, keys)
 
 
 def _relevant_carry_keys(
@@ -414,10 +421,7 @@ def _relevant_carry_keys(
     # (`tree_id` -> `genus` beside a value by genus): widening to it keeps them.
     # An authored relation's member pairs as authored, never as a lookup.
     relevant |= (
-        pairing_keys(
-            candidates
-            & build_fd_closure(environment, delivered, include_empty_grain=False)
-        )
+        pairing_keys(candidates & strict_fd_closure(environment, delivered))
         - environment.all_scoped_join_group_members()
     )
     # A composite grain reaches a dimension through a foreign key OFF it
@@ -542,7 +546,7 @@ def _from_row_parents(
         Derivation.ROWSET,
     ):
         return frozenset()
-    parents = [p for p in group_graph.predecessors(gid) if p in attrs]
+    parents = _group_parents(group_graph, attrs, gid)
     passed = frozenset().union(
         *(
             attrs[parent].output_concepts
@@ -617,7 +621,7 @@ def _domain_spans(
     """The spans a row stream reading only region domains holds (`s.sk` off
     the item domain holds the item, never the sale it is grained at); None
     when it reads anything else."""
-    parents = [p for p in group_graph.predecessors(gid) if p in attrs]
+    parents = _group_parents(group_graph, attrs, gid)
     if not parents or not all(attrs[p].extent_spans for p in parents):
         return None
     return frozenset().union(*(attrs[p].extent_spans for p in parents))
@@ -677,7 +681,7 @@ def _held_columns(
         extra &= domain_spans
     # a ROOT carries exactly its carry demand beyond what it holds
     if identity and group.derivation != Derivation.ROOT:
-        closure = build_fd_closure(environment, identity, include_empty_grain=False)
+        closure = strict_fd_closure(environment, identity)
         extra |= sibling_keys & closure
     # Off a rowset boundary the rows hold the boundary's columns under its
     # handles, and nothing else: a base key there (the `id` a body selects)
@@ -688,7 +692,19 @@ def _held_columns(
             | _boundary_columns(group, environment)
             | frozenset(a for a in extra if _is_handle(a, environment))
         )
-    return held | extra
+    return (held | extra) - _peel_atom_columns(group)
+
+
+def _peel_atom_columns(group: GroupAttrs) -> frozenset[str]:
+    """A dimension peel groups to its keys, so a column only its WHERE atom
+    reads is filtered on below the grouping and is no column of its rows."""
+    if group.derivation != Derivation.ROOT or not group.dim_keys:
+        return frozenset()
+    return frozenset(
+        c.address
+        for atom in group.condition_atoms
+        for c in get_concept_row_arguments(atom)
+    ) - frozenset(group.output_concepts)
 
 
 def _is_handle(address: str, environment: BuildEnvironment) -> bool:
@@ -708,9 +724,7 @@ def _renderable(
     group's column of this side, and is computed where its arguments are."""
     out: set[str] = set()
     for address in set(candidates) - carried:
-        concept = environment.concepts.get(
-            address
-        ) or environment.alias_origin_lookup.get(address)
+        concept = _concept_or_origin(address, environment)
         # a rowset handle is a column of its own boundary: computed off
         # another relation it is a different value under the same name
         if (
@@ -740,8 +754,8 @@ def _single_row(
         return False
     if group.derivation not in GROUPING_DERIVATIONS and any(
         attrs[parent].grain_components
-        for parent in group_graph.predecessors(gid)
-        if parent in attrs and attrs[parent].derivation not in GROUPING_DERIVATIONS
+        for parent in _group_parents(group_graph, attrs, gid)
+        if attrs[parent].derivation not in GROUPING_DERIVATIONS
     ):
         return False
     concepts = [
@@ -766,7 +780,7 @@ def _determined(keys: Iterable[str], environment: BuildEnvironment) -> frozenset
             and c.purpose == Purpose.UNIQUE_PROPERTY
             for key in c.keys or ()
         }
-        grown = build_fd_closure(environment, seed, include_empty_grain=False)
+        grown = strict_fd_closure(environment, seed)
         if grown == closure:
             return closure
         closure = grown
@@ -946,8 +960,7 @@ def plan_final_join(
     reach = {
         gid: carries[gid]
         | (
-            members
-            & build_fd_closure(environment, identity[gid], include_empty_grain=False)
+            members & strict_fd_closure(environment, identity[gid])
             if identity[gid]
             and gid in supplying
             and attrs[gid].derivation not in (*GROUPING_DERIVATIONS, Derivation.ROOT)
@@ -1020,9 +1033,11 @@ def elect_bridges(
     )
     bridges: list[str] = []
     current = plan(extras=bridges)
-    while len(current.islands()) > 1 or _underkeyed_blends(current, attrs, environment):
+    while True:
         islands = len(current.islands())
         blends = _underkeyed_blends(current, attrs, environment)
+        if islands <= 1 and not blends:
+            return current
         # a bridge every pairing of which is keyed: shared columns that
         # identify neither side multiply both, so none is elected and the
         # keyless-join guard names the gap
@@ -1053,7 +1068,6 @@ def elect_bridges(
         )
         current = replace(trial, keying=frozenset(keying))
         bridges.append(gid)
-    return current
 
 
 def _underkeyed_blends(
@@ -1081,11 +1095,9 @@ def _underkeyed_blends(
         ):
             continue
         if not any(
-            _bridges_on_identity(plan, extra, side)
-            and _bridges_on_identity(plan, extra, other)
-            for extra in plan.contributors
-            if extra not in plan.suppliers
-            for side, other in ((p.left, p.right),)
+            _bridges_on_identity(plan, extra, p.left)
+            and _bridges_on_identity(plan, extra, p.right)
+            for extra in plan.extras
         ):
             count += 1
     return count

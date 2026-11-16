@@ -1203,6 +1203,7 @@ execute_ufunc_loop(PyArrayMethod_Context *context, int masked,
 
     /* The reset may copy the first buffer chunk, which could cause FPEs */
     if (NpyIter_Reset(iter, NULL) != NPY_SUCCEED) {
+        NPY_END_THREADS;
         NPY_AUXDATA_FREE(auxdata);
         NpyIter_Deallocate(iter);
         return -1;
@@ -4206,7 +4207,8 @@ resolve_descriptors(int nop,
 {
     int retval = -1;
     NPY_CASTING safety;
-    int n_cleanup = 0;  /* number of original_descrs filled (to XDECREF) */
+    /* number of original_descrs entries to clean up, including NULLs */
+    int n_cleanup = 0;
     PyArray_Descr *original_descrs[NPY_MAXARGS];
 
     NPY_UF_DBG_PRINT("Resolving the descriptors\n");
@@ -4310,7 +4312,7 @@ resolve_descriptors(int nop,
         if (original_descrs[i] == NULL) {
             goto finish;
         }
-        n_cleanup += 1;
+        n_cleanup = i + 1;
     }
 
     if (ufuncimpl->resolve_descriptors != &wrapped_legacy_resolve_descriptors) {
@@ -6087,7 +6089,7 @@ ufunc_at(PyUFuncObject *ufunc, PyObject *args)
         return NULL;
     }
 
-    if (ufunc->nin > 2) {
+    if (ufunc->nin < 1 || ufunc->nin > 2) {
         PyErr_SetString(PyExc_ValueError,
             "Only unary and binary ufuncs supported at this time");
         return NULL;
@@ -6131,6 +6133,10 @@ ufunc_at(PyUFuncObject *ufunc, PyObject *args)
     }
 
     op1_array = (PyArrayObject *)op1;
+
+    if (PyArray_FailUnlessWriteable(op1_array, "array to perform in place operation on") < 0) {
+        return NULL;
+    }
 
     /* Create second operand from number array if needed. */
     if (op2 == NULL) {

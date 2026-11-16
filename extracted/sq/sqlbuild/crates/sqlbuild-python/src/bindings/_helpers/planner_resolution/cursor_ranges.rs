@@ -1,9 +1,8 @@
 //! Plan-entry cursor windows: overrides, planner-owned bounds and microbatch ranges.
 
 use sqlbuild_host::entries::models::ExecutorHost;
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 
-use crate::bindings::_helpers::boundary::python_calls::keywords;
-use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with, imported};
 use crate::bindings::_helpers::compiled_views::model_reads;
 use crate::bindings::_helpers::cursor::conversion::CursorSession;
 use crate::bindings::_helpers::cursor::scalars::{parse_value, sentinel_to_token};
@@ -11,7 +10,6 @@ use crate::bindings::_helpers::cursor::values::{local_date_time, replaced};
 use crate::bindings::_helpers::model_config::typed_config::{
     config_cursor_bound as typed_cursor_bound, config_text_object, model_values,
 };
-use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::plan_output::display::resolve_bounded_cursor_override;
 use crate::bindings::_helpers::planner_entries::models::ModelPlanContext;
 use crate::bindings::_helpers::planner_phases::contexts::class_field;
@@ -29,10 +27,6 @@ use crate::bindings::_helpers::planner_resolution::cursor_windows::without_desti
 use crate::bindings::_helpers::planner_resolution::future_safety::resolve_future_cursor_safety;
 use crate::bindings::_helpers::planner_resolution::values::string;
 use crate::bindings::_helpers::planner_strategy::model_entries::resolve_microbatch_lookback;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyString, PyTuple};
 use pyo3::{IntoPyObject, PyErr, pyfunction, wrap_pyfunction};
@@ -41,6 +35,15 @@ use sqlbuild_cursor::algebra::models::{Scalar, ScalarValue, Timestamp, ZoneOffse
 use sqlbuild_cursor::planner::main::cursor_end_clamp::cursor_end_clamp;
 use sqlbuild_cursor::planner::main::rolling_window::rolling_window;
 use sqlbuild_cursor::planner::models::CursorEndClamp;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 use std::cmp::Ordering;
 
 const INCREMENTAL: &str = "incremental";
@@ -130,7 +133,7 @@ fn token<'py>(py: Python<'py>, bound: &Bound<'py, PyAny>) -> PyResult<Bound<'py,
 }
 
 fn sentinel<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyAny>> {
-    host::entry(py, ExecutorHost::BoundSentinel)?.getattr(name)
+    host_entry(py, ExecutorHost::BoundSentinel)?.getattr(name)
 }
 
 /// `bounds` clamped so a concrete window never reaches the exclusive configured `cursor_end`.
@@ -519,10 +522,7 @@ pub(crate) fn cursor_safety_configs<'py>(
 }
 
 fn compile_input_error(py: Python<'_>, message: String) -> PyErr {
-    match error_class(py, ErrorId::CompileInput).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::CompileInput, &message)
 }
 
 /// Resolve typed cursor overrides to generic start/end for one model.

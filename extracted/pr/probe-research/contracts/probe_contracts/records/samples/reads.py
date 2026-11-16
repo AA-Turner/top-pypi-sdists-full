@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, JsonValue
 
 from ...compat import StrEnum
+from ..artifact import Artifact
 from .outcome import SampleSplit
 from .samples import Sample, TrialFile
 from .task import Task
@@ -103,7 +104,7 @@ class TaskTotals(BaseModel):
     duration_max_s: float | None = None
 
 
-class TaskSummary(Task.project("task_id", "run_id", "task_key", "scenario", "dataset")):
+class TaskSummary(Task.project("task_id", "run_id", "task_key", "scenario", "dataset", "name")):
     """A `GET /v1/runs/{id}/tasks` row, to pick one."""
 
     totals: TaskTotals = Field(default_factory=TaskTotals)
@@ -118,6 +119,9 @@ class TaskDetail(Task.project(*Task.model_fields)):
     """What the task is: key, full prompt, scenario, dataset row, label, plus its totals."""
 
     totals: TaskTotals = Field(default_factory=TaskTotals)
+    #: The Harbor task folder it was posed from (instruction, task.toml, tests, solution, environment), as the run
+    #: stored it: up to 500 files, each with `meta.path` and `meta.role`. Empty when none was stored, and in compare.
+    files: list[Artifact] = Field(default_factory=list)
 
 
 class CompareColumn(BaseModel):

@@ -126,11 +126,45 @@ class TestResolve(unittest.TestCase):
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">a<button>bcde</button>f\u200bghi</span>'
     self.assertEqual(result, expected)
 
+  def test_with_select_skip_node(self) -> None:
+    chunks = ['abc', 'def', 'ghi']
+    html = '<select><option>a</option><option>bcde</option></select>fghi'
+    result = html_processor.resolve(chunks, html)
+    expected = (
+      '<span style="word-break: keep-all; overflow-wrap: anywhere;">'
+      '<select><option>a</option><option>bcde</option></select>f\u200bghi</span>'
+    )
+    self.assertEqual(result, expected)
+
+  def test_with_pre_skip_node(self) -> None:
+    chunks = ['abc', 'def', 'ghi']
+    html = '<pre>abcde</pre>fghi'
+    result = html_processor.resolve(chunks, html)
+    expected = (
+      '<span style="word-break: keep-all; overflow-wrap: anywhere;">'
+      '<pre>abcde</pre>f\u200bghi</span>'
+    )
+    self.assertEqual(result, expected)
+
   def test_with_break_before_skip(self) -> None:
     chunks = ['abc', 'def', 'ghi', 'jkl']
     html = "abc<button>defghi</button>jkl"
     result = html_processor.resolve(chunks, html)
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200b<button>defghi</button>\u200bjkl</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_break_before_skip_preceded_by_whitespace(self) -> None:
+    chunks = ['abc ', 'def', 'ghi']
+    html = 'abc <button>def</button>ghi'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc <button>def</button>\u200bghi</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_break_before_skip_starting_with_whitespace(self) -> None:
+    chunks = ['abc', ' def', 'ghi']
+    html = 'abc<button> def</button>ghi'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200b<button> def</button>\u200bghi</span>'
     self.assertEqual(result, expected)
 
   def test_with_skip_node_at_end(self) -> None:
@@ -228,6 +262,20 @@ class TestResolve(unittest.TestCase):
     expected = (
       '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200bdef</span>'
     )
+    self.assertEqual(result, expected)
+
+  def test_with_comments(self) -> None:
+    chunks = ['abc', 'def']
+    html = '<p>abc<!-- note -->def</p>'
+    result = html_processor.resolve(chunks, html, wrap=False)
+    expected = '<p>abc<!-- note -->\u200bdef</p>'
+    self.assertEqual(result, expected)
+
+  def test_with_comments_before_text_and_in_skip_node(self) -> None:
+    chunks = ['abc', 'def']
+    html = '<!-- head --><nobr>abc<!-- x -->def</nobr>'
+    result = html_processor.resolve(chunks, html, wrap=False)
+    expected = '<!-- head --><nobr>abc<!-- x -->def</nobr>'
     self.assertEqual(result, expected)
 
   def test_without_wrap(self) -> None:

@@ -7,12 +7,15 @@ unchanged, then records; a Probe failure never reaches Miles.
 | `backends/training_utils/metrics/train_dump.py:11` `save_debug_train_data`; fork `utils/train_dump_utils.py:9` | after each train step, every rank (`megatron_utils/actor.py:881`; fork :492) | trainer parts, seal, commit |
 | `backends/training_utils/weight_update/updater.py:140` `WeightUpdater.update_weights` | each weight sync, every rank | weight versions |
 | `dashboard/hooks.py:423` `push_sandbox_reports` | each `report_sandbox` | attempt starts, heartbeats |
+| `ray/rollout/debug_data.py:86` `save_debug_trajectory_data` | each rollout dump, before the log hook | (before Miles runs) each sample's messages, which Miles then pops (`messages.py`) |
 | `loss/objective.py` `loss_function`, `data/rollout.py` `DataIterator.get_next`, `torch_native/actor.py` `log_train_step`, `megatron_utils/model.py` `train_one_step` | each micro-batch / optimizer update, every train rank | per-sample training metrics (`../training/`) |
 
 The rollout process's live samples (rl-next W36, `../live/`) wrap four more as they load: `utils/http_utils.py` `post`
 (a running try's request id), `rollout/inference_rollout/inference_rollout_common.py` (each generate function, and the
 two calls that grade), `rollout/generate_utils/openai_endpoint_utils.py` `OpenAIEndpointTracer.create` (an agent
 rollout's session), and `rollout/base_types.py` `RolloutFnTrainInput` (the step and weights a try starts under).
+`utils/workers/command_actor.py` `CommandActor.run` gives the engines and session server it launches Probe's GPU
+readings (`../serving/`).
 """
 
 from __future__ import annotations
@@ -27,10 +30,13 @@ logger = logging.getLogger(__name__)
 TRAIN_DUMP_MODULES = ("miles.backends.training_utils.metrics.train_dump", "miles.utils.train_dump_utils")
 UPDATER_MODULE = "miles.backends.training_utils.weight_update.updater"
 DASHBOARD_HOOKS_MODULE = "miles.dashboard.hooks"
+DEBUG_DATA_MODULE = "miles.ray.rollout.debug_data"
 HTTP_MODULE = "miles.utils.http_utils"
 ROLLOUT_COMMON_MODULE = "miles.rollout.inference_rollout.inference_rollout_common"
 ENDPOINT_MODULE = "miles.rollout.generate_utils.openai_endpoint_utils"
 BASE_TYPES_MODULE = "miles.rollout.base_types"
+#: The Ray actor that launches SGLang engines and the session server (`../serving/launch.py`).
+COMMAND_ACTOR_MODULE = "miles.utils.workers.command_actor"
 #: Per-sample training metrics (`../training/`): the loss, the micro-batches' rows, each backend's update end.
 OBJECTIVE_MODULE = "miles.backends.training_utils.loss.objective"
 ROLLOUT_DATA_MODULE = "miles.backends.training_utils.data.rollout"
@@ -86,6 +92,22 @@ def wrap_sandbox_reports(module: Any) -> None:
     module.push_sandbox_reports = push_sandbox_reports
 
 
+def wrap_debug_data(module: Any) -> None:
+    """Keep each sample's messages before Miles writes its trajectory sidecar and pops them (`debug_data.py:99-101`):
+    `save_debug_rollout_data` calls this module global, so replacing it here is enough."""
+    original = getattr(module, "save_debug_trajectory_data", None)
+    if not callable(original) or getattr(original, _MARK, False):
+        return
+
+    @functools.wraps(original)
+    def save_debug_trajectory_data(args, samples, *rest, **kwargs):
+        _record("trajectory messages", lambda: _get_messages().keep(samples))
+        return original(args, samples, *rest, **kwargs)
+
+    setattr(save_debug_trajectory_data, _MARK, True)
+    module.save_debug_trajectory_data = save_debug_trajectory_data
+
+
 def wrap_http(module: Any) -> None:
     from probe.integrations.miles.live import install_rid_stamp
 
@@ -108,6 +130,12 @@ def wrap_base_types(module: Any) -> None:
     from probe.integrations.miles.live import wrap_rollout_inputs
 
     wrap_rollout_inputs(module)
+
+
+def wrap_command_actor(module: Any) -> None:
+    from probe.integrations.miles.serving.launch import wrap_command_actor as wrap
+
+    wrap(module)
 
 
 def wrap_objective(module: Any) -> None:
@@ -138,10 +166,12 @@ WRAPS: dict[str, Callable[[Any], None]] = {
     **dict.fromkeys(TRAIN_DUMP_MODULES, wrap_train_dump),
     UPDATER_MODULE: wrap_weight_updater,
     DASHBOARD_HOOKS_MODULE: wrap_sandbox_reports,
+    DEBUG_DATA_MODULE: wrap_debug_data,
     HTTP_MODULE: wrap_http,
     ROLLOUT_COMMON_MODULE: wrap_rollout_common,
     ENDPOINT_MODULE: wrap_endpoint,
     BASE_TYPES_MODULE: wrap_base_types,
+    COMMAND_ACTOR_MODULE: wrap_command_actor,
     # The loss module first: the actor modules bind `loss_function` by name when they load (`from ... import`).
     OBJECTIVE_MODULE: wrap_objective,
     ROLLOUT_DATA_MODULE: wrap_rollout_data,
@@ -174,6 +204,12 @@ def _get_trainer():
     from probe.integrations.miles.samples.trainer import TRAINER
 
     return TRAINER
+
+
+def _get_messages():
+    from probe.integrations.miles.samples.messages import MESSAGES
+
+    return MESSAGES
 
 
 _reports = None

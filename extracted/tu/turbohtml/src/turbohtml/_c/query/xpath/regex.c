@@ -4,24 +4,15 @@
 #include "query/xpath/regex.h"
 
 #include "core/ascii.h"
+#include "core/hash.h"
 #include "core/pycompat.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef TH_NOINLINE
-#if defined(_MSC_VER)
-#define TH_NOINLINE __declspec(noinline)
-#elif defined(__GNUC__) || defined(__clang__)
-#define TH_NOINLINE __attribute__((noinline))
-#else
-#define TH_NOINLINE
-#endif
-#endif
-
-#define XR_CACHE_SLOTS 64
 /* What the group parsers return besides a node index or -1 for an error: a construct that adds no item, and an opening
    whose body the caller parses next. */
 #define XR_NO_ITEM (-2)
@@ -85,12 +76,6 @@ typedef struct {
     int32_t alt;
 } xr_inst;
 
-typedef struct {
-    Py_ssize_t offset;
-    Py_ssize_t len;
-    int32_t group;
-} xr_name;
-
 /* A pending Pike VM branch or backtracking choice (slot -1), or a capture slot to restore to value. */
 typedef struct {
     int32_t pc;
@@ -112,12 +97,23 @@ typedef struct {
 #define XR_MAX_BYTES ((size_t)10 << 20)
 #define XR_MAX_CODE ((int32_t)(XR_MAX_BYTES / sizeof(xr_inst)))
 #define XR_MAX_TRAIL ((Py_ssize_t)(XR_MAX_BYTES / sizeof(xr_frame)))
+/* What replacing, joining and padding may add to their inputs in one evaluation. The allowance belongs to the
+   evaluation rather than to each call, since one call's result is the next call's input and a per-call share would
+   multiply with nesting. 64 MiB of characters leaves room for large documents to be rewritten in place. */
+#define XR_MAX_GROWTH ((Py_ssize_t)(((size_t)64 << 20) / sizeof(Py_UCS4)))
 /* PCRE2's default match_limit, plus a per-character share so a long text is not starved: 100 is five times the 18 a
    global replace of (\w+)\W+\1 over prose spends, the heaviest common pattern measured. */
 #define XR_BUDGET_BASE 10000000
 #define XR_BUDGET_PER_CHAR 100
+/* The Pike VM's work grows with the states alive at each position and the capture slots they carry, not only with the
+   positions, so the budget charges those too. */
+#define XR_STATES_PER_STEP 8
+#define XR_SLOTS_PER_STEP 64
+/* The literal prefix xr_skip compares at each candidate start: a longer one seldom filters better, and comparing all of
+   it is quadratic on a text that keeps matching most of it, work no budget sees. */
+#define XR_MAX_PREFIX 32
 
-typedef struct {
+struct xr_program {
     Py_UCS4 *pattern;
     Py_ssize_t pattern_len;
     int flags;
@@ -125,13 +121,12 @@ typedef struct {
     int32_t code_count;
     xr_class *classes;
     xr_range *ranges;
-    xr_name *names;
-    int32_t name_count;
+    PyObject *names; /* a dict of group name to number, NULL when the pattern names none */
     int32_t groups;
     int32_t slots;     /* capture slots, 2 per group plus the whole match */
     int32_t registers; /* loop-start positions only the backtracker reads */
     int32_t prefilter; /* the first consuming instruction when every match starts with it */
-    int32_t prefix;    /* how many literal characters every match starts with */
+    int32_t prefix;    /* how many literal characters every match starts with, up to XR_MAX_PREFIX */
     uint8_t anchored;
     uint8_t backrefs;
     uint8_t first_filter;
@@ -144,13 +139,6 @@ typedef struct {
     Py_ssize_t *best;
     xr_frame *trail;
     Py_ssize_t trail_cap;
-} xr_program;
-
-struct xr_cache {
-    xr_program *programs[XR_CACHE_SLOTS];
-    xr_program *recent;
-    Py_ssize_t allowance; /* backtracking steps granted so far in the evaluation */
-    Py_ssize_t budget;    /* the part of the allowance still unspent */
 };
 
 typedef struct {
@@ -346,8 +334,7 @@ typedef struct {
     int32_t range_count, range_cap;
     uint8_t *closed;
     int32_t groups, closed_cap;
-    xr_name *names;
-    int32_t name_count, name_cap;
+    PyObject *names; /* a dict of group name to number, so a pattern of many names still parses in linear time */
     int backrefs;
     xr_error *error;
 } xr_parser;
@@ -420,10 +407,13 @@ static int32_t xr_class_new(xr_parser *parser, int categories, int fold) {
     return parser->class_count++;
 }
 
+/* Ranges with equal lo order by hi: a tie that compared both ways would leave qsort's result to the libc. */
 static int xr_range_order(const void *left, const void *right) {
     const xr_range *first = left;
     const xr_range *second = right;
-    return (first->lo > second->lo) - (first->lo < second->lo);
+    const uint64_t first_key = ((uint64_t)first->lo << 32) | first->hi;
+    const uint64_t second_key = ((uint64_t)second->lo << 32) | second->hi;
+    return (first_key > second_key) - (first_key < second_key);
 }
 
 /* Sort and merge the class's ranges for binary search, then precompute the ASCII answers so the common case is one bit
@@ -665,13 +655,8 @@ static int32_t xr_parse_class(xr_parser *parser) {
     }
 }
 
-static int xr_name_equal(const xr_parser *parser, const xr_name *name, Py_ssize_t offset, Py_ssize_t len) {
-    return name->len == len &&
-           memcmp(parser->pattern + name->offset, parser->pattern + offset, (size_t)len * sizeof(Py_UCS4)) == 0;
-}
-
-/* Read a group name up to its terminator, leaving pos past it. 1 on success, -1 on error. */
-static int xr_group_name(xr_parser *parser, Py_UCS4 terminator, Py_ssize_t *offset, Py_ssize_t *len) {
+/* Read a group name up to its terminator, leaving pos past it. 1 with a new reference in *out, -1 on error. */
+static int xr_group_name(xr_parser *parser, Py_UCS4 terminator, PyObject **out) {
     Py_ssize_t start = parser->pos;
     while (parser->pos < parser->len && parser->pattern[parser->pos] != terminator) {
         parser->pos++;
@@ -680,40 +665,69 @@ static int xr_group_name(xr_parser *parser, Py_UCS4 terminator, Py_ssize_t *offs
         return xr_fail(parser, terminator == '>' ? "missing >, unterminated name" : "missing ), unterminated name",
                        start);
     }
-    *offset = start;
-    *len = parser->pos++ - start;
-    if (*len == 0) {
+    Py_ssize_t len = parser->pos++ - start;
+    if (len == 0) {
         return xr_fail(parser, "missing group name", start);
     }
-    PyObject *name = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, parser->pattern + start, *len);
+    PyObject *name = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, parser->pattern + start, len);
     if (name == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     int valid = th_str_is_identifier(name);
-    Py_DECREF(name);
-    if (valid < 0) { /* GCOVR_EXCL_BR_LINE: only the PyPy fallback can fail */
-        return -1;   /* GCOVR_EXCL_LINE: PyPy method-call failure */
+    if (valid > 0) {
+        *out = name;
+        return 1;
     }
-    return valid ? 1 : xr_fail(parser, "bad character in group name", start);
+    Py_DECREF(name);
+    /* GCOVR_EXCL_BR_START: only the PyPy fallback can fail */
+    return valid < 0 ? -1 : xr_fail(parser, "bad character in group name", start);
+    /* GCOVR_EXCL_BR_STOP */
 }
 
-/* (?P<name>...) or (?P=name): XR_GROUP_BODY with the name set, a back-reference node, or -1 on error. */
-static int32_t xr_parse_named(xr_parser *parser, Py_ssize_t start, Py_ssize_t *offset, Py_ssize_t *len) {
+/* The number of the group called name in the names dict of a parser or a program, 0 when none is. */
+static int32_t xr_named_group(PyObject *names, PyObject *name) {
+    TH_WORK_STEP();
+    PyObject *group = names == NULL ? NULL : PyDict_GetItem(names, name); /* borrowed; a str key lookup cannot raise */
+    return group == NULL ? 0 : (int32_t)PyLong_AsLong(group);
+}
+
+/* Give name to the group the caller opens next, which takes the next number. XR_GROUP_BODY, or -1 on error. */
+static int32_t xr_name_group(xr_parser *parser, PyObject *name) {
+    /* GCOVR_EXCL_BR_START: allocation failure */
+    if (parser->names == NULL && (parser->names = PyDict_New()) == NULL) {
+        return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *group = PyLong_FromLong(parser->groups + 1);
+    if (group == NULL) {
+        return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    int status = PyDict_SetItem(parser->names, name, group);
+    Py_DECREF(group);
+    return status < 0 ? -1 : XR_GROUP_BODY;
+    /* GCOVR_EXCL_BR_STOP */
+}
+
+/* (?P<name>...) or (?P=name): XR_GROUP_BODY with the name recorded, a back-reference node, or -1 on error. */
+static int32_t xr_parse_named(xr_parser *parser, Py_ssize_t start) {
     Py_UCS4 kind = parser->pos < parser->len ? parser->pattern[parser->pos] : 0;
     parser->pos++;
     if (kind != '<' && kind != '=') {
         return xr_fail(parser, "unknown extension ?P", start);
     }
-    if (xr_group_name(parser, kind == '<' ? '>' : ')', offset, len) < 0) {
+    PyObject *name;
+    if (xr_group_name(parser, kind == '<' ? '>' : ')', &name) < 0) {
         return -1;
     }
-    for (int32_t index = 0; index < parser->name_count; index++) {
-        if (xr_name_equal(parser, &parser->names[index], *offset, *len)) {
-            return kind == '<' ? xr_fail(parser, "redefinition of group name", start)
-                               : xr_backref_node(parser, parser->names[index].group, start);
-        }
+    int32_t group = xr_named_group(parser->names, name);
+    int32_t result;
+    if (group > 0) {
+        result =
+            kind == '<' ? xr_fail(parser, "redefinition of group name", start) : xr_backref_node(parser, group, start);
+    } else {
+        result = kind == '<' ? xr_name_group(parser, name) : xr_fail(parser, "unknown group name", start);
     }
-    return kind == '<' ? XR_GROUP_BODY : xr_fail(parser, "unknown group name", start);
+    Py_DECREF(name);
+    return result;
 }
 
 static int xr_flag_letter(xr_parser *parser, Py_UCS4 letter, int removing, Py_ssize_t start) {
@@ -767,15 +781,14 @@ static int xr_parse_flags(xr_parser *parser, Py_ssize_t start, int *add, int *re
 
 /* What follows "(?": XR_GROUP_BODY for a group (with *capture and *flags set), XR_NO_ITEM when the construct adds
    nothing, a node, or -1 on error. */
-static int32_t xr_parse_extension(xr_parser *parser, Py_ssize_t start, int may_set_global, int *capture, int *flags,
-                                  Py_ssize_t *offset, Py_ssize_t *len) {
+static int32_t xr_parse_extension(xr_parser *parser, Py_ssize_t start, int may_set_global, int *capture, int *flags) {
     if (parser->pos >= parser->len) {
         return xr_fail(parser, "unexpected end of pattern", start);
     }
     Py_UCS4 kind = parser->pattern[parser->pos++];
     switch (kind) {
     case 'P':
-        return xr_parse_named(parser, start, offset, len);
+        return xr_parse_named(parser, start);
     case ':':
         *capture = 0;
         return XR_GROUP_BODY;
@@ -829,11 +842,9 @@ static int32_t xr_parse_group(xr_parser *parser, int may_set_global) {
     Py_ssize_t start = parser->pos++;
     int capture = 1;
     int flags = parser->flags;
-    Py_ssize_t name_offset = 0;
-    Py_ssize_t name_len = -1;
     if (parser->pos < parser->len && parser->pattern[parser->pos] == '?') {
         parser->pos++;
-        int32_t result = xr_parse_extension(parser, start, may_set_global, &capture, &flags, &name_offset, &name_len);
+        int32_t result = xr_parse_extension(parser, start, may_set_global, &capture, &flags);
         if (result != XR_GROUP_BODY) {
             return result;
         }
@@ -847,14 +858,6 @@ static int32_t xr_parse_group(xr_parser *parser, int may_set_global) {
         }
         /* GCOVR_EXCL_BR_STOP */
         parser->closed[group] = 0;
-        if (name_len >= 0) {
-            /* GCOVR_EXCL_BR_START: allocation failure */
-            if (xr_grow((void **)&parser->names, &parser->name_cap, parser->name_count + 1, sizeof(xr_name)) < 0) {
-                return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
-            }
-            /* GCOVR_EXCL_BR_STOP */
-            parser->names[parser->name_count++] = (xr_name){name_offset, name_len, group};
-        }
     }
     /* GCOVR_EXCL_BR_START: allocation failure */
     if (xr_grow((void **)&parser->levels, &parser->level_cap, parser->level_count + 1, sizeof(xr_level)) < 0) {
@@ -1058,6 +1061,7 @@ static int32_t xr_parse(xr_parser *parser) {
     parser->levels[0] = (xr_level){-1, -1, -1, -1, -1, parser->flags, 0};
     parser->level_count = 1;
     while (parser->pos < parser->len) {
+        TH_WORK_STEP();
         Py_UCS4 current = parser->pattern[parser->pos];
         xr_level *level = &parser->levels[parser->level_count - 1];
         if (current == ')' && parser->level_count == 1) {
@@ -1419,7 +1423,7 @@ static void xr_program_free(xr_program *program) {
     PyMem_Free(program->code - 1);
     PyMem_Free(program->classes);
     PyMem_Free(program->ranges);
-    PyMem_Free(program->names);
+    Py_XDECREF(program->names);
     PyMem_Free(program->states);
     PyMem_Free(program->cells);
     PyMem_Free(program->frames);
@@ -1516,7 +1520,6 @@ static xr_program *xr_assemble(xr_parser *parser, int32_t root, int flags) {
     program->classes = parser->classes;
     program->ranges = parser->ranges;
     program->names = parser->names;
-    program->name_count = parser->name_count;
     parser->classes = NULL;
     parser->ranges = NULL;
     parser->names = NULL;
@@ -1530,7 +1533,7 @@ static xr_program *xr_assemble(xr_parser *parser, int32_t root, int flags) {
     }
     program->anchored = (uint8_t)(program->code[pc].op == XRI_ASSERT && program->code[pc].arg == XRA_START);
     program->prefilter = program->code[pc].op <= XRI_CLASS ? pc : -1;
-    while (program->code[pc + program->prefix].op == XRI_CHAR) {
+    while (program->prefix < XR_MAX_PREFIX && program->code[pc + program->prefix].op == XRI_CHAR) {
         program->prefix++;
     }
     return program;
@@ -1555,7 +1558,7 @@ static xr_program *xr_compile(const Py_UCS4 *pattern, Py_ssize_t len, int flags,
     PyMem_Free(parser.classes);
     PyMem_Free(parser.ranges);
     PyMem_Free(parser.closed);
-    PyMem_Free(parser.names);
+    Py_XDECREF(parser.names);
     return program;
 }
 
@@ -1676,8 +1679,8 @@ static void xr_add(xr_program *program, xr_list *list, int32_t pc, const Py_UCS4
     }
 }
 
-static int xr_pike(xr_program *program, const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t start, int must_advance,
-                   Py_ssize_t *spans) {
+static int xr_pike(xr_program *program, xr_cache *cache, const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t start,
+                   int must_advance, Py_ssize_t *spans) {
     if (program->prefilter < 0 && program->first_filter == 0 && (program->frames != NULL || len - start >= 64)) {
         if (xr_first_chars(program) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             return -1;                     /* GCOVR_EXCL_LINE */
@@ -1708,6 +1711,20 @@ static int xr_pike(xr_program *program, const Py_UCS4 *text, Py_ssize_t len, Py_
                  (text[pos] >= 128 || (program->first_ascii[text[pos] >> 5] & ((uint32_t)1 << (text[pos] & 31)))))) {
                 xr_add(program, current, 0, text, len, pos, width);
             }
+        }
+        /* The size caps bound the work of one position, the evaluation's budget its sum over the text and over the
+           searches of a global replace. */
+        size_t spent = 1 + (size_t)current->len / XR_STATES_PER_STEP;
+        if (width > 0) {
+            spent += (size_t)(current->active_len + 1) * (size_t)width / XR_SLOTS_PER_STEP;
+        }
+        cache->budget -= (Py_ssize_t)spent;
+        if (cache->budget < 0) {
+            PyErr_Format(PyExc_ValueError,
+                         "regular expression needs more than %zd matching steps (10000000 plus 100 per character "
+                         "searched in this XPath evaluation); simplify the pattern or search a shorter string",
+                         cache->allowance);
+            return -1;
         }
         if (current->len == 0) {
             if (matched || program->anchored) {
@@ -1783,9 +1800,11 @@ static int xr_reserve(xr_program *program, Py_ssize_t depth) {
     return 0;
 }
 
-/* re compares a case-insensitive back-reference by lowercase, without the fold sets. */
-static int xr_backref(const xr_inst *inst, const Py_ssize_t *caps, const Py_UCS4 *text, Py_ssize_t len,
-                      Py_ssize_t *pos) {
+/* re compares a case-insensitive back-reference by lowercase, without the fold sets. Each character compared draws a
+   step from the budget: the group can span half the text, so charging the instruction alone would let one step cost
+   that much. */
+static int xr_backref(const xr_inst *inst, const Py_ssize_t *caps, const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t *pos,
+                      Py_ssize_t *budget) {
     Py_ssize_t slot = 2 * (Py_ssize_t)inst->arg;
     Py_ssize_t from = caps[slot];
     if (from < 0) {
@@ -1799,20 +1818,20 @@ static int xr_backref(const xr_inst *inst, const Py_ssize_t *caps, const Py_UCS4
         Py_UCS4 captured = text[from + index];
         Py_UCS4 ch = text[*pos + index];
         if (inst->op == XRI_BACKREF_FOLD ? xr_lower(captured) != xr_lower(ch) : captured != ch) {
+            *budget -= index;
             return 0;
         }
     }
+    *budget -= size;
     *pos += size;
     return 1;
 }
 
-/* One leftmost-first attempt at origin: 1 on a match, 0 when every path fails, -1 when the budget or trail runs out. */
+/* One leftmost-first attempt at origin: 1 on a match, 0 when every path fails, -1 when the budget or trail runs out.
+   The caller hands over the slots unset, and a 0 hands them back that way. */
 static int xr_backtrack_at(xr_program *program, xr_cache *cache, const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t origin,
                            Py_ssize_t start, int must_advance, Py_ssize_t *spans) {
     Py_ssize_t *caps = program->scratch;
-    for (int32_t slot = 0; slot < program->slots + program->registers; slot++) {
-        caps[slot] = -1;
-    }
     Py_ssize_t depth = 0;
     int32_t pc = 0;
     Py_ssize_t pos = origin;
@@ -1847,7 +1866,7 @@ static int xr_backtrack_at(xr_program *program, xr_cache *cache, const Py_UCS4 *
             break;
         case XRI_BACKREF:
         case XRI_BACKREF_FOLD:
-            ok = xr_backref(inst, caps, text, len, &pos);
+            ok = xr_backref(inst, caps, text, len, &pos, &cache->budget);
             break;
         case XRI_MATCH:
             if (!(must_advance && pos == start)) {
@@ -1885,10 +1904,20 @@ static int xr_backtrack_at(xr_program *program, xr_cache *cache, const Py_UCS4 *
 static int xr_search(xr_program *program, xr_cache *cache, const Py_UCS4 *text, Py_ssize_t len, Py_ssize_t start,
                      int must_advance, Py_ssize_t *spans) {
     if (!program->backrefs) {
-        return xr_pike(program, text, len, start, must_advance, spans);
+        return xr_pike(program, cache, text, len, start, must_advance, spans);
     }
     if (xr_prepare(program, 0) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return -1;                    /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* Once per search, not per origin: a failed attempt unwinds its trail and puts back every slot it wrote. Groups
+       have no cap and (){0} adds slots without instructions, so the reset is charged to the budget. */
+    cache->budget -= program->slots + program->registers;
+    if (cache->budget < 0) {
+        return xr_exhausted(cache);
+    }
+    for (int32_t slot = 0; slot < program->slots + program->registers; slot++) {
+        TH_WORK_STEP();
+        program->scratch[slot] = -1;
     }
     for (Py_ssize_t origin = start; origin <= len && (origin == start || !program->anchored); origin++) {
         if (program->prefilter >= 0) {
@@ -1913,30 +1942,52 @@ static size_t xr_hash(const Py_UCS4 *pattern, Py_ssize_t len) {
     return hash;
 }
 
-/* Out of line, and only called on a cache that exists: inlined, it made LTO stop inlining xp_eval_at into the XSLT
-   callers, which cost 6.4% on the transform-key benchmark. */
-TH_NOINLINE void xr_cache_free(xr_cache *cache) {
+void xr_cache_clear(xr_cache *cache) {
     for (int index = 0; index < XR_CACHE_SLOTS; index++) {
         if (cache->programs[index] != NULL) {
             xr_program_free(cache->programs[index]);
         }
     }
-    PyMem_Free(cache);
+}
+
+/* What a program holds beyond its pattern's length: the instructions, the frames and state lists its first search
+   sizes from them, the trail, and the capture slots once a replace has run it. */
+static size_t xr_program_bytes(const xr_program *program) {
+    size_t count = (size_t)program->code_count;
+    size_t bytes = count * (sizeof(xr_inst) + sizeof(xr_frame) + 6 * sizeof(int32_t)) +
+                   (size_t)program->trail_cap * sizeof(xr_frame);
+    if (program->cells != NULL) {
+        bytes += (2 * count + 1) * (size_t)program->slots * sizeof(Py_ssize_t);
+    }
+    return bytes;
+}
+
+/* The size caps are per program, so with no bound of their own the slots could hold XR_CACHE_SLOTS times what one
+   program may. Four programs at every cap fit, so an expression alternating among that many of the largest patterns
+   compiles each once. */
+#define XR_CACHE_BYTES                                                                                                 \
+    (4 * ((size_t)XR_MAX_CODE * (sizeof(xr_inst) + sizeof(xr_frame) + 6 * sizeof(int32_t)) + 2 * XR_MAX_BYTES))
+
+/* Keep the program in use compiled in its slot when it fits beside the others, and free it when not. Only the program
+   in use grows, so the rest are counted as it stops being used. Keeping the ones already in rather than making room
+   means an expression cycling through more large patterns than fit compiles only the extra ones again. */
+static void xr_cache_release(xr_cache *cache) {
+    xr_program *program = cache->recent;
+    size_t bytes = xr_program_bytes(program);
+    if (bytes <= XR_CACHE_BYTES - cache->rest) {
+        cache->rest += bytes;
+        return;
+    }
+    cache->programs[xr_hash(program->pattern, program->pattern_len) & (XR_CACHE_SLOTS - 1)] = NULL;
+    xr_program_free(program);
 }
 
 /* The compiled program for pattern, from the evaluation's cache when it holds one, and the budget topped up for a
    search over text_len characters. */
-static xr_program *xr_cache_get(xr_cache **cache_ref, const Py_UCS4 *pattern, Py_ssize_t len, int flags,
-                                Py_ssize_t text_len, xr_error *error) {
+static xr_program *xr_cache_get(xr_cache *cache, const Py_UCS4 *pattern, Py_ssize_t len, int flags, Py_ssize_t text_len,
+                                xr_error *error) {
     error->pattern_error = 0;
-    xr_cache *cache = *cache_ref;
-    if (cache == NULL) {
-        cache = PyMem_Calloc(1, sizeof(xr_cache));
-        if (cache == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
-            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
-            return NULL;      /* GCOVR_EXCL_LINE */
-        }
-        *cache_ref = cache;
+    if (cache->allowance == 0) {
         cache->allowance = XR_BUDGET_BASE;
         cache->budget = XR_BUDGET_BASE;
     }
@@ -1951,48 +2002,89 @@ static xr_program *xr_cache_get(xr_cache **cache_ref, const Py_UCS4 *pattern, Py
     program = *slot;
     if (program != NULL && program->flags == flags && program->pattern_len == len &&
         memcmp(program->pattern, pattern, (size_t)len * sizeof(Py_UCS4)) == 0) {
-        cache->recent = program;
-        return program;
-    }
-    program = xr_compile(pattern, len, flags, error);
-    if (program != NULL) {
+        cache->rest -= xr_program_bytes(program);
+    } else {
+        program = xr_compile(pattern, len, flags, error);
+        if (program == NULL) {
+            return NULL;
+        }
         if (*slot != NULL) {
+            if (*slot == cache->recent) {
+                cache->recent = NULL;
+            } else {
+                cache->rest -= xr_program_bytes(*slot);
+            }
             xr_program_free(*slot);
         }
         *slot = program;
-        cache->recent = program;
     }
+    if (cache->recent != NULL) {
+        xr_cache_release(cache);
+    }
+    cache->recent = program;
     return program;
 }
 
-int xr_test(xr_cache **cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len, int flags, const Py_UCS4 *text,
+int xr_test(xr_cache *cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len, int flags, const Py_UCS4 *text,
             Py_ssize_t text_len, xr_error *error) {
     xr_program *program = xr_cache_get(cache, pattern, pattern_len, flags, text_len, error);
-    return program == NULL ? -1 : xr_search(program, *cache, text, text_len, 0, 0, NULL);
+    return program == NULL ? -1 : xr_search(program, cache, text, text_len, 0, 0, NULL);
 }
 
 typedef struct {
     Py_UCS4 *text;
     Py_ssize_t len;
     Py_ssize_t cap;
+    Py_ssize_t limit; /* the input's length plus the growth the evaluation still allows */
 } xr_buffer;
 
+static int xr_overgrown(void) {
+    PyErr_Format(
+        PyExc_ValueError,
+        "replacing, joining and padding add more than %zd characters (64 MiB) to their inputs in this XPath "
+        "evaluation; shorten the replacement, separator or padding, or replace fewer matches or join fewer items",
+        XR_MAX_GROWTH);
+    return -1;
+}
+
+int xr_charge_growth(xr_cache *cache, Py_ssize_t length, Py_ssize_t copies) {
+    if (length > (XR_MAX_GROWTH - cache->grown) / copies) {
+        return xr_overgrown();
+    }
+    cache->grown += length * copies;
+    return 0;
+}
+
+/* Grow the buffer for len more characters, never past its limit. Out of line, so the appends of a replace stay small
+   enough to inline where they are used. */
+static TH_NOINLINE int xr_buffer_grow(xr_buffer *buffer, Py_ssize_t len) {
+    if (len > buffer->limit - buffer->len) {
+        return xr_overgrown();
+    }
+    size_t cap, bytes;
+    /* GCOVR_EXCL_BR_START: size overflow */
+    if (!th_grow_cap((size_t)(buffer->len + len), (size_t)buffer->cap, 64, sizeof(Py_UCS4), &cap, &bytes)) {
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    if ((Py_ssize_t)cap > buffer->limit) {
+        cap = (size_t)buffer->limit;
+        bytes = cap * sizeof(Py_UCS4);
+    }
+    Py_UCS4 *grown = PyMem_Realloc(buffer->text, bytes);
+    if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    buffer->text = grown;
+    buffer->cap = (Py_ssize_t)cap;
+    return 0;
+}
+
 static int xr_append(xr_buffer *buffer, const Py_UCS4 *text, Py_ssize_t len) {
-    if (buffer->len + len > buffer->cap) {
-        size_t cap, bytes;
-        /* GCOVR_EXCL_BR_START: size overflow */
-        if (!th_grow_cap((size_t)(buffer->len + len), (size_t)buffer->cap, 64, sizeof(Py_UCS4), &cap, &bytes)) {
-            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path */
-            return -1;        /* GCOVR_EXCL_LINE */
-        }
-        /* GCOVR_EXCL_BR_STOP */
-        Py_UCS4 *grown = PyMem_Realloc(buffer->text, bytes);
-        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
-            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
-            return -1;        /* GCOVR_EXCL_LINE */
-        }
-        buffer->text = grown;
-        buffer->cap = (Py_ssize_t)cap;
+    if (buffer->len + len > buffer->cap && xr_buffer_grow(buffer, len) < 0) {
+        return -1;
     }
     if (len > 0) {
         memcpy(buffer->text + buffer->len, text, (size_t)len * sizeof(Py_UCS4));
@@ -2082,16 +2174,14 @@ static int xr_template_named(xr_template *template, const xr_program *program, c
     if (digit == name_len) {
         return xr_template_reference(template, program, group, start);
     }
-    for (int32_t entry = 0; entry < program->name_count; entry++) {
-        const xr_name *known = &program->names[entry];
-        if (known->len == name_len &&
-            memcmp(program->pattern + known->offset, text + name, (size_t)name_len * sizeof(Py_UCS4)) == 0) {
-            return xr_template_group(template, known->group);
-        }
-    }
     PyObject *text_name = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, text + name, name_len);
     if (text_name == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         return -1;           /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    int32_t known = xr_named_group(program->names, text_name);
+    if (known != 0) {
+        Py_DECREF(text_name);
+        return xr_template_group(template, known);
     }
     int valid = th_str_is_identifier(text_name);
     if (valid < 0) {          /* GCOVR_EXCL_BR_LINE: only the PyPy fallback can fail */
@@ -2221,14 +2311,14 @@ static int xr_expand(xr_buffer *buffer, const xr_template *template, const Py_UC
             /* a group that did not take part in the match stands for the empty string */
             rc = from < 0 ? 0 : xr_append(buffer, text + from, spans[2 * part->group + 1] - from);
         }
-        if (rc < 0) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
-            return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        if (rc < 0) {
+            return -1;
         }
     }
     return 0;
 }
 
-int xr_replace(xr_cache **cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len, int flags, const Py_UCS4 *text,
+int xr_replace(xr_cache *cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len, int flags, const Py_UCS4 *text,
                Py_ssize_t text_len, const Py_UCS4 *replacement, Py_ssize_t replacement_len, int xpath_syntax,
                int first_only, Py_UCS4 **out, Py_ssize_t *out_len, xr_error *error) {
     xr_program *program = xr_cache_get(cache, pattern, pattern_len, flags, text_len, error);
@@ -2242,23 +2332,21 @@ int xr_replace(xr_cache **cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len,
     }
     xr_template template = {0};
     template.error = error;
-    xr_buffer buffer = {0};
+    xr_buffer buffer = {.limit = text_len + XR_MAX_GROWTH - cache->grown};
     int rc = xr_template_parse(&template, program, replacement, replacement_len, xpath_syntax);
     Py_ssize_t last = 0;
     Py_ssize_t pos = 0;
     int must_advance = 0;
     while (rc == 0) {
-        int found = xr_search(program, *cache, text, text_len, pos, must_advance, spans);
+        int found = xr_search(program, cache, text, text_len, pos, must_advance, spans);
         if (found <= 0) {
             rc = found;
             break;
         }
-        /* GCOVR_EXCL_BR_START: allocation failure */
         if (xr_append(&buffer, text + last, spans[0] - last) < 0 || xr_expand(&buffer, &template, text, spans) < 0) {
-            rc = -1; /* GCOVR_EXCL_LINE: allocation-failure path */
-            break;   /* GCOVR_EXCL_LINE */
+            rc = -1;
+            break;
         }
-        /* GCOVR_EXCL_BR_STOP */
         last = spans[1];
         pos = spans[1];
         must_advance = spans[0] == spans[1];
@@ -2279,6 +2367,9 @@ int xr_replace(xr_cache **cache, const Py_UCS4 *pattern, Py_ssize_t pattern_len,
     if (rc < 0) {
         PyMem_Free(buffer.text);
         return -1;
+    }
+    if (buffer.len > text_len) {
+        cache->grown += buffer.len - text_len;
     }
     *out = buffer.text;
     *out_len = buffer.len;

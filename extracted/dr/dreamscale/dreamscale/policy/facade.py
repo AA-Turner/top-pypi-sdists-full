@@ -1256,9 +1256,12 @@ class AsyncPolicy:
         async with self._call():
             await self._inner.end_episode()
 
-    async def push_history(self, observation: Any) -> None:
+    async def push_history(self, observation: Any, *, next_request_in: int | None = None) -> None:
         inner = await self._pin()
-        await inner.push_history(observation)
+        if next_request_in is None:
+            await inner.push_history(observation)
+        else:
+            await inner.push_history(observation, next_request_in=next_request_in)
 
     @property
     def runtime_contract(self) -> RuntimeContract:

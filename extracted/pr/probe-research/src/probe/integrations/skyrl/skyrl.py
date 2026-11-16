@@ -13,6 +13,7 @@ from skyrl.train.utils.tracking import Tracking
 from skyrl.train.utils.utils import Timer
 
 from probe.foundation.safe_warn import safe_warn as _diagnostics
+from probe.sdk.run.samples.rollout import make_decode
 
 from .. import _rl_owner
 from .._live import refuse_commands
@@ -136,6 +137,7 @@ class ProbeExp(BasePPOExp):
         tokenizer = self.tokenizer
         mapper = OutputMapper(
             decode=lambda ids: tokenizer.decode(ids, skip_special_tokens=False),
+            decode_turns=make_decode(tokenizer),
             tokens_to_text=getattr(tokenizer, "convert_ids_to_tokens", None),
             scenario_keys=[name for name in os.environ.get(SCENARIO_KEYS_ENV, "").split(",") if name.strip()],
             host=socket.gethostname(),

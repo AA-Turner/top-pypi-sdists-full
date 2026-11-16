@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: papyrus-newsroom
-Version: 5.115.2
+Version: 5.127.0
 Summary: Papyrus newsroom Python tools and CLI.
 License-Expression: MIT
 License-File: LICENSE
@@ -23,7 +23,7 @@ Requires-Dist: citeproc-py (>=0.8.2,<1.0.0)
 Requires-Dist: cli-login (==0.4.1) ; sys_platform != "linux"
 Requires-Dist: cli-login[linux] (==0.4.1) ; sys_platform == "linux"
 Requires-Dist: fastapi (>=0.115,<1) ; extra == "priming"
-Requires-Dist: humanus (>=0.37,<0.38)
+Requires-Dist: humanus (>=0.41.1,<0.42)
 Requires-Dist: jsonschema (>=4.23,<5)
 Requires-Dist: latex2mathml (>=3.78,<4)
 Requires-Dist: markitdown[all] (>=0.1.0,<1.0.0) ; extra == "newsroom"
@@ -175,7 +175,7 @@ The steps below are the real sequence; each links to the page that holds the det
 8. **Mission doctrine.** Write the mission (three lines: what it is and for whom, what coverage includes, what readers take away) and the policy, then `papyrus sections doctrine set --kind mission --file mission.md` and `--kind policy`. The relevance Cyclotron seeds its rubric from them. [Editorial context](docs/editorial-context.md), [steering and relevance](docs/steering-and-relevance.md).
 9. **Newsletter (optional).** Deploy the SES stack `infra/newsletter/papyrus-newsletter-sending.yaml` for the site, then enable the `newsletter` plugin in `papyrus.config.ts`. SES starts in the sandbox. [Newsletter](docs/newsletter.md), [sending stack](infra/newsletter/README.md).
 10. **GA4 (optional).** `chrome.ga_measurement_id` plus `chrome.consent_mode` in `projection.json` (the standard Consent Mode v2 banner; leave `analytics_only` off). [Analytics](docs/site-hosting.md#analytics-google-analytics-4).
-11. **Hacker News routing (optional).** Add the site's AppSync grants to `infra/monitoring/papyrus-monitoring.yaml`, deploy `papyrus-monitoring` with a change set, add the publication to the router config with `infra/monitoring/seed_router_config.py`, and make sure the shared Cyclotron has a `<publicationId>-relevance` output. The router starts in `dry-run`. [Monitoring: the router](docs/monitoring-cloud.md#the-router-step-4), [AGENTS.md](AGENTS.md#add-a-site-to-the-hacker-news-routing).
+11. **Hacker News routing (optional).** Add the site's AppSync grants to `infra/monitoring/papyrus-monitoring.yaml`, deploy `papyrus-monitoring` with a change set, add the publication to the router config file `infra/monitoring/router-config/hn.json` (the release applies it), and make sure the shared Cyclotron has a `<publicationId>-relevance` output. The router starts in `dry-run`. [Monitoring: the router](docs/monitoring-cloud.md#the-router-step-4), [AGENTS.md](AGENTS.md#add-a-site-to-the-hacker-news-routing).
 12. **Register the site in Prospectus** if it has reader features (`cms.prospectusAccountsApiStageArn`). [Reader steering](docs/reader-steering.md#enabling-it).
 
 ## Where to read next

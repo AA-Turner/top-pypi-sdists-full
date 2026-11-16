@@ -1,17 +1,21 @@
-"""Nodes crossing between XML and HTML trees take the destination tree's naming rules, and an XML document's fragment
-parse (set_inner_html, insert_adjacent_html) uses the XML fragment parser."""
-
 from __future__ import annotations
+
+from functools import partial
+from typing import TYPE_CHECKING
 
 import pytest
 
 from turbohtml import Element, HTMLParseError, Range, parse, parse_xml
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
-def _xml_root(xml: str) -> Element:
-    root = parse_xml(xml).root
-    assert root is not None
-    return root
+    from work_steps import WorkSteps
+
+
+def test_xml_element_in_html_tree_folds_its_names() -> None:
+    body = _into_html('<root><Item-1 Attr="1" X-1="2" d-9Q="3" low="4"/></root>')
+    assert body.html == '<body><item-1 attr="1" x-1="2" d-9q="3" low="4"></item-1></body>'
 
 
 def _into_html(xml: str) -> Element:
@@ -22,17 +26,10 @@ def _into_html(xml: str) -> Element:
     return body
 
 
-def _xml_child() -> Element:
-    child = _xml_root(
-        '<r xmlns="urn:a" xmlns:p="urn:&quot;b&lt;" a="0" xmlnsq="1" xmlnsqq="2" attr5="3"><c/></r>'
-    ).children[0]
-    assert isinstance(child, Element)
-    return child
-
-
-def test_xml_element_in_html_tree_folds_its_names() -> None:
-    body = _into_html('<root><Item-1 Attr="1" X-1="2" d-9Q="3" low="4"/></root>')
-    assert body.html == '<body><item-1 attr="1" x-1="2" d-9q="3" low="4"></item-1></body>'
+def _xml_root(xml: str) -> Element:
+    root = parse_xml(xml).root
+    assert root is not None
+    return root
 
 
 def test_xml_subtree_in_html_tree_folds_every_element() -> None:
@@ -56,6 +53,34 @@ def test_xml_element_in_html_tree_attrs_resolve() -> None:
 def test_xml_element_in_html_tree_keeps_the_first_folded_attribute() -> None:
     body = _into_html('<root><i Attr="1" attr="2"/></root>')
     assert body.html == '<body><i attr="1"></i></body>'
+
+
+@pytest.mark.parametrize(
+    "count", [pytest.param(31, id="scanned"), pytest.param(32, id="sorted"), pytest.param(200, id="sorted-long")]
+)
+def test_xml_element_in_html_tree_keeps_the_first_of_many_folded_attributes(count: int) -> None:
+    # of every three names, one arrives in upper case before its lower-case spelling, one after it, and one alone
+    spellings = [("N{}", "n{}"), ("n{}", "N{}"), ("n{}",)]
+    names = [spelling.format(index) for index in range(count // 2) for spelling in spellings[index % 3]]
+    names += [f"pad{index}" for index in range(count - len(names))]
+    attributes = " ".join(f'{name}="{name}"' for name in names)
+    item = _into_html(f"<root><i {attributes}/></root>").children[0]
+    assert isinstance(item, Element)
+    expected: dict[str, str] = {}
+    for name in names:
+        expected.setdefault(name.lower(), name)
+    assert list(item.attrs.items()) == list(expected.items())
+
+
+def test_xml_element_with_many_attributes_moves_into_html_tree_in_linear_steps(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(_append_wide, (2000, 8000))
+
+
+def _append_wide(count: int) -> Callable[[], object]:
+    body = parse("<body></body>").select_one("body")
+    assert body is not None
+    attributes = " ".join(f'data-{index}="1"' for index in range(count))
+    return partial(body.append, _xml_root(f"<root><i {attributes}/></root>").children[0])
 
 
 def test_xml_element_in_html_tree_takes_the_html_atom() -> None:
@@ -83,6 +108,14 @@ def test_xml_set_inner_html_parses_as_xml() -> None:
     child = _xml_child()
     child.set_inner_html('<p:x y="1">t &amp; u</p:x><Z/>')
     assert child.html == '<c><p:x y="1">t &amp; u</p:x><Z></Z></c>'
+
+
+def _xml_child() -> Element:
+    child = _xml_root(
+        '<r xmlns="urn:a" xmlns:p="urn:&quot;b&lt;" a="0" xmlnsq="1" xmlnsqq="2" attr5="3"><c/></r>'
+    ).children[0]
+    assert isinstance(child, Element)
+    return child
 
 
 def test_xml_set_inner_html_under_a_redeclared_namespace() -> None:

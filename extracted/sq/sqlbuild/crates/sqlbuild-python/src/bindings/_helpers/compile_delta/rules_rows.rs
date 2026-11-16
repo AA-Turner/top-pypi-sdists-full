@@ -3,17 +3,24 @@
 use std::collections::HashMap;
 
 use pyo3::PyResult;
+use sqlbuild_rules::engine::main::needs_json_grains::needs_json_grains;
 use sqlbuild_rules::models::{EvaluateRequest, Model, SqlTestFact};
 
-use crate::bindings::_helpers::compile_context::delta::BaseRules;
-use crate::bindings::_helpers::compile_context::delta::PendingRules;
-use crate::bindings::_helpers::compile_context::delta::{delta_unsupported, injection};
+use sqlbuild_python_base::compile_context::main::delta::delta_unsupported::delta_unsupported;
+use sqlbuild_python_base::compile_context::main::delta::injection::injection;
+use sqlbuild_python_base::compile_context::models::BaseRules;
+use sqlbuild_python_base::compile_context::models::PendingRules;
 
 /// In a delta, the whole project's rules request with the rerun rows taken from `request`.
 pub(crate) fn whole_project_request(request: EvaluateRequest) -> PyResult<EvaluateRequest> {
     let Some(injection) = injection() else {
         return Ok(request);
     };
+    if needs_json_grains(&request).unwrap_or(true) {
+        return Err(delta_unsupported(
+            "SQBRPERFORMANCE102 compares keys and readers across models",
+        ));
+    }
     let taken: Option<BaseRules> = injection
         .rules
         .lock()

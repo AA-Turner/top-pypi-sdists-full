@@ -32,7 +32,6 @@ from sqlalchemy import orm
 from sqlalchemy.orm import exc
 
 from neutron_lib._i18n import _
-from neutron_lib.db import model_base
 from neutron_lib import exceptions
 from neutron_lib.objects import exceptions as obj_exc
 
@@ -120,7 +119,9 @@ def is_retriable(e):
                                obj_exc.NeutronDbObjectDuplicateEntry)):
         return True
     # looking savepoints mangled by deadlocks. see bug/1590298 for details.
-    return _is_nested_instance(e, db_exc.DBError) and '1305' in str(e)
+    if _is_nested_instance(e, db_exc.DBError):
+        return '1305' in str(e)
+    return False
 
 
 def _tag_retriables_as_unretriable(f):
@@ -137,6 +138,7 @@ def _tag_retriables_as_unretriable(f):
             with excutils.save_and_reraise_exception():
                 if is_retriable(e):
                     setattr(e, '_RETRY_EXCEEDED', True)
+        return None
     return wrapped
 
 
@@ -185,6 +187,7 @@ def retry_db_errors(f):
                     LOG.debug("Retry wrapper got retriable exception: %s", e)
                     if context_reference and context_reference.session:
                         context_reference.session.rollback()
+        return None
     return wrapped
 
 
@@ -429,7 +432,7 @@ def _persistent_to_deleted(session, obj):
                 _expire_for_fk_change(obj, None, prop, colkey)
 
 
-@event.listens_for(model_base.BASEV2, "attribute_instrument", propagate=True)
+# Registered on BASEV2 by neutron_lib.db.model_base.
 def _listen_for_changes(cls, key, inst):
     mapper = sqlalchemy.inspect(cls)
     if key not in mapper.relationships:
@@ -462,19 +465,14 @@ def _expire_prop_on_col(cls, prop, colkey):
 
 
 def is_session_active(session):
-    """Return if the session is active
+    """Return if the session is active.
 
-    Since sqlalchemy 1.4, "autocommit=False" by default; in sqlalchemy 2.0,
-    that will be the only possible value. If session autocommit is False, the
-    session transaction will not end at the end of a reader/writer context.
-    In this case, a session could have an active transaction even when it is
-    not inside a reader/writer context. In order to mimic the previous
-    behaviour, this method checks if there is a transaction created and if
-    the transaction has any active connection against the database server.
+    With autocommit disabled, the session transaction does not end at the end
+    of a reader/writer context. A session can therefore have an active
+    transaction even when it is not inside a reader/writer context. This
+    method checks if there is a transaction and if it has any active
+    connection against the database server.
     """
-    if getattr(session, 'autocommit', None):
-        # old behaviour, to be removed with sqlalchemy 2.0
-        return session.is_active
     if not session.get_transaction():
         return False
     if not session.get_transaction()._connections:

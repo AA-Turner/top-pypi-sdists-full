@@ -1,10 +1,13 @@
 """Sample parts as `POST /v1/runs/{id}/samples/batch` takes them (twin: app/runs/samples): the body's
 lists checked against the contract (`probe.generated.samples`), turns fitted to it and scrubbed, the 4 KiB log tail
-and 1 MiB log cap, and the send-time gate on the turn capture fields (D7)."""
+and 1 MiB log cap, the failure reason's one line and the sampling settings, and the send-time gate on the turn capture
+fields (D7)."""
 
 from __future__ import annotations
 
 import json
+import math
+import numbers
 import threading
 import time
 from collections.abc import Mapping
@@ -17,15 +20,18 @@ from ....foundation.safe_warn import safe_warn as _diagnostics
 from ...values.unstorable import ESCAPE as NUL_ESCAPE
 from ...values.unstorable import NUL
 from ....generated.samples import (
+    MAX_FAILURE_REASON_CHARS,
     CommitIn,
     GroupIn,
     LiveTurnIn,
     PlanIn,
     SamplePartIn,
+    SamplingSettings,
     SealIn,
     TaskIn,
     WeightVersionIn,
 )
+from ....generated.samples.task import MAX_TASK_DESCRIPTION_CHARS, MAX_TASK_NAME_CHARS
 
 
 class BatchList(StrEnum):
@@ -78,7 +84,30 @@ MAX_LOG_BYTES = 1024 * 1024
 MAX_ERROR_MESSAGE_CHARS = 1024
 
 #: Task fields a generator sample may carry; the SDK lifts them into one `tasks` item per task.
-TASK_FIELDS = ("prompt", "label", "dataset", "reward_max")
+TASK_FIELDS = ("prompt", "label", "dataset", "reward_max", "name", "description")
+#: The task's readable label (`integrations/task_label/`): alone on a part it never starts a task delivery.
+TASK_LABEL_FIELDS = ("name", "description")
+
+
+def clean_task_name(value: Any) -> str | None:
+    """A task name as `TaskIn` takes it: one line (all whitespace collapsed) of ≤256 chars; None for a value that is
+    not text or is empty."""
+    if not isinstance(value, str):
+        return None
+    return " ".join(value.split())[:MAX_TASK_NAME_CHARS].rstrip() or None
+
+
+def clean_task_description(value: Any) -> str | None:
+    """A task description as `TaskIn` takes it: ≤4,000 chars, trimmed; None for a value that is not text or is empty."""
+    if not isinstance(value, str):
+        return None
+    return value.strip()[:MAX_TASK_DESCRIPTION_CHARS].rstrip() or None
+
+
+#: Each label field's cleaner: run on the text as sent (NULs already escaped), so a bad label never fails its task's
+#: `TaskIn` check, which would drop the task and its prompt for the rest of the process.
+TASK_LABEL_CLEANERS = {"name": clean_task_name, "description": clean_task_description}
+
 #: SDK-only input names, never sent as such: the full log, the per-token arrays.
 LOG_INPUTS = ("log_text",)
 TOKEN_INPUTS = {"tokens": "token_arrays", "trainer_tokens": "trainer_token_arrays"}
@@ -188,11 +217,11 @@ def _get_field(target: Any, name: str) -> Any:
 
 
 def scrub_part(part: dict, scrub) -> dict:
-    """Logs, the error line and every turn's message text, reasoning, tool-call arguments and tool-run errors through
+    """Logs, the error line, the failure reason and every turn's message text, reasoning, tool-call arguments and tool-run errors through
     the scrubber (``scrub``: str -> str), before anything is journaled: tool output can carry keys. The turns
     are copied first: the caller's own objects are never rewritten. A scrubbed tail is cut to
     4 KiB again (a redaction marker can be longer than the key it replaced)."""
-    for name in ("log_text", "log_tail", "error_message"):
+    for name in ("log_text", "log_tail", "error_message", "failure_reason"):
         if isinstance(part.get(name), str):
             part[name] = scrub(part[name])
     if isinstance(part.get("log_tail"), str):
@@ -444,6 +473,83 @@ def cap_error_message(part: dict) -> None:
     if isinstance(message, str):
         line = " ".join(message.split())
         part["error_message"] = line[:MAX_ERROR_MESSAGE_CHARS]
+
+
+def to_failure_reason(value: Any) -> str | None:
+    """A run's own reason a rollout failed as `Sample.failure_reason` keeps it: its first non-empty line, spaces
+    collapsed, at most 200 characters; None for blank or not text (sent, a non-text reason would cost its part)."""
+    if not isinstance(value, str):
+        return None
+    line = next((" ".join(line.split()) for line in value.splitlines() if line.strip()), "")
+    return line[:MAX_FAILURE_REASON_CHARS].rstrip() or None
+
+
+def cap_failure_reason(part: dict) -> None:
+    """`failure_reason` as `to_failure_reason` keeps it; off the part when nothing is left."""
+    if "failure_reason" in part:
+        reason = to_failure_reason(part["failure_reason"])
+        if reason is None:
+            part.pop("failure_reason")
+        else:
+            part["failure_reason"] = reason
+
+
+#: Each `SamplingSettings` field and the names engines give it (sglang `max_new_tokens`, OpenAI and vLLM
+#: `max_tokens`); the first name present wins.
+SAMPLING_NAMES = {
+    "temperature": ("temperature",),
+    "top_p": ("top_p",),
+    "top_k": ("top_k",),
+    "max_response_tokens": ("max_response_tokens", "max_new_tokens", "max_tokens"),
+}
+_INT_SETTINGS = frozenset({"top_k", "max_response_tokens"})
+
+
+def to_sampling_settings(settings: Any) -> dict | None:
+    """How a rollout was sampled (a dict of engine sampling params, or a `SamplingSettings`) as the part's
+    `sampling`: only the four settings, numbers only (a whole number for top_k and the token cap); None when none
+    is there. Other keys and values are left out, never refused: a refused part costs the whole sample."""
+    if isinstance(settings, SamplingSettings):
+        settings = settings.model_dump(exclude_none=True)
+    if not isinstance(settings, Mapping):
+        return None
+    found: dict[str, Any] = {}
+    for field, names in SAMPLING_NAMES.items():
+        value = next((settings[name] for name in names if settings.get(name) is not None), None)
+        number = _to_setting(value, is_int=field in _INT_SETTINGS)
+        if number is not None:
+            found[field] = number
+    return found or None
+
+
+#: The largest whole-number setting kept (a signed 64-bit integer).
+_MAX_INT_SETTING = 2**63 - 1
+
+
+def _to_setting(value: Any, *, is_int: bool) -> float | int | None:
+    """A finite number (numpy scalars too); a whole one within 64 bits for ``is_int``; else None."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return None
+    try:
+        number = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    if is_int:
+        whole = int(value) if isinstance(value, numbers.Integral) else int(number) if number.is_integer() else None
+        return whole if whole is not None and abs(whole) <= _MAX_INT_SETTING else None
+    return number
+
+
+def fit_sampling(part: dict) -> None:
+    """The part's `sampling` as `to_sampling_settings` keeps it; off the part when nothing is left."""
+    if "sampling" in part:
+        settings = to_sampling_settings(part["sampling"])
+        if settings is None:
+            part.pop("sampling")
+        else:
+            part["sampling"] = settings
 
 
 def get_default_seal_step(part: Mapping[str, Any]) -> int | None:

@@ -11,15 +11,23 @@ serialization. Event-handler attributes and ``javascript:`` URLs are dropped unc
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import TypeAlias
+from typing import Final, TypeAlias
 
-from turbohtml._html import _bleach_allow_relative, _bleach_attributes
 from turbohtml.clean import DEFAULT_ATTRIBUTES, DEFAULT_SCHEMES, DEFAULT_TAGS, OnDisallowed, Policy, sanitize
 
+from ._native import (
+    bleach_allow_relative as _bleach_allow_relative,
+)
+from ._native import (
+    bleach_attributes as _bleach_attributes,
+)
+
 #: bleach's default allowed tags, attributes, and protocols, under their bleach names.
-ALLOWED_TAGS = DEFAULT_TAGS
-ALLOWED_ATTRIBUTES = DEFAULT_ATTRIBUTES
-ALLOWED_PROTOCOLS = DEFAULT_SCHEMES
+ALLOWED_TAGS: Final[frozenset[str]] = DEFAULT_TAGS
+#: bleach's default allowed attributes, keyed by tag name.
+ALLOWED_ATTRIBUTES: Final[Mapping[str, frozenset[str]]] = DEFAULT_ATTRIBUTES
+#: bleach's default allowed URL schemes.
+ALLOWED_PROTOCOLS: Final[frozenset[str]] = DEFAULT_SCHEMES
 
 _AttributeRules: TypeAlias = (
     Iterable[str] | Mapping[str, Iterable[str] | Callable[[str, str, str], bool]] | Callable[[str, str, str], bool]
@@ -33,7 +41,7 @@ def clean(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]  # 
     protocols: Iterable[str] | None = None,
     strip: bool = False,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]  # bleach keeps strip a positional flag
     strip_comments: bool = True,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]  # bleach keeps strip_comments a positional flag
-    css_sanitizer: object = None,
+    css_sanitizer: object = None,  # simplint: ignore[imprecise-annotation]  # bleach accepts any object
 ) -> str:
     """
     Sanitize HTML against a bleach-style allowlist, the way ``bleach.clean`` did.
@@ -81,7 +89,12 @@ def clean(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]  # 
 def attribute_policy(
     attributes: _AttributeRules,
 ) -> tuple[dict[str, frozenset[str]], Callable[[str, str, str], bool] | None]:
-    """Keep bleach attribute rules when configuring a native ``Policy``."""
+    """
+    Keep bleach attribute rules when configuring a native ``Policy``.
+
+    :param attributes: the bleach attribute rules, a mapping, a list, or a callable.
+    :returns: the allowed attributes per tag and the attribute callable, or ``None`` when there is none.
+    """
     return _bleach_attributes(attributes, Mapping)
 
 

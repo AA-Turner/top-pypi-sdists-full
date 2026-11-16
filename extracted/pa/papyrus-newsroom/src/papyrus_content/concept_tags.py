@@ -18,12 +18,12 @@ published-story summaries ``stories check-links`` starts from.
 
 from __future__ import annotations
 
-import difflib
 import json
 import re
 from typing import Any
 
 from .concept_link_predicates import MENTIONS
+from .item_language import translation_original
 from .reference_links import (
     CONCEPT_TAG_PREDICATE,
     CONCEPT_TAG_PREDICATES,
@@ -36,7 +36,7 @@ from .reference_links import (
     link_item_concept,
     reference_link_relation_id,
 )
-from .section_concepts import CONCEPT_KEY_SEPARATOR, concept_label, current_concept_nodes, name_part
+from .section_concepts import concept_label
 from .story_links import STORY_LINK_RELATION, resolve_story
 from .story_reporting import STORY_REFERENCE_PREDICATE, current_reference
 
@@ -60,27 +60,23 @@ def _label(node: dict[str, Any]) -> str:
     return f"{concept_label(node)} ({node.get('nodeKey')})"
 
 
-def resolve_concepts(nodes: list[dict[str, Any]], texts: list[str]) -> list[dict[str, Any]]:
-    """The accepted concept each text names, exactly, in order, without repeats. An unknown, ambiguous or non-accepted name is an error naming it."""
+def resolve_concepts(client, texts: list[str], *, language: str | None = None) -> list[dict[str, Any]]:
+    """The accepted concept each text names, exactly, in order, without repeats. An unknown, ambiguous or non-accepted name is an error naming it.
+    Names are found with index queries (``entity_labels.lookup``): never by reading the concept table."""
     found: dict[str, dict[str, Any]] = {}
     for text in texts:
-        node = resolve_concept_exact(nodes, text)
+        node = resolve_concept_exact(client, text, language=language)
         found.setdefault(_lineage(node), node)
     return list(found.values())
 
 
-def resolve_concept_exact(nodes: list[dict[str, Any]], text: str) -> dict[str, Any]:
-    typed = _flat(re.sub(r"^#+", "", str(text).strip()))
-    if not typed:
+def resolve_concept_exact(client, text: str, *, language: str | None = None) -> dict[str, Any]:
+    """The one accepted concept ``text`` names (exact node key, hashtag, name or alias, case-insensitive; the language asked, then the site's primary)."""
+    from .entity_labels.lookup import find_concepts, lookup_languages
+
+    if not _flat(re.sub(r"^#+", "", str(text).strip())):
         raise ValueError("A concept name is empty.")
-
-    def keys_of(node: dict[str, Any]) -> tuple[str, str, set[str]]:
-        key = _flat(node.get("nodeKey"))
-        return key, name_part(key), {_flat(node.get("displayName")), *(_flat(alias) for alias in node.get("aliases") or [])} - {""}
-
-    exact_key = [node for node in nodes if keys_of(node)[0] == typed]
-    named = exact_key or [node for node in nodes if typed == keys_of(node)[1] or typed in keys_of(node)[2]]
-    named = list({_lineage(node): node for node in named}.values())
+    named = find_concepts(client, text, languages=lookup_languages(client, language))
     accepted = [node for node in named if node.get("status") == ACCEPTED]
     if len(accepted) == 1:
         return accepted[0]
@@ -88,16 +84,8 @@ def resolve_concept_exact(nodes: list[dict[str, Any]], text: str) -> dict[str, A
         raise ValueError(f"{text!r} means more than one concept; name one by its node key: " + ", ".join(sorted(str(node.get("nodeKey")) for node in accepted)))
     if named:
         raise ValueError(f"The concept {_label(named[0])} has status {named[0].get('status') or 'unknown'}; only accepted concepts can be tags.")
-    pool = {}
-    for node in nodes:
-        if node.get("status") == ACCEPTED:
-            for candidate in (_flat(node.get("nodeKey")), name_part(_flat(node.get("nodeKey"))), _flat(node.get("displayName"))):
-                if candidate:
-                    pool.setdefault(candidate, node)
-    close = difflib.get_close_matches(typed, list(pool), n=5, cutoff=0.5)
-    suggestions = list(dict.fromkeys(_label(pool[name]) for name in close))
-    hint = " Closest accepted concepts: " + "; ".join(suggestions) + "." if suggestions else " No accepted concept is close to it."
-    raise ValueError(f"No accepted concept is named {text!r} (exact node key, hashtag, name or alias only; a concept is never created here)." + hint)
+    raise ValueError(f"No accepted concept is named {text!r} (exact node key, hashtag, name or alias only; a concept is never created here). "
+                     "`papyrus knowledge concepts search` finds concepts by meaning and by words.")
 
 
 def _entity_key(row: dict[str, Any]) -> str | None:
@@ -171,13 +159,16 @@ def tag_with_concepts(client, target_kind: str, target: str, concepts: list[str]
         raise ValueError("A tag needs to record who added it.")
     if target_kind == "story":
         story = resolve_story(client, target)
+        original = translation_original(story)
+        if original:   # a translation has no edges of its own: what a Story is about is written once, on the original, and every language reads it there
+            story = resolve_story(client, original)
         lineage, state_kind = story.get("lineageId") or story["id"], "item"
     else:
         reference = current_reference(client, target)
         if reference is None:
             raise ValueError(f"Reference not found: {target}")
         lineage, state_kind = reference.get("lineageId") or reference["id"], "reference"
-    nodes = resolve_concepts(current_concept_nodes(client), [str(value) for value in concepts])
+    nodes = resolve_concepts(client, [str(value) for value in concepts])
     pages = concept_page_keys(client)
     rows = []
     for node in nodes:
@@ -200,7 +191,14 @@ def tag_with_concepts(client, target_kind: str, target: str, concepts: list[str]
         rows.append(row)
         if on_row:
             on_row(row)
-    return {"target": lineage, "targetKind": target_kind, "dryRun": not apply, "concepts": rows}
+    if apply and target_kind == "story":
+        # What a Story is about is written on its original; each language it is published in will show these concepts, so their names are needed there (a note in the
+        # work list; nothing is named here).
+        from .entity_labels.wanted import record_wanted_for_tagging
+        from .publishing import utc_now_iso
+
+        record_wanted_for_tagging(client, lineage, [node for node, row in zip(nodes, rows) if row["outcome"] == "write"], now=utc_now_iso())
+    return {"target": lineage, "targetKind": target_kind, "dryRun": not apply, "concepts": rows, **({"translationOf": original} if target_kind == "story" and original else {})}
 
 
 # ---- the audit -------------------------------------------------------------------------------------------------------------------------------------------------

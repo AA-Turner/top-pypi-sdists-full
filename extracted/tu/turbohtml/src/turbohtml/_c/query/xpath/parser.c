@@ -12,6 +12,7 @@ typedef struct {
     xp_program *prog;
     int failed;
     int out_of_memory;
+    int depth_limit;
     int depth; /* current parse recursion depth, capped at XP_MAX_DEPTH */
     const char *msg;
     Py_ssize_t err_pos;     /* offset of the offending token when failed */
@@ -352,6 +353,11 @@ static int32_t parse_primary(parser *ps) {
     if (lx->kind != TK_RPAREN) {
         for (;;) {
             int32_t arg = parse_expr(ps);
+            if (arg < 0) {
+                /* A failed argument (a '$' with no name, the depth cap) has no node and has recorded its error. Kept
+                   as the tail, its -1 would chain the next argument through nodes[-1], in front of the arena. */
+                break;
+            }
             if (arg_head < 0) {
                 arg_head = arg;
             } else {
@@ -451,7 +457,8 @@ static int32_t parse_union(parser *ps) {
    of unary minus -- descends through here, so a single depth cap bounds the whole
    parser's stack use and raises past the bound instead of overflowing (issue #421). */
 static int32_t parse_unary(parser *ps) {
-    if (ps->depth >= XP_MAX_DEPTH) {
+    if (ps->depth >= XP_STACK_CHECK_DEPTH && xp_too_deep(ps->depth)) {
+        ps->depth_limit = 1;
         fail(ps, "expression nested too deeply");
         return -1;
     }
@@ -630,9 +637,27 @@ static int func_name_in(const xn *node, const char *const *names) {
     return 0;
 }
 
-/* The functions that return a number; a predicate that calls one is positional. */
-static const char *const NUMERIC_FUNCS[] = {"last",  "position", "count", "sum",    "string-length",
-                                            "floor", "ceiling",  "round", "number", NULL};
+static const char *const NON_NUMBER_FUNCS[] = {"not",
+                                               "boolean",
+                                               "true",
+                                               "false",
+                                               "starts-with",
+                                               "contains",
+                                               "lang",
+                                               "re:test",
+                                               "matches",
+                                               "string",
+                                               "concat",
+                                               "substring",
+                                               "substring-before",
+                                               "substring-after",
+                                               "normalize-space",
+                                               "translate",
+                                               "name",
+                                               "local-name",
+                                               "namespace-uri",
+                                               "id",
+                                               NULL};
 static const char *const POSITION_FUNCS[] = {"position", "last", NULL};
 
 /* Whether an expression calls position() or last() anywhere within it. A long operator chain parses iteratively
@@ -661,28 +686,156 @@ static int references_position(const xp_program *prog, int32_t index) {
     return found;
 }
 
-/* A predicate is positional (so its result depends on the axis it runs over) when it
-   yields a number -- a bare [n], an arithmetic expression, or a numeric function --
-   or when it mentions position()/last(). Such a predicate makes the //X collapse
-   unsafe, because //p[1] is the first p child of each parent, not descendant::p[1]. */
+/* A predicate is positional (so its result depends on the axis it runs over) when it may yield a number, or when it
+   mentions position()/last(). Only a boolean, a string, a node-set or a call to one of NON_NUMBER_FUNCS is known not to
+   yield a number; a variable or an extension function may, so it counts as positional. Such a predicate makes the //X
+   collapse unsafe, because //p[1] is the first p child of each parent, not descendant::p[1]. */
 static int predicate_is_positional(const xp_program *prog, int32_t index) {
     const xn *node = &prog->nodes[index];
-    if (node->kind == XN_NUM || (node->kind >= XN_ADD && node->kind <= XN_NEG)) {
-        return 1;
-    }
-    if (node->kind == XN_FUNC && func_name_in(node, NUMERIC_FUNCS)) {
+    switch (node->kind) {
+    case XN_OR:
+    case XN_AND:
+    case XN_EQ:
+    case XN_NE:
+    case XN_LT:
+    case XN_LE:
+    case XN_GT:
+    case XN_GE:
+    case XN_UNION:
+    case XN_PATH:
+    case XN_LIT:
+        break;
+    case XN_FUNC:
+        if (!func_name_in(node, NON_NUMBER_FUNCS)) {
+            return 1;
+        }
+        break;
+    default:
         return 1;
     }
     return references_position(prog, index);
 }
 
-static int step_has_positional_predicate(const xp_program *prog, int32_t step_index) {
+static const char *const FIXED_FUNCS_0[] = {"last", "true", "false", NULL};
+static const char *const FIXED_FUNCS_1[] = {"not",    "boolean",       "number",          "floor", "ceiling", "round",
+                                            "string", "string-length", "normalize-space", "count", "sum",     NULL};
+static const char *const FIXED_FUNCS_N[] = {"concat",           "contains",        "starts-with", "substring",
+                                            "substring-before", "substring-after", "translate",   NULL};
+
+/* Whether an expression reads neither the context node nor its position: literals and variables under operators and
+   under functions that read only their arguments. last() counts, since the evaluator gives each context's stretch
+   its own size. */
+static int fixed_expression(const xp_program *prog, int32_t index, int depth) {
+    const xn *node = &prog->nodes[index];
+    if (depth > XP_OFFSET_DEPTH) {
+        return 0;
+    }
+    switch (node->kind) {
+    case XN_NUM:
+    case XN_LIT:
+    case XN_VAR:
+        return 1;
+    case XN_NEG:
+        return fixed_expression(prog, node->first, depth + 1);
+    case XN_FUNC: {
+        int argc = 0;
+        for (int32_t arg = node->first; arg >= 0; arg = prog->nodes[arg].next, argc++) {
+            if (!fixed_expression(prog, arg, depth + 1)) {
+                return 0;
+            }
+        }
+        if (argc == 0) {
+            return func_name_in(node, FIXED_FUNCS_0);
+        }
+        return (argc == 1 && func_name_in(node, FIXED_FUNCS_1)) || func_name_in(node, FIXED_FUNCS_N);
+    }
+    default:
+        return node->kind <= XN_MOD && fixed_expression(prog, node->first, depth + 1) &&
+               fixed_expression(prog, node->second, depth + 1);
+    }
+}
+
+/* Whether an expression is position() under + - * div and unary minus, with a fixed operand beside each operation
+   and never as a divisor: its value then only rises or only falls with the position. Marks the chain. */
+static int position_chain(xp_program *prog, int32_t index, int depth) {
+    xn *node = &prog->nodes[index];
+    int chain = 0;
+    if (depth > XP_OFFSET_DEPTH) {
+        return 0;
+    }
+    if (node->kind == XN_FUNC) {
+        chain = node->first < 0 && func_name_is(node, "position");
+    } else if (node->kind == XN_NEG) {
+        chain = position_chain(prog, node->first, depth + 1);
+    } else if (node->kind >= XN_ADD && node->kind <= XN_DIV) {
+        chain = (position_chain(prog, node->first, depth + 1) && fixed_expression(prog, node->second, depth + 1)) ||
+                (node->kind != XN_DIV && fixed_expression(prog, node->first, depth + 1) &&
+                 position_chain(prog, node->second, depth + 1));
+    }
+    node->positional = (uint8_t)chain;
+    return chain;
+}
+
+/* Whether a positional predicate can be worked out from the size of a context's stretch alone (view_positions in
+   eval.c): a fixed expression, whose number names a position, or and, or, not() and boolean() over comparisons of a
+   position chain with a fixed expression. Marks the parts that read the position. */
+static int offset_formula(xp_program *prog, int32_t index, int depth) {
+    xn *node = &prog->nodes[index];
+    int formula = 0;
+    if (depth > XP_OFFSET_DEPTH) {
+        return 0;
+    }
+    if (fixed_expression(prog, index, depth)) {
+        return 1;
+    }
+    if (node->kind == XN_OR || node->kind == XN_AND) {
+        formula = offset_formula(prog, node->first, depth + 1) && offset_formula(prog, node->second, depth + 1);
+    } else if (node->kind == XN_FUNC) {
+        formula = node->first >= 0 && prog->nodes[node->first].next < 0 &&
+                  (func_name_is(node, "not") || func_name_is(node, "boolean")) &&
+                  offset_formula(prog, node->first, depth + 1);
+    } else if (node->kind <= XN_GE) { /* past and/or, the comparisons */
+        formula = (position_chain(prog, node->first, depth + 1) && fixed_expression(prog, node->second, depth + 1)) ||
+                  (fixed_expression(prog, node->first, depth + 1) && position_chain(prog, node->second, depth + 1));
+    }
+    node->positional = (uint8_t)formula;
+    return formula;
+}
+
+/* Whether a step has a predicate that selects by position, which an extension function or a variable may also do by
+   yielding a number. */
+int xp_step_reads_position(const xp_program *prog, int32_t step_index) {
     for (int32_t pred = prog->nodes[step_index].first; pred >= 0; pred = prog->nodes[pred].next) {
         if (predicate_is_positional(prog, prog->nodes[pred].first)) {
             return 1;
         }
     }
     return 0;
+}
+
+/* Set once, after the descendant collapse has moved predicates between steps, for the evaluator to read. A step reads
+   offsets when its positional predicates are offset formulas and sit together, between the ones that test the node
+   only: those then filter the shared walks before or after the positions are worked out. */
+static void mark_positional_steps(xp_program *prog) {
+    for (int32_t index = 0; index < prog->count; index++) {
+        if (prog->nodes[index].kind != XN_STEP) {
+            continue;
+        }
+        int phase = 0; /* 0 ahead of the positional predicates, 1 among them, 2 past them */
+        int offsets = 1;
+        for (int32_t pred = prog->nodes[index].first; pred >= 0; pred = prog->nodes[pred].next) {
+            int positional = predicate_is_positional(prog, prog->nodes[pred].first);
+            prog->nodes[pred].positional = (uint8_t)positional;
+            if (positional) {
+                offsets = offsets && phase < 2 && offset_formula(prog, prog->nodes[pred].first, 0);
+                phase = 1;
+            } else if (phase == 1) {
+                phase = 2;
+            }
+        }
+        prog->nodes[index].positional = (uint8_t)(phase > 0);
+        prog->nodes[index].offsets = (uint8_t)(phase > 0 && offsets);
+    }
 }
 
 /* Collapse `descendant-or-self::node()/child::X` (the `//X` abbreviation) into a
@@ -702,7 +855,7 @@ static void optimize_descendant_steps(xp_program *prog) {
                 continue;
             }
             xn *follow = &prog->nodes[step->next];
-            if (follow->axis != AX_CHILD || step_has_positional_predicate(prog, step->next)) {
+            if (follow->axis != AX_CHILD || xp_step_reads_position(prog, step->next)) {
                 continue;
             }
             step->axis = AX_DESCENDANT;
@@ -712,6 +865,7 @@ static void optimize_descendant_steps(xp_program *prog) {
             step->str_len = follow->str_len;
             step->prefix_len = follow->prefix_len;
             follow->str = NULL; /* ownership moved to step */
+            follow->prefix_len = 0;
             step->first = follow->first;
             step->next = follow->next;
         }
@@ -740,7 +894,7 @@ static void format_error(char *errbuf, size_t errlen, const parser *ps) {
     }
 }
 
-xp_program *xp_compile(const Py_UCS4 *src, Py_ssize_t len, char *errbuf, size_t errlen) {
+xp_program *xp_compile(const Py_UCS4 *src, Py_ssize_t len, char *errbuf, size_t errlen, PyObject *depth_error) {
     xp_program *prog = PyMem_Malloc(sizeof(*prog));
     if (prog == NULL) {                            /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
         snprintf(errbuf, errlen, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -754,6 +908,7 @@ xp_program *xp_compile(const Py_UCS4 *src, Py_ssize_t len, char *errbuf, size_t 
     prog->count = 0;
     prog->cap = 0;
     prog->root = -1;
+    prog->bound = (xp_namespaces){.items = NULL, .len = 0};
     parser ps = {0};
     ps.prog = prog;
     ps.lx.src = src;
@@ -776,21 +931,24 @@ xp_program *xp_compile(const Py_UCS4 *src, Py_ssize_t len, char *errbuf, size_t 
        did not record a message, so those branches cannot be forced from a test */
     if (ps.failed || prog->root < 0) { /* GCOVR_EXCL_BR_LINE: root < 0 is an unforced arena OOM */
         format_error(errbuf, errlen, &ps);
-        if (ps.out_of_memory || ps.msg == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            PyErr_NoMemory();                     /* GCOVR_EXCL_LINE */
+        if (ps.depth_limit) {
+            PyErr_SetString(depth_error, errbuf);
+        } else if (ps.out_of_memory || ps.msg == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyErr_NoMemory();                            /* GCOVR_EXCL_LINE */
         } /* GCOVR_EXCL_LINE */
         xp_free(prog);
         return NULL;
     }
     optimize_descendant_steps(prog);
+    mark_positional_steps(prog);
     static const char *const PYTHON_FUNCS[] = {"re:test",    "matches",    "re:replace",   "replace",
-#if PY_VERSION_HEX < 0x030C0000 || defined(PYPY_VERSION) || defined(Py_GIL_DISABLED)
+#ifdef XP_EQ_VIA_PYTHON
                                                "lower-case", "upper-case", "set:distinct",
 #endif
                                                NULL};
     for (int32_t index = 0; index < prog->count; index++) {
         if (
-#if PY_VERSION_HEX < 0x030C0000 || defined(PYPY_VERSION) || defined(Py_GIL_DISABLED)
+#ifdef XP_EQ_VIA_PYTHON
             prog->nodes[index].kind == XN_EQ || prog->nodes[index].kind == XN_NE ||
 #endif
             (prog->nodes[index].kind == XN_FUNC && func_name_in(&prog->nodes[index], PYTHON_FUNCS))) {
@@ -809,6 +967,8 @@ void xp_retain(xp_program *prog) {
     prog->references++;
 }
 
+static void bindings_free(xp_namespaces *bound);
+
 void xp_free(xp_program *prog) {
     if (prog == NULL) { /* GCOVR_EXCL_BR_LINE: callers never pass NULL */
         return;         /* GCOVR_EXCL_LINE */
@@ -820,5 +980,92 @@ void xp_free(xp_program *prog) {
         PyMem_Free(prog->nodes[index].str);
     }
     PyMem_Free(prog->nodes);
+    bindings_free(&prog->bound);
     PyMem_Free(prog);
+}
+
+static void bindings_free(xp_namespaces *bound) {
+    for (Py_ssize_t index = 0; index < bound->len; index++) {
+        PyMem_Free((void *)bound->items[index].prefix);
+        PyMem_Free((void *)bound->items[index].uri);
+    }
+    PyMem_Free((void *)bound->items);
+    bound->items = NULL;
+    bound->len = 0;
+}
+
+static int copy_binding(xp_namespace *out, const Py_UCS4 *prefix, Py_ssize_t prefix_len, const Py_UCS4 *uri,
+                        Py_ssize_t uri_len) {
+    Py_UCS4 *prefix_copy = PyMem_Malloc((size_t)(prefix_len + 1) * sizeof(Py_UCS4));
+    Py_UCS4 *uri_copy = PyMem_Malloc((size_t)(uri_len + 1) * sizeof(Py_UCS4));
+    if (prefix_copy == NULL || uri_copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyMem_Free(prefix_copy);                   /* GCOVR_EXCL_LINE */
+        PyMem_Free(uri_copy);                      /* GCOVR_EXCL_LINE */
+        PyErr_NoMemory();                          /* GCOVR_EXCL_LINE */
+        return -1;                                 /* GCOVR_EXCL_LINE */
+    }
+    memcpy(prefix_copy, prefix, (size_t)prefix_len * sizeof(Py_UCS4));
+    memcpy(uri_copy, uri, (size_t)uri_len * sizeof(Py_UCS4));
+    *out = (xp_namespace){prefix_copy, prefix_len, uri_copy, uri_len};
+    return 0;
+}
+
+static int is_bound(const xp_namespace *items, Py_ssize_t len, const Py_UCS4 *prefix, Py_ssize_t prefix_len) {
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (items[index].prefix_len == prefix_len &&
+            memcmp(items[index].prefix, prefix, (size_t)prefix_len * sizeof(Py_UCS4)) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int has_prefixed_name(const xp_program *prog) {
+    for (int32_t index = 0; index < prog->count; index++) {
+        const xn *node = &prog->nodes[index];
+        if (node->kind == XN_STEP && node->test == NT_NAME && node->prefix_len > 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int xp_bind_namespaces(xp_program *prog, xp_prefix_resolve_fn resolve, void *context) {
+    bindings_free(&prog->bound);
+    if (!has_prefixed_name(prog)) {
+        return 0;
+    }
+    xp_namespace *items = PyMem_Calloc((size_t)prog->count + 1, sizeof(*items));
+    if (items == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+        return -1;        /* GCOVR_EXCL_LINE */
+    }
+    Py_ssize_t len = 0;
+    int failed = 0;
+    for (int32_t index = 0; index < prog->count; index++) {
+        const xn *node = &prog->nodes[index];
+        if (node->kind != XN_STEP || node->test != NT_NAME || node->prefix_len == 0 ||
+            is_bound(items, len, node->str, node->prefix_len)) {
+            continue;
+        }
+        const Py_UCS4 *uri = NULL;
+        Py_ssize_t uri_len = 0;
+        int resolved = resolve(context, node->str, node->prefix_len, &uri, &uri_len);
+        if (resolved < 0) { /* GCOVR_EXCL_BR_LINE: a resolver error is an allocation failure */
+            failed = 1;     /* GCOVR_EXCL_LINE */
+            break;          /* GCOVR_EXCL_LINE */
+        }
+        if (resolved == 1) {
+            if (copy_binding(&items[len], node->str, node->prefix_len, uri, uri_len) < 0) { /* GCOVR_EXCL_BR_LINE */
+                failed = 1;                                                                 /* GCOVR_EXCL_LINE */
+                break;                                                                      /* GCOVR_EXCL_LINE */
+            }
+            len++;
+        }
+    }
+    prog->bound = (xp_namespaces){.items = items, .len = len};
+    if (failed || len == 0) { /* GCOVR_EXCL_BR_LINE: failed is an allocation failure */
+        bindings_free(&prog->bound);
+    }
+    return failed ? -1 : 0; /* GCOVR_EXCL_BR_LINE: allocation failure */
 }

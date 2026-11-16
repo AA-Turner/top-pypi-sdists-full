@@ -193,21 +193,21 @@ def ei_copy_arrays(evals, fval, successes):
 
     internally the arrays change *in place* over the iterations.
 
-    ``return_filter=ei_copy_arrays`` is the default for `EvaluationIterator` to
+    ``return_filter=ei_copy_arrays`` is the default for `EvaluationsIterator` to
     avoid unexpected results in that::
 
-        ert1 = [ei_ert(d) for d in list(EvaluationIterator(data))]
-        ert2 = [ei_ert(d) for d in EvaluationIterator(data)]
+        ert1 = [ei_ert(d) for d in list(EvaluationsIterator(data))]
+        ert2 = [ei_ert(d) for d in EvaluationsIterator(data)]
 
     give the same result, as to be desired, whereas::
 
-        ert3 = [ei_ert(d) for d in list(EvaluationIterator(data, return_filter=None))]
+        ert3 = [ei_ert(d) for d in list(EvaluationsIterator(data, return_filter=None))]
 
     is wrong unless the `list` call is omitted.
 
     For efficiency, we should use ``return_filter=None`` with a for loop like::
 
-        for evals, fval, successes in ot.EvaluationIterator(data, return_filter=None)
+        for evals, fval, successes in ot.EvaluationsIterator(data, return_filter=None)
 
     when ``evals`` and ``successes`` are never used *after* the iterator advances
     (unless copied).
@@ -236,13 +236,25 @@ def ei_median(evals, fval, successes):
 
     Details: the median of only successful trials is not monotonuous in `fval`,
     hence seems semantically not always meaningful.
+
+    >>> import cma.optimization_tools as ot
+    >>> import numpy as np
+    >>> m = ot.ei_median(np.asarray([1, 2]), np.nan, [True, True])
+    >>> assert m == 1.5, m
+    >>> m = ot.ei_median(np.asarray([2, 0, 3]), np.nan, [True, True, False])
+    >>> assert m == 2, m
+    >>> m = ot.ei_median(np.asarray([3, 2, 1]), np.nan, [True, False, True])
+    >>> assert m == 3, m
+    >>> m = ot.ei_median(np.asarray([1, 2, 3]), np.nan, [True, True, True])
+    >>> assert m == 2, m
+
     """
-    n = len(successes)
+    n = len(evals)
     if 2 * sum(successes) <= n:
         return np.nan
     ev = sorted(evals[successes])
     n2 = int(n / 2)
-    if n2 == n // 2:
+    if n % 2 == 0:  # n is even
         return (ev[n2 - 1] + ev[n2]) / 2
     return ev[n2]
 def ei_xy_data(xvalues=(ei_ert,)):
@@ -274,10 +286,12 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
     where ``evals`` and ``successes`` are `numpy` arrays and ``fval`` is a
     `float`.
 
-    The input argument ``data`` is an array where the first column,
-    ``data[:, 0]``, contains the monotonuously increasing evaluations and
-    the remaining columns, ``data[:,1:]``, are the recorded respective
-    f-values (which do not need to be monotonuous) for several runs.
+    The input argument ``data`` is an array where the first column, ``data[:,
+    0]``, contains the monotonuously increasing evaluations and the remaining
+    columns, ``data[:,1:]``, are the recorded respective f-values (which do not
+    need to be monotonuous) for several runs. In order to compute ERT correctly,
+    f-values in ``data`` should be `nan` (they must not be finite) for
+    not-conducted evaluations of runs that terminated early.
 
     Each output ``fval`` value reflects an entry in the input
     ``data[:,1:]``. When the f-values are monotonously decreasing in the
@@ -310,6 +324,16 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
     The shortest usage example is:
 
     >>> list_of_evals_fval_succs = list(ot.EvaluationsIterator(data))
+    >>> for a1, a2 in zip(
+    ...   list_of_evals_fval_succs, [# == the lists are np-arrays
+    ...       ([1., 1., 1.], 44.2, [True,  True,  True]),
+    ...       ([2., 1., 1.], 33.3, [True,  True,  True]),
+    ...       ([2., 2., 1.], 32.0, [True,  True,  True]),
+    ...       ([3., 2., 1.], 22.2, [True,  True,  True]),
+    ...       ([3., 2., 3.], 22.1, [True,  True, False]),
+    ...       ([3., 3., 3.], 22.0, [True,  True, False]),
+    ...       ([3., 3., 3.], 11.0, [True, False, False])]):
+    ...     assert all(a1[0] == a2[0]) and a1[1] == a2[1] and all(a1[2] == a2[2]), (a1, a2)
 
     which creates a `list` of about ``n x m`` length where ``n =
     data.shape[0]`` and ``m = data.shape[1] - 1`` (usually n>>m). Each list
@@ -437,6 +461,7 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         #         warnings.warn("Non-int evaluation values found. "
         #                       "``evals_type=int`` parameter will remove fractions.")
         self.count = 0
+        self._fval_count = -1  # == .count means _fval is up-to-date
         self.row_indices = np.zeros(self.data.shape[1] - 1, dtype=int)
         '''unsuccessful data have negative indices (which is used in `fval`)'''
         self._current_data = self.data[0, 0] * np.ones(
@@ -454,10 +479,16 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         return self.data[self.row_indices, 0]  # _current_data changes in place
     @property
     def fval(self):
-        """current f-value, bails when no data are available anymore"""
-        return float(max(self.data[i, j+1]
-                            for j, i in enumerate(self.row_indices)
-                            if i >= 0))  # (i >= 0) == self.successes[j]
+        """current f-value, return `nan` when no data are available anymore"""
+        assert self._fval_count <= self.count, (self.count, self._fval_count)
+        if self._fval_count != self.count:  # compute once per iteration
+            if not np.any(self.successes):
+                return np.nan
+            self._fval = float(max(self.data[i, j+1]
+                                   for j, i in enumerate(self.row_indices)
+                               if i >= 0))  # (i >= 0) == self.successes[j]
+            self._fval_count = self.count
+        return self._fval  # is the last finite _fval
 
     def __next__(self):  # in Python 2 we need def next(self)
         """increment ``i = self.row_indices[j]`` for which ``self.data[i, j] >= fval``
@@ -465,11 +496,13 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         until it surpasses ``fval`` and ``return evals, fval, successes``
         such that ``evals[j] == self.data[self.row_indices[j], 0]``.
         """
-        self.count += 1
-        if self.count == 1:
+        if self.count == 0:
+            self.count += 1
             return self.return_filter(self._current_data, self.fval, self.successes)
-        # advance row index for each column until fval decreased
-        fval = self.fval  # based on the current row_indices
+        # advance row_indices[j] for each column j until data[row_indices[j], j] < fval
+        # that is, change all row_indices[j] with data[row_indices[j], j] == fval
+        # hence change *all* argmax according to the max computed before in self.fval
+        fval = self.fval  # based on the current row_indices, here just an alias
         for j in range(1, 1 + len(self.row_indices)):  # j = column in data
             i = self.row_indices[j-1]
             if i < 0 or self.data[i, j] < fval:  # column did not reach fval previously
@@ -494,6 +527,7 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         assert self._no_asserts or np.all(
                 self.data[self.row_indices, 0] == self._current_data), (
                 self.data[self.row_indices, 0], self._current_data)
+        self.count += 1  # make self.fval recompute ._fval according to the new row_indices
         if np.any(self.successes):
             return self.return_filter(self._current_data, self.fval, self.successes)
         raise StopIteration
@@ -542,7 +576,7 @@ class EvalParallel2(object):  # noqa: UP004
     >>> # class usage, don't forget to call terminate
     >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
     >>> [float(v) for v in ep([[1,2], [3,4], [4, 5]])]  # doctest:+ELLIPSIS
-    [4000000.944...
+    [4000001.0, 16000009.0, 25000016.0]
     >>> ep.terminate()
     ...
     >>> # use with `with` statement (context manager)
@@ -1060,6 +1094,18 @@ class NoiseHandler(object):
         fitness value.
         See `__call__`, where `reeval` is called.
 
+        A parallel evaluator still receives a batch when perturbation is off:
+
+        >>> import cma, numpy as np
+        >>> points = [np.arange(3.) + i for i in range(8)]
+        >>> handler = cma.NoiseHandler(3, maxevals=[2, 2, 2], reevals=2,
+        ...                            epsilon=0, parallel=True)
+        >>> with EvalParallel2(cma.ff.sphere, number_of_processes=0) as evaluate:
+        ...     values = evaluate(points)
+        ...     _ = handler(points, values, evaluate)
+        >>> assert np.array_equal(handler.fitre, values)
+        >>> assert handler.evaluations_just_done == 4
+
         """
         self.fit = list(fit)
         self.fitre = list(fit)
@@ -1076,6 +1122,8 @@ class NoiseHandler(object):
                 else:
                     self.fitre[i] = fagg([func(ask(1, X_i, self.epsilon)[0], *args)
                                             for _k in range(evals)])
+            elif self.parallel:
+                self.fitre[i] = fagg(func([X_i] * evals, *args))
             else:
                 self.fitre[i] = fagg([func(X_i, *args) for _k in range(evals)])
         self.evaluations_just_done = evals * len(self.idx)

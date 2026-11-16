@@ -104,6 +104,157 @@ fn fast_path_checks_filenames_from_entry_and_args() {
     ");
 }
 
+/// Equivalent Git URLs select the native checker. Other repositories, local paths,
+/// explicit language overrides, opt-outs, and unsupported hooks keep their pinned command.
+#[test]
+fn remote_hook_implementation() {
+    const REPO: Option<&str> = Some("https://github.com/pre-commit/pre-commit-hooks");
+    for (url, id, language, no_fast_path, fast_path) in [
+        (REPO, "check-json", "", false, true),
+        (
+            Some("https://GitHub.com/pre-commit/pre-commit-hooks.git/"),
+            "check-json",
+            "",
+            false,
+            true,
+        ),
+        (
+            Some("ssh://git@github.com/pre-commit/pre-commit-hooks.git"),
+            "check-json",
+            "",
+            false,
+            true,
+        ),
+        (
+            Some("git@github.com:pre-commit/pre-commit-hooks.git"),
+            "check-json",
+            "",
+            false,
+            true,
+        ),
+        (REPO, "check-json", "language: system", false, false),
+        (REPO, "check-json", "", true, false),
+        (REPO, "pretty-format-json", "", false, false),
+        (
+            Some("https://github.com.example.org/pre-commit/pre-commit-hooks"),
+            "check-json",
+            "",
+            false,
+            false,
+        ),
+        (
+            Some("https://github.com:8443/pre-commit/pre-commit-hooks"),
+            "check-json",
+            "",
+            false,
+            false,
+        ),
+        (
+            Some("https://github.com/pre-commit/Pre-Commit-Hooks"),
+            "check-json",
+            "",
+            false,
+            false,
+        ),
+        (
+            Some("file://github.com/pre-commit/pre-commit-hooks"),
+            "check-json",
+            "",
+            false,
+            false,
+        ),
+        (None, "check-json", "", false, false),
+    ] {
+        let context = TestEnv::new()
+            .with_filter(format!("hook id: {id}"), "hook id: [HOOK_ID]")
+            .with_file("input.json", "invalid");
+        let repo = context
+            .create_hook_repo(
+                "pinned-hook",
+                format!(
+                    indoc::indoc! {r"
+                    - id: {id}
+                      name: Pinned hook
+                      language: system
+                      entry: '{{hook_repo}}/hook.py'
+                      files: ^input\.json$
+                    "},
+                    id = id
+                ),
+            )
+            .with_executable_file(
+                "hook.py",
+                indoc::indoc! {r"
+                #!/usr/bin/env python3
+                print('pinned command')
+                raise SystemExit(1)
+                "},
+            )
+            .build();
+
+        let context = context
+            .with_config(format!(
+                indoc::indoc! {r"
+                repos:
+                  - repo: '{source}'
+                    rev: v1.0.0
+                    hooks:
+                      - id: {id}
+                        {language}
+                "},
+                source = url.unwrap_or(&repo),
+                id = id,
+                language = language
+            ))
+            .init_git();
+
+        let mut command = context.run();
+        if let Some(url) = url {
+            command
+                .env("GIT_CONFIG_COUNT", "2")
+                .env("GIT_CONFIG_KEY_1", format!("url.{repo}.insteadOf"))
+                .env("GIT_CONFIG_VALUE_1", url);
+        }
+        if no_fast_path {
+            command.env("PREK_NO_FAST_PATH", "1");
+        } else {
+            command.env_remove("PREK_NO_FAST_PATH");
+        }
+
+        if fast_path {
+            insta::allow_duplicates! {
+                cmd_snapshot!(context, command, @"
+                success: false
+                exit_code: 1
+                ----- stdout -----
+                Pinned hook..............................................................Failed
+                - hook id: [HOOK_ID]
+                - exit code: 1
+
+                  input.json: Failed to json decode (expected value at line 1 column 1)
+
+                ----- stderr -----
+                ");
+            }
+        } else {
+            insta::allow_duplicates! {
+                cmd_snapshot!(context, command, @"
+                success: false
+                exit_code: 1
+                ----- stdout -----
+                Pinned hook..............................................................Failed
+                - hook id: [HOOK_ID]
+                - exit code: 1
+
+                  pinned command
+
+                ----- stderr -----
+                ");
+            }
+        }
+    }
+}
+
 #[test]
 fn local() {
     let context = TestEnv::new()

@@ -1,16 +1,16 @@
-"""The Indent layout adds whitespace only where the default CSS renders none, so the
-reparsed page reads the same and indenting the output again reproduces it."""
-
 from __future__ import annotations
 
+import codecs
 import io
 import re
-import subprocess  # ruff:ignore[suspicious-subprocess-import]
+import subprocess  # ruff:ignore[suspicious-subprocess-import]  # the test runs a fixed command in a subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
 from html.entities import codepoint2name
-from typing import TYPE_CHECKING, Final
+from itertools import combinations_with_replacement, product
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Final, Protocol, cast
 from xml.etree import (  # ruff:ignore[suspicious-xml-etree-import]  # parsing turbohtml's own output, not untrusted input
     ElementTree as ET,
 )
@@ -19,6 +19,7 @@ import pytest
 
 from turbohtml import (
     Canonical,
+    CData,
     Comment,
     Element,
     Formatter,
@@ -40,13 +41,7 @@ if TYPE_CHECKING:
 
     from wpt_tree_corpus import WptHtmlTreeCorpus
 
-_PRETTY: Final = Html(layout=Indent())
-
-
-def _pretty(html: str, selector: str) -> str:
-    node = parse(html).select_one(selector)
-    assert node is not None
-    return node.serialize(_PRETTY)
+_PRETTY: Final[Html] = Html(layout=Indent())
 
 
 @pytest.mark.parametrize(
@@ -108,6 +103,12 @@ def test_indent_layout(html: str, selector: str, expected: str) -> None:
     assert _pretty(html, selector) == expected
 
 
+def _pretty(html: str, selector: str) -> str:
+    node = parse(html).select_one(selector)
+    assert node is not None
+    return node.serialize(_PRETTY)
+
+
 @pytest.mark.parametrize(
     ("html", "selector"),
     [
@@ -137,16 +138,6 @@ def test_indent_body_with_only_inline_content() -> None:
     )
 
 
-def _compact_roundtrips(source: str) -> bool:
-    compact = parse(source).serialize()
-    return parse(compact).serialize() == compact
-
-
-def _pretty_is_fixpoint(source: str) -> bool:
-    pretty = parse(source).serialize(_PRETTY)
-    return parse(pretty).serialize(_PRETTY) == pretty
-
-
 def test_indent_reindent_is_fixpoint(wpt_html_tree_corpus: WptHtmlTreeCorpus) -> None:
     # only markup the compact serializer round-trips can be asked to reindent stably
     unstable: Final = [
@@ -155,6 +146,16 @@ def test_indent_reindent_is_fixpoint(wpt_html_tree_corpus: WptHtmlTreeCorpus) ->
         if _compact_roundtrips(case["data"]) and not _pretty_is_fixpoint(case["data"])
     ]
     assert unstable == []
+
+
+def _compact_roundtrips(source: str) -> bool:
+    compact = parse(source).serialize()
+    return parse(compact).serialize() == compact
+
+
+def _pretty_is_fixpoint(source: str) -> bool:
+    pretty = parse(source).serialize(_PRETTY)
+    return parse(pretty).serialize(_PRETTY) == pretty
 
 
 def test_indent_drops_empty_and_blank_text_nodes() -> None:
@@ -243,11 +244,38 @@ def test_html_serialization(find: Callable[[str, str], Element], html: str, sele
         pytest.param("a&lt;b&gt;c", "a&lt;b&gt;c", id="angle-brackets"),
         pytest.param("a&amp;b", "a&amp;b", id="ampersand"),
         pytest.param("a&nbsp;b", "a&nbsp;b", id="nbsp"),
-        pytest.param("a&#13;b", "a\rb", id="carriage-return"),
+        pytest.param("a&#13;b", "a&#13;b", id="carriage-return"),
     ],
 )
 def test_text_is_escaped_in_html(find: Callable[[str, str], Element], source: str, expected: str) -> None:
     assert find(f"<p>{source}</p>", "p").html == f"<p>{expected}</p>"
+
+
+@pytest.mark.parametrize("length", range(1, 18))
+@pytest.mark.parametrize(
+    ("char", "formatter", "escaped"),
+    [
+        pytest.param("&", Formatter.WHATWG, "&amp;", id="amp"),
+        pytest.param("<", Formatter.WHATWG, "&lt;", id="lt"),
+        pytest.param(">", Formatter.WHATWG, "&gt;", id="gt"),
+        pytest.param('"', Formatter.WHATWG, '"', id="quot"),
+        pytest.param("\r", Formatter.WHATWG, "&#13;", id="cr"),
+        pytest.param("\r", Formatter.MINIMAL, "&#13;", id="cr-minimal"),
+        pytest.param("\xa0", Formatter.WHATWG, "&nbsp;", id="nbsp"),
+        pytest.param("\xa0", Formatter.MINIMAL, "\xa0", id="nbsp-minimal"),
+    ],
+)
+def test_special_escaped_at_every_offset(char: str, formatter: Formatter, escaped: str, length: int) -> None:
+    # the clean-run scan takes a different path for runs under four, four to seven, and eight or more code points
+    filler = "a1é\U0001f600"
+    for first, second in combinations_with_replacement(range(length), 2):
+        value = "".join(char if index in {first, second} else filler[index % 4] for index in range(length))
+        element = Element("p")
+        element.attrs["title"] = value
+        element.append(Text(value))
+        text = "".join(escaped if character == char else character for character in value)
+        attribute = text.replace('"', "&quot;")
+        assert element.serialize(Html(formatter=formatter)) == f'<p title="{attribute}">{text}</p>'
 
 
 @pytest.mark.parametrize(
@@ -312,7 +340,7 @@ def test_xml_serialization_keeps_doctype_external_ids(source: str, expected: str
 )
 def test_xml_serialization_omits_invalid_public_id(source: str, expected: str) -> None:
     serialized: Final = parse(source).serialize(Html(xml=True))
-    assert parse_xml(serialized).serialize(Html(xml=True)) == expected + "<html><head/><body><r/></body></html>"
+    assert parse_xml(serialized).serialize(Html(xml=True)) == f"{expected}<html><head/><body><r/></body></html>"
 
 
 @pytest.mark.parametrize("invalid", [pytest.param("\x01", id="control"), pytest.param("\uffff", id="noncharacter")])
@@ -337,8 +365,7 @@ def test_document_text_skips_comments_and_doctype() -> None:
 
 def test_template_content_serializes_and_collects_text(find: Callable[[str, str], Element]) -> None:
     template = find("<template>inner</template>", "template")
-    assert template.html == "<template>inner</template>"
-    assert template.text == "inner"
+    assert (template.html, template.text) == ("<template>inner</template>", "inner")
 
 
 # the chunk stream must join back to exactly the one-shot output, for every document
@@ -395,8 +422,7 @@ def test_serialize_iter_empty_subtree_yields_no_chunks() -> None:
 def test_serialize_iter_bounds_each_chunk_and_joins(layout: Indent | None) -> None:
     # a document past the ~8 KiB chunk size must split into several bounded chunks
     # that still reconstruct the one-shot output exactly, under either walk
-    source = "".join(f"<section id='s{index}'><p>row {index} &amp; more</p></section>" for index in range(400))
-    root = parse(source)
+    root = parse("".join(f"<section id='s{index}'><p>row {index} &amp; more</p></section>" for index in range(400)))
     options = Html(layout=layout)
     chunks = list(root.serialize_iter(options))
     assert len(chunks) > 1
@@ -404,12 +430,15 @@ def test_serialize_iter_bounds_each_chunk_and_joins(layout: Indent | None) -> No
     assert "".join(chunks) == root.serialize(options)
 
 
-_ITER_CHANGED: Final = (
+_ITER_CHANGED: Final[str] = (
     "the tree changed while serialize_iter was streaming it; finish or discard the iterator before editing the tree"
 )
-_ITER_EDITS: Final = ("extract", "decompose", "clear", "set-inner-html", "reparent-outside", "replace-with", "set-text")
-_ITER_LAYOUTS: Final = ("compact", "indent", "xml")
-_ITER_MUTATION: Final = """
+
+
+def test_serialize_iter_raises_after_a_mid_stream_edit() -> None:
+    # each edit detaches the resume node and a regression climbs through its NULL parent and kills the interpreter, so
+    # the edits run in one child; the second next() checks that the error sticks
+    iter_mutation = """
 import turbohtml
 from turbohtml import Html, Indent
 
@@ -437,16 +466,13 @@ for edit_name, edit in EDITS.items():
             except RuntimeError as exc:
                 print(edit_name, layout_name, exc)
 """
-
-
-def test_serialize_iter_raises_after_a_mid_stream_edit() -> None:
-    # each edit detaches the resume node and a regression climbs through its NULL parent and kills the interpreter, so
-    # the edits run in one child; the second next() checks that the error sticks
-    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
-        [sys.executable, "-c", _ITER_MUTATION], capture_output=True, text=True, timeout=120, check=False
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # argv is a fixed list, so no shell is involved
+        [sys.executable, "-c", iter_mutation], capture_output=True, text=True, timeout=120, check=False
     )
+    iter_edits = ("extract", "decompose", "clear", "set-inner-html", "reparent-outside", "replace-with", "set-text")
+    iter_layouts = ("compact", "indent", "xml")
     expected = "".join(
-        f"{edit} {layout} {_ITER_CHANGED}\n" for edit in _ITER_EDITS for layout in _ITER_LAYOUTS for _ in range(2)
+        f"{edit} {layout} {_ITER_CHANGED}\n" for edit, layout, _ in product(iter_edits, iter_layouts, range(2))
     )
     assert (result.returncode, result.stdout) == (0, expected), result.stderr
 
@@ -466,7 +492,7 @@ def test_serialize_iter_raises_when_a_versionless_edit_detaches_the_cursor() -> 
         except RuntimeError as exc:
             print(exc)
     """)
-    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # argv is a fixed list, so no shell is involved
         [sys.executable, "-c", script], capture_output=True, text=True, timeout=120, check=False
     )
     assert (result.returncode, result.stdout) == (0, f"{_ITER_CHANGED}\n"), result.stderr
@@ -480,11 +506,10 @@ def test_serialize_iter_raises_when_a_versionless_edit_detaches_the_cursor() -> 
     ],
 )
 def test_serialize_iter_raises_after_a_move_within_the_subtree(moved: Callable[[str], int]) -> None:
-    root = parse("<div>" + "".join(f"<p>par{index:04d}</p>" for index in range(4000)) + "</div>").select_one("div")
+    root = parse(f"<div>{''.join(f'<p>par{index:04d}</p>' for index in range(4000))}</div>").select_one("div")
     assert root is not None
     walk = root.serialize_iter()
-    first = next(walk)
-    root.append(root.select("p")[moved(first)])
+    root.append(root.select("p")[moved(next(walk))])
     with pytest.raises(RuntimeError, match=f"^{re.escape(_ITER_CHANGED)}$"):
         next(walk)
 
@@ -594,14 +619,21 @@ def test_serialize_empty_run(html: str, expected: str) -> None:
         pytest.param(Html(xml=True), id="xml"),
     ],
 )
-@pytest.mark.parametrize("inner", [False, True], ids=["outer", "inner"])
+@pytest.mark.parametrize("inner", [pytest.param(False, id="outer"), pytest.param(True, id="inner")])
 def test_encode_unicode(text: str, encoding: str, options: Html, *, inner: bool) -> None:
     root: Final = Element("p", children=[Text(text)])
     assert root.encode(encoding, options, inner=inner) == root.serialize(options, inner=inner).encode(encoding)
 
 
-@pytest.mark.parametrize("text", ["\ud800", "a\udfff", "é😀\ud800\udfff"])
-@pytest.mark.parametrize("inner", [False, True], ids=["outer", "inner"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("\ud800", id="lone-high"),
+        pytest.param("a\udfff", id="lone-low"),
+        pytest.param("é😀\ud800\udfff", id="mixed"),
+    ],
+)
+@pytest.mark.parametrize("inner", [pytest.param(False, id="outer"), pytest.param(True, id="inner")])
 def test_encode_surrogate_error(text: str, *, inner: bool) -> None:
     root: Final = Element("p", children=[Text(text)])
     with pytest.raises(UnicodeEncodeError) as expected:
@@ -609,6 +641,17 @@ def test_encode_surrogate_error(text: str, *, inner: bool) -> None:
     with pytest.raises(UnicodeEncodeError) as actual:
         root.encode(inner=inner)
     assert actual.value.args == expected.value.args
+
+
+class _Render(Protocol):
+    def __call__(self, root: Element, options: Html, *, inner: bool) -> str: ...
+
+
+_INDENT_RENDERS: Final[MappingProxyType[str, _Render]] = MappingProxyType({
+    "serialize": lambda root, options, *, inner: root.serialize(options, inner=inner),
+    "encode": lambda root, options, *, inner: root.encode(options=options, inner=inner).decode(),
+    "stream": lambda root, options, *, inner: "".join(root.serialize_iter(options, inner=inner)),
+})
 
 
 @pytest.mark.parametrize(
@@ -621,23 +664,28 @@ def test_encode_surrogate_error(text: str, *, inner: bool) -> None:
         pytest.param("\t " * 1000, id="chunk-boundary"),
     ],
 )
-@pytest.mark.parametrize("inner", [False, True], ids=["outer", "inner"])
-@pytest.mark.parametrize("method", ["serialize", "encode", "stream"])
-def test_indent_repetition(unit: str, *, inner: bool, method: str) -> None:
+@pytest.mark.parametrize("method", list(_INDENT_RENDERS))
+def test_indent_repetition_inner(unit: str, method: str) -> None:
     root: Final = parse_fragment("<section><p>x</p></section>")
-    options: Final = Html(layout=Indent(unit))
-    expected: Final = (
-        f"<section>\n{unit}<p>x</p>\n</section>"
-        if inner
-        else f"<div>\n{unit}<section>\n{unit * 2}<p>x</p>\n{unit}</section>\n</div>"
-    )
-    if method == "stream":
-        output: Final = "".join(root.serialize_iter(options, inner=inner))
-    elif method == "encode":
-        output = root.encode(options=options, inner=inner).decode()
-    else:
-        output = root.serialize(options, inner=inner)
-    assert output == expected
+    output = _INDENT_RENDERS[method](root, Html(layout=Indent(unit)), inner=True)
+    assert output == f"<section>\n{unit}<p>x</p>\n</section>"
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        pytest.param("", id="empty"),
+        pytest.param(" ", id="space"),
+        pytest.param("\t ", id="mixed"),
+        pytest.param("é😀", id="unicode"),
+        pytest.param("\t " * 1000, id="chunk-boundary"),
+    ],
+)
+@pytest.mark.parametrize("method", list(_INDENT_RENDERS))
+def test_indent_repetition_outer(unit: str, method: str) -> None:
+    root: Final = parse_fragment("<section><p>x</p></section>")
+    output = _INDENT_RENDERS[method](root, Html(layout=Indent(unit)), inner=False)
+    assert output == f"<div>\n{unit}<section>\n{unit * 2}<p>x</p>\n{unit}</section>\n</div>"
 
 
 @pytest.mark.parametrize(
@@ -657,21 +705,44 @@ def test_inner_compact(source: str, expected: str) -> None:
     assert root.serialize(inner=True) == expected
 
 
-@pytest.mark.parametrize("layout", [None, Indent(), Minify()])
-@pytest.mark.parametrize("node", [Text("x"), Comment("x"), Element("p")])
+_LAYOUTS: Final[list[pytest.ParameterSet]] = [
+    pytest.param(None, id="none"),
+    pytest.param(Indent(), id="indent"),
+    pytest.param(Minify(), id="minify"),
+]
+
+
+@pytest.mark.parametrize("layout", _LAYOUTS)
+@pytest.mark.parametrize(
+    "node",
+    [
+        pytest.param(Text("x"), id="text"),
+        pytest.param(Comment("x"), id="comment"),
+        pytest.param(Element("p"), id="element"),
+    ],
+)
 def test_inner_empty(layout: Indent | Minify | None, node: Node) -> None:
     assert not node.serialize(Html(layout=layout), inner=True)
 
 
-@pytest.mark.parametrize("layout", [None, Indent(), Minify()])
+@pytest.mark.parametrize("layout", _LAYOUTS)
 def test_inner_document(layout: Indent | Minify | None) -> None:
     root: Final = parse("<p>a</p>")
     options: Final = Html(layout=layout)
     assert root.serialize(options, inner=True) == root.serialize(options)
 
 
-@pytest.mark.parametrize("tag", ["pre", "textarea", "listing", "script", "style"])
-@pytest.mark.parametrize("layout", [Indent(), Minify()])
+@pytest.mark.parametrize(
+    "tag",
+    [
+        pytest.param("pre", id="pre"),
+        pytest.param("textarea", id="textarea"),
+        pytest.param("listing", id="listing"),
+        pytest.param("script", id="script"),
+        pytest.param("style", id="style"),
+    ],
+)
+@pytest.mark.parametrize("layout", [pytest.param(Indent(), id="indent"), pytest.param(Minify(), id="minify")])
 def test_inner_preserve(tag: str, layout: Indent | Minify) -> None:
     root: Final = Element(tag, children=[Text("  a\n b  ")])
     assert root.serialize(Html(layout=layout), inner=True) == "  a\n b  "
@@ -692,8 +763,16 @@ def test_inner_xml() -> None:
     assert root.serialize(Html(xml=True), inner=True) == "a<br/>b"
 
 
-@pytest.mark.parametrize("layout", [None, Indent()])
-@pytest.mark.parametrize("source", ["<p>a<b>b</b>c</p>", "<script>a < b</script>", "<pre> a\n b</pre>", "<br>"])
+@pytest.mark.parametrize("layout", [pytest.param(None, id="none"), pytest.param(Indent(), id="indent")])
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("<p>a<b>b</b>c</p>", id="inline-formatting"),
+        pytest.param("<script>a < b</script>", id="script-text"),
+        pytest.param("<pre> a\n b</pre>", id="pre-newline"),
+        pytest.param("<br>", id="void-element"),
+    ],
+)
 def test_inner_iterator(layout: Indent | None, source: str) -> None:
     root: Final = parse_fragment(source).children[0]
     options: Final = Html(layout=layout)
@@ -701,7 +780,7 @@ def test_inner_iterator(layout: Indent | None, source: str) -> None:
 
 
 def test_inner_iterator_chunks() -> None:
-    root: Final = parse_fragment("<div>" + "<p>abcdefgh</p>" * 3000 + "</div>").children[0]
+    root: Final = parse_fragment(f"<div>{'<p>abcdefgh</p>' * 3000}</div>").children[0]
     chunks: Final = tuple(root.serialize_iter(inner=True))
     assert (len(chunks) > 1, "".join(chunks)) == (True, "<p>abcdefgh</p>" * 3000)
 
@@ -733,9 +812,13 @@ def test_inner_indent_nested_preserve() -> None:
 
 @pytest.mark.parametrize(
     ("method", "arguments"),
-    [("serialize", (None, True)), ("serialize_iter", (None, True)), ("encode", ("utf-8", None, True))],
+    [
+        pytest.param("serialize", (None, True), id="serialize"),
+        pytest.param("serialize_iter", (None, True), id="serialize-iter"),
+        pytest.param("encode", ("utf-8", None, True), id="encode"),
+    ],
 )
-def test_inner_keyword_only(method: str, arguments: tuple[object, ...]) -> None:
+def test_inner_keyword_only(method: str, arguments: tuple[str | bool | None, ...]) -> None:
     with pytest.raises(TypeError):
         getattr(Element("p"), method)(*arguments)
 
@@ -747,7 +830,7 @@ def frame_with_child() -> Element:
     return frame
 
 
-@pytest.mark.parametrize("layout", [None, Indent(), Minify()])
+@pytest.mark.parametrize("layout", _LAYOUTS)
 def test_inner_frame_ignores_children(frame_with_child: Element, layout: Indent | Minify | None) -> None:
     assert not frame_with_child.serialize(Html(layout=layout), inner=True)
 
@@ -767,8 +850,21 @@ def test_inner_html_foreign_frame_keeps_children(markup: str) -> None:
     assert _one(markup, "frame").inner_html == "x"
 
 
-@pytest.mark.parametrize("layout", [None, Indent(), Minify()])
-@pytest.mark.parametrize("content", ["", "<title>x</title>", '<meta charset="utf-8">'])
+def _one(html: str, selector: str) -> Node:
+    node = parse(html).select_one(selector)
+    assert node is not None
+    return node
+
+
+@pytest.mark.parametrize("layout", _LAYOUTS)
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("<title>x</title>", id="title"),
+        pytest.param('<meta charset="utf-8">', id="meta"),
+    ],
+)
 def test_inner_meta_charset(layout: Indent | Minify | None, content: str) -> None:
     root: Final = parse(f"<head>{content}</head>").find_all("head")[0]
     result: Final = root.serialize(Html(layout=layout, meta_charset=True), inner=True)
@@ -785,7 +881,7 @@ def test_inner_xml_indent() -> None:
     )
 
 
-@pytest.mark.parametrize("layout", [None, Indent(), Minify()])
+@pytest.mark.parametrize("layout", _LAYOUTS)
 def test_inner_foreign_context(layout: Indent | Minify | None) -> None:
     root: Final = parse_fragment("<svg><g></g></svg>").children[0]
     assert root.serialize(Html(layout=layout), inner=True) == "<g></g>"
@@ -808,19 +904,13 @@ def test_inner_shadow_root() -> None:
     assert shadow.serialize(Html(layout=Minify()), inner=True) == "<b> x </b>"
 
 
-@pytest.mark.parametrize("layout", [None, Indent()])
+@pytest.mark.parametrize("layout", [pytest.param(None, id="none"), pytest.param(Indent(), id="indent")])
 def test_inner_raw_context_only_applies_to_direct_text(layout: Indent | None) -> None:
     root: Final = Element("script", children=[Element("b", children=[Text("<&")])])
     assert root.serialize(Html(layout=layout), inner=True) == "<b>&lt;&amp;</b>"
 
 
-_XML = Html(xml=True)
-
-
-def _fragment(markup: str, selector: str) -> Element:
-    node = parse(markup).select_one(selector)
-    assert node is not None
-    return node
+_XML: Final[Html] = Html(xml=True)
 
 
 @pytest.mark.parametrize(
@@ -836,6 +926,12 @@ def _fragment(markup: str, selector: str) -> Element:
 )
 def test_empty_elements_self_close(markup: str, selector: str, expected: str) -> None:
     assert _fragment(markup, selector).serialize(_XML) == expected
+
+
+def _fragment(markup: str, selector: str) -> Element:
+    node = parse(markup).select_one(selector)
+    assert node is not None
+    return node
 
 
 @pytest.mark.parametrize(
@@ -992,7 +1088,10 @@ def test_xml_processing_instruction_closes_with_question_mark() -> None:
     assert node.serialize(Html(xml=True, layout=Indent(2))) == "<doc><?t d?></doc>"
 
 
-@pytest.mark.parametrize("invalid", ["\x00", "\x0c", "\uffff"])
+@pytest.mark.parametrize(
+    "invalid",
+    [pytest.param("\x00", id="nul"), pytest.param("\x0c", id="form-feed"), pytest.param("\uffff", id="noncharacter")],
+)
 def test_xml_processing_instruction_drops_forbidden_characters(invalid: str) -> None:
     output: Final = Element("doc", children=[ProcessingInstruction("t", f"a{invalid}b")]).serialize(_XML)
     assert output == "<doc><?t ab?></doc>"
@@ -1045,7 +1144,7 @@ def test_xml_processing_instruction_keeps_valid_target(target: str) -> None:
     assert Element("doc", children=[ProcessingInstruction(target, "d")]).serialize(_XML) == f"<doc><?{target} d?></doc>"
 
 
-_XML_ONLY_NODES: Final = "<r><![CDATA[a><b>c</b>]]><![CDATA[x < y]]><?pi a><i>p</i>--?><?ok x y?></r>"
+_XML_ONLY_NODES: Final[str] = "<r><![CDATA[a><b>c</b>]]><![CDATA[x < y]]><?pi a><i>p</i>--?><?ok x y?></r>"
 
 
 def test_xml_only_nodes_holding_gt_change_form_in_html() -> None:
@@ -1170,21 +1269,28 @@ def test_round_trip_reparses_to_same_html() -> None:
     assert reparsed.serialize() == node.serialize()
 
 
-def _inner_xml(node: Node) -> str:
-    """Serialize one node through the inner_xml path, which emits the same well-formed XML Node.serialize(xml) does."""
-    return Element("root", children=[node]).inner_xml
-
-
-def _parsed_inner_xml(markup: str) -> str:
-    """Serialize parsed markup through inner_xml, for nodes (foreign, tag-soup names) the constructor rejects."""
-    node = parse(f"<div>{markup}</div>").select_one("div")
-    assert node is not None
-    return node.inner_xml
-
-
 def test_xml_serialize_makes_a_comment_well_formed() -> None:
     # XML forbids `--` inside a comment and holds no C0 control, so serialize(xml) spaces the one and drops the other
     assert Element("doc", children=[Comment("a--b\x01")]).serialize(_XML) == "<doc><!--a- -b--></doc>"
+
+
+@pytest.mark.parametrize(
+    ("text", "content", "decoded"),
+    [
+        pytest.param("a\x01b", "ab", "ab", id="c0-control"),
+        pytest.param("a\ufffeb", "ab", "ab", id="noncharacter-fffe"),
+        pytest.param("a\uffffb", "ab", "ab", id="noncharacter-ffff"),
+        pytest.param("a\ud800b", "ab", "ab", id="lone-surrogate"),
+        pytest.param("]]\x01>", "]]]]><![CDATA[>", "]]>", id="drop-joins-closing-brackets"),
+        pytest.param("a]\x01]>b", "a]]]]><![CDATA[>b", "a]]>b", id="drop-joins-brackets-across-gap"),
+        pytest.param("]\x01>", "]>", "]>", id="drop-keeps-a-single-bracket"),
+        pytest.param("\x01]]>", "]]]]><![CDATA[>", "]]>", id="leading-drop"),
+    ],
+)
+def test_serialize_xml_cdata_drops_characters_xml_cannot_hold(text: str, content: str, decoded: str) -> None:
+    out = Element("p", children=[CData(text)]).serialize(_XML)
+    assert out == f"<p><![CDATA[{content}]]></p>"
+    assert ET.fromstring(out).text == decoded  # ruff:ignore[suspicious-xml-element-tree-usage]  # our own output, parsed to assert the dropped characters are the only change
 
 
 @pytest.mark.parametrize(
@@ -1241,7 +1347,10 @@ def test_serialize_xml_keeps_bound_attribute_prefix() -> None:
     assert parse_xml(markup).serialize(Html(xml=True)) == markup
 
 
-@pytest.mark.parametrize("options", [Html(xml=True), Html(xml=True, layout=Indent())])
+@pytest.mark.parametrize(
+    "options",
+    [pytest.param(Html(xml=True), id="plain"), pytest.param(Html(xml=True, layout=Indent()), id="indent")],
+)
 def test_serialize_iter_xml_drops_invalid_element_wrapper(options: Html) -> None:
     document: Final = parse("<d<>x<p>y</p>")
     assert "".join(document.serialize_iter(options)) == document.serialize(options)
@@ -1272,6 +1381,8 @@ def test_serialize_xml_checks_unicode_element_names(name: str, expected: str) ->
         pytest.param("a-\x01b", "<!--a-b-->", id="hyphen-before-dropped-control"),
         pytest.param("--", "<!--- - -->", id="only-hyphens"),
         pytest.param("a\x0cb", "<!--ab-->", id="control-char-dropped"),
+        pytest.param("\x06>", "<!-- >-->", id="leading-control-before-closer"),
+        pytest.param("\x06->", "<!-- ->-->", id="leading-control-before-short-closer"),
     ],
 )
 def test_inner_xml_comment_is_made_well_formed(body: str, expected: str) -> None:
@@ -1282,6 +1393,11 @@ def test_inner_xml_comment_is_made_well_formed(body: str, expected: str) -> None
     out = _inner_xml(Comment(body))
     assert out == expected
     ET.fromstring(f"<doc>{out}</doc>")  # ruff:ignore[suspicious-xml-element-tree-usage]  # our own output, parsed to assert the neutralized comment reparses
+
+
+def _inner_xml(node: Node) -> str:
+    # Serialize one node through the inner_xml path, which emits the same well-formed XML Node.serialize(xml) does.
+    return Element("root", children=[node]).inner_xml
 
 
 @pytest.mark.parametrize(
@@ -1306,14 +1422,20 @@ def test_inner_xml_drops_invalid_characters_in_attribute_values() -> None:
 
 def test_inner_xml_serializes_children_only() -> None:
     node = _fragment("<div><br><p>x&amp;y</p></div>", "div")
-    assert node.inner_xml == "<br/><p>x&amp;y</p>"
-    assert node.inner_html == "<br><p>x&amp;y</p>"
+    assert (node.inner_xml, node.inner_html) == ("<br/><p>x&amp;y</p>", "<br><p>x&amp;y</p>")
 
 
 def test_inner_xml_does_not_duplicate_a_stored_xmlns() -> None:
     out = _parsed_inner_xml('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')
     assert out.count("xmlns=") == 1
     assert out == '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
+
+
+def _parsed_inner_xml(markup: str) -> str:
+    # Serialize parsed markup through inner_xml, for nodes (foreign, tag-soup names) the constructor rejects.
+    node = parse(f"<div>{markup}</div>").select_one("div")
+    assert node is not None
+    return node.inner_xml
 
 
 def test_inner_xml_does_not_duplicate_a_stored_xmlns_prefix() -> None:
@@ -1386,12 +1508,6 @@ def test_inner_xml_keeps_valid_attribute_names(attributes: dict[str, str], expec
     assert _inner_xml(Element("p", attributes)) == expected
 
 
-def _one(html: str, selector: str) -> Node:
-    node = parse(html).select_one(selector)
-    assert node is not None
-    return node
-
-
 @pytest.mark.parametrize(
     ("html", "selector", "inner", "outer"),
     [
@@ -1408,8 +1524,7 @@ def _one(html: str, selector: str) -> Node:
 )
 def test_inner_html(html: str, selector: str, inner: str, outer: str) -> None:
     node = _one(html, selector)
-    assert node.inner_html == inner
-    assert node.html == outer
+    assert (node.inner_html, node.html) == (inner, outer)
 
 
 def test_whatwg_attribute_escapes_angles() -> None:
@@ -1474,6 +1589,16 @@ def test_default_formatter_keeps_non_ascii_literal() -> None:
             "<p>&eacute;&amp;😀&alpha;a</p>",
             id="named-mixed-text",
         ),
+        pytest.param("<p>a&#xd;b</p>", "p", Formatter.WHATWG, "<p>a&#13;b</p>", id="whatwg-carriage-return"),
+        pytest.param("<p>a&#xd;b</p>", "p", Formatter.MINIMAL, "<p>a&#13;b</p>", id="minimal-carriage-return"),
+        pytest.param("<p>a&#xd;b</p>", "p", Formatter.NAMED_ENTITIES, "<p>a&#13;b</p>", id="named-carriage-return"),
+        pytest.param(
+            '<a title="a&#xd;b">t</a>',
+            "a",
+            Formatter.NAMED_ENTITIES,
+            '<a title="a&#13;b">t</a>',
+            id="named-attribute-carriage-return",
+        ),
         pytest.param(
             '<p title="é&amp;😀\u03b1a">x</p>',
             "p",
@@ -1506,7 +1631,7 @@ def test_formatter_serialize(html: str, selector: str, formatter: Formatter, exp
     assert _one(html, selector).serialize(Html(formatter=formatter)) == expected
 
 
-_QUOTED_TITLE_LINK: Final = '<a title="x&quot; data-y=&quot;1" href="/">hi</a>'
+_QUOTED_TITLE_LINK: Final[str] = '<a title="x&quot; data-y=&quot;1" href="/">hi</a>'
 
 
 @pytest.mark.parametrize(
@@ -1525,7 +1650,7 @@ def test_minimal_formatter_stream_escapes_quote_in_attribute() -> None:
 
 
 def test_named_entities_reparse_to_the_same_text() -> None:
-    text: Final = "".join(chr(codepoint) for codepoint in sorted(codepoint2name)) + "⟨⟩"
+    text: Final = f"{''.join(chr(codepoint) for codepoint in sorted(codepoint2name))}⟨⟩"
     node: Final = Element("p", children=[Text(text)])
     reparsed: Final = parse(node.serialize(Html(formatter=Formatter.NAMED_ENTITIES))).select("p")
     assert [paragraph.text for paragraph in reparsed] == [text]
@@ -1576,12 +1701,14 @@ def test_named_entities_reparse_to_the_same_text() -> None:
             "<div>\n  <listing>a b</listing>\n</div>",
             id="preserve-listing",
         ),
-        pytest.param("<div><p>x</p></div>", "div", None, "<div><p>x</p></div>", id="none-is-compact"),
     ],
 )
-def test_serialize_indent(html: str, selector: str, indent: int | str | None, expected: str) -> None:
-    layout = None if indent is None else Indent(indent)
-    assert _one(html, selector).serialize(Html(layout=layout)) == expected
+def test_serialize_indent(html: str, selector: str, indent: int | str, expected: str) -> None:
+    assert _one(html, selector).serialize(Html(layout=Indent(indent))) == expected
+
+
+def test_serialize_without_layout_is_compact() -> None:
+    assert _one("<div><p>x</p></div>", "div").serialize(Html()) == "<div><p>x</p></div>"
 
 
 # the parser drops one newline after <pre>; serialization restores it so a
@@ -1678,11 +1805,14 @@ def test_encode(html: str, selector: str, call: Callable[[Node], bytes], expecte
     ("html", "kwargs", "exception"),
     [
         pytest.param("<p>x</p>", {"encoding": "not-a-codec"}, LookupError, id="unknown-encoding"),
+        pytest.param(
+            "<p>\x1b</p>", {"encoding": "iso-2022-not-a-codec"}, LookupError, id="unknown-encoding-shift-code"
+        ),
         # the default WHATWG formatter keeps é literal, so ascii cannot represent it
         pytest.param("<p>café</p>", {"encoding": "ascii"}, UnicodeEncodeError, id="unencodable-character"),
     ],
 )
-def test_encode_raises(html: str, kwargs: dict[str, object], exception: type[Exception]) -> None:
+def test_encode_raises(html: str, kwargs: dict[str, str], exception: type[Exception]) -> None:
     with pytest.raises(exception):
         _one(html, "p").encode(**kwargs)  # ty: ignore[invalid-argument-type]  # object-typed kwargs
 
@@ -1798,13 +1928,16 @@ def test_sort_attributes_off_keeps_source_order() -> None:
 
 
 @pytest.mark.parametrize("tag", ["pre", "textarea", "listing"])
-@pytest.mark.parametrize("clear", [False, True], ids=["empty", "cleared"])
-def test_serialize_empty_leading_text(tag: str, *, clear: bool) -> None:
-    element: Final = Element(tag)
-    text: Final = Text("x" if clear else "")
-    element.append(text)
-    if clear:
-        text.data = ""
+def test_serialize_empty_leading_text(tag: str) -> None:
+    element: Final = Element(tag, children=[Text("")])
+    assert element.serialize() == f"<{tag}></{tag}>"
+
+
+@pytest.mark.parametrize("tag", ["pre", "textarea", "listing"])
+def test_serialize_cleared_leading_text(tag: str) -> None:
+    text: Final = Text("x")
+    element: Final = Element(tag, children=[text])
+    text.data = ""
     assert element.serialize() == f"<{tag}></{tag}>"
 
 
@@ -1820,15 +1953,25 @@ def test_sort_attributes_orders_prefix_names(attrs: dict[str, str], expected: st
 
 
 @pytest.mark.parametrize("count", [8, 64, 65, 1024])
-@pytest.mark.parametrize("reverse", [False, True], ids=["sorted", "reversed"])
-@pytest.mark.parametrize("xml", [False, True], ids=["html", "xml"])
-@pytest.mark.parametrize("encode", [False, True], ids=["serialize", "encode"])
-def test_sort_attributes_by_width(count: int, *, reverse: bool, xml: bool, encode: bool) -> None:
+@pytest.mark.parametrize(
+    "ordered",
+    [pytest.param(lambda names: names, id="sorted"), pytest.param(lambda names: list(reversed(names)), id="reversed")],
+)
+@pytest.mark.parametrize("xml", [pytest.param(False, id="html"), pytest.param(True, id="xml")])
+@pytest.mark.parametrize(
+    "render",
+    [
+        pytest.param(lambda element, options: element.serialize(options), id="serialize"),
+        pytest.param(lambda element, options: element.encode(options=options).decode(), id="encode"),
+    ],
+)
+def test_sort_attributes_by_width(
+    count: int, ordered: Callable[[list[str]], list[str]], *, xml: bool, render: Callable[[Element, Html], str]
+) -> None:
     names: Final = sorted(f"a{index}" for index in range(count))
-    element: Final = Element("x", dict.fromkeys(reversed(names) if reverse else names, ""), children=[Text("x")])
-    options: Final = Html(xml=xml, sort_attributes=True)
-    result: Final = element.encode(options=options).decode() if encode else element.serialize(options)
-    assert result == "<x " + " ".join(f'{name}=""' for name in names) + ">x</x>"
+    element: Final = Element("x", dict.fromkeys(ordered(names), ""), children=[Text("x")])
+    result: Final = render(element, Html(xml=xml, sort_attributes=True))
+    assert result == f"""<x {" ".join(f'{name}=""' for name in names)}>x</x>"""
 
 
 def test_sort_attributes_composes_with_indent() -> None:
@@ -1991,7 +2134,157 @@ def test_meta_charset_with_minify_normalizes_existing_meta() -> None:
 
 def test_encode_meta_charset_uses_target_encoding() -> None:
     out: Final = parse("<p>x").encode("iso-8859-1", Html(meta_charset=True))
-    assert out == ('<html><head><meta charset="iso-8859-1"></head><body><p>x</p></body></html>'.encode("latin-1"))
+    assert out == ('<html><head><meta charset="windows-1252"></head><body><p>x</p></body></html>'.encode("latin-1"))
+
+
+@pytest.mark.parametrize(
+    ("codec", "text", "label"),
+    [
+        pytest.param("iso2022_jp", "日本語", "ISO-2022-JP", id="iso2022-jp"),
+        pytest.param("utf8", "café", "UTF-8", id="utf8"),
+        pytest.param("shift_jis", "日本語", "Shift_JIS", id="shift-jis"),
+        pytest.param("cp932", "日本語", "Shift_JIS", id="cp932"),
+        pytest.param("euc_jp", "日本語", "EUC-JP", id="euc-jp"),
+        pytest.param("euc_kr", "한국어", "EUC-KR", id="euc-kr"),
+        pytest.param("cp949", "한국어", "EUC-KR", id="cp949"),
+        pytest.param("gb2312", "中文", "GBK", id="gb2312"),
+        pytest.param("big5hkscs", "中文", "Big5", id="big5hkscs"),
+        pytest.param("cp950", "中文", "Big5", id="cp950"),
+        pytest.param("iso8859_16", "Ș", "ISO-8859-16", id="iso8859-16"),
+        pytest.param("cp1251", "Привет", "windows-1251", id="cp1251"),
+        pytest.param("koi8_u", "Привіт", "KOI8-U", id="koi8-u"),
+        pytest.param("mac_roman", "café", "macintosh", id="mac-roman"),
+        pytest.param("tis_620", "สวัสดี", "windows-874", id="tis-620"),
+    ],
+)
+def test_encode_meta_charset_declares_the_whatwg_label(codec: str, text: str, label: str) -> None:
+    doc: Final = parse(parse(f"<p>{text}</p>").encode(codec, Html(meta_charset=True)))
+    paragraph: Final = doc.find("p")
+    assert paragraph is not None
+    assert (doc.encoding, paragraph.text) == (label, text)
+
+
+def test_encode_meta_charset_declares_utf_8_for_the_bom_codec() -> None:
+    out: Final = parse("<p>x").encode("utf-8-sig", Html(meta_charset=True))
+    assert out == b'\xef\xbb\xbf<html><head><meta charset="utf-8"></head><body><p>x</p></body></html>'
+
+
+@pytest.mark.parametrize(
+    "codec",
+    [
+        pytest.param("iso2022_jp_2", id="iso2022-jp-2"),
+        pytest.param("iso2022_kr", id="iso2022-kr"),
+        pytest.param("hz", id="hz"),
+        pytest.param("utf-16", id="utf-16"),
+        pytest.param("utf-7", id="utf-7"),
+        pytest.param("utf-32", id="utf-32"),
+    ],
+)
+def test_encode_meta_charset_refuses_a_codec_without_a_label(codec: str) -> None:
+    with pytest.raises(ValueError, match="no WHATWG encoding label"):
+        parse("<p>x").encode(codec, Html(meta_charset=True))
+
+
+def test_encode_meta_charset_refuses_an_existing_charset_meta() -> None:
+    with pytest.raises(ValueError, match="no WHATWG encoding label"):
+        parse('<meta charset="ascii"><p>x').encode("utf-16", Html(meta_charset=True))
+
+
+@pytest.mark.parametrize("codec", ["iso2022_jp_2", "utf-16", "hz"])
+def test_encode_meta_charset_declares_nothing_for_an_element(codec: str) -> None:
+    element: Final = parse("<p>x").select_one("p")
+    assert element is not None
+    assert element.encode(codec, Html(meta_charset=True)) == element.encode(codec)
+
+
+@pytest.mark.parametrize("codec", ["iso2022_jp_2", "utf-16", "hz"])
+def test_encode_meta_charset_declares_nothing_for_a_fragment(codec: str) -> None:
+    fragment: Final = parse_fragment("<p>x")
+    assert fragment.encode(codec, Html(meta_charset=True)) == fragment.encode(codec)
+
+
+@pytest.mark.parametrize("codec", ["iso2022_jp_2", "utf-16", "hz"])
+def test_encode_without_meta_charset_writes_a_codec_without_a_label(codec: str) -> None:
+    assert parse("<p>x").encode(codec).decode(codec) == "<html><head></head><body><p>x</p></body></html>"
+
+
+def test_encode_meta_charset_rejects_an_unknown_codec() -> None:
+    with pytest.raises(LookupError):
+        parse("<p>x").encode("turbohtml-no-such-codec", Html(meta_charset=True))
+
+
+@pytest.mark.parametrize("label", ["iso-2022-jp", "ISO-2022-JP", "csiso2022jp", "iso2022_jp", "iso-2022-kr"])
+@pytest.mark.parametrize(
+    "shift",
+    [pytest.param("\x0e", id="shift-out"), pytest.param("\x0f", id="shift-in"), pytest.param("\x1b", id="escape")],
+)
+def test_encode_iso_2022_refuses_a_shift_code(label: str, shift: str) -> None:
+    # CPython's encoder would write it as a byte, which a decoder reads as a shift code
+    doc: Final = parse(f'<a title="{shift}x">y</a>{shift}z')
+    with pytest.raises(UnicodeEncodeError, match="shift code") as refused:
+        doc.encode(label)
+    assert refused.value.start == doc.serialize().index(shift)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("a\x1bb\x0ec\x0f", id="escape-first"),
+        pytest.param("a\x0fb\x1bc\x0e", id="shift-in-first"),
+        pytest.param("a\x0eb\x0fc\x1b", id="shift-out-first"),
+    ],
+)
+def test_encode_iso_2022_reports_the_first_shift_code(text: str) -> None:
+    with pytest.raises(UnicodeEncodeError) as refused:
+        parse(f"<p>{text}").select("p")[0].encode("iso-2022-jp")
+    assert (refused.value.start, refused.value.end) == (4, 5)
+
+
+def test_encode_iso_2022_jp_round_trips_without_a_shift_code() -> None:
+    doc: Final = parse("<p>日本語</p><p>tail</p>")
+    assert parse(doc.encode("iso-2022-jp"), encoding="iso-2022-jp").serialize() == doc.serialize()
+
+
+@pytest.mark.parametrize("label", ["shift_jis", "euc-jp", "utf-8"])
+def test_encode_keeps_a_shift_code_outside_iso_2022(label: str) -> None:
+    assert parse("<p>\x1b").select("p")[0].encode(label) == b"<p>\x1b</p>"
+
+
+_UTF8: Final[codecs.CodecInfo] = codecs.lookup("utf-8")
+
+
+@pytest.mark.parametrize(
+    "info",
+    [
+        pytest.param(cast("codecs.CodecInfo", tuple(_UTF8)), id="plain-tuple"),
+        pytest.param(codecs.CodecInfo(*_UTF8, name=None), id="nameless-codec-info"),
+        pytest.param(_UTF8, id="named-utf-8"),
+    ],
+)
+def test_encode_keeps_a_shift_code_in_a_codec_that_is_not_iso_2022(info: codecs.CodecInfo) -> None:
+    search: Final = {"turbohtml_2022_nameless": info}.get
+    codecs.register(search)
+    try:
+        assert parse("<p>\x1b").select("p")[0].encode("turbohtml_2022_nameless") == b"<p>\x1b</p>"
+    finally:
+        codecs.unregister(search)
+
+
+@pytest.mark.parametrize("kind", ["plain-tuple", "nameless-codec-info", "lone-surrogate-name", "name-too-long"])
+def test_encode_meta_charset_refuses_a_registered_codec_without_a_label(kind: str) -> None:
+    info: Final = {
+        "plain-tuple": cast("codecs.CodecInfo", tuple(_UTF8)),
+        "nameless-codec-info": codecs.CodecInfo(*_UTF8, name=None),
+        "lone-surrogate-name": codecs.CodecInfo(*_UTF8, name="\udc80"),
+        "name-too-long": codecs.CodecInfo(*_UTF8, name="x" * 64),
+    }[kind]
+    search: Final = {"turbohtml_meta_unlabelled": info}.get
+    codecs.register(search)
+    try:
+        with pytest.raises(ValueError, match="no WHATWG encoding label"):
+            parse("<p>x").encode("turbohtml_meta_unlabelled", Html(meta_charset=True))
+    finally:
+        codecs.unregister(search)
 
 
 def test_encode_sort_attributes() -> None:
@@ -2005,32 +2298,32 @@ def test_serialize_rejects_another_renderers_config() -> None:
         parse("<p>x</p>").serialize(Markdown())  # ty: ignore[invalid-argument-type]  # the wrong config class is rejected
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _SortedHtml(Html):
     sort_attributes: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _ImageText(PlainText):
     images: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _CommentedCanonical(Canonical):
     with_comments: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _ExtendedHtml(_SortedHtml):
     extra: str = "value"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _ExtendedText(_ImageText):
     extra: str = "value"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _ExtendedCanonical(_CommentedCanonical):
     extra: str = "value"
 
@@ -2056,6 +2349,15 @@ def test_render_options_preserve_subclass_defaults(
     assert _render(options) == expected
 
 
+def _render(options: Html | PlainText | Canonical) -> str | bytes:
+    document: Final = parse('<p z="1" a="2"><img alt="picture"><!--note--></p>').select("p")[0]
+    if isinstance(options, Html):
+        return document.serialize(options)
+    if isinstance(options, PlainText):
+        return document.to_text(options)
+    return document.canonicalize(options)
+
+
 @pytest.mark.parametrize(
     "options",
     [
@@ -2067,12 +2369,3 @@ def test_render_options_preserve_subclass_defaults(
 def test_render_options_reject_subclass_extra_fields(options: Html | PlainText | Canonical) -> None:
     with pytest.raises(AttributeError, match="has no attribute 'extra'"):
         _render(options)
-
-
-def _render(options: Html | PlainText | Canonical) -> str | bytes:
-    document: Final = parse('<p z="1" a="2"><img alt="picture"><!--note--></p>').select("p")[0]
-    if isinstance(options, Html):
-        return document.serialize(options)
-    if isinstance(options, PlainText):
-        return document.to_text(options)
-    return document.canonicalize(options)

@@ -35,8 +35,7 @@ class SemiCircle(JSCSSMixin, Marker):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.semiCircle(
                 {{ this.location|tojson }},
@@ -47,8 +46,7 @@ class SemiCircle(JSCSSMixin, Marker):
                 {%- endif %}
                 .addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -67,7 +65,7 @@ class SemiCircle(JSCSSMixin, Marker):
         stop_angle=None,
         popup=None,
         tooltip=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(location, popup=popup, tooltip=tooltip)
         self._name = "SemiCircle"

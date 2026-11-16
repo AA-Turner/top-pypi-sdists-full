@@ -1,5 +1,6 @@
 //! Whole-project compile reuse on the shared native store, driven by the Python host's facts.
 
+use sqlbuild_python_base::positional_record;
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
@@ -22,7 +23,7 @@ use sqlbuild_cache::project_reuse::models::{
 use sqlbuild_cache::project_snapshot::main::path_text::path_text;
 use sqlbuild_cache::project_snapshot::models::SnapshotRules;
 
-use crate::bindings::_helpers::boundary::panics::compiler_guard;
+use sqlbuild_python_base::boundary::main::compiler_guard::compiler_guard;
 
 positional_record! {
     extract;
@@ -229,11 +230,11 @@ impl NativeReuseAttempt {
                 artifacts_written: record.artifacts_written,
                 dag_path: record.dag_path,
                 json_output: record.json_output,
-                image: crate::bindings::_helpers::compile_context::delta::take_pending_image(),
+                image: sqlbuild_python_base::compile_context::main::delta::take_pending_image::take_pending_image(),
                 vouched_target_stamps: None,
             };
             if let Some(merge) =
-                crate::bindings::_helpers::compile_context::delta::take_record_merge()
+                sqlbuild_python_base::compile_context::main::delta::take_record_merge::take_record_merge()
             {
                 for stamp in &merge.kept {
                     compile

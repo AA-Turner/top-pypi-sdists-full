@@ -149,9 +149,9 @@ class _Episodes:
             time.sleep(min(_MOVE_HOLD_ASK_S, left))
 
     def label_episode(self, episode_id: str, *, success: bool, notes: str = "") -> str:
-        """How the robot's episode went, kept with what its Record keeps
-        (`seq robot set <name> record=on`): written for the id the workers saw it under — and every id it carried after a reconnect moved it. Raises on
-        failure. Returns the last of them, the one it went on under (end_episode).
+        """How the robot's episode went, sent with its steps - a recorder of them reads it, a "label" item (`seq robot
+        record <name>`, sequence_ai.record): written for the id the workers saw it under — and every id it carried after
+        a reconnect moved it. Raises on failure. Returns the last of them, the one it went on under (end_episode).
         """
         with self._lock:
             ids = [episode_id, *self._aliases.get(episode_id, [])]

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from io import BytesIO
 import math
 from typing import Any
 from typing import Literal
@@ -26,7 +25,6 @@ from optuna.visualization._plotly_imports import go
 from optuna.visualization._utils import COLOR_SCALE
 from optuna.visualization.matplotlib import plot_contour as plt_plot_contour
 from optuna.visualization.matplotlib._matplotlib_imports import Axes
-from optuna.visualization.matplotlib._matplotlib_imports import plt
 
 
 parametrize_plot_contour = pytest.mark.parametrize(
@@ -178,12 +176,49 @@ def test_plot_contour(
     params: list[str] | None,
 ) -> None:
     study = specific_create_study()
-    figure = plot_contour(study, params=params)
-    if isinstance(figure, go.Figure):
-        figure.write_image(BytesIO())
+    plot_contour(study, params=params)
+
+
+@pytest.mark.parametrize("n_params", [2, 3])
+def test_plot_contour_infeasible_trials(n_params: int) -> None:
+    params = ["param_a", "param_b", "param_c"][:n_params]
+    feasible_params = {"param_a": 0.0, "param_b": 2.0, "param_c": 10.0}
+    infeasible_params = {"param_a": 1.0, "param_b": 4.0, "param_c": 20.0}
+    distributions: dict[str, BaseDistribution] = {
+        name: FloatDistribution(feasible_params[name], infeasible_params[name])
+        for name in feasible_params
+    }
+    study = create_study()
+    for value, trial_params in enumerate([feasible_params, infeasible_params]):
+        study.add_trial(
+            create_trial(
+                value=float(value),
+                params=trial_params,
+                distributions=distributions,
+                constraints={"constraint": -1.0 if value == 0 else 1.0},
+            )
+        )
+
+    figure = plotly_plot_contour(study, params=params)
+    subplots: list[tuple[int | None, int | None, str, str]]
+    if n_params == 2:
+        subplots = [(None, None, params[0], params[1])]
     else:
-        plt.savefig(BytesIO())
-        plt.close()
+        subplots = [
+            (y_i + 1, x_i + 1, x_param, y_param)
+            for y_i, y_param in enumerate(params)
+            for x_i, x_param in enumerate(params)
+            if x_param != y_param
+        ]
+
+    for row, col, x_param, y_param in subplots:
+        for name, expected in [
+            ("Feasible Trial", feasible_params),
+            ("Infeasible Trial", infeasible_params),
+        ]:
+            (scatter,) = figure.select_traces({"type": "scatter", "name": name}, row=row, col=col)
+            assert list(scatter.x) == [expected[x_param]]
+            assert list(scatter.y) == [expected[y_param]]
 
 
 def test_target_is_none_and_study_is_multi_obj() -> None:

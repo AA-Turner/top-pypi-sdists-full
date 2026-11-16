@@ -66,6 +66,10 @@ static int jm_is_id_part(Py_UCS4 ch) {
     return jm_is_id_start(ch); /* for a code point >= 0x80, identifier-part == identifier-start */
 }
 
+int jm_is_ident_char(Py_UCS4 ch, int leads) {
+    return leads ? jm_is_id_start(ch) : jm_is_id_part(ch);
+}
+
 void jm_lex_init(jm_lexer *lx, const Py_UCS4 *src, Py_ssize_t len) {
     lx->src = src;
     lx->len = len;
@@ -79,16 +83,6 @@ void jm_lex_init(jm_lexer *lx, const Py_UCS4 *src, Py_ssize_t len) {
     lx->comment_count = 0;
     lx->html_comments = 1;
     lx->error = 0;
-}
-
-int jm_text_eq(const jm_lexer *lx, const char *keyword) {
-    Py_ssize_t index = 0;
-    for (; keyword[index] != '\0'; index++) {
-        if (index >= lx->text_len || lx->text[index] != (Py_UCS4)(unsigned char)keyword[index]) {
-            return 0;
-        }
-    }
-    return index == lx->text_len;
 }
 
 /* Whether body[0..body_len) contains needle (an ASCII literal) as a substring. */

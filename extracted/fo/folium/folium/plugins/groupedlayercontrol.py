@@ -12,19 +12,24 @@ class GroupedLayerControl(JSCSSMixin, MacroElement):
     Parameters
     ----------
     groups : dict
-          A dictionary where the keys are group names and the values are lists
-          of layer objects.
-          e.g. {
-              "Group 1": [layer1, layer2],
-              "Group 2": [layer3, layer4]
+        A dictionary where the keys are group names and the values are lists
+        of layer objects. For example::
+
+            {
+                "Group 1": [layer1, layer2],
+                "Group 2": [layer3, layer4]
             }
-    exclusive_groups: bool, default True
-         Whether to use radio buttons (default) or checkboxes.
-         If you want to use both, use two separate instances of this class.
+
+    exclusive_groups : bool, default True
+        Whether to use radio buttons (default) or checkboxes.
+        If you want to use both, use two separate instances of this class.
+    base_layers : list, default None
+        Layer objects, typically tile layers, to show as base layers in this
+        control. These are removed from the regular LayerControl. Use the
+        layers' `show` argument to choose which one is shown on opening.
     **kwargs
         Additional (possibly inherited) options. See
-        https://leafletjs.com/reference.html#control-layers
-
+        https://leafletjs.com/reference-1.9.4.html#control-layers
     """
 
     default_js = [
@@ -40,12 +45,19 @@ class GroupedLayerControl(JSCSSMixin, MacroElement):
         )
     ]
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this,kwargs) %}
 
             L.control.groupedLayers(
+                {%- if this.base_layers %}
+                {
+                    {%- for key, val in this.base_layers.items() %}
+                    {{ key|tojson }} : {{val}},
+                    {%- endfor %}
+                },
+                {%- else %}
                 null,
+                {%- endif %}
                 {
                     {%- for group_name, overlays in this.grouped_overlays.items() %}
                     {{ group_name|tojson }} : {
@@ -63,15 +75,18 @@ class GroupedLayerControl(JSCSSMixin, MacroElement):
             {%- endfor %}
 
         {% endmacro %}
-        """
-    )
+        """)
 
-    def __init__(self, groups, exclusive_groups=True, **kwargs):
+    def __init__(self, groups, exclusive_groups=True, base_layers=None, **kwargs):
         super().__init__()
         self._name = "GroupedLayerControl"
         self.options = remove_empty(**kwargs)
         if exclusive_groups:
             self.options["exclusiveGroups"] = list(groups.keys())
+        self.base_layers = {}
+        for element in base_layers or []:
+            self.base_layers[element.layer_name] = element.get_name()
+            element.control = False
         self.layers_untoggle = set()
         self.grouped_overlays = {}
         for group_name, sublist in groups.items():

@@ -6825,31 +6825,37 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Pause or enable a Search keyword",
+            title="Update a Search keyword",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
     def ad_campaigns_update_ad_keyword(
-        keyword_id: str, status: Literal["active", "paused"]
+        keyword_id: str,
+        status: Literal["active", "paused"] | None = None,
+        cpc_bid: float | None = None,
     ) -> str:
-        """Pause or enable a Search keyword
+        """Update a Search keyword
 
-        Pauses or re-enables a single Google Search keyword.
+        Pauses, re-enables or sets the bid of a single Google Search keyword. Send `status`, `cpcBid` or both.
 
-        Changes `ad_group_criterion.status` for one keyword criterion (M.140).
-        Negative keywords have no status on Google and cannot be paused or enabled.
+        Changes `ad_group_criterion.status` (M.140) and `ad_group_criterion.cpc_bid_micros` for one keyword criterion.
+
+        `cpcBid` is in the ad account currency and takes effect only under Manual CPC bidding. A keyword with no bid of its own reads back `cpcBid: null` and uses its ad group bid.
+
+        Negative keywords have no status or bid on Google and cannot be paused, enabled or given a bid.
 
         Platforms: google
 
         Args:
             keyword_id: Zernio keyword ID (`id`), or Google's native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group. (required)
-            status: (required)"""
+            status
+            cpc_bid: Max CPC bid for this keyword, in the ad account currency. Takes effect only under Manual CPC bidding."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_keyword(
-                keyword_id=keyword_id, status=status
+                keyword_id=keyword_id, status=status, cpc_bid=cpc_bid
             )
             return _format_response(response)
         except Exception as e:
@@ -7749,7 +7755,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_duplicate_ad_campaign(
         campaign_id: str,
-        platform: Literal["facebook", "instagram", "tiktok", "linkedin"],
+        platform: Literal["facebook", "instagram", "tiktok", "linkedin", "google"],
         deep_copy: bool = True,
         status_option: Literal["ACTIVE", "PAUSED", "INHERITED_FROM_SOURCE"] = "PAUSED",
         start_time: str | None = None,
@@ -7771,6 +7777,7 @@ def register_generated_tools(mcp, _get_client):
             - **Meta** copies one level at a time with Meta's `/copies` endpoint. See below.
             - **TikTok** has no native copy primitive. See below.
             - **LinkedIn** has no native copy primitive. See below.
+            - **Google** copies Performance Max campaigns in one atomic request. See below.
             - Other platforms return 501 Not Implemented.
 
             ### Meta
@@ -7778,30 +7785,30 @@ def register_generated_tools(mcp, _get_client):
             Zernio copies the campaign, then each of its ad sets (DELETED and ARCHIVED ones are skipped), then each ad of every ad set. So a campaign of any size copies: Meta refuses a single deep copy of 3 or more objects.
 
             - `statusOption` applies at every level.
-            - If any child copy fails, the partial copy is deleted and the request fails with Meta's error, so a retry starts clean.
-            - Each copied object takes a few seconds, so a large campaign takes minutes ...
+            - If any child copy fails, the partial copy is deleted and the request fails with Meta's error, so a retry starts ...
 
-            Platforms: meta, tiktok, linkedin
+            Platforms: meta, tiktok, linkedin, google
 
             Args:
                 campaign_id: Source platform campaign ID (required)
                 platform: (required)
                 deep_copy: Copy child ad sets + ads + creatives + targeting
-                status_option: ACTIVE = launch the clone immediately (spends the moment LinkedIn approves it). PAUSED = clone stays DRAFT, safe default. INHERITED_FROM_SOURCE = mirror each entity's source status per-entity. Duplicating an ACTIVE campaign this way starts a second front of spend.
+                status_option: ACTIVE = launch the clone immediately (spends the moment LinkedIn approves it). PAUSED = clone stays DRAFT, safe default. Google only accepts PAUSED. INHERITED_FROM_SOURCE = mirror each entity's source status per-entity. Duplicating an ACTIVE campaign this way starts a second front of spend.
                 start_time: Reschedule the copied hierarchy's start (ISO 8601). TikTok defaults to a start a few minutes after the copy.
 
         - Meta and TikTok: a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.
         - LinkedIn: ad accounts carry no timezone, so it is read as UTC.
+        - Google: the date is used as a whole day in the customer timezone.
                 end_time: Reschedule the copied hierarchy's end, read like `startTime`; a date-only end runs to 23:59:59 local. Defaults to the source's end.
                 rename_strategy: Meta's native `rename_strategy` values:
 
         - `DEEP_RENAME`: renames the copied campaign and every copied child (ad sets, ads) with `renamePrefix` / `renameSuffix`.
         - `ONLY_TOP_LEVEL_RENAME`: renames only the copied campaign; children keep their source names.
-        - `NO_RENAME`: keeps every source name.
+        - `NO_RENAME`: keeps every source name. Google returns 400, since its campaign names are unique per account.
 
         With no rename option at all, Meta appends its own ` - Copy` suffix; LinkedIn defaults to `DEEP_RENAME` (its campaign group and campaigns are renamed). Ignored on TikTok, where `renamePrefix` / `renameSuffix` apply to every copied object.
                 rename_prefix: Text prepended to each renamed object's name.
-                rename_suffix: Text appended to each renamed object's name. On LinkedIn an omitted suffix defaults to ` (Copy)`.
+                rename_suffix: Text appended to each renamed object's name. On LinkedIn and Google an omitted suffix defaults to ` (Copy)` when no prefix is sent.
                 sync_after: Trigger ads discovery on the owning account after the copy succeeds"""
         client = _get_client()
         try:
@@ -10808,6 +10815,7 @@ def register_generated_tools(mcp, _get_client):
         location_targeting_type: Literal["presence", "presence_or_interest"]
         | None = None,
         asset_group: dict[str, Any] | None = None,
+        merchant_center: dict[str, Any] | None = None,
         demand_gen: dict[str, Any] | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
@@ -11311,6 +11319,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_type: Google only. Omitted, it is display on a new campaign, and the existing campaign's own type with `existingCampaignId` or `adSetId` (Search, Display or Demand Gen; other types return 422). Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED.
                 location_targeting_type: Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations.
                 asset_group: Object with keys: name (string) - Defaults to the request name.; finalUrl (string, required) - Required destination URL.; headlines (list of string, required); longHeadline (string, required); descriptions (list of string, required) - At least one description must be 60 characters or fewer.; businessName (string, required); images (object with keys landscape, square, logo, required) - Public HTTP(S) image URLs. GIF, JPEG or PNG, at most 5120 KB per image. Google validates dimensions and aspect ratios.; youtubeVideoId (string) - Optional existing YouTube video id. Google can generate video when omitted. Video uploads and arbitrary video URLs are not supported.
+                merchant_center: Google Performance Max only; any other campaign type returns 400. Links the new campaign to a Merchant Center account. Google rejects the create, and nothing is created, when the ad account is not linked to that Merchant Center. Object with keys: merchantId (string, required) - Numeric Merchant Center id.; feedLabel (string) - Feed label to use. Omitted, every feed of the Merchant Center is used.; listingType (one of: vehicles) - Set to `vehicles` for vehicle listings. Omitted, the campaign is a retail Performance Max campaign. Vehicle ads require Google to allowlist the ad account; ...
                 demand_gen: Object with keys: adGroupName (string) - Defaults to the ad name.; finalUrl (string, required); businessName (string, required); headlines (list of string, required) - Distinct texts. A carousel ad takes exactly one.; longHeadlines (list of string) - Video ads only, and required there.; descriptions (list of string, required) - A carousel ad takes exactly one.; callToAction (string) - Image and carousel ads only. Call to action text such as 'Learn more'; Google picks one when omitted.; images (object with keys landscape, square, portrait, logo, required) - Public image URLs. An image ad needs landscape or square; video and carousel ads take only one logo (carousel images go on each card).; youtubeVideoIds (list of string) - Makes the ad a video responsive ad.; carouselCards (list of objects with keys headline, finalUrl, callToAction, images) - Makes the ad a carousel ad. Each card needs its own image (no two cards may share one); use the same image shape on every card. Card images are uploaded to ...; channels (list of string) - Channel controls on the new ad group. Only the listed channels serve; Google Maps, which this list cannot select, is turned off. Omit to send no channel ...; audience (object with keys userLists, userInterests, customAudiences, ageRanges, genders); audienceId (string) - Attach an existing Google Audience by numeric id instead of audience.
                 keywords: Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
                 negative_keywords: Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
@@ -11511,6 +11520,7 @@ def register_generated_tools(mcp, _get_client):
             "campaign_type": campaign_type,
             "location_targeting_type": location_targeting_type,
             "asset_group": asset_group,
+            "merchant_center": merchant_center,
             "demand_gen": demand_gen,
             "keywords": keywords,
             "negative_keywords": negative_keywords,
@@ -11635,6 +11645,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_type=campaign_type,
                 location_targeting_type=location_targeting_type,
                 asset_group=asset_group,
+                merchant_center=merchant_center,
                 demand_gen=demand_gen,
                 keywords=keywords,
                 negative_keywords=negative_keywords,
@@ -14444,6 +14455,9 @@ def register_generated_tools(mcp, _get_client):
           - averageViewDuration          (ratio - weighted mean computed across days)
           - subscribersGained
           - subscribersLost
+          - likes
+          - comments
+          - shares
 
         Zernio-synthesized from daily follower snapshots (cross-platform parity):
           - followers_gained
@@ -25378,6 +25392,7 @@ def register_generated_tools(mcp, _get_client):
         - A LinkedIn connect through an app saves the member's own profile: organization pages, and mention lookups, stay on Zernio's app.
         - The connect requests the app's `scopeAreas`. `scopes` may narrow them but not add an area the app does not enable (400).
         - If the user does not grant every requested area, the account still connects and the redirect carries `missing_permissions=<areas>` (the headless POST returns `missingPermissions`).
+        - A Microsoft login that connected with `email` or `calendar` but has no Exchange Online mailbox still connects (files work), and the redirect carries `mailboxNotice=mailbox_not_available`. Mail and calendar requests then answer 412 `mailbox_not_available`.
         - If the platform refuses a permission your app is not approved for, the redirect carries `error=oauth_app_scope_not_allowed`.
 
         The account remembers the app, and token refresh, publishing and inbox run on it. Reconnecting through another app, or without one, moves the account to that app.
@@ -28972,13 +28987,13 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_list_org_connections(profile_id: str) -> str:
+    def connect_list_org_connections(profile_id: str | None = None) -> str:
         """List organization connections
 
-        The Google Workspace and Microsoft 365 organization connections on a profile, newest first.
+        The Google Workspace and Microsoft 365 organization connections, newest first. Pass `profileId` to list one profile; omit it to list every profile the API key can access (a profile-restricted key or team member only sees its own profiles).
 
         Args:
-            profile_id: (required)"""
+            profile_id: Limit the list to one profile. Omit to list across every accessible profile."""
         client = _get_client()
         try:
             response = client.connect.list_org_connections(profile_id=profile_id)
@@ -29643,7 +29658,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Send conversion events",
+            title="Send conversion events to one destination (legacy)",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -29656,9 +29671,11 @@ def register_generated_tools(mcp, _get_client):
         test_code: str | None = None,
         consent: dict[str, Any] | None = None,
     ) -> str:
-        """Send conversion events
+        """Send conversion events to one destination (legacy)
 
-            Sends conversion events, such as purchases or leads, from your server to an ad platform so it can attribute and optimize ads.
+            Legacy: use [`POST /v1/events`](/conversions/send-events) instead. It sends each event once to every saved destination, retries failures, stores the event and reports what each platform answered. This endpoint keeps working and is not being removed.
+
+            Sends conversion events, such as purchases or leads, from your server to one ad platform destination so it can attribute and optimize ads.
 
             Relays one or more events to the target ad platform's native Conversions API. The platform is inferred from the provided `accountId`. Requires the Ads add-on.
 
@@ -29670,12 +29687,7 @@ def register_generated_tools(mcp, _get_client):
             - TikTok (`tiktokads`) via the Offline Events API `/offline/batch/` (OFFLINE conversions only)
             - OpenAI Ads (`openaiads`) via its Conversions API (a separate host, `bzr.openai.com`)
             - Pinterest (`pinterestads`) via `POST /v5/ad_accounts/{id}/events`
-            - Reddit (`redditads`) via the Reddit Conversions API (`POST /api/v3/pixels/{pixelId}/conversion_events`)
-
-            ### `destinationId` per platform
-
-            - Meta: pixel (dataset) ID, e.g. `123456789012345`
-            - Google: conversion action resource name, e.g. ...
+            - Reddit ...
 
             Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
@@ -30257,7 +30269,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def conversions_list_events(
-        profile_id: str,
+        profile_id: str | None = None,
         limit: int = 50,
         from_: str | None = None,
         to: str | None = None,
@@ -30282,14 +30294,16 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List stored events
 
-        Lists the conversion events stored for a profile by `POST /v1/events`, newest first. Personal data is never
-        returned: `hasEmail`, `hasPhone` and `hasExternalId` only say whether the event carried that identifier.
+        Lists the conversion events stored by `POST /v1/events`, newest first: for one profile, or for every profile you can
+        access when `profileId` is omitted.
+
+        Personal data is never returned: `hasEmail`, `hasPhone` and `hasExternalId` only say whether the event carried that identifier.
         Events sent with `testCode` are not stored, so they never appear here.
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
 
         Args:
-            profile_id: (required)
+            profile_id: The profile to list. Omit to cover every profile you can access.
             limit
             from_: Only events at or after this time (ISO 8601, on the event time).
             to: Only events before this time (ISO 8601, on the event time).
@@ -30333,7 +30347,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Send events to every destination
 
-        Sends conversion events once and forwards them to every ad platform destination saved for the profile (see `POST /v1/events/destinations`), or to the `destinations` given in the request. Requires the Ads add-on.
+        The recommended way to send conversions. Sends conversion events once and forwards them to every ad platform destination saved for the profile (see `POST /v1/events/destinations`), or to the `destinations` given in the request. Requires the Ads add-on.
 
         ### Forwarding
 
@@ -30347,8 +30361,7 @@ def register_generated_tools(mcp, _get_client):
 
         - Email, phone and `externalId` are stored only as SHA-256 hashes.
         - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `gclid`, `fbclid`, `ttclid`, `li_fat_id`, `epik`, `rdt_cid`, `gbraid`, `wbraid`).
-        - Events sent with `testCode` are forwarded but not stored.
-        - Sending an event again with the same ...
+        - Events sent with `testCode` are forwarded but not ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
@@ -30381,18 +30394,73 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def conversions_get_events_overview(profile_id: str) -> str:
+    def conversions_get_events_overview(profile_id: str | None = None) -> str:
         """Get today's tracking overview
 
         How a profile's conversion tracking is doing today (UTC day): events stored, how many reached the ad platforms,
         each forwarding rule's destination, each event source and, when the profile has a tracking site, the site's funnel.
-        Requires the Ads add-on.
+
+        Without `profileId` it covers every profile you can access, summed across them. Requires the Ads add-on.
 
         Args:
-            profile_id: (required)"""
+            profile_id: The profile to read. Omit to cover every profile you can access, summed across them."""
         client = _get_client()
         try:
             response = client.conversions.get_events_overview(profile_id=profile_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get daily tracking figures",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_events_overview_daily(
+        profile_id: str | None = None, period: Literal["today", "7d", "30d"] = "7d"
+    ) -> str:
+        """Get daily tracking figures
+
+        The tracking figures of a period, day by day (UTC): events stored, events sent to the ad platforms and how many they accepted, plus the period's totals in the same shape as the overview's `today`.
+
+        An event sent to a destination counts once, on the day of its first send, by its latest outcome. Without `profileId` it covers every profile you can access. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit to cover every profile you can access, summed across them.
+            period: The days to cover, each ending today (UTC): `today`, the last 7 days or the last 30 days."""
+        client = _get_client()
+        try:
+            response = client.conversions.get_events_overview_daily(
+                profile_id=profile_id, period=period
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List stored event names",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_list_event_names(profile_id: str | None = None) -> str:
+        """List stored event names
+
+        The event names stored for a profile in the last 30 days, with how many events carry each, most used first.
+        It includes custom names, such as a site's own events, so you can filter `GET /v1/events` by `eventName`.
+
+        Without `profileId` it covers every profile you can access. Retracted events are left out. Requires the Ads add-on.
+
+        Args:
+            profile_id: The profile to read. Omit to cover every profile you can access."""
+        client = _get_client()
+        try:
+            response = client.conversions.list_event_names(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -30690,6 +30758,163 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List tracking sites",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_list_tracking_sites(
+        profile_id: str | None = None, limit: int = 50, cursor: str | None = None
+    ) -> str:
+        """List tracking sites
+
+        The websites whose visits and conversions Zernio collects, newest first. Pass `profileId` to list one profile's sites.
+
+        Args:
+            profile_id
+            limit
+            cursor: `pagination.nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.conversions.list_tracking_sites(
+                profile_id=profile_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn on server-side tracking for a website",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_create_tracking_site(
+        idempotency_key: str, body: dict[str, Any]
+    ) -> str:
+        """Turn on server-side tracking for a website
+
+        Creates a tracking site. With `storeAccountId`, Zernio installs its tag on the connected Shopify, WordPress (WooCommerce), Wix or Webflow store. With only `url`, paste the returned `install.snippet` into the site.
+
+        The ad accounts you picked for each connection get a forwarding rule, so website conversions reach them at once. `checks` shows each step; `setup.status` turns `ready` when all have passed.
+
+        Args:
+            idempotency_key: A unique key per site you create, such as a UUID. A retry with the same key and body returns the same site. (required)
+            body: Full request body as documented in the API reference. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.create_tracking_site(
+                idempotency_key=idempotency_key, body=body
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a tracking site",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_tracking_site() -> str:
+        """Get a tracking site
+
+        One site, with its snippet, its custom subdomain and the latest result of each setup check."""
+        client = _get_client()
+        try:
+            response = client.conversions.get_tracking_site()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a tracking site",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_update_tracking_site(
+        name: str | None = None,
+        domains: list[str] | None = None,
+        consent_mode: Literal["eu_opt_in", "opt_in", "opt_out"] | None = None,
+        custom_hostname: str | None = None,
+    ) -> str:
+        """Update a tracking site
+
+        Changes the site's name, domains, consent mode or custom subdomain. Send at least one field.
+
+        `customHostname` sets a subdomain of the site, such as `t.brand.com`; create the CNAME in `customHostname.dnsRecord`. The snippet switches to it once its status is `active`. `null` removes it.
+
+        Args:
+            name
+            domains: Hosts allowed to send events, such as `brand.com`. Events from any other origin are dropped.
+            consent_mode
+            custom_hostname: A subdomain of one of the site's domains, never the domain itself. `null` removes it."""
+        client = _get_client()
+        try:
+            response = client.conversions.update_tracking_site(
+                name=name,
+                domains=domains,
+                consent_mode=consent_mode,
+                custom_hostname=custom_hostname,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a tracking site",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_delete_tracking_site() -> str:
+        """Delete a tracking site
+
+        Stops collecting at once, removes the tag from the connected store and releases the custom subdomain. Events already stored are kept."""
+        client = _get_client()
+        try:
+            response = client.conversions.delete_tracking_site()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Rotate a tracking site's key",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_rotate_tracking_site_key(site_id: str, idempotency_key: str) -> str:
+        """Rotate a tracking site's key
+
+        Issues a new `siteKey`. The old key keeps working for 7 days, so update the snippet on your site within that time.
+
+        Args:
+            site_id: (required)
+            idempotency_key: A unique key per rotation, such as a UUID. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.rotate_tracking_site_key(
+                site_id=site_id, idempotency_key=idempotency_key
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List conversion destinations",
             readOnlyHint=True,
             destructiveHint=False,
@@ -30703,8 +30928,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns the list of pixels (Meta), conversion actions (Google),
         conversion rules (LinkedIn), pixels (OpenAI Ads, Reddit) or ad accounts
-        (Pinterest) accessible to the connected ads account. Use the returned `id` as `destinationId` when
-        posting to `POST /v1/ads/conversions`.
+        (Pinterest) accessible to the connected ads account. Save the returned `id` as a destination with
+        `POST /v1/events/destinations` (or pass it in `destinations` on `POST /v1/events`).
 
         For Google and LinkedIn, each destination's `type` reflects the
         conversion type (PURCHASE, LEAD, SIGN_UP, etc.), and the event type is
@@ -30715,8 +30940,7 @@ def register_generated_tools(mcp, _get_client):
         ones when the connection has an ad-account scope), each with the `adAccountId` that owns
         it. Reddit pixels are created in Reddit Ads Manager, not through Zernio.
 
-        For LinkedIn, destinations are returned across every sponsored ad
-        account the connected token ...
+        For LinkedIn, destinations are returned across ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
@@ -46432,10 +46656,11 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List SMS opt-outs
 
-        The recipients who opted out of SMS (replied STOP) across your numbers,
-        most recent first. Compliance surface: you must be able to see and
-        export your opt-out list. Read-only: a recipient is re-subscribed only
-        by replying START. Pass `format=csv` to download a CSV instead of JSON.
+        The recipients who opted out of SMS across your numbers, most recent
+        first: those who replied STOP and those you recorded with
+        `POST /v1/sms/opt-outs`. `source` says which. Compliance surface: you
+        must be able to see and export your opt-out list. Pass `format=csv` to
+        download a CSV instead of JSON.
 
         Args:
             format
@@ -46443,6 +46668,64 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.sms.list_sms_opt_outs(format=format, limit=limit)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Record an SMS opt-out",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_create_sms_opt_out(account_id: str, phone: str) -> str:
+        """Record an SMS opt-out
+
+        Marks a recipient as opted out on one of your SMS numbers. Use it for
+        opt-outs you collect yourself (for example keywords like UNSUB or
+        REVOKE, which the carrier does not recognize). Sends from that number
+        to the recipient are then refused with `409 recipient_opted_out`.
+
+        Idempotent. If the recipient is already opted out, the call succeeds
+        and `source` keeps the original value (`inbound_stop` when they texted
+        STOP).
+
+        Args:
+            account_id: ID of the SMS number account the opt-out applies to (from `GET /v1/accounts`). (required)
+            phone: Recipient phone number in E.164 format, e.g. +13105559999. (required)"""
+        client = _get_client()
+        try:
+            response = client.sms.create_sms_opt_out(account_id=account_id, phone=phone)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove an SMS opt-out",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_delete_sms_opt_out(account_id: str, phone: str) -> str:
+        """Remove an SMS opt-out
+
+        Re-subscribes a recipient you opted out with `POST /v1/sms/opt-outs`.
+        Succeeds as a no-op when the recipient is not opted out.
+
+        An opt-out the recipient made themselves (texting STOP) cannot be
+        removed here: the carrier keeps blocking the number until they text
+        START, so this returns `409 recipient_opted_out`.
+
+        Args:
+            account_id: ID of the SMS number account the opt-out applies to (from `GET /v1/accounts`). (required)
+            phone: Recipient phone number in E.164 format, e.g. +13105559999. (required)"""
+        client = _get_client()
+        try:
+            response = client.sms.delete_sms_opt_out(account_id=account_id, phone=phone)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -49876,7 +50159,7 @@ def register_generated_tools(mcp, _get_client):
 
         Pre-call cost estimate for a PSTN call: the carrier leg plus optional recording and transcription add-ons.
 
-        It uses the same billing formula as the post-call invoice, so the quote and the final charge can't disagree.
+        The per-minute figure is the most a minute can cost to that destination, so the final charge can be lower.
 
         The carrier figure follows the carrier's per-destination rate card: a call dialed from a number in the destination country uses the local mobile rate, and a `tel:` forward destination is quoted as a second carrier leg billed from the same number.
 
@@ -49925,6 +50208,29 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.voice.create_voice_web_session()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Register a browser to receive calls",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def voice_create_voice_web_inbound_session() -> str:
+        """Register a browser to receive calls
+
+        Mints a login token for the `@telnyx/webrtc` SDK so a browser can receive inbound calls to numbers with `ringInBrowser` on.
+
+        The token belongs to one long-lived credential per number owner, so every registered tab (including teammates' with calls access) rings together. Tokens last about 24 hours; request a new one to re-register.
+
+        Dashboard sessions only: API keys and connector tokens get `403`. Returns `{ enabled: false }` when none of the owner's numbers ring in the browser."""
+        client = _get_client()
+        try:
+            response = client.voice.create_voice_web_inbound_session()
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -49984,6 +50290,7 @@ def register_generated_tools(mcp, _get_client):
     def voice_enable_voice_on_number(
         id: str,
         forward_to: str | None = None,
+        ring_in_browser: bool | None = None,
         recording_enabled: bool | None = None,
         transcription_enabled: bool | None = None,
         transcription_language: Literal["auto", "en", "es"] | None = None,
@@ -50016,6 +50323,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             id: Phone number record ID (from GET /v1/phone-numbers). (required)
             forward_to: tel:+E164, sip:..., or wss://... destination for inbound calls. Empty string clears the forward (outbound-only); omitted preserves the current one.
+            ring_in_browser: Ring the owner's open Zernio dashboard tabs first (registered via POST /v1/voice/calls/web/inbound). Unanswered after 20 seconds, declined, or with no tab open, the call takes the forward destination, else voicemail. Superseded by an active IVR.
             recording_enabled
             transcription_enabled
             transcription_language
@@ -50034,6 +50342,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.enable_voice_on_number(
                 id=id,
                 forward_to=forward_to,
+                ring_in_browser=ring_in_browser,
                 recording_enabled=recording_enabled,
                 transcription_enabled=transcription_enabled,
                 transcription_language=transcription_language,
@@ -50921,6 +51230,7 @@ def register_generated_tools(mcp, _get_client):
             "account.ads.sync_failed",
             "account.ads.sync_recovered",
             "account.rate_limited",
+            "account.privacy_request",
             "calendar.event.created",
             "calendar.event.updated",
             "calendar.event.deleted",

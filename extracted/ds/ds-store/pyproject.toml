@@ -1,6 +1,7 @@
 [build-system]
 requires = [
-    "setuptools==82.0.1",
+    "setuptools==84.2.1",
+    "setuptools_scm==10.3.4",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -8,8 +9,8 @@ build-backend = "setuptools.build_meta"
 dynamic = ["version"]
 name = "ds_store"
 description = "Manipulate Finder .DS_Store files from Python"
-readme = "README.rst"
-requires-python = ">= 3.10"
+readme = "README.md"
+requires-python = ">= 3.11"
 license = "MIT"
 license-files = [
     "LICENSE",
@@ -26,12 +27,12 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3.16",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Desktop Environment",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -51,21 +52,25 @@ ds_store = "ds_store.__main__:main"
 
 [dependency-groups]
 package = [
-    "build == 1.5.0",
-    "twine == 6.2.0",
+    "build == 1.6.1",
+    "twine == 7.0.0",
 ]
 
 pre-commit = [
-    "prek == 0.4.4",
+    "prek == 0.5.7",
+]
+
+towncrier = [
+    "towncrier==26.9.0",
 ]
 
 test = [
-    "coverage == 7.14.1",
-    "pytest == 9.0.3",
+    "coverage == 7.17.0",
+    "pytest == 9.1.1",
 ]
 
 tox = [
-    "tox-uv == 1.35.2"
+    "tox-uv == 1.37.0"
 ]
 
 dev = [
@@ -74,14 +79,16 @@ dev = [
     {include-group = "tox"},
 ]
 
-# Docs are always built on Py3.12; see RTD and tox config files.
+# Docs are always built on Py3.14; see RTD and tox config files.
 docs = [
-    "furo == 2025.12.19",
-    "sphinx == 8.2.3",
+   "griffe-sphinx == 0.3.1",
+    "mkdocstrings-python == 2.0.10",
+    "pyspelling == 2.13",
+    "zensical == 0.1.1",
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = "ds_store.__version__"}
+[tool.setuptools_scm]
+# An empty table is needed to enable setuptools_scm
 
 [tool.coverage.run]
 branch = true
@@ -131,3 +138,55 @@ extend-select = [
 [tool.ruff.lint.per-file-ignores]
 # E501: line too long
 "tests/examples/settings.py" = ["E501"]
+# Ignores needed to pass the Ruff 0.16 update.
+"src/ds_store/__main__.py" = ["BLE001", "S110"]
+"src/ds_store/buddy.py" = ["SIM115"]
+
+[tool.rumdl]
+flavor = "mkdocs"
+include = ["**/*.md"]
+exclude = ["changes/template.md", "comment.md"]
+respect-gitignore = true
+force-exclude = true
+
+# Disable rules:
+# MD014: Forces commands in codeblocks to show output
+# MD042: Empty link - buggy, still flagging on valid MkDocs formatting
+# MD052: Reference link not found - buggy, flagging on valis MkDocs links
+disable = ["MD014", "MD042", "MD052"]
+
+[tool.rumdl.per-file-ignores]
+"changes/**/*.md" = ["MD041"]
+
+[tool.rumdl.MD007]
+indent = 4
+
+[tool.rumdl.MD013]  # Line length
+line_length = 999999  # Force reflow to paragraph content to remove linebreaks
+reflow = true
+reflow_mode = "normalize"
+
+[tool.rumdl.MD026]  # Remove punctuation at the end of headings
+punctuation = ",;:"
+
+[tool.rumdl.MD033]  # No inline HTML
+allowed_elements = ["nospell",]  # pyspelling inline disable tag
+
+[tool.rumdl.MD046]
+style = "fenced"
+
+[tool.towncrier]
+directory = "changes"
+package = "ds_store"
+package_dir = "src"
+filename = "CHANGELOG.md"
+title_format = "## {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/dmgbuild/ds_store/issues/{issue})"
+template = "changes/template.md"
+type = [
+    { directory = "feature", name = "Features", showcontent = true },
+    { directory = "bugfix", name = "Bugfixes", showcontent = true },
+    { directory = "removal", name = "Backward Incompatible Changes", showcontent = true },
+    { directory = "doc", name = "Documentation", showcontent = true },
+    { directory = "misc", name = "Misc", showcontent = false },
+]

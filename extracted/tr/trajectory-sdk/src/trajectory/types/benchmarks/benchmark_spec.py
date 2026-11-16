@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from trajectory._models import BaseModel
+from trajectory.types.benchmark_type import BenchmarkType
 from trajectory.types.benchmarks.runtime_spec import RuntimeSpec
 from trajectory.types.benchmarks.task_spec import TaskSpec
 
@@ -13,6 +14,8 @@ class BenchmarkSpec(BaseModel):
   name: str
 
   description: str = ""
+
+  benchmark_type: BenchmarkType = "generative"
 
   visibility: Literal["public", "private"] = "private"
 

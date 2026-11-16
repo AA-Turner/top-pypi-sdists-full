@@ -17,6 +17,7 @@
 #include "serialize/internal.h"
 #include "serialize/c14n_base.h"
 
+#include "core/work_steps.h"
 #include "dom/tree.h"
 #include "dom/tree_internal.h"
 
@@ -35,14 +36,13 @@ static int c14n_1_1_inherits_xml_attribute(const char *name, Py_ssize_t len) {
 
 /* Append c14n text: only & < > and a carriage return take a reference (as &amp;
    &lt; &gt; &#xD;); tab and newline stay literal, unlike an attribute value. Each
-   clean run is bulk-copied and only the specials between are rewritten. */
+   clean run is bulk-copied and only the specials between are rewritten. A character
+   XML cannot hold stops the run and reaches no branch, so it is dropped. */
 static void c14n_put_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
     Py_ssize_t index = 0;
     while (index < len) {
         Py_ssize_t start = index;
-        while (index < len && text[index] != '&' && text[index] != '<' && text[index] != '>' && text[index] != 0x0D) {
-            index++;
-        }
+        index = c14n_find_text_stop(text, index, len);
         if (index > start) {
             sbuf_put_run(out, &text[start], index - start);
         }
@@ -54,8 +54,8 @@ static void c14n_put_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
                 sbuf_puts(out, "&lt;");
             } else if (character == '>') {
                 sbuf_puts(out, "&gt;");
-            } else {
-                sbuf_puts(out, "&#xD;"); /* the only remaining flagged character is U+000D */
+            } else if (character == 0x0D) {
+                sbuf_puts(out, "&#xD;");
             }
             index++;
         }
@@ -64,15 +64,13 @@ static void c14n_put_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
 
 /* Append a c14n attribute value: & < " take references, and the three whitespace
    controls tab/newline/carriage-return become &#x9; &#xA; &#xD; so a reparse cannot
-   normalize them away; `>` and `'` stay literal. */
+   normalize them away; `>` and `'` stay literal. A character XML cannot hold stops
+   the run and reaches no branch, so it is dropped. */
 static void c14n_put_attr(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
     Py_ssize_t index = 0;
     while (index < len) {
         Py_ssize_t start = index;
-        while (index < len && text[index] != '&' && text[index] != '<' && text[index] != '"' && text[index] != 0x09 &&
-               text[index] != 0x0A && text[index] != 0x0D) {
-            index++;
-        }
+        index = c14n_find_stop(text, index, len, C14N_ATTR_STOPS);
         if (index > start) {
             sbuf_put_run(out, &text[start], index - start);
         }
@@ -88,8 +86,8 @@ static void c14n_put_attr(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
                 sbuf_puts(out, "&#x9;");
             } else if (character == 0x0A) {
                 sbuf_puts(out, "&#xA;");
-            } else {
-                sbuf_puts(out, "&#xD;"); /* the only remaining flagged character is U+000D */
+            } else if (character == 0x0D) {
+                sbuf_puts(out, "&#xD;");
             }
             index++;
         }
@@ -155,13 +153,14 @@ typedef struct {
     Py_ssize_t local_len;
     const Py_UCS4 *value;
     Py_ssize_t value_len;
+    Py_ssize_t position; /* order gathered: the element's own attributes, then the nearest ancestor's first */
 } c14n_attr;
 
 /* Resolve a stored attribute name/value to its c14n sort key: an xml:/xlink: prefix
    maps to its namespace URI and strips to the local name, everything else is in no
    namespace and keys on the whole name. */
 static c14n_attr c14n_make_ref(const char *name, Py_ssize_t name_len, const Py_UCS4 *value, Py_ssize_t value_len) {
-    c14n_attr ref = {name, name_len, "", 0, name, name_len, value, value_len};
+    c14n_attr ref = {name, name_len, "", 0, name, name_len, value, value_len, 0};
     if (name_len > 4 && memcmp(name, "xml:", 4) == 0) {
         ref.ns = C14N_XML;
         ref.ns_len = (Py_ssize_t)sizeof(C14N_XML) - 1;
@@ -204,35 +203,92 @@ static int c14n_name_is_nsdecl(const char *name, Py_ssize_t len) {
     return (len == 5 && memcmp(name, "xmlns", 5) == 0) || (len > 6 && memcmp(name, "xmlns:", 6) == 0);
 }
 
-/* Whether a queued attribute with this qualified name is already collected, so an
-   inherited xml: attribute never shadows the apex's own or a nearer ancestor's. */
-static int c14n_already_has(const c14n_attr *attrs, Py_ssize_t count, const char *name, Py_ssize_t name_len) {
+/* By qualified name and then by the order gathered, so the attribute that wins a
+   name leads the ones it shadows. */
+static int c14n_attr_name_cmp(const void *left, const void *right) {
+    const c14n_attr *first = left;
+    const c14n_attr *second = right;
+    TH_WORK_STEP();
+    Py_ssize_t common = first->name_len < second->name_len ? first->name_len : second->name_len;
+    int order = memcmp(first->name, second->name, (size_t)common);
+    if (order == 0) {
+        order = (first->name_len > second->name_len) - (first->name_len < second->name_len);
+    }
+    return order != 0 ? order : (first->position > second->position) - (first->position < second->position);
+}
+
+/* Drop each inherited xml: attribute that the apex or a nearer ancestor already
+   supplies, so it never shadows theirs. attrs holds the apex's own attributes,
+   which all stay, and then every inheritable one, nearest ancestor first. Looking
+   each one up among those gathered before it costs the square of their number, so
+   they are sorted by name instead and only the first of a name is kept. */
+static Py_ssize_t c14n_drop_shadowed(c14n_attr *attrs, Py_ssize_t own, Py_ssize_t count) {
     for (Py_ssize_t index = 0; index < count; index++) {
-        if (attrs[index].name_len == name_len && memcmp(attrs[index].name, name, (size_t)name_len) == 0) {
-            return 1;
+        attrs[index].position = index;
+    }
+    qsort(attrs, (size_t)count, sizeof(*attrs), c14n_attr_name_cmp);
+    Py_ssize_t kept = 1;
+    for (Py_ssize_t index = 1; index < count; index++) {
+        if (attrs[index].position < own || attrs[index].name_len != attrs[index - 1].name_len ||
+            memcmp(attrs[index].name, attrs[index - 1].name, (size_t)attrs[index].name_len) != 0) {
+            attrs[kept++] = attrs[index];
         }
     }
-    return 0;
+    return kept;
 }
 
 #define C14N_STACK_ATTRS 32
 
+/* An element whose name XML cannot spell, which the canonical form leaves out as serialize(xml) does, while the walk
+   is inside it: the default namespace its children are written against, whether they stand in for the apex, and, for
+   the walk of a tree with prefixed declarations, where the declarations of the left-out run it ends start. */
+typedef struct {
+    const th_node *node;
+    uint8_t ns;
+    int apex;
+    Py_ssize_t run;
+} c14n_left_out;
+
+/* The left-out elements the walk is inside, innermost last. */
+typedef struct {
+    c14n_left_out *items;
+    Py_ssize_t len, cap;
+} c14n_left_outs;
+
+static const c14n_left_out *c14n_left_out_of(const c14n_left_outs *left_outs, const th_node *element) {
+    return left_outs->len > 0 && left_outs->items[left_outs->len - 1].node == element
+               ? &left_outs->items[left_outs->len - 1]
+               : NULL;
+}
+
+/* Whether node is written as an apex: the apex itself, or a child standing in for a left-out apex. */
+static int c14n_is_apex(const th_node *node, const th_node *apex, const c14n_left_out *left_out) {
+    return node == apex || (left_out != NULL && left_out->apex);
+}
+
+/* The default namespace of node's output parent: the empty default above the subset for an apex, else that of the
+   left-out element's tag node stands in for, else its parent's. */
+static uint8_t c14n_parent_ns(const th_node *node, int is_apex, const c14n_left_out *left_out) {
+    if (is_apex) {
+        return TH_NS_HTML;
+    }
+    if (left_out != NULL) {
+        return left_out->ns;
+    }
+    return node->parent->type == TH_NODE_ELEMENT ? node->parent->ns : TH_NS_HTML;
+}
+
 /* Emit an element's start tag "<name decls attrs>": the namespace declarations the
    c14n namespace axis renders (default namespace, then the xlink prefix), followed
-   by the attributes in (namespace URI, local name) order. When node is the apex its
-   ancestors' xml: attributes are inherited onto it (c14n 1.1 excludes xml:id). */
-static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node *apex, const th_c14n_opts *opts,
-                          const th_node **xlink_binding) {
+   by the attributes in (namespace URI, local name) order. When node is written as an
+   apex its ancestors' xml: attributes are inherited onto it (c14n 1.1 excludes xml:id). */
+static TH_TREE_INLINE void c14n_open_tag_as(sbuf *out, th_tree *tree, th_node *node, int is_apex, uint8_t parent_ns,
+                                            const th_c14n_opts *opts, const th_node **xlink_binding) {
     sbuf_putc(out, '<');
     sbuf_put_ucs4(out, node->text, node->text_len);
 
     /* the default namespace is rendered when it differs from the output parent's;
-       comparing the ns enum covers this exactly (HTML is the empty default) and, for
-       an apex, treats the context above the subset as the empty default */
-    uint8_t parent_ns = TH_NS_HTML;
-    if (node != apex && node->parent->type == TH_NODE_ELEMENT) {
-        parent_ns = node->parent->ns;
-    }
+       comparing the ns enum covers this exactly, HTML being the empty default */
     if (node->ns != parent_ns) {
         sbuf_puts(out, " xmlns=\"");
         sbuf_puts(out, c14n_default_uri(node->ns));
@@ -241,7 +297,7 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
 
     int has_xlink = c14n_has_xlink(tree, node);
     int render_xlink;
-    if (node == apex) {
+    if (is_apex) {
         if (opts->exclusive) {
             render_xlink = has_xlink || (c14n_prefix_forced(opts, "xlink") && c14n_xlink_in_scope(tree, node));
         } else {
@@ -260,7 +316,7 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
     }
 
     Py_ssize_t capacity = node->attr_count;
-    if (node == apex && !opts->exclusive) {
+    if (is_apex && !opts->exclusive) {
         for (const th_node *anc = node->parent; anc != NULL; anc = anc->parent) {
             if (anc->type == TH_NODE_ELEMENT) {
                 capacity += anc->attr_count;
@@ -282,7 +338,8 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
         }
         attrs[count++] = c14n_make_ref(name, name_len, node->attrs[index].value, node->attrs[index].value_len);
     }
-    if (node == apex && !opts->exclusive) {
+    if (is_apex && !opts->exclusive) {
+        Py_ssize_t own = count;
         for (const th_node *anc = node->parent; anc != NULL; anc = anc->parent) {
             if (anc->type != TH_NODE_ELEMENT) {
                 continue;
@@ -297,15 +354,15 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
                 if (opts->version == 1 && !c14n_1_1_inherits_xml_attribute(name, name_len)) {
                     continue;
                 }
-                if (!c14n_already_has(attrs, count, name, name_len)) {
-                    attrs[count++] =
-                        c14n_make_ref(name, name_len, anc->attrs[index].value, anc->attrs[index].value_len);
-                }
+                attrs[count++] = c14n_make_ref(name, name_len, anc->attrs[index].value, anc->attrs[index].value_len);
             }
+        }
+        if (count > own) {
+            count = c14n_drop_shadowed(attrs, own, count);
         }
     }
     Py_UCS4 *fixed_base = NULL;
-    if (node == apex && opts->version == 1 && needs_base_fixup) {
+    if (is_apex && opts->version == 1 && needs_base_fixup) {
         Py_ssize_t base_len;
         if (c14n_base_fixup(tree, node, &fixed_base, &base_len) < 0) {
             if (attrs != stack_attrs) {
@@ -338,13 +395,20 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
             attrs[prev + 1] = key;
         }
     }
+    Py_ssize_t clone_start = ser_clone_start(out, node);
     for (Py_ssize_t index = 0; index < count; index++) {
+        Py_ssize_t cost = attrs[index].name_len + attrs[index].value_len;
+        if (clone_start >= 0 && !ser_clone_attr_fits(out, clone_start, cost)) {
+            break;
+        }
+        TH_WORK_STEPS_ADD(cost);
         sbuf_putc(out, ' ');
         sbuf_put_utf8(out, attrs[index].name, attrs[index].name_len);
         sbuf_puts(out, "=\"");
         c14n_put_attr(out, attrs[index].value, attrs[index].value_len);
         sbuf_putc(out, '"');
     }
+    ser_clone_settle(out, clone_start);
     if (attrs != stack_attrs) {
         PyMem_Free(attrs);
     }
@@ -352,6 +416,35 @@ static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node
         PyMem_Free(fixed_base);
     }
     sbuf_putc(out, '>');
+}
+
+/* The start tag of node in a subtree without left-out elements, an apex rendering against the empty default above
+   the subset. */
+static void c14n_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node *apex, const th_c14n_opts *opts,
+                          const th_node **xlink_binding) {
+    uint8_t parent_ns = TH_NS_HTML;
+    if (node != apex && node->parent->type == TH_NODE_ELEMENT) {
+        parent_ns = node->parent->ns;
+    }
+    c14n_open_tag_as(out, tree, node, node == apex, parent_ns, opts, xlink_binding);
+}
+
+#if defined(_MSC_VER)
+#define C14N_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define C14N_NOINLINE __attribute__((noinline))
+#else
+#define C14N_NOINLINE
+#endif
+
+/* The start tag of node in a walk leaving elements out: a child of a left-out element (left_out, NULL otherwise) is
+   written against what that element's tag would have been. Kept out of line so the walk without left-out elements
+   carries no copy of it. */
+static C14N_NOINLINE void c14n_left_out_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node *apex,
+                                                 const c14n_left_out *left_out, const th_c14n_opts *opts,
+                                                 const th_node **xlink_binding) {
+    int is_apex = c14n_is_apex(node, apex, left_out);
+    c14n_open_tag_as(out, tree, node, is_apex, c14n_parent_ns(node, is_apex, left_out), opts, xlink_binding);
 }
 
 static void c14n_close_tag(sbuf *out, const th_node *node) {
@@ -375,22 +468,64 @@ static void c14n_put_pi(sbuf *out, const th_node *node) {
     sbuf_puts(out, "?>");
 }
 
+/* Enter node, which the canonical form leaves out, its children standing in for it; left_out is the left-out element
+   node is a child of, or NULL. */
+static int c14n_left_out_push(c14n_left_outs *left_outs, const th_node *node, const th_node *apex,
+                              const c14n_left_out *left_out, Py_ssize_t run) {
+    int is_apex = c14n_is_apex(node, apex, left_out);
+    uint8_t ns = c14n_parent_ns(node, is_apex, left_out);
+    c14n_left_out *items = ser_reserve(left_outs->items, left_outs->len, &left_outs->cap, sizeof(*items));
+    if (items == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    left_outs->items = items;
+    left_outs->items[left_outs->len++] = (c14n_left_out){node, ns, is_apex, run};
+    return 0;
+}
+
+static void c14n_walk_leaving_out(sbuf *out, th_tree *tree, th_node *node, const th_node *apex,
+                                  const th_c14n_opts *opts, const th_node **xlink_binding);
+
 /* Emit one node of the subtree rooted at apex and return the next node the walk
    visits, or NULL once the subtree is done. Iterative -- descending through
    first_child and closing each element on the way back up -- so an arbitrarily deep
-   tree serializes without one C stack frame per level. */
-static th_node *c14n_step(sbuf *out, th_tree *tree, th_node *node, const th_node *apex, const th_c14n_opts *opts,
-                          const th_node **xlink_binding) {
+   tree serializes without one C stack frame per level. left_outs is NULL until the
+   walk meets an element it leaves out, which hands the rest of the subtree to
+   c14n_walk_leaving_out, so a subtree without one pays no left-out bookkeeping. */
+static TH_TREE_INLINE th_node *c14n_step(sbuf *out, th_tree *tree, th_node *node, const th_node *apex,
+                                         const th_c14n_opts *opts, const th_node **xlink_binding,
+                                         c14n_left_outs *left_outs) {
     th_node *descend = NULL;
     switch ((enum th_node_type)node->type) { /* GCOVR_EXCL_BR_LINE: node types are exhaustive */
-    case TH_NODE_ELEMENT:
-        c14n_open_tag(out, tree, node, apex, opts, xlink_binding);
+    case TH_NODE_ELEMENT: {
+        if (left_outs == NULL) {
+            if (node->atom == TH_TAG_UNKNOWN && !ser_xml_element_name_wellformed(node)) {
+                c14n_walk_leaving_out(out, tree, node, apex, opts, xlink_binding);
+                return NULL;
+            }
+            c14n_open_tag(out, tree, node, apex, opts, xlink_binding);
+        } else {
+            const c14n_left_out *left_out = c14n_left_out_of(left_outs, node->parent);
+            if (node->atom == TH_TAG_UNKNOWN && !ser_xml_element_name_wellformed(node)) {
+                if (node->first_child == NULL) {
+                    break;
+                }
+                if (c14n_left_out_push(left_outs, node, apex, left_out, 0) < 0) { /* GCOVR_EXCL_BR_LINE: OOM */
+                    out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+                    return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
+                }
+                descend = node->first_child;
+                break;
+            }
+            c14n_left_out_open_tag(out, tree, node, apex, left_out, opts, xlink_binding);
+        }
         if (node->first_child != NULL) {
             descend = node->first_child;
         } else {
             c14n_close_tag(out, node); /* an empty element is a start-end pair, never self-closed */
         }
         break;
+    }
     case TH_NODE_TEXT:
     case TH_NODE_CDATA: /* a CDATA section canonicalizes as its escaped character data */
         if (need_text(tree, node) == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: lazy text OOM */
@@ -427,7 +562,9 @@ static th_node *c14n_step(sbuf *out, th_tree *tree, th_node *node, const th_node
             return node->next_sibling;
         }
         node = node->parent;
-        if (node->type == TH_NODE_ELEMENT) {
+        if (left_outs != NULL && c14n_left_out_of(left_outs, node) != NULL) {
+            left_outs->len--;
+        } else if (node->type == TH_NODE_ELEMENT) {
             c14n_close_tag(out, node);
         }
     }
@@ -439,8 +576,19 @@ static void c14n_subtree(sbuf *out, th_tree *tree, th_node *apex, const th_c14n_
     const th_node *xlink_binding = !opts->exclusive && c14n_xlink_in_scope(tree, apex->parent) ? apex->parent : NULL;
     th_node *node = apex;
     while (node != NULL) {
-        node = c14n_step(out, tree, node, apex, opts, &xlink_binding);
+        node = c14n_step(out, tree, node, apex, opts, &xlink_binding, NULL);
     }
+}
+
+/* Finish the walk of the subtree rooted at apex from node, the first element it leaves out, tracking the left-out
+   elements it is inside. */
+static C14N_NOINLINE void c14n_walk_leaving_out(sbuf *out, th_tree *tree, th_node *node, const th_node *apex,
+                                                const th_c14n_opts *opts, const th_node **xlink_binding) {
+    c14n_left_outs left_outs = {NULL, 0, 0};
+    while (node != NULL) {
+        node = c14n_step(out, tree, node, apex, opts, xlink_binding, &left_outs);
+    }
+    PyMem_Free(left_outs.items);
 }
 
 /* Canonicalize a document node: each element child as its own apex, and every
@@ -474,11 +622,16 @@ static void c14n_document(sbuf *out, th_tree *tree, th_node *doc, const th_c14n_
     }
 }
 
+#include "serialize/c14n_scoped.h"
+
 Py_UCS4 *th_node_canonicalize(th_tree *tree, th_node *node, const th_c14n_opts *opts, Py_ssize_t *out_len) {
     if (tree->has_xml_ns) {
         return th_node_canonicalize_xml(tree, node, opts, out_len);
     }
-    sbuf out = {NULL, 0, 0, 0};
+    if (tree->has_prefix_decl) {
+        return c14n_scoped_canonicalize(tree, node, opts, out_len);
+    }
+    sbuf out = {NULL, 0, 0, 0, 0};
     if (node->type == TH_NODE_DOCUMENT) {
         sbuf_presize_for_c14n(&out, tree);
         c14n_document(&out, tree, node, opts);

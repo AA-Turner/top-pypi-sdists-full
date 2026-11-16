@@ -258,17 +258,19 @@ class BaseClient(EnumEnforcer):
         which to filter.
 
         :param max_results: The maximum number of orders to retrieve.
+                            Maximum 5000.
         :param from_entered_datetime: Specifies that no orders entered before
-                                      this time should be returned. Date must
-                                      be within 60 days from today's date.
+                                      this time should be returned. The API
+                                      requires that to_entered_datetime minus
+                                      from_entered_datetime not exceed one
+                                      year, but imposes no limit on how long
+                                      ago the dates themselves may be.
                                       ``toEnteredTime`` must also be set.
         :param to_entered_datetime: Specifies that no orders entered after this
                                     time should be returned. ``fromEnteredTime``
                                     must also be set.
         :param status: Restrict query to orders with this status. See
                        :class:`Order.Status` for options.
-        :param statuses: Restrict query to orders with any of these statuses.
-                         See :class:`Order.Status` for options.
         '''
         path = '/trader/v1/accounts/{}/orders'.format(account_hash)
         return self._get_request(path, self._make_order_query(
@@ -287,9 +289,13 @@ class BaseClient(EnumEnforcer):
         which to filter.
 
         :param max_results: The maximum number of orders to retrieve.
+                            Maximum 5000.
         :param from_entered_datetime: Specifies that no orders entered before
-                                      this time should be returned. Date must
-                                      be within 60 days from today's date.
+                                      this time should be returned. The API
+                                      requires that to_entered_datetime minus
+                                      from_entered_datetime not exceed one
+                                      year, but imposes no limit on how long
+                                      ago the dates themselves may be.
                                       ``toEnteredTime`` must also be set.
         :param to_entered_datetime: Specifies that no orders entered after this
                                     time should be returned. ``fromEnteredTime``
@@ -371,9 +377,10 @@ class BaseClient(EnumEnforcer):
         :param account_hash: Account hash corresponding to the account whose 
                              transactions should be returned.
         :param start_date: Only transactions after this date will be returned.
-                           Date must be within 60 days of the current date. If 
-                           this parameter is not set, it will be set to 60 days 
-                           prior to now.
+                           The API requires that ``end_date - start_date`` not
+                           exceed one year, but imposes no limit on how long
+                           ago the dates themselves may be. If this parameter
+                           is not set, it will be set to 60 days prior to now.
                            Accepts ``datetime.date`` and ``datetime.datetime``.
         :param end_date: Only transactions before this date will be returned. If 
                          this parameter is not set, it will be set to the 
@@ -453,6 +460,7 @@ class BaseClient(EnumEnforcer):
             EXTENDED = 'extended'
             REFERENCE = 'reference'
             REGULAR = 'regular'
+            ALL = 'all'
 
     def get_quote(self, symbol, *, fields=None):
         '''
@@ -670,8 +678,9 @@ class BaseClient(EnumEnforcer):
     # Option Expiration Chain
 
     def get_option_expiration_chain(self, symbol):
-        '''Preferences for the logged in account, including all linked
-        accounts.'''
+        '''Get the list of option expiration dates available for a
+        symbol, including each expiration's type, settlement type,
+        and days to expiration.'''
         path = '/marketdata/v1/expirationchain'
         return self._get_request(path, {'symbol': symbol})
 
@@ -1051,8 +1060,9 @@ class BaseClient(EnumEnforcer):
         '''Retrieve market hours for specified markets
 
         :param markets: Markets for which to return trading hours.
-        :param date: Date for which to return market hours. Accepts values up to 
-                     one year from today. Accepts ``datetime.date``.
+        :param date: Date for which to return market hours. Accepts dates from 
+                     up to 7 days in the past to one year in the future. 
+                     Accepts ``datetime.date``.
         '''
         markets = self.convert_enum_iterable(markets, self.MarketHours.Market)
 

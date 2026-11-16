@@ -111,8 +111,17 @@ class RunSamples:
     ) -> int:
         """Journal parts (dicts or `SamplePartIn`-shaped models), ``role`` unless a part names its
         own. ``step`` is the step they count toward in its seal (default: each part's consumed,
-        else scheduled step). Returns how many were taken. Never raises."""
+        else scheduled step). Returns how many were taken. Never raises. A graded part may carry
+        `failure_reason` (why it failed, a short category: its first line, ≤200 chars, is kept), a generator
+        part `sampling` (a dict of engine sampling params or a `SamplingSettings`: temperature, top_p, top_k and
+        the token cap are kept)."""
         return self._guard("log", self._log_parts, samples, role, step) or 0
+
+    def log_hardware(self, sample_key: str, readings) -> None:
+        """GPU observations for exactly this sample key and write epoch, through the durable hardware rail."""
+        from .hardware import SampleHardwareWriter
+
+        self._guard("log_hardware", SampleHardwareWriter(self._run).log_readings, sample_key, readings)
 
     def score(
         self,
@@ -121,13 +130,17 @@ class RunSamples:
         scorer: Mapping[str, Any],
         reward: float | None = None,
         reward_parts: Mapping[str, float] | None = None,
+        failure_reason: str | None = None,
     ) -> None:
-        """Append a grade to an attempt (a regrade, a judge): one `scorer` part."""
+        """Append a grade to an attempt (a regrade, a judge): one `scorer` part. ``failure_reason``: why this grade
+        failed, a short category; a regrade without one shows none (the reason belongs to its grade)."""
         part = {"key": key, "role": PartRole.SCORER, "scored_by": [dict(scorer)]}
         if reward is not None:
             part["reward"] = reward
         if reward_parts:
             part["reward_parts"] = dict(reward_parts)
+        if failure_reason is not None:
+            part["failure_reason"] = failure_reason
         self._guard("score", self._log_parts, [part], PartRole.SCORER, None)
 
     def attempt_start(self, key: str, *, task_key: str, step: int | None = None, **fields: Any) -> None:
@@ -162,15 +175,22 @@ class RunSamples:
         turns: int | None = None,
         tokens: int | None = None,
         activity: str | None = None,
+        last_progress_at: datetime | str | None = None,
+        phase_limit_s: float | None = None,
+        is_output_visible: bool | None = None,
         **fields: Any,
     ) -> None:
         """How the sample is going: its whole snapshot (`phase`, `turns`, `tokens`, `activity`, a line like
         `tool bash: pytest -x`) as a `progress` part. Its first progress and each new phase go at once; the rest at
         most one per sample per 30 s. A changed value is progress and moves `last_progress_at`; the same values
-        again only say it is alive."""
+        again only say it is alive. ``last_progress_at`` says progress happened then though no value changed (an
+        agent's output grew). ``phase_limit_s`` (the producer's own limit on this phase, seconds) and
+        ``is_output_visible`` ride every later beat; a new phase without a limit drops the old one."""
 
         def send() -> None:
-            changes = {"phase": phase, "turns": turns, "tokens": tokens, "activity": _cut_activity(activity)}
+            changes = {"phase": phase, "turns": turns, "tokens": tokens, "activity": _cut_activity(activity),
+                       "last_progress_at": last_progress_at, "phase_limit_s": phase_limit_s,
+                       "is_output_visible": is_output_visible}
             # Checked before the snapshot takes it: a bad value kept there would fail every later beat.
             checked = AttemptProgress.model_validate({name: value for name, value in changes.items() if value is not None})
             is_news = self._beats.update_progress(key, checked.model_dump(mode="json", exclude_none=True), _get_now())

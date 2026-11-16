@@ -35,54 +35,19 @@ from dataclasses import dataclass
 from itertools import starmap
 from typing import Final, NamedTuple, cast
 
-from turbohtml._html import Element, HTMLParseError, _boilerplate, parse, parse_xml
-
 from ._article import Article
 from ._dates import DateExtraction, PublicationDate, dates
 from ._feed import Entry, Feed
 from ._links import Link
+from ._native import (
+    Element,
+    HTMLParseError,
+    parse,
+    parse_xml,
+)
+from ._native import boilerplate as _boilerplate
 from ._structured_data import MicrodataItem, OpenGraph, RdfaItem, StructuredData
 from ._urls import UrlCleaning, clean_url, extract_links, normalize_url
-
-__all__ = [
-    "Article",
-    "DateExtraction",
-    "Element",
-    "Entry",
-    "Extraction",
-    "Feed",
-    "Link",
-    "MicrodataItem",
-    "OpenGraph",
-    "Paragraph",
-    "PublicationDate",
-    "RdfaItem",
-    "StructuredData",
-    "UrlCleaning",
-    "boilerplate",
-    "clean_url",
-    "dates",
-    "extract_links",
-    "feed",
-    "microdata",
-    "normalize_url",
-    "opengraph",
-]
-
-
-class Paragraph(NamedTuple):
-    """
-    One paragraph unit of a page and its classification, the record :func:`boilerplate` returns.
-
-    ``text`` is the unit's whitespace-normalized visible text (never empty; a blank unit is not reported).
-    ``is_boilerplate`` is ``True`` for navigation, footers, sidebars, and any in-content unit that fails the
-    :class:`Extraction` thresholds; the ``False`` entries concatenate to the article. ``is_heading`` marks
-    ``<h1>``-``<h6>`` units whatever their classification.
-    """
-
-    text: str
-    is_boilerplate: bool
-    is_heading: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,11 +79,60 @@ class Extraction:
 
     @classmethod
     def justext(cls) -> Extraction:
-        """Justext's defaults: its 70-character ``length_low`` floor and 0.2 ``max_link_density``."""
+        """
+        Justext's defaults: its 70-character ``length_low`` floor and 0.2 ``max_link_density``.
+
+        :returns: the extraction with justext's default thresholds.
+        """
         return cls(min_length=70, max_link_density=0.2)
 
 
-_DEFAULT: Final = Extraction()
+_DEFAULT: Final[Extraction] = Extraction()
+
+
+def boilerplate(html: str, options: Extraction | None = None, /) -> list[Paragraph]:
+    """
+    Segment a page into paragraph units and classify each as content or boilerplate, in document order.
+
+    The successor to ``justext.justext`` and ``boilerpy3``'s per-block ``is_content``: the C main-content scoring
+    picks the content body exactly as :meth:`turbohtml.Node.main_content` does, every unit outside it is
+    boilerplate, and a unit inside it must still clear the ``options`` length and link-density thresholds. A page
+    with no scoring content body (a stub, pure navigation) classifies every unit as boilerplate.
+
+    :param html: the page markup.
+    :param options: the classification thresholds; defaults to :class:`Extraction`.
+    :returns: one :class:`Paragraph` per non-blank unit.
+    """
+    thresholds = options or _DEFAULT
+    document = parse(html)
+    rows = _boilerplate(
+        # a parsed document always has an <html> root, though the type admits None
+        cast("Element", document.root),
+        document.main_content(),
+        thresholds.min_length,
+        thresholds.max_link_density,
+        thresholds.keep_headings,
+    )
+    return list(starmap(Paragraph, rows))
+
+
+class Paragraph(NamedTuple):
+    """
+    One paragraph unit of a page and its classification, the record :func:`boilerplate` returns.
+
+    ``text`` is the unit's whitespace-normalized visible text (never empty; a blank unit is not reported).
+    ``is_boilerplate`` is ``True`` for navigation, footers, sidebars, and any in-content unit that fails the
+    :class:`Extraction` thresholds; the ``False`` entries concatenate to the article. ``is_heading`` marks
+    ``<h1>``-``<h6>`` units whatever their classification.
+
+    :param text: the unit's whitespace-normalized visible text.
+    :param is_boilerplate: whether the unit is navigation, a footer, a sidebar, or other non-article text.
+    :param is_heading: whether the unit is an ``<h1>`` to ``<h6>`` heading.
+    """
+
+    text: str
+    is_boilerplate: bool
+    is_heading: bool
 
 
 def microdata(html: str, base_url: str | None = None, /) -> list[MicrodataItem]:
@@ -166,11 +180,12 @@ def feed(xml: str, /) -> Feed | None:
     Detects the format from the root element and maps each format's spelling of a field onto one shape: the feed's
     ``title``, ``link``, ``description``, and ``updated``, and its ``entries``, each :class:`Entry` carrying ``title``,
     ``link``, ``id``, ``updated``/``published``, ``summary``/``content``, and ``author``. Timestamps are returned
-    verbatim, not parsed. A well-formed feed parses under :func:`turbohtml.parse_xml`, so CDATA sections and nested
-    elements such as a channel ``<image>`` keep their XML meaning. An Atom XML root must declare the
-    ``http://www.w3.org/2005/Atom`` namespace; an RSS 2.0 XML root must declare ``version="2.0"``. A feed that is not
-    well-formed XML falls back to the HTML tree builder's recovery. Shorthand for
-    :meth:`turbohtml.Document.feed` on either tree.
+    verbatim, not parsed.
+
+    A well-formed feed parses under :func:`turbohtml.parse_xml`, so CDATA sections and nested elements such as a channel
+    ``<image>`` keep their XML meaning. An Atom XML root must declare the ``http://www.w3.org/2005/Atom`` namespace; an
+    RSS 2.0 XML root must declare ``version="2.0"``. A feed that is not well-formed XML falls back to the HTML tree
+    builder's recovery. Shorthand for :meth:`turbohtml.Document.feed` on either tree.
 
     :param xml: the feed document.
     :returns: the parsed :class:`Feed`, or ``None`` when ``xml`` has no ``<rss>``, ``<feed>``, or ``<rdf:RDF>`` root.
@@ -182,27 +197,27 @@ def feed(xml: str, /) -> Feed | None:
     return document.feed()
 
 
-def boilerplate(html: str, options: Extraction | None = None, /) -> list[Paragraph]:
-    """
-    Segment a page into paragraph units and classify each as content or boilerplate, in document order.
-
-    The successor to ``justext.justext`` and ``boilerpy3``'s per-block ``is_content``: the C main-content scoring
-    picks the content body exactly as :meth:`turbohtml.Node.main_content` does, every unit outside it is
-    boilerplate, and a unit inside it must still clear the ``options`` length and link-density thresholds. A page
-    with no scoring content body (a stub, pure navigation) classifies every unit as boilerplate.
-
-    :param html: the page markup.
-    :param options: the classification thresholds; defaults to :class:`Extraction`.
-    :returns: one :class:`Paragraph` per non-blank unit.
-    """
-    thresholds = options or _DEFAULT
-    document = parse(html)
-    rows = _boilerplate(
-        # a parsed document always has an <html> root, though the type admits None
-        cast("Element", document.root),
-        document.main_content(),
-        thresholds.min_length,
-        thresholds.max_link_density,
-        thresholds.keep_headings,
-    )
-    return list(starmap(Paragraph, rows))
+__all__ = [
+    "Article",
+    "DateExtraction",
+    "Element",
+    "Entry",
+    "Extraction",
+    "Feed",
+    "Link",
+    "MicrodataItem",
+    "OpenGraph",
+    "Paragraph",
+    "PublicationDate",
+    "RdfaItem",
+    "StructuredData",
+    "UrlCleaning",
+    "boilerplate",
+    "clean_url",
+    "dates",
+    "extract_links",
+    "feed",
+    "microdata",
+    "normalize_url",
+    "opengraph",
+]

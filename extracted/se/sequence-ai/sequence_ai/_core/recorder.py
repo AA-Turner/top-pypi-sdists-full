@@ -1,21 +1,25 @@
 """
-Your own recorder of a policy's steps (sequence_ai.record): every step each of its robots runs, straight from the
-workers that served them, to write wherever you keep your data - the platform keeps none of it. Turn it on with
-`seq policy set <name> record=on`; it is apart from capture, which is the platform keeping your episodes.
+Your own recorder of a robot's steps (sequence_ai.record, `seq robot record`): every step it runs, straight from the
+workers that serve it, to write wherever you keep your data - the platform keeps none of it. Turn on the robot's Record,
+in the console by its name or `seq robot set <name> record=on`: it says the robot's steps may be read this way, nothing
+more.
 
-In one sentence: record() asks the platform for the policy's workers (POST /v1/record/connect, with a record key of the
-policy - `seq record add --policy <name>`) → one connection to each worker's /record, with a token that opens that
-alone → each worker sends every record it keeps from where this recorder last was - a robot's observations, its acts
-and what they answered, its labels, its episodes' ends - and a gap, how many it lost, where it was away too long →
-steps() yields one item an act (the observations its robot sent since its last act with it), one a label, one an
-episode's end, one a gap; the platform is asked again every refresh_s, so a worker started since is read and a gone one
-let go.
+In one sentence: record() asks the platform for the robot's workers (POST /v1/record/connect {"robot": its name}, with
+your account's key - or the robot's own key, which reads that robot alone) → one connection to each worker's /record,
+with a token that opens that robot's records alone → each worker sends every record of it it keeps from where this
+recorder last was - the robot's observations, its acts and what they answered, its labels, its episodes' ends - and a
+gap, how many it lost, where this recorder was away too long → steps() yields one item an act (the observations the
+robot sent since its last act), one a label, one an episode's end, one a gap; the platform is asked again every
+refresh_s, so the worker the robot moves to is read, and while the robot is not connected (connected false) none is,
+until it connects.
 
-What a worker keeps for you is in its memory alone, its newest minute (60 s, 32 MiB at most): a recorder away longer
-loses the oldest and is told how many (a "gap" item). One that must have no gap keeps capture on as well. A worker
-hears record=on within a minute: the steps of an episode it served before then were never kept, and that episode's
-first item comes after a gap that says which. Each item names its robot by its key's name and last four, as `seq usage`
-does.
+What a worker keeps for you is in its memory alone: the newest minute of the steps it records (60 s), 32 MiB at most for
+all its robots together - less than a minute of each where it serves several
+. A recorder away longer loses the
+oldest and is told how many (a "gap" item). A worker hears the Record turned on or off within a minute; turned
+off, the platform answers 409 record_off and steps() ends with it. write()/read() keep the items in a file, one msgpack
+map after another - what `seq robot record` writes and sequence_ai.read_record reads, the same items steps() gives.
+
 
 
 """
@@ -25,9 +29,10 @@ import logging
 import queue
 import threading
 import time
-from typing import Any, Iterator, Optional
+from typing import IO, Any, Iterator, Optional
 
-from ..errors import AuthError, Conflict, NotFound, PermissionDenied
+from ..errors import AuthError, Conflict, Gone, NotFound, PermissionDenied
+from . import msgpack_io
 from . import worker_stream as _stream
 from .pinned_tls import build_pinned_ssl_context
 from .worker_transport import _keepalive_options
@@ -56,19 +61,20 @@ class _Feed:
 
 
 class Recorder:
-    """A recorder of one policy's steps (module docstring) - from sequence_ai.record(), not made directly. Use it as a
-    context manager, or close() it."""
+    """A recorder of one robot's steps (module docstring) - from sequence_ai.record(), not made directly. Use it as a
+    context manager, or close() it. `robot` its name as the platform says it; `connected` whether the robot was
+    connected at the platform's newest answer, and `teleop_only` whether to teleop alone then - which no worker serves,
+    so none of its steps come here: its own SDK writes them to a file on its machine (teleop_record)."""
 
-    def __init__(self, gateway: Any, policy: str, *, timeout_s: float = _OPEN_S) -> None:
-        self.policy = policy
+    def __init__(self, gateway: Any, robot: Optional[str], *, timeout_s: float = _OPEN_S) -> None:
+        self.robot = robot
+        self.connected = False
+        self.teleop_only = False
         self._gateway = gateway
         self._timeout_s = timeout_s
         self._lock = threading.Lock()
         self._raw: queue.Queue = queue.Queue()
         self._feeds: dict[str, _Feed] = {}
-        self._robots: dict[str, str] = {}
-        self._tails: dict[str, str] = {}
-        self._asked: set = set()
         self._opening = threading.Lock()
         self._closed = threading.Event()
         self._failed: Optional[BaseException] = None
@@ -84,13 +90,14 @@ class Recorder:
 
 
     def _ask(self) -> dict:
-        return self._gateway.post(CONNECT, {"policy": self.policy}) or {}
+        return self._gateway.post(CONNECT, {"robot": self.robot} if self.robot else {}) or {}
 
     def _take(self, answer: dict, *, at_start: bool = False) -> None:
         listed = {str(w.get("worker")): w for w in answer.get("workers") or [] if w.get("worker")}
         with self._lock:
-            self._robots.update(answer.get("robots") or {})
-            self._tails.update(answer.get("last_four") or {})
+            self.robot = str(answer.get("robot") or self.robot or "") or None
+            self.connected = bool(answer.get("connected", bool(listed)))
+            self.teleop_only = bool(answer.get("teleop_only"))
             self._refresh_s = float(answer.get("refresh_s") or _REFRESH_S)
             for label, entry in listed.items():
                 feed = self._feeds.get(label)
@@ -137,7 +144,7 @@ class Recorder:
                 options=self._options, on_push=lambda record, label=feed.label: self._said(label, record),
                 on_end=lambda why, label=feed.label: self._ended(label, why))
         except Exception as exc:
-            _log.warning("worker %s of %s not reached: %s", feed.label, self.policy, exc)
+            _log.warning("worker %s of %s not reached: %s", feed.label, self.robot, exc)
             feed.stream = None
 
     def _said(self, label: str, record: dict) -> None:
@@ -156,7 +163,7 @@ class Recorder:
 
     def _ended(self, label: str, why: str) -> None:
         if not self._closed.is_set():
-            _log.info("worker %s of %s: its connection ended (%s); read again from where it was", label, self.policy,
+            _log.info("worker %s of %s: its connection ended (%s); read again from where it was", label, self.robot,
                       why)
             self._raw.put((label, {"t": "_ended"}))
 
@@ -164,20 +171,19 @@ class Recorder:
         while not self._closed.wait(self._refresh_s):
             try:
                 self._take(self._ask())
-            except (AuthError, PermissionDenied, NotFound, Conflict) as exc:
+            except (AuthError, PermissionDenied, NotFound, Conflict, Gone) as exc:
                 self._failed = exc
                 self._raw.put((None, {"t": "_failed"}))
                 return
             except Exception as exc:
-                _log.warning("the platform's answer for %s did not come: %s; asked again", self.policy, exc)
+                _log.warning("the platform's answer for %s did not come: %s; asked again", self.robot, exc)
 
 
     def steps(self) -> Iterator[dict]:
-        """Every step of the policy's robots as it comes, one dict an item, `kind` saying which:
+        """Every step of the robot as it comes, one dict an item, `kind` saying which:
 
-            "step"   one act: {"robot" (the name of the key its robot connected with), "robot_key" (that key's
-                     last four as `seq robot list` prints them, "…ab12"), "session", "episode", "step",
-                     "observations": [[step, observation], ...] - each its robot sent since its last act, as it sent
+            "step"   one act: {"robot" (its name), "session", "episode", "step",
+                     "observations": [[step, observation], ...] - each the robot sent since its last act, as it sent
                      it (a Video, Depth or Tactile item as its map, never decoded) - "action" (what the act answered),
                      "params" (the inference parameters it ran with), "driver" ("model", or "human" through teleop,
                      with "operator"), "path" (the way its action reached the robot: "worker", or "direct" - a person's
@@ -194,16 +200,16 @@ class Recorder:
                      "asked_at", "frame" (its newest frame as a JPEG, or None)}
             "gap"    a worker let records go before this recorder read them: {"worker", "count" (None when it cannot be
                      told: the worker ended), "why"} - or, its "count" None, steps of an episode that came to its worker
-                     while record was not on there yet (it comes on within a minute of `seq policy set <name>
-                     record=on`), never recorded: {"robot", "robot_key", "session", "episode", "observations" and "acts"
-                     (the [first, last] steps of each that came then, None for none), "at", "worker", "n", "why"},
-                     before that episode's first item
+                     while its Record was not on there yet (it comes on within a minute of being turned on), never
+                     recorded: {"robot", "session", "episode", "observations" and "acts" (the [first, last] steps of
+                     each that came then, None for none), "at", "worker", "n", "why"}, before that episode's first item
 
         Every item but a worker's gap says its worker and that worker's number of it ("worker", "n"): a recorder
-        started again reads what each worker still keeps - its newest minute - again, and those two tell which it had.
-        Ends at close(); raises what the platform refused it with (record turned off, the key revoked)."""
+        started again reads what each worker still keeps - its newest minute at most - again, and those two tell which
+        it had.
+        Ends at close(); raises what the platform refused it with (its Record turned off: Conflict, details.reason
+        "record_off"; the key revoked; the robot gone)."""
         pending: dict = {}
-        robots_of: dict = {}
         while True:
             label, record = self._raw.get()
             kind = record.get("t")
@@ -220,13 +226,10 @@ class Recorder:
                     self.dropped += record["count"]
                 item = {"kind": "gap", "worker": label, "count": record.get("count"),
                         "why": record.get("why") or "the worker let them go before this recorder read them: it keeps "
-                                                    "its newest minute"}
+                                                    "the newest minute of what it records, 32 MiB at most for all its "
+                                                    "robots"}
                 if "episode" in record:
-                    session = record.get("session")
-                    if record.get("robot"):
-                        robots_of[session] = record["robot"]
-                    name, tail = self._who(record.get("robot") or robots_of.get(session))
-                    item.update({"robot": name, "robot_key": tail, "session": session, "episode": record["episode"],
+                    item.update({"robot": self.robot, "session": record.get("session"), "episode": record["episode"],
                                  "observations": record.get("observations"), "acts": record.get("acts"),
                                  "at": record.get("at"), "n": record.get("n")})
                 yield item
@@ -243,14 +246,10 @@ class Recorder:
             if kind not in ("observe", "act", "label", "end", "driver", "help"):
                 continue
             session, episode = record.get("session"), record.get("episode")
-            if record.get("robot"):
-                robots_of[session] = record["robot"]
-            key = record.get("robot") or robots_of.get(session)
             if kind == "observe":
                 pending.setdefault(episode, []).append([record.get("step"), record.get("observation")])
                 continue
-            name, tail = self._who(key)
-            base = {"robot": name, "robot_key": tail, "session": session, "episode": episode,
+            base = {"robot": self.robot, "session": session, "episode": episode,
                     "at": record.get("at"), "worker": label, "n": record.get("n")}
             if kind == "act":
                 seen = pending.pop(episode, []) if record.get("driver") != "human" else []
@@ -274,24 +273,6 @@ class Recorder:
                        "hold": record.get("hold"), "asked_at": record.get("asked_at"), "frame": record.get("frame")}
             else:
                 yield {"kind": "end", **base, "observations": pending.pop(episode, [])}
-
-    def _who(self, key: Optional[str]) -> tuple[Optional[str], Optional[str]]:
-        """A robot by the key its records name (its short name, never the key): (the key's name, "…" and its last four)
-        as the platform's answer gives them - the row `seq usage` names a robot by. A key made since is asked for once;
-        (None, None) for one the platform does not name."""
-        if not key:
-            return None, None
-        with self._lock:
-            name, tail = self._robots.get(key), self._tails.get(key)
-        if name is None and tail is None and key not in self._asked:
-            self._asked.add(key)
-            try:
-                self._take(self._ask())
-            except Exception:
-                pass
-            with self._lock:
-                name, tail = self._robots.get(key), self._tails.get(key)
-        return name, (f"…{tail}" if tail else None)
 
     @property
     def workers(self) -> list[str]:
@@ -323,3 +304,62 @@ class Recorder:
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
+
+
+
+FORMAT = 1
+_READ_CHUNK = 4 * 1024 * 1024
+_ITEM_MOST = 1024 * 1024 * 1024
+
+
+def header(robot: Optional[str]) -> dict:
+    """A recording file's first map: what it is, its format, its robot, and when it began (epoch seconds)."""
+    return {"kind": "recording", "format": FORMAT, "robot": robot, "began_at": time.time()}
+
+
+def write(out: IO[bytes], item: dict) -> int:
+    """`item` - the header, or an item as steps() gave it - at the end of a recording file, one msgpack map after
+    another, as any msgpack reader reads them; the bytes written."""
+    data = msgpack_io.pack(item)
+    out.write(data)
+    return len(data)
+
+
+def read(path: str) -> Iterator[dict]:
+    """The items of a recording file, in order, as steps() gave them: its header (its first map, "kind" "recording")
+    checked, not given. Read a chunk at a time: an item that does not read whole from what is read so far is read on,
+    twice as much each time it still does not - so an item of any size is read once more, not once a chunk - and only at
+    the file's end is one that never does said: MsgpackError, for a file cut short inside an item (a recorder stopped as
+    it wrote: those before it are given first) or no recording at all."""
+    with open(path, "rb") as f:
+        buf, first, end, want = b"", True, False, _READ_CHUNK
+        while True:
+            at, short = 0, False
+            view = memoryview(buf)
+            while at < len(buf):
+                try:
+                    value, at_next = msgpack_io._Reader(view).read(at, 0)
+                except msgpack_io.MsgpackError:
+                    if end:
+                        raise
+                    short = True
+                    break
+                at = at_next
+                if first:
+                    first = False
+                    if not (isinstance(value, dict) and value.get("kind") == "recording"):
+                        raise msgpack_io.MsgpackError(f"{path} is no recording: it begins with no header")
+                    continue
+                yield value
+            buf = buf[at:]
+            if end:
+                return
+            if len(buf) > _ITEM_MOST:
+                raise msgpack_io.MsgpackError(f"{path} holds no whole item in {_ITEM_MOST} bytes: it is no recording "
+                                              "past here")
+            want = want * 2 if short and at == 0 else _READ_CHUNK
+            chunk = f.read(want)
+            end = not chunk
+            if end and not buf:
+                return
+            buf += chunk

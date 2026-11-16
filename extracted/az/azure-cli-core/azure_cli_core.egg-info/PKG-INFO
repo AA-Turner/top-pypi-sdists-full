@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-cli-core
-Version: 2.92.0
+Version: 2.93.0
 Summary: Microsoft Azure Command-Line Tools Core Module
 Author-email: Microsoft Corporation <azpycli@microsoft.com>
 License-Expression: MIT

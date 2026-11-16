@@ -1,5 +1,6 @@
 //! Planner execution edges, their injected origins, stable execution order and buildability over compiled keys.
 
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use std::collections::{HashMap, HashSet};
 
 use pyo3::prelude::{
@@ -20,7 +21,6 @@ use sqlbuild_analysis::planner_identity::models::{
     AvailableUpstreams, ExecutionTest, GraphKey, MissingUpstream,
 };
 
-use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::compiled_views::project_reads;
 use crate::bindings::_helpers::compiled_views::resource_reads;
 use crate::bindings::_helpers::graph::algorithms::{closure, inverted};
@@ -28,15 +28,16 @@ use crate::bindings::_helpers::graph::keys::{KeyCache, native_key};
 use crate::bindings::_helpers::graph::project_graph::NativeProjectGraph;
 use crate::bindings::_helpers::graph::views::edge_dict;
 use crate::bindings::_helpers::planner_identity::hashing::graph_key;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::mapping_get_or;
-use crate::bindings::_helpers::records::fields::mapping_items;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::references::explicit_references::{
     GateRow, HookRow, native_execution_gate_edges,
 };
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::mapping_get_or::mapping_get_or;
+use sqlbuild_python_base::records::main::fields::mapping_items::mapping_items;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 const TABLE_FN_TEST_MODE: &str = "table_fn";
 const INLINE_SQL_HOOK: &str = "inline SQL";
@@ -257,10 +258,7 @@ pub(crate) fn build_downstream_deps<'py>(
 }
 
 fn planner_input_error(py: Python<'_>, message: String) -> PyErr {
-    match error_class(py, ErrorId::PlannerInput).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::PlannerInput, &message)
 }
 
 fn edge_origins<'py>(

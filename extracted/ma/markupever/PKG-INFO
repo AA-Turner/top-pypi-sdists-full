@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markupever
-Version: 0.5.0
+Version: 0.5.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -80,7 +80,7 @@ dom = markupever.parse_file("file.html", "html")
 # Or parse a HTML content directly:
 # dom = markupever.parse("... content ...", "html")
 
-for element in dom.select("div.section > p:child-nth(1)"):
+for element in dom.select("div.section > p:nth-child(1)"):
     print(element.text())
 ```
 

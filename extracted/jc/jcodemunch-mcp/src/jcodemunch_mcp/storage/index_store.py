@@ -1225,11 +1225,6 @@ class IndexStore:
 
     def _write_cached_text(self, path: Path, content: str) -> None:
         """Write cached text without newline translation."""
-        # The text is in hand here, so its token count is taken now for the
-        # save to record (storage/token_counts.py).
-        from . import token_counts
-
-        token_counts.note(content)
         with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
 
@@ -1486,6 +1481,10 @@ class IndexStore:
     def read_cached_source(self, owner: str, name: str, file_path: str) -> Optional[str]:
         """A file's text from the content cache (path-contained); None if absent."""
         return self._sqlite.read_cached_source(owner, name, file_path)
+
+    def missing_cached_copies(self, owner: str, name: str, file_paths) -> list[str]:
+        """The listed files whose cached text is absent."""
+        return self._sqlite.missing_cached_copies(owner, name, file_paths)
 
     def detect_changes(
         self,

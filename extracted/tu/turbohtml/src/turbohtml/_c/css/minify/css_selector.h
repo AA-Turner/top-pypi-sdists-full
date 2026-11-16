@@ -1,6 +1,8 @@
 #ifndef TURBOHTML_CSS_SELECTOR_H
 #define TURBOHTML_CSS_SELECTOR_H
 
+#include "core/hash_limits.h"
+
 /* The four pseudo-elements CSS Pseudo-Elements 4 §2 lets a selector spell with one colon (the legacy form) as well as
    two, with identical specificity and match; `::before` -> `:before` etc. saves a byte. */
 static int css_is_legacy_pseudo_element(const css_token *token) {
@@ -36,6 +38,32 @@ CSS_NOINLINE static Py_ssize_t css_legacy_pseudo_name(const token_vec *vec, Py_s
     return name < end && css_is_legacy_pseudo_element(&vec->items[name]) ? name : -1;
 }
 
+/* Whether the `*` at index is followed, past any comments, by a hash, class, attribute or pseudo-class: the universal
+   then adds nothing to its compound, so it is dropped. A comment between them makes no token, so it must not hide the
+   token after it. */
+static int css_universal_precedes_part(const token_vec *vec, Py_ssize_t index, Py_ssize_t end) {
+    Py_ssize_t next = css_skip_comments(vec, index + 1, end);
+    if (next == end) {
+        return 0;
+    }
+    const css_token *token = &vec->items[next];
+    return token->kind == CSS_HASH ||
+           (token->kind == CSS_DELIM && (token->delim == '.' || token->delim == '[' || token->delim == ':'));
+}
+
+/* Whether the colon at index directly follows another colon, comments aside. A `::` it starts is part of a longer run,
+   which no pseudo-element spells, so the legacy shortening must leave it as written. */
+static int css_colon_before(const token_vec *vec, Py_ssize_t start, Py_ssize_t index) {
+    while (index > start) {
+        const css_token *previous = &vec->items[--index];
+        if (previous->kind == CSS_COMMENT) {
+            continue;
+        }
+        return previous->kind == CSS_DELIM && previous->delim == ':';
+    }
+    return 0;
+}
+
 /* Comments make no token; a namespace bar cannot start an unqualified universal (Selectors 4 §5.2). */
 static int css_universal_starts_compound(const token_vec *vec, Py_ssize_t start, Py_ssize_t index) {
     int whitespace = 0;
@@ -66,6 +94,52 @@ static int css_attribute_value_position(const token_vec *vec, Py_ssize_t index) 
     return previous->kind == CSS_DELIM && previous->delim == '=';
 }
 
+/* A `+` before an unsigned number reads back as one signed number, so the space that closes a hex escape before it
+   stays. */
+static int css_plus_before_number(const token_vec *vec, Py_ssize_t index, Py_ssize_t end) {
+    Py_ssize_t next = index + 1;
+    while (next < end && (vec->items[next].kind == CSS_WS || vec->items[next].kind == CSS_COMMENT)) {
+        next++;
+    }
+    if (next == end || vec->items[next].kind != CSS_NUM) {
+        return 0;
+    }
+    css_char first = vec->items[next].text[0];
+    return css_is_digit(first) || first == '.';
+}
+
+/* Whether the combinator at index keeps the space closing a hex escape that ends out. Kept out of line: only input
+   whose token_vec.escapes is set reaches it. */
+CSS_NOINLINE static int css_combinator_keeps_hex_close(const token_vec *vec, Py_ssize_t index, Py_ssize_t end,
+                                                       const css_buf *out) {
+    return vec->items[index].delim == '+' && css_plus_before_number(vec, index, end) && out->len > 0 &&
+           css_ends_in_hex_close(out->data, out->len);
+}
+
+static int css_is_dashes_name(const css_token *token) {
+    return token->kind == CSS_IDENT && token->text_len >= 2 && token->text[0] == '-' && token->text[1] == '-';
+}
+
+/* Whether the token at index, written straight after out where the input separates the two, spells a `<!--` or `-->`.
+   A browser reads either as one token (CSS Syntax 3 §4.3.1), so the selector would change, and at the start of a rule
+   it would be skipped, leaving the rest to match on its own. Kept out of line: only a dropped space or comment reaches
+   it. */
+CSS_NOINLINE static int css_selector_spells_comment_delim(const token_vec *vec, Py_ssize_t index, Py_ssize_t end,
+                                                          const css_buf *out) {
+    const css_token *token = &vec->items[index];
+    /* a space or comment is pending only after a token this selector wrote, so out is not empty */
+    css_char last = out->data[out->len - 1];
+    css_char before = out->len > 1 ? out->data[out->len - 2] : 0;
+    if (token->kind == CSS_DELIM && token->delim == '>') {
+        return last == '-' && before == '-';
+    }
+    if (css_is_dashes_name(token)) {
+        return last == '!' && before == '<';
+    }
+    return token->kind == CSS_DELIM && token->delim == '!' && last == '<' && index + 1 < end &&
+           css_is_dashes_name(&vec->items[index + 1]);
+}
+
 /* Minify a selector token run [start, end) into out. */
 static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int keyframe, css_buf *out) {
     int pending_ws = 0;
@@ -73,6 +147,7 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
     int last_is_ident = 0;
     int attr_depth = 0;
     Py_ssize_t paren_depth = 0;
+    Py_ssize_t base = out->len;
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS) {
@@ -98,7 +173,12 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         }
         if (token->kind == CSS_DELIM && attr_depth == 0 &&
             (token->delim == '>' || token->delim == '+' || token->delim == '~' || token->delim == ',')) {
-            css_rtrim(out);
+            if ((pending_ws || comment_gap) && token->delim == '>' &&
+                css_selector_spells_comment_delim(vec, index, end, out)) {
+                cbuf_putc(out, ' ');
+            } else if (!vec->escapes || !css_combinator_keeps_hex_close(vec, index, end, out)) {
+                css_rtrim_above(out, base);
+            }
             cbuf_putc(out, token->delim);
             pending_ws = 0;
             continue;
@@ -106,7 +186,7 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         if (token->kind == CSS_DELIM && attr_depth > 0 &&
             (token->delim == '=' || token->delim == '~' || token->delim == '^' || token->delim == '$' ||
              token->delim == '*' || token->delim == '|')) {
-            css_rtrim(out);
+            css_rtrim_above(out, base);
             cbuf_putc(out, token->delim);
             pending_ws = 0;
             continue;
@@ -129,11 +209,13 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
                  last == '|')) {
                 blocked = 1;
             }
-            if (!blocked) {
+            /* a delimiter a backslash escapes ends a name, so the space after it is a descendant combinator */
+            if (!blocked || (vec->escapes && css_escapes(out->data, out->len - 1))) {
                 cbuf_putc(out, ' ');
             }
-        } else if (comment_gap &&
-                   css_would_merge(out->data[out->len - 1], last_is_ident, token->text, token->text_len)) {
+        } else if (comment_gap && (css_would_merge_after(vec->escapes, out->data, out->len, last_is_ident, token->text,
+                                                         token->text_len) ||
+                                   css_selector_spells_comment_delim(vec, index, end, out))) {
             /* whitespace here would be a descendant combinator, so only an empty comment keeps the tokens apart */
             cbuf_puts(out, "/**/");
         }
@@ -142,7 +224,8 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         last_is_ident = token->kind == CSS_IDENT;
         if (token->kind == CSS_DELIM && token->delim == ':' && attr_depth == 0 && index + 1 < end &&
             (vec->items[index + 1].kind == CSS_COMMENT ||
-             (vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == ':'))) {
+             (vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == ':')) &&
+            !css_colon_before(vec, start, index)) {
             Py_ssize_t name = css_legacy_pseudo_name(vec, index + 1, end);
             if (name >= 0) {
                 cbuf_putc(out, ':'); /* legacy pseudo-element: emit one colon, drop the second; the name renders next */
@@ -150,11 +233,7 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
                 continue;
             }
         }
-        if (token->kind == CSS_DELIM && token->delim == '*' && index + 1 < end &&
-            (vec->items[index + 1].kind == CSS_HASH ||
-             (vec->items[index + 1].kind == CSS_DELIM &&
-              (vec->items[index + 1].delim == '.' || vec->items[index + 1].delim == '[' ||
-               vec->items[index + 1].delim == ':'))) &&
+        if (token->kind == CSS_DELIM && token->delim == '*' && css_universal_precedes_part(vec, index, end) &&
             css_universal_starts_compound(vec, start, index) && paren_depth == 0) {
             /* An explicit universal inside a function can constrain the default namespace (Selectors 4 §4.2). */
             continue;
@@ -181,7 +260,7 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             }
         }
     }
-    css_rtrim(out);
+    css_rtrim_above(out, base);
 }
 
 typedef struct {
@@ -237,11 +316,32 @@ static int css_name_is_custom(const css_char *name) {
     return name[0] == '-' && name[1] == '-';
 }
 
-/* Build a declaration from a segment [start, end). Returns 1 if a declaration was produced. */
+/* Whether the value tokens [start, end) call a substitution function: var(), env(), attr() or if(). Like var() (CSS
+   Variables 1 §3), each one leaves the value unchecked until substitution, so a browser keeps the declaration. */
+CSS_NOINLINE static int css_value_substitutes(const token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
+    for (Py_ssize_t index = start; index + 1 < end; index++) {
+        const css_token *token = &vec->items[index];
+        if (token->kind == CSS_IDENT && vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == '(' &&
+            (css_run_ieq(token->text, token->text_len, "var") || css_run_ieq(token->text, token->text_len, "env") ||
+             css_run_ieq(token->text, token->text_len, "attr") || css_run_ieq(token->text, token->text_len, "if"))) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Build a declaration from a segment [start, end). Returns 1 if a declaration was produced. A string cut short or a
+   bad url drops the declaration. A `\` before a newline is a delimiter: a custom property's value and a value that
+   calls a substitution function keep it, written as it stands with its newline, and any other declaration is dropped
+   as a browser drops it. */
 static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, comp_vec *scratch,
                                 css_decl *decl, int preserve_name) {
+    int backslash = 0;
     if (vec->bad && css_holds_bad(vec, start, end)) {
-        return 0;
+        if (css_holds_cut(vec, start, end)) {
+            return 0;
+        }
+        backslash = 1;
     }
     Py_ssize_t colon = -1;
     for (Py_ssize_t index = start; index < end; index++) {
@@ -260,14 +360,19 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
     while (prop_end > prop_start && vec->items[prop_end - 1].kind == CSS_WS) {
         prop_end--;
     }
-    /* in a declaration left open at the end of the input, a block still open before the colon holds it, so the text is
-       no declaration; written out, the block would take in the `}` that ends the rule */
-    if (prop_start >= prop_end || (end == vec->len && css_leaves_block_open(vec, prop_start, colon))) {
+    /* a name that opens a block before the colon, as in `(:)`, is no declaration (CSS Syntax 3 §5.4.5): a browser drops
+       it, so the first pass must too. A single ident opens no block and skips the scan. */
+    int bare_name = prop_end == prop_start + 1 && vec->items[prop_start].kind == CSS_IDENT;
+    if (prop_start >= prop_end || (!bare_name && css_leaves_block_open(vec, prop_start, colon))) {
         return 0;
     }
     /* the raw property text spans from the first to the last non-ws token; build it for the --* check and interning */
     const css_token *first = &vec->items[prop_start];
     int is_custom = first->kind == CSS_IDENT && css_name_is_custom(first->text);
+    if (backslash &&
+        (css_holds_bad(vec, start, colon) || (!is_custom && !css_value_substitutes(vec, colon + 1, end)))) {
+        return 0;
+    }
     Py_ssize_t prop_off = pool->len;
     for (Py_ssize_t index = prop_start; index < prop_end; index++) {
         css_token *token = &vec->items[index];
@@ -336,7 +441,8 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
     }
 
     css_buf value = {NULL, 0, 0, pool->oom};
-    css_minify_value(pool, vec, value_start, value_end, pool->data + prop_off, prop_len, is_custom, scratch, &value);
+    css_minify_value(pool, vec, value_start, value_end, pool->data + prop_off, prop_len, is_custom || backslash,
+                     scratch, &value);
     if (!is_custom && value.len == 0) {
         cbuf_free(&value);
         pool->len = prop_off;
@@ -500,7 +606,18 @@ typedef struct {
     int used;
 } dedup_entry;
 
-static uint32_t css_hash_run(const css_char *text, Py_ssize_t len) {
+/* FNV-1a over a run, the hash the dedup and rule tables start on. The stylesheet picks its property names and rules,
+   and FNV-1a is fixed, so each table watches its walks and, once one passes TH_FAST_PROBE_LIMIT, starts over under
+   the per-process key (core/hash.h) when keyed is set. The standalone harness has no interpreter to draw a key from
+   and stays on FNV-1a. A css_char is one byte, so the run and C-string forms agree on equal text either way. */
+static uint32_t css_hash_run(const css_char *text, Py_ssize_t len, int keyed) {
+#ifndef CSS_MINIFY_STANDALONE
+    if (keyed) {
+        return th_name_hash(text, len);
+    }
+#else
+    (void)keyed;
+#endif
     uint32_t hash = 2166136261u;
     for (Py_ssize_t pos = 0; pos < len; pos++) {
         hash = (hash ^ (uint32_t)(text[pos] & 0xFF)) * 16777619u;
@@ -508,7 +625,14 @@ static uint32_t css_hash_run(const css_char *text, Py_ssize_t len) {
     return hash;
 }
 
-static uint32_t css_hash_cstr(const char *text, Py_ssize_t len) {
+static uint32_t css_hash_cstr(const char *text, Py_ssize_t len, int keyed) {
+#ifndef CSS_MINIFY_STANDALONE
+    if (keyed) {
+        return th_name_hash(text, len);
+    }
+#else
+    (void)keyed;
+#endif
     uint32_t hash = 2166136261u;
     for (Py_ssize_t pos = 0; pos < len; pos++) {
         hash = (hash ^ (uint32_t)(unsigned char)text[pos]) * 16777619u;
@@ -516,24 +640,33 @@ static uint32_t css_hash_cstr(const char *text, Py_ssize_t len) {
     return hash;
 }
 
-/* Find the slot for a code-point key (a property name from the pool): the matching entry, or the empty slot to fill. */
+/* 1 when a walk from home to slot on FNV-1a went past TH_FAST_PROBE_LIMIT, so the table starts over keyed. */
+static int css_walked_far(Py_ssize_t home, Py_ssize_t slot, uint32_t mask, int keyed) {
+    return !keyed && (uint32_t)((size_t)(slot - home) & mask) > TH_FAST_PROBE_LIMIT;
+}
+
+/* Find the slot for a code-point key (a property name from the pool): the matching entry, or the empty slot to fill;
+   -1 when the walk to it went past TH_FAST_PROBE_LIMIT on FNV-1a. */
 static Py_ssize_t dedup_slot_run(dedup_entry *table, uint32_t mask, const css_buf *pool, const css_char *key,
-                                 Py_ssize_t key_len, int important) {
-    Py_ssize_t slot = css_hash_run(key, key_len) & mask;
+                                 Py_ssize_t key_len, int important, int keyed) {
+    const Py_ssize_t home = css_hash_run(key, key_len, keyed) & mask;
+    Py_ssize_t slot = home;
     while (table[slot].used) {
         if (table[slot].important == important && table[slot].prop_len == key_len &&
             memcmp(pool->data + table[slot].prop_off, key, (size_t)key_len * sizeof(css_char)) == 0) {
             break;
         }
+        TH_WORK_STEP();
         slot = (slot + 1) & mask;
     }
-    return slot;
+    return css_walked_far(home, slot, mask, keyed) ? -1 : slot;
 }
 
-/* Find the slot for an ASCII key (a longhand name from the shorthand table). */
+/* Find the slot for an ASCII key (a longhand name from the shorthand table), as dedup_slot_run. */
 static Py_ssize_t dedup_slot_cstr(dedup_entry *table, uint32_t mask, const css_buf *pool, const char *key,
-                                  Py_ssize_t key_len, int important) {
-    Py_ssize_t slot = css_hash_cstr(key, key_len) & mask;
+                                  Py_ssize_t key_len, int important, int keyed) {
+    const Py_ssize_t home = css_hash_cstr(key, key_len, keyed) & mask;
+    Py_ssize_t slot = home;
     while (table[slot].used) {
         if (table[slot].important == important && table[slot].prop_len == key_len) {
             int same = 1;
@@ -547,9 +680,66 @@ static Py_ssize_t dedup_slot_cstr(dedup_entry *table, uint32_t mask, const css_b
                 break;
             }
         }
+        TH_WORK_STEP();
         slot = (slot + 1) & mask;
     }
-    return slot;
+    return css_walked_far(home, slot, mask, keyed) ? -1 : slot;
+}
+
+/* One pass of css_dedup over an empty table. 1 when a walk on FNV-1a went past TH_FAST_PROBE_LIMIT, which stops the
+   pass. A pass marks a declaration dropped only when that holds whatever was dropped before, so the keyed pass that
+   follows ends with the marks a single pass would have made. */
+static int css_dedup_fill(css_buf *pool, decl_vec *decls, dedup_entry *table, uint32_t mask, int keyed) {
+    for (Py_ssize_t index = 0; index < decls->len; index++) {
+        css_decl *later = &decls->items[index];
+        const css_char *prop = pool->data + later->prop_off;
+        Py_ssize_t prop_len = later->prop_len;
+        int important = later->important;
+        const char *list = css_decl_is_wide_keyword(pool, later)
+                               ? css_longhand_list(pool->data + later->prop_off, later->prop_len)
+                               : NULL;
+        Py_ssize_t home;
+        if (list == NULL) {
+            home = dedup_slot_run(table, mask, pool, prop, prop_len, important, keyed);
+            if (home < 0) {
+                return 1;
+            }
+            /* a same-name duplicate is dropped only when its value is identical (see css_dedup_pairwise) */
+            if (table[home].used && !decls->items[table[home].index].dropped &&
+                css_decl_value_eq(pool, &decls->items[table[home].index], later)) {
+                decls->items[table[home].index].dropped = 1;
+            }
+        } else {
+            /* The first word is the shorthand's own name; CSS-wide values reset every remaining longhand. */
+            const char *cursor = list;
+            int own_name = 1;
+            while (*cursor) {
+                const char *word = cursor;
+                while (*cursor && *cursor != ' ') {
+                    cursor++;
+                }
+                Py_ssize_t slot = dedup_slot_cstr(table, mask, pool, word, cursor - word, important, keyed);
+                if (slot < 0) {
+                    return 1;
+                }
+                if (table[slot].used && !decls->items[table[slot].index].dropped &&
+                    (!own_name || css_decl_value_eq(pool, &decls->items[table[slot].index], later))) {
+                    decls->items[table[slot].index].dropped = 1;
+                }
+                while (*cursor == ' ') {
+                    cursor++;
+                }
+                own_name = 0;
+            }
+            home = dedup_slot_run(table, mask, pool, prop, prop_len, important, keyed);
+        }
+        table[home].prop_off = later->prop_off;
+        table[home].prop_len = prop_len;
+        table[home].important = important;
+        table[home].index = index;
+        table[home].used = 1;
+    }
+    return 0;
 }
 
 /* Drop earlier declarations a later one fully overrides. Pairwise for a small rule; for a large one (a framework
@@ -579,47 +769,9 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
     }
     memset(table, 0, (size_t)cap * sizeof(dedup_entry));
     uint32_t mask = (uint32_t)(cap - 1);
-    for (Py_ssize_t index = 0; index < decls->len; index++) {
-        css_decl *later = &decls->items[index];
-        const css_char *prop = pool->data + later->prop_off;
-        Py_ssize_t prop_len = later->prop_len;
-        int important = later->important;
-        const char *list = css_decl_is_wide_keyword(pool, later)
-                               ? css_longhand_list(pool->data + later->prop_off, later->prop_len)
-                               : NULL;
-        if (list == NULL) {
-            Py_ssize_t slot = dedup_slot_run(table, mask, pool, prop, prop_len, important);
-            /* a same-name duplicate is dropped only when its value is identical (see css_dedup_pairwise) */
-            if (table[slot].used && !decls->items[table[slot].index].dropped &&
-                css_decl_value_eq(pool, &decls->items[table[slot].index], later)) {
-                decls->items[table[slot].index].dropped = 1;
-            }
-        } else {
-            /* The first word is the shorthand's own name; CSS-wide values reset every remaining longhand. */
-            const char *cursor = list;
-            int own_name = 1;
-            while (*cursor) {
-                const char *word = cursor;
-                while (*cursor && *cursor != ' ') {
-                    cursor++;
-                }
-                Py_ssize_t slot = dedup_slot_cstr(table, mask, pool, word, cursor - word, important);
-                if (table[slot].used && !decls->items[table[slot].index].dropped &&
-                    (!own_name || css_decl_value_eq(pool, &decls->items[table[slot].index], later))) {
-                    decls->items[table[slot].index].dropped = 1;
-                }
-                while (*cursor == ' ') {
-                    cursor++;
-                }
-                own_name = 0;
-            }
-        }
-        Py_ssize_t home = dedup_slot_run(table, mask, pool, prop, prop_len, important);
-        table[home].prop_off = later->prop_off;
-        table[home].prop_len = prop_len;
-        table[home].important = important;
-        table[home].index = index;
-        table[home].used = 1;
+    if (css_dedup_fill(pool, decls, table, mask, 0)) {
+        memset(table, 0, (size_t)cap * sizeof(dedup_entry));
+        css_dedup_fill(pool, decls, table, mask, 1);
     }
     if (table != stack_table) {
         css_free(table);

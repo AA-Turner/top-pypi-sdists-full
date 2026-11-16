@@ -5,7 +5,7 @@ requires = ["uv_build>=0.13.0,<0.14.0"]
 [project]
 name = "cucumber-tag-expressions"
 description = "Provides a tag-expression parser and evaluation logic for cucumber/behave"
-version = "11.1.0"
+version = "11.2.0"
 keywords = [
     "BDD",
     "testing",

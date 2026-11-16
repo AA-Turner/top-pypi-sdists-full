@@ -171,13 +171,22 @@ STATIC uint64x2_t load_swap(const uint8_t *p)
     return swap_lanes(vreinterpretq_u64_u8(x));
 }
 
+/**
+ * Load a block of data. A block of GHASH has its bytes reversed (see
+ * load_swap()), so a block already in reversed order is just loaded as it is.
+ */
+STATIC uint64x2_t load_block(const uint8_t *p, int reversed)
+{
+    return reversed ? vreinterpretq_u64_u8(vld1q_u8(p)) : load_swap(p);
+}
+
 /** Store 16 bytes, reversing their order **/
 STATIC void store_swap(uint8_t *p, uint64x2_t a)
 {
     vst1q_u8(p, vrev64q_u8(vreinterpretq_u8_u64(swap_lanes(a))));
 }
 
-EXPORT_SYM int ghash_expand_pmull(const uint8_t h[16], struct exp_key **expanded)
+STATIC int expand_key(const uint8_t h[16], struct exp_key **expanded, int reversed)
 {
     unsigned i;
 
@@ -188,7 +197,7 @@ EXPORT_SYM int ghash_expand_pmull(const uint8_t h[16], struct exp_key **expanded
     if (NULL == *expanded)
         return ERR_MEMORY;
 
-    (*expanded)->h[0] = multx(load_swap(h));    /** x*H **/
+    (*expanded)->h[0] = reversed ? load_block(h, 1) : multx(load_swap(h));  /** x*H **/
 
     for (i=1; i<GROUP; i++) {
         (*expanded)->h[i] = gf_mult((*expanded)->h[i-1], (*expanded)->h[0]);
@@ -197,18 +206,36 @@ EXPORT_SYM int ghash_expand_pmull(const uint8_t h[16], struct exp_key **expanded
     return 0;
 }
 
+EXPORT_SYM int ghash_expand_pmull(const uint8_t h[16], struct exp_key **expanded)
+{
+    return expand_key(h, expanded, 0);
+}
+
+/**
+ * Expand the POLYVAL key h (RFC 8452), for ghash_rev_pmull(): the result is the
+ * same as ghash_expand_pmull() with the GHASH key mulX_GHASH(ByteReverse(h)).
+ *
+ * multx() undoes mulX_GHASH() and load_swap() undoes ByteReverse(), so the key
+ * is only loaded, and no operation depends on its value.
+ */
+EXPORT_SYM int ghash_expand_rev_pmull(const uint8_t h[16], struct exp_key **expanded)
+{
+    return expand_key(h, expanded, 1);
+}
+
 EXPORT_SYM int ghash_destroy_pmull(struct exp_key *expanded)
 {
     align_free(expanded);
     return 0;
 }
 
-EXPORT_SYM int ghash_pmull(
+STATIC int ghash_blocks(
         uint8_t y_out[16],
         const uint8_t block_data[],
         size_t len,
         const uint8_t y_in[16],
-        struct exp_key *expanded
+        struct exp_key *expanded,
+        int reversed
         )
 {
     uint64x2_t y;
@@ -232,9 +259,9 @@ EXPORT_SYM int ghash_pmull(
 
         acc[0] = acc[1] = acc[2] = vdupq_n_u64(0);
         n = MIN(len / 16, GROUP);
-        clmult_acc(acc, veorq_u64(y, load_swap(block_data)), expanded->h[n-1]);
+        clmult_acc(acc, veorq_u64(y, load_block(block_data, reversed)), expanded->h[n-1]);
         for (j=1; j<n; j++) {
-            clmult_acc(acc, load_swap(block_data + 16*j), expanded->h[n-1-j]);
+            clmult_acc(acc, load_block(block_data + 16*j, reversed), expanded->h[n-1-j]);
         }
         y = fold_reduce(acc);
 
@@ -244,6 +271,32 @@ EXPORT_SYM int ghash_pmull(
 
     store_swap(y_out, y);
     return 0;
+}
+
+EXPORT_SYM int ghash_pmull(
+        uint8_t y_out[16],
+        const uint8_t block_data[],
+        size_t len,
+        const uint8_t y_in[16],
+        struct exp_key *expanded
+        )
+{
+    return ghash_blocks(y_out, block_data, len, y_in, expanded, 0);
+}
+
+/**
+ * Like ghash_pmull(), but the bytes of each block of data are in reversed
+ * order. This is what POLYVAL needs (RFC 8452, Appendix A).
+ */
+EXPORT_SYM int ghash_rev_pmull(
+        uint8_t y_out[16],
+        const uint8_t block_data[],
+        size_t len,
+        const uint8_t y_in[16],
+        struct exp_key *expanded
+        )
+{
+    return ghash_blocks(y_out, block_data, len, y_in, expanded, 1);
 }
 
 /**
@@ -264,6 +317,25 @@ EXPORT_SYM int ghash_at_pmull(
         return ERR_NULL;
 
     return ghash_pmull(y_out, block_data + offset, len, y_in, expanded);
+}
+
+/**
+ * Like ghash_rev_pmull(), but for the len bytes at the given offset
+ * in block_data[] (see ghash_at_pmull()).
+ */
+EXPORT_SYM int ghash_rev_at_pmull(
+        uint8_t y_out[16],
+        const uint8_t block_data[],
+        size_t offset,
+        size_t len,
+        const uint8_t y_in[16],
+        struct exp_key *expanded
+        )
+{
+    if (NULL==block_data)
+        return ERR_NULL;
+
+    return ghash_rev_pmull(y_out, block_data + offset, len, y_in, expanded);
 }
 
 /**

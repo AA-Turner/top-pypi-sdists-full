@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from probe.integrations.miles.samples.events import get_event_recorder
+from probe.integrations.miles.samples.harbor_keys import HARBOR_KEYS
 from probe.integrations.miles.samples.mapping import (
     MappingConfig,
     build_generator_part,
@@ -22,9 +23,11 @@ from probe.integrations.miles.samples.mapping import (
     get_harbor_key,
     get_status,
     get_unsupported,
+    is_engine_external,
     read_reward,
     read_scheduled_step,
 )
+from probe.integrations.miles.samples.messages import MESSAGES
 from probe.integrations.miles.samples.producers import PROCESS, ROLLOUT
 
 logger = logging.getLogger(__name__)
@@ -65,20 +68,24 @@ class RolloutCapture:
         if writer is None:
             return
         self._plan_once(writer, args)
+        HARBOR_KEYS.save(rollout_id, {sample.index: key for sample in samples  # before the step trains (W15)
+                                      if getattr(sample, "index", None) is not None and (key := get_harbor_key(sample))})
         config = MappingConfig.from_args(args, metric_paths=metric_paths, run_id=_get_run_id(args))
         is_async = bool(getattr(args, "fully_async", False))
         with self._lock:
             dropped, self._dropped = self._dropped, None
         kept = {_get_identity(sample) for sample in samples}
-        parts, groups = _build_parts(samples, rollout_id, config, is_async=is_async)
+        gpu = _make_gpu_binding(args)
+        parts, groups = _build_parts(samples, rollout_id, config, is_async=is_async, gpu=gpu)
         drop_groups = [g for g in dropped or () if not any(_get_identity(s) in kept for s in _iter_samples(g))]
         for group in drop_groups:
             reason = derive_drop_reason(list(_iter_samples(group)), args)
             more_parts, more_groups = _build_parts(list(_iter_samples(group)), rollout_id, config,
-                                                   is_async=is_async, drop_reason=reason)
+                                                   is_async=is_async, drop_reason=reason, gpu=gpu)
             parts += more_parts
             groups.update(more_groups)
         writer.log(parts, step=rollout_id)
+        gpu.send(writer)
         writer.log_groups(_to_group_items(groups, args))
         writer.seal(rollout_id, dropped=read_drop_counts(extra_metrics, has_stored_drops=dropped is not None))
         _end_live_tries(samples, args)
@@ -92,6 +99,7 @@ class RolloutCapture:
             call = self._eval_calls.get(rollout_id, 0)
             self._eval_calls[rollout_id] = call + 1
         config = MappingConfig.from_args(args, run_id=_get_run_id(args))
+        gpu = _make_gpu_binding(args)
         parts = []
         for dataset, entry in (data or {}).items():
             samples = list(_iter_samples(entry.get("samples") or [])) if isinstance(entry, Mapping) else []
@@ -99,8 +107,10 @@ class RolloutCapture:
             for position, sample in enumerate(samples):
                 key = get_harbor_key(sample) or f"eval:{rollout_id}:{call}:{name}:{position}"
                 group = f"eval:{rollout_id}:{call}:{name}:{getattr(sample, 'group_index', position)}"
-                parts.append(_build_one(sample, key, "eval", rollout_id, config, scheduled=rollout_id, group=group))
+                parts.append(_build_one(sample, key, "eval", rollout_id, config, scheduled=rollout_id, group=group,
+                                        gpu=gpu))
         writer.log([part for part in parts if part is not None], step=rollout_id)
+        gpu.send(writer)
         writer.seal(rollout_id)
         _end_live_tries([sample for entry in (data or {}).values() if isinstance(entry, Mapping)
                          for sample in _iter_samples(entry.get("samples") or [])], args)  # fmt: skip
@@ -122,7 +132,9 @@ class RolloutCapture:
         staleness = getattr(args, "max_weight_staleness", None)
         if getattr(args, "fully_async", False) and isinstance(staleness, int) and staleness >= 0:
             fields["max_staleness"] = staleness
-        fields["unsupported"] = get_unsupported(args)
+        from probe.integrations.miles.live import LIVE
+
+        fields["unsupported"] = get_unsupported(args, LIVE.get_generate_kinds())
         writer.plan(**fields)
 
 
@@ -168,7 +180,7 @@ def derive_drop_reason(group: list, args: Any) -> str:
     return "oversampling"
 
 
-def _build_parts(samples: list, rollout_id: int, config: MappingConfig, *, is_async: bool,
+def _build_parts(samples: list, rollout_id: int, config: MappingConfig, *, is_async: bool, gpu: Any,
                  drop_reason: str | None = None) -> tuple[list[dict], dict[str, dict]]:
     """Sync: each sample is scheduled at ``rollout_id``. Fully async: at the step its group's first try began under
     (its live try's stamp), else none; its group key names that step too, as its live tries did."""
@@ -184,7 +196,7 @@ def _build_parts(samples: list, rollout_id: int, config: MappingConfig, *, is_as
         scheduled = read_scheduled_step(sample) if is_async else rollout_id
         group = build_group_key(rollout_id if scheduled is None else scheduled, getattr(sample, "group_index", None))
         part = _build_one(sample, key, "train", rollout_id, config, scheduled=scheduled, group=group,
-                          drop_reason=drop_reason)
+                          drop_reason=drop_reason, gpu=gpu)
         if part is not None:
             parts.append(part)
             groups.setdefault(group, {"task_key": part.get("task_key"), "scenario": part.get("scenario"),
@@ -193,16 +205,28 @@ def _build_parts(samples: list, rollout_id: int, config: MappingConfig, *, is_as
 
 
 def _build_one(sample: Any, key: str, split: str, step: int, config: MappingConfig, *, scheduled: int | None,
-               group: str, drop_reason: str | None = None) -> dict | None:
+               group: str, gpu: Any, drop_reason: str | None = None) -> dict | None:
     recorder = get_event_recorder()
     events = recorder.take_events(getattr(sample, "index", None)) if recorder is not None else None
     try:
-        return build_generator_part(sample, key=key, split=split, step=step, config=config,
+        part = build_generator_part(sample, key=key, split=split, step=step, config=config,
                                     scheduled_step=scheduled, group_key=group, drop_reason=drop_reason,
                                     events=events)
     except Exception as exc:  # noqa: BLE001 -- one odd sample never costs the rest
         logger.debug("Probe could not map a Miles sample: %s", exc)
         return None
+    try:
+        gpu.bind(part, sample)
+    except Exception as exc:  # noqa: BLE001 -- GPU readings never cost a sample
+        logger.debug("Probe could not bind a Miles sample's GPU readings: %s", exc)
+    return part
+
+
+def _make_gpu_binding(args: Any) -> Any:
+    """This log call's GPU binding (`../live/gpu.py`): each part's try readings under its final key."""
+    from probe.integrations.miles.live import LIVE, GpuBinding
+
+    return GpuBinding(LIVE.gpu, is_engine_unsupported=is_engine_external(args))
 
 
 def _to_group_items(groups: Mapping[str, dict], args: Any) -> list[dict]:
@@ -281,7 +305,10 @@ def make_log_samples(metric_paths: Mapping[str, str] | None = None) -> Callable[
     def log_samples(rollout_id: int, args: Any, samples: list, rollout_extra_metrics: Mapping | None = None,
                     rollout_time: float | None = None) -> bool:
         """Kept training samples, as `rollout` generator parts sealed at ``rollout_id``."""
-        CAPTURE.log_train(rollout_id, args, list(samples or []), rollout_extra_metrics, configured)
+        try:
+            CAPTURE.log_train(rollout_id, args, list(samples or []), rollout_extra_metrics, configured)
+        finally:
+            MESSAGES.clear()  # the dump's stash served this call (D2)
 
     return log_samples
 
@@ -292,7 +319,10 @@ log_samples = make_log_samples()
 @_fail_open
 def log_eval_samples(rollout_id: int, args: Any, data: Mapping, extra_metrics: Mapping | None = None) -> bool:
     """`--custom-eval-rollout-log-function-path`: an eval pass's samples, per dataset."""
-    CAPTURE.log_eval(rollout_id, args, data)
+    try:
+        CAPTURE.log_eval(rollout_id, args, data)
+    finally:
+        MESSAGES.clear()
 
 
 @_fail_open

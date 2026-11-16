@@ -3,7 +3,7 @@
     package     argv, cwd, the whole environment, and fds 0-2 (the terminal, or pipes)
     ensure      a service that answers, started when none does (`start.ensure`); a call waits for one
                 still starting while its process runs (`start.SPAWN_SETTLE_S`), an agent's call until
-                its deadline (`PROBE_AGENT_DEADLINE`)
+                the seconds it has left (`agent_time_left`)
     cli.run     the service answers a door; the shim connects and waits for its turn (told
                 what for: `waiting`, printed after a second), then passes its fds when asked
                 (`ready`), forwards its signals (`signals.SignalForwarder`), and waits
@@ -35,6 +35,7 @@ import socket
 import sys
 import time
 
+from probe.foundation.agent_time_left.agent_time_left import get_seconds_left
 from probe.foundation.service_api import paths, start
 from probe.foundation.service_api.service_api import Connection, ServiceError
 from probe.foundation.service_api.vocabularies import Client, CommandStdio, RefusedReason, ShimExit, ShimReason
@@ -43,14 +44,10 @@ from probe.foundation.service_api.wire import API_VERSION, ErrorCode, Method, en
 #: How long the shim waits for a service it started before it says it is still starting (a warm start is
 #: ~0.3 s; P3 budgets 1 s); past it, it waits while that service's process runs (`_can_wait`).
 START_WAIT_S = 10.0
-#: The deadline (epoch s) the npm launcher gives an agent's call (`agent_install.budget.DEADLINE_ENV`):
-#: such a call waits for a service still starting until AGENT_START_RESERVE_S before it, not START_WAIT_S
-#: (a first start on a Mac outlasted 10 s, and `sign-in --wait` answered no_service: PR22, F5).
-AGENT_DEADLINE_ENV = "PROBE_AGENT_DEADLINE"
-#: Left of that deadline for the command itself to start and answer.
+#: An agent's call (the npm launcher said what it has left, `agent_time_left`) waits for a service still
+#: starting until AGENT_START_RESERVE_S before its end, not START_WAIT_S (a first start on a Mac outlasted
+#: 10 s, and `sign-in --wait` answered no_service: PR22, F5).
 AGENT_START_RESERVE_S = 5.0
-#: The longest deadline taken from the environment (an agent's whole command is 110 s).
-AGENT_DEADLINE_MAX_S = 120.0
 #: How often an agent's call asks again for a service that is starting.
 START_RETRY_S = 1.0
 #: `service.hello` and `cli.run`'s answer (the door, at once): past it the service is stuck.
@@ -317,7 +314,7 @@ def _connect(version: str, *, is_finishing_uninstall: bool = False) -> Connectio
         time.sleep(START_RETRY_S)
         if until is not None:  # an agent's call asks again (another start once one died), to its deadline
             outcome = _ensure(version, is_finishing_uninstall=is_finishing_uninstall,
-                              wait=min(START_WAIT_S, max(0.0, until - time.time())))
+                              wait=min(START_WAIT_S, max(0.0, until - time.monotonic())))
 
 
 #: Said once when a `probe` waits past START_WAIT_S for a service still starting (not to an agent's call).
@@ -329,7 +326,7 @@ def _can_wait(until: float | None) -> bool:
     the service spawned is still starting (its process runs, up to `start.SPAWN_SETTLE_S`): a fresh Mac's
     first start outlasted START_WAIT_S, and the terminal's and the Mac app's install said no_service."""
     if until is not None:
-        return time.time() + START_RETRY_S < until
+        return time.monotonic() + START_RETRY_S < until
     return start.is_spawn_starting(start.get_last_spawn(), time.time())
 
 
@@ -339,15 +336,12 @@ _STARTING = (start.Ensured.SPAWNED, start.Ensured.STARTING, start.Ensured.BACKOF
 
 
 def _get_agent_start_until() -> float | None:
-    """When an agent's call stops waiting for a starting service (epoch s), or None: not an agent's call."""
-    try:
-        deadline = float(os.environ.get(AGENT_DEADLINE_ENV, ""))
-    except ValueError:
+    """When an agent's call stops waiting for a starting service (on `time.monotonic()`, which pauses in
+    sleep: plan I-F1), or None: not an agent's call."""
+    left = get_seconds_left()
+    if left is None:
         return None
-    now = time.time()
-    if not now < deadline <= now + AGENT_DEADLINE_MAX_S:
-        return None
-    return deadline - AGENT_START_RESERVE_S
+    return time.monotonic() + left - AGENT_START_RESERVE_S
 
 
 def _ensure(version: str, *, is_finishing_uninstall: bool = False, replacing: dict | None = None,
@@ -460,7 +454,9 @@ def _call_pipelined(connection: Connection, version: str, parameters: dict) -> t
 
 def _run_handed_over(door: socket.socket, connection: Connection, command_id: str) -> tuple[dict | None, int | None]:
     """Wait for the command's turn, pass the fds, wait for its end. `(end, None)`, or
-    `(None, status)` when a program it started outlived the service (H5)."""
+    `(None, status)` when a program it started outlived its command or the service (H5): the
+    service stopped (an update's restart, an uninstall) and the person's program never with it
+    (vespper U-D1), so it is waited for here and its status is this shim's."""
     from probe.foundation.cli_shim.launches import ProgramLauncher
     from probe.foundation.cli_shim.signals import SignalForwarder
 
@@ -472,10 +468,10 @@ def _run_handed_over(door: socket.socket, connection: Connection, command_id: st
                 return first, None
             launcher = ProgramLauncher(*_send_fds(door))
             end = _wait_for_end(door, launcher, forwarder)
-            if end is None and launcher.program is not None and launcher.program.poll() is None:
+            if launcher.program is not None and launcher.program.poll() is None:
                 forwarder.restore()
-                print("probe: the Probe service stopped while running this command; "
-                      "waiting for the program it started", file=sys.stderr)
+                print("probe: the Probe service stopped or restarted while this ran; "
+                      "your program keeps running, and this waits for it", file=sys.stderr)
                 return None, launcher.wait_alone()
             return end, None
     finally:

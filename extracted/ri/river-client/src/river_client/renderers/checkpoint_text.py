@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import json
+from functools import cached_property
 
-from river_client.renderers.base import Renderer, TrainingExample, TrainOnWhat
+from river_client.renderers.base import (
+    Renderer,
+    SamplePrompt,
+    TrainingExample,
+    TrainOnWhat,
+)
+from river_client.renderers.literal_markup import RenderedPrompt, literal_markup
 from river_client.renderers.tool_arguments import protect_value_ends
 
 
@@ -18,6 +25,9 @@ class CheckpointTextRenderer(Renderer):
     empty_reasoning_field = False
     # The tags that end an argument value, or its call, in the template's calls.
     value_ends: tuple[str, ...] = ()
+    # Encode control markup quoted in message text as text (see
+    # ``literal_markup``), as River's server does for this family.
+    literal_text = False
 
     def __init__(self, tokenizer, *, thinking=True, strip_thinking_from_history=True):
         super().__init__(tokenizer)
@@ -122,20 +132,60 @@ class CheckpointTextRenderer(Renderer):
             raise TypeError("Checkpoint chat template must return a string")
         return text
 
+    @cached_property
+    def _literal_markup(self):
+        return literal_markup(self.tokenizer) if self.literal_text else None
+
+    def _render_prompt(self, messages, *, generation, tools=None):
+        """Render with the spans of markup quoted from message text."""
+
+        def render(messages, tools):
+            return self._render(messages, generation=generation, tools=tools)
+
+        literal = self._literal_markup
+        if literal is None:
+            return RenderedPrompt(render(messages, tools))
+        return literal.render(render, messages, tools)
+
+    def _encode(self, prompt):
+        """Encode template text; quoted markup in a rendered prompt stays text."""
+        if isinstance(prompt, str):
+            return list(self.tokenizer.encode(prompt, add_special_tokens=False))
+        literal = self._literal_markup
+        if literal is None:
+            return list(self.tokenizer.encode(prompt.text, add_special_tokens=False))
+        return literal.encode(prompt)
+
+    def _sample_prompt(self, prompt):
+        return SamplePrompt(
+            prompt.text,
+            [],
+            [],
+            prompt_token_ids=self._encode(prompt) if prompt.literal_spans else None,
+        )
+
     def build_prompt_str(self, messages, *, tools=None):
         return self._render(self._messages(messages), generation=True, tools=tools)
 
-    def _observation_suffix(self, messages):
+    def build_sample_prompt(self, messages, *, tools=None):
+        return self._sample_prompt(
+            self._render_prompt(self._messages(messages), generation=True, tools=tools)
+        )
+
+    def _observation_prompt(self, messages):
         # Keep a preceding non-tool turn for templates that group tool results.
         # Only the new suffix is appended; sampled assistant tokens never enter Jinja.
         if any(m["role"] not in ("user", "tool") for m in messages):
             raise ValueError("Continuations require user or tool observations")
         anchor = [{"role": "user", "content": ""}]
         prefix = self._render(anchor, generation=False)
-        full = self._render(anchor + self._messages(messages), generation=True)
-        if not full.startswith(prefix):
+        full = self._render_prompt(anchor + self._messages(messages), generation=True)
+        if not full.text.startswith(prefix):
             raise ValueError("Checkpoint template rewrites its continuation anchor")
-        return full[len(prefix) :]
+        return full.removeprefix(prefix)
+
+    def _observation_suffix(self, messages):
+        return self._observation_prompt(messages).text
 
     def build_training_example(
         self,
@@ -147,11 +197,9 @@ class CheckpointTextRenderer(Renderer):
         tools=None,
     ):
         messages = self._messages(messages)
+        encode = self._encode
 
-        def encode(text):
-            return list(self.tokenizer.encode(text, add_special_tokens=False))
-
-        ids = encode(self._render(messages, generation=False, tools=tools))
+        ids = encode(self._render_prompt(messages, generation=False, tools=tools))
         weights = [0.0] * len(ids)
         targets = [i for i, m in enumerate(messages) if m["role"] == "assistant"]
         if train_on == TrainOnWhat.LAST_ASSISTANT:
@@ -163,7 +211,7 @@ class CheckpointTextRenderer(Renderer):
             empty[index]["content"] = ""
             empty[index].pop("reasoning_content", None)
             empty[index].pop("tool_calls", None)
-            other = encode(self._render(empty, generation=False, tools=tools))
+            other = encode(self._render_prompt(empty, generation=False, tools=tools))
             start = 0
             while start < min(len(ids), len(other)) and ids[start] == other[start]:
                 start += 1

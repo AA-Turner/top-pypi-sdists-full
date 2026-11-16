@@ -112,7 +112,7 @@ from .snapshot import SnapshotMixin
 from .string import StringMixin
 from .warning import WarningMixin
 
-__version__ = "2.36.0"
+__version__ = "2.36.1"
 
 # the tracked value type of the generic AssertionBuilder fallback (_U appears only in narrowing stubs)
 _T = TypeVar("_T")
@@ -559,14 +559,14 @@ def _attach_soft_note(exc: BaseException, rendered: str) -> None:
     way past: there the unbound lookup raises `AttributeError` and the assignment takes over.
     """
     try:
-        BaseException.add_note(exc, rendered)  # ty: ignore[unresolved-attribute]  # absent on 3.10
+        BaseException.add_note(exc, rendered)  # ty: ignore[missing-attribute]  # absent on 3.10
         return
     except Exception:  # every failure here falls through to the assignment below
         pass
     try:
         existing = getattr(exc, "__notes__", ())
         notes = [*existing, rendered] if isinstance(existing, (list, tuple)) else [rendered]
-        exc.__notes__ = notes  # ty: ignore[unresolved-attribute]  # 3.10 lacks it until set
+        exc.__notes__ = notes  # ty: ignore[missing-attribute]  # 3.10 lacks it until set
     except Exception:  # a note is worth nothing next to the exception it annotates
         pass
 
@@ -918,7 +918,7 @@ def _contract_entries(exc: object, prefix: _Path = _ROOT) -> list[DiffEntry]:
     ``loc`` is already a tuple of keys and indices, so the machine half of the path comes straight
     across rather than being parsed back out of the text.
     """
-    errors = exc.errors() if hasattr(exc, "errors") else []  # ty: ignore[call-non-callable]  # duck-typed pydantic
+    errors = exc.errors() if hasattr(exc, "errors") else []  # ty: ignore[not-callable]  # duck-typed pydantic
     entries = []
     for error in errors:
         path = prefix
@@ -1787,7 +1787,7 @@ class NegatedBuilder(Generic[_S]):
             return _observed
 
         # every branch hands back the wrapped builder, unsayable without `_builder: _S`, and an unbound TypeVar has none
-        return _negated  # ty: ignore[invalid-return-type]  # see above
+        return _negated  # ty: ignore[invalid-explicit-return]  # see above
 
     def _make_msg(self, name: str, *args: object, **kwargs: object) -> str:
         """The negated failure, naming the call that held when it should not have.
@@ -1964,7 +1964,7 @@ class CheckBuilder:
         if name in HANDS_THE_SUBJECT_BACK:
             return attr
         if isinstance(attr, NegatedBuilder):
-            # ty: ignore[invalid-return-type]  # declared above as a proxy; this is the path that cannot be described
+            # ty: ignore[invalid-explicit-return]  # declared above as a proxy; this is the path that cannot be described
             return CheckBuilder(attr, self._builder)
         if not callable(attr):
             return attr

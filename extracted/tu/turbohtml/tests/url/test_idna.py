@@ -1,364 +1,24 @@
-"""Conformance tests for the C ``_url_to_ascii`` engine behind :mod:`turbohtml.extract._urls`.
-
-``_url_to_ascii`` runs the WHATWG domain-to-ASCII step -- Unicode IDNA ``ToASCII``, that is UTS #46 with
-``Transitional_Processing=false`` and ``UseSTD3ASCIIRules=false`` -- over the Unicode 16.0.0 tables generated into
-``_c/data/idna_table.h``. The authoritative oracle is the Unicode ``IdnaTestV2.txt`` vector file, read from the
-``unicodetools`` submodule pinned to tag ``final-16.0-20240912`` (16.0 data lives under its ``dev`` directory); every
-row's ``toAsciiN`` column is checked against the engine. A missing submodule is a setup error, not a skip: the module
-raises so a dev without the checkout is told to init it (CI inits submodules). The punycode core is
-pinned separately to the RFC 3492 sample strings, and the remaining branches (an ASCII fast path, an already-encoded
-``xn--`` label, an unpaired surrogate, the ignored and combining-mark mapping outcomes) get their own cases.
-"""
-
 from __future__ import annotations
 
-import re
-from pathlib import Path
+import unicodedata
+from functools import partial
 from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from turbohtml._html import _url_to_ascii
 from turbohtml.extract import normalize_url
 
-_VECTORS = (
-    Path(__file__).parents[1]
-    / "conformance"
-    / "unicodetools"
-    / "unicodetools"
-    / "data"
-    / "idna"
-    / "dev"
-    / "IdnaTestV2.txt"
-)
-if not _VECTORS.exists():  # pragma: no cover
-    _HINT = (
-        "submodule tests/conformance/unicodetools not checked out; "
-        "run: git submodule update --init tests/conformance/unicodetools"
-    )
-    raise RuntimeError(_HINT)
-
-
-def _unescape(value: str) -> str:
-    """Resolve the ``\\uXXXX`` and ``\\x{XXXX}`` escapes IdnaTestV2 uses for characters it would rather not display."""
-    value = re.sub(r"\\u([0-9A-Fa-f]{4})", lambda match: chr(int(match[1], 16)), value)
-    return re.sub(r"\\x\{([0-9A-Fa-f]+)\}", lambda match: chr(int(match[1], 16)), value)
-
-
-def _has_surrogate(text: str) -> bool:
-    """Whether *text* carries an unpaired surrogate, the ill-formed input the spec lets an implementation skip."""
-    return any(0xD800 <= ord(char) <= 0xDFFF for char in text)
-
-
-def _expected_ascii(columns: list[str], source: str) -> str:
-    """The ``toAsciiN`` result for a row: an explicit value, or the toUnicode value it defers to when blank.
-
-    turbohtml takes the stricter posture UTS #46 explicitly permits ("implementations may be more strict"): a
-    punycode label that decodes to only ASCII is a step-4 (P4) validity failure -- the RUSTSEC-2024-0421 equivalence
-    bypass -- so the engine keeps it verbatim instead of emitting the lenient decoded form the vector's output column
-    records. That form is always the mapped (lowercased) source here, since every such row is pure ASCII.
-    """
-    ascii_column = columns[3]
-    unicode_column = columns[1]
-    decoded_unicode = _unescape(unicode_column)
-    rejected = (
-        not ascii_column
-        and unicode_column not in {"", '""'}
-        and decoded_unicode.isascii()
-        and any(label.lower().startswith("xn--") and len(label) > 4 for label in source.split("."))
-    )
-    if rejected:
-        return source.lower()
-    if ascii_column:  # no row spells an empty toAsciiN as ""; an empty result always defers to the toUnicode column
-        return _unescape(ascii_column)
-    if unicode_column in {"", '""'}:
-        return source if not unicode_column else ""
-    return decoded_unicode
-
-
-def test_idna_conformance_covers_every_wellformed_vector() -> None:
-    """Each IdnaTestV2 row reproduces ``toAsciiN``, and the engine rejects only rows UTS #46 flags as errors."""
-    assert [row for row in _vectors() if not _conforms(row)] == []
-
-
-def _conforms(row: tuple[str, str, bool]) -> bool:
-    # the private engine is the only observer: normalize_url keeps a rejected host unchanged, so a rejected ASCII row
-    # reads as accepted, and rows carrying URL delimiters would be split by the URL parser before reaching ToASCII
-    source, expected, is_error = row
-    try:
-        return _url_to_ascii(source) == expected
-    except ValueError:
-        return is_error
-
-
-def _vectors() -> list[tuple[str, str, bool]]:
-    """The ``(source, expected_ascii, is_error)`` triple of each well-formed IdnaTestV2 row, surrogate rows dropped."""
-    rows: list[tuple[str, str, bool]] = []
-    for raw in _VECTORS.read_text(encoding="utf-8").splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line:
-            continue
-        columns = [part.strip() for part in line.split(";")]
-        source = _unescape(columns[0])
-        if source and _has_surrogate(source):
-            continue
-        rows.append((source, _expected_ascii(columns, source), _row_is_error(columns)))
-    return rows
-
-
-# The URL Standard runs ToASCII with VerifyDnsLength, CheckHyphens, and UseSTD3ASCIIRules off, so the vectors' status
-# codes for those flags (A4_1/A4_2, V2/V3, U1) are not errors here; a row with any other code is one the WHATWG host
-# parser rejects.
-_IGNORED_STATUS: Final = frozenset({"A4_1", "A4_2", "V2", "V3", "U1"})
-
-
-def _row_is_error(columns: list[str]) -> bool:
-    """Whether the ``toAsciiN`` status flags a WHATWG-relevant error (column 5, inheriting column 3 when blank)."""
-    status: Final = (columns[4] or columns[2]).strip()
-    return status.startswith("[") and bool({code.strip() for code in status[1:-1].split(",")} - _IGNORED_STATUS - {""})
-
-
-# RFC 3492 section 7.1 sample strings whose label is all lowercase (ToASCII lowercases first, so the mixed-case samples
-# would encode a different label); each pins the punycode of a real script against the encoder.
-_RFC_SAMPLES = {
-    "ليهمابتكلموشعربي؟": "xn--egbpdaj6bu4bxfgehfvwxn",
-    "他们为什么不说中文": "xn--ihqwcrb4cv8a8dqg056pqjye",
-    "hello": "hello",
-}
-
-
-@pytest.mark.parametrize(
-    ("label", "encoded"),
-    [pytest.param(label, encoded, id=encoded) for label, encoded in _RFC_SAMPLES.items()],
-)
-def test_rfc3492_sample_labels_encode_to_their_punycode(label: str, encoded: str) -> None:
-    """A single-label host encodes to the RFC 3492 punycode, and re-running the engine on it is idempotent."""
-    assert _url_to_ascii(label) == encoded
-    assert _url_to_ascii(encoded) == encoded
-
-
-@pytest.mark.parametrize(
-    ("host", "ascii_host"),
-    [
-        pytest.param("example.com", "example.com", id="ascii-passthrough"),
-        pytest.param("Example.COM", "example.com", id="ascii-uppercase-mapped"),
-        pytest.param("münchen.de", "xn--mnchen-3ya.de", id="german-umlaut"),
-        pytest.param("xn--fa-hia.de", "xn--fa-hia.de", id="already-xn--"),
-        pytest.param("日本語。jp", "xn--wgv71a119e.jp", id="ideographic-full-stop"),
-        pytest.param("☃.net", "xn--n3h.net", id="mixed-symbol-and-ascii"),
-        pytest.param("bar.☁.example", "bar.xn--l3h.example", id="middle-unicode-label"),
-        pytest.param("", "", id="empty"),
-    ],
-)
-def test_domain_to_ascii(host: str, ascii_host: str) -> None:
-    """Representative registered names map to the ASCII form the URL standard's host parser produces."""
-    assert _url_to_ascii(host) == ascii_host
-
-
-def test_ess_zett_diverges_from_the_idna2003_codec() -> None:
-    """UTS #46 keeps ess-zett (``faß`` -> ``xn--fa-hia``); the old IDNA-2003 codec folded it to ``fass``."""
-    assert _url_to_ascii("faß.de") == "xn--fa-hia.de"
-    assert "faß.de".encode("idna").decode("ascii") == "fass.de"
-
-
-def test_soft_hyphen_is_ignored() -> None:
-    """A U+00AD SOFT HYPHEN is an ignored code point, dropped before the label is even considered non-ASCII."""
-    assert _url_to_ascii("ex­ample.com") == "example.com"
-
-
-def test_decomposed_label_composes_to_the_precomposed_form() -> None:
-    """A base plus a combining acute (U+0301) normalizes to the precomposed a-acute (U+00E1) label."""
-    assert _url_to_ascii("a\u0301.com") == "xn--1ca.com"
-    assert _url_to_ascii("\u00e1.com") == "xn--1ca.com"
-
-
-def test_trailing_mark_without_a_composition_stays_decomposed() -> None:
-    """A precomposed base (s-dot-below U+1E63) with a trailing acute (U+0301) that forms no further
-    composition: the table search lands on the base's row but no pair matches, so the mark is left
-    combining rather than folded away."""
-    assert _url_to_ascii("\u1e63\u0301.com") == "xn--lsa331l.com"
-
-
-def test_combining_marks_are_canonically_reordered() -> None:
-    """Marks out of canonical order (acute U+0301 before dot-below U+0323) sort by class into one NFC label."""
-    assert _url_to_ascii("q\u0301\u0323.com") == _url_to_ascii("q\u0323\u0301.com")
-    assert _url_to_ascii("q\u0301\u0323.com") == "xn--q-xbb5h.com"
-
-
-def test_hangul_jamo_sequence_composes_to_a_syllable() -> None:
-    """Leading, vowel, and trailing jamo compose arithmetically to the precomposed syllable's host."""
-    assert _url_to_ascii("\u1100\u1161\u11a8.kr") == _url_to_ascii("\uac01.kr")
-    assert _url_to_ascii("\u1100\u1161.kr") == _url_to_ascii("\uac00.kr")
-    assert _url_to_ascii("\u1100\u1161\u11a8.kr") == "xn--p39a.kr"
-
-
-@pytest.mark.parametrize(
-    "label",
-    [
-        pytest.param("xn--b", id="truncated-integer"),
-        pytest.param("xn---", id="lone-delimiter"),
-        pytest.param("xn--@a", id="non-digit-below-a"),
-        pytest.param("xn--a}", id="non-digit-above-z"),
-        pytest.param("xn--to913369t", id="integer-value-overflow"),
-        pytest.param("xn--xf26gk7zx", id="code-point-out-of-range"),
-        pytest.param("xn--tl0cub1", id="decodes-to-a-surrogate"),
-    ],
-)
-def test_malformed_xn_label_is_kept_verbatim(label: str) -> None:
-    """An ``xn--`` label the punycode decoder rejects is left untouched (an advisory error the cleaner ignores)."""
-    assert _url_to_ascii(f"{label}.example") == f"{label}.example"
-
-
-# A label whose punycode delta would overflow the 32-bit accumulator: a long run of one code point, then a distant one.
-# The first case trips the pre-multiply guard, the second lands the accumulator just under the limit so the following
-# increments trip the per-code-point guard. Both stay under the 16384-code-point input cap and use CJK code points UTS
-# #46 keeps, so they reach the encoder rather than the disallowed-code-point or input-cap rejection.
-_OVERFLOW_LABELS: Final = ["\u3400" * 16000 + "\U000323af", "\u3400" * 11159 + "\U000323ab"]
-
-
-@pytest.mark.parametrize("label", _OVERFLOW_LABELS, ids=["pre-multiply-guard", "increment-guard"])
-def test_punycode_delta_overflow_is_rejected(label: str) -> None:
-    """A label whose encoding would overflow the punycode accumulator keeps its Unicode form, never a wrong host."""
-    url: Final = f"http://{label}.example/"
-    assert normalize_url(url) == url
-
-
-@pytest.mark.parametrize(
-    ("first", "second"),
-    [
-        pytest.param("\u1100", "\u1100", id="leading-then-leading"),
-        pytest.param("\u1100", "\u1100\u0301", id="leading-then-leading-with-mark"),
-        pytest.param("\uac01", "\u11a8", id="lvt-syllable-then-trailing"),
-        pytest.param("\uac00", "\u0301", id="lv-syllable-then-non-trailing"),
-    ],
-)
-def test_non_composing_jamo_pairs_stay_separate(first: str, second: str) -> None:
-    """A jamo pair outside the composable ranges is not fused; the host still round-trips through the engine."""
-    encoded = _url_to_ascii(f"{first}{second}.kr")
-    assert encoded.startswith("xn--")
-    assert _url_to_ascii(encoded) == encoded
-
-
-@pytest.mark.parametrize(
-    "host",
-    [
-        pytest.param("xn.example", id="too-short-for-xn"),
-        pytest.param("xtra.example", id="second-char-not-n"),
-        pytest.param("xnat.example", id="third-char-not-hyphen"),
-        pytest.param("xn-a.example", id="fourth-char-not-hyphen"),
-    ],
-)
-def test_ascii_label_that_only_resembles_xn_passes_through(host: str) -> None:
-    """An ASCII label that is not the four-code-point ``xn--`` prefix is copied verbatim, never decoded."""
-    assert _url_to_ascii(host) == host
-
-
-def test_unpaired_surrogate_host_is_rejected() -> None:
-    """A label carrying an unpaired surrogate has no scalar value to encode, so the engine raises ``ValueError``."""
-    with pytest.raises(ValueError, match="cannot be encoded to ASCII"):
-        _url_to_ascii("a\ud800b.example")
+if TYPE_CHECKING:
+    from work_steps import WorkSteps
 
 
 def test_normalize_url_punycodes_a_unicode_host() -> None:
-    """The public normalizer routes a Unicode host through the engine and falls back on an unencodable one."""
+    # The public normalizer routes a Unicode host through the engine and falls back on an unencodable one.
     assert normalize_url("http://münchen.de/weg") == "http://xn--mnchen-3ya.de/weg"
     assert normalize_url("http://a\ud800b.de/") == "http://a\ud800b.de/"
 
 
-@pytest.mark.parametrize(
-    "label",
-    [
-        pytest.param("xn--abc-", id="basic-run-then-delimiter"),
-        pytest.param("xn--ascii-", id="whole-label-basic"),
-        pytest.param("xn--0900-", id="digits-only-basic"),
-        pytest.param("xn--a-", id="single-char-basic"),
-    ],
-)
-def test_punycode_label_decoding_to_only_ascii_is_kept_verbatim(label: str) -> None:
-    """A punycode label that decodes to no non-ASCII code point is invalid (RUSTSEC-2024-0421 / CVE-2024-12224); the
-    engine keeps it verbatim rather than emit the bare-ASCII decoding that would forge an IDNA equivalence."""
-    assert _url_to_ascii(f"{label}.example") == f"{label}.example"
-
-
-def test_all_ascii_decode_does_not_forge_an_idna_equivalence() -> None:
-    """The RUSTSEC-2024-0421 bypass: ``xn--ascii-`` beside a real IDN label must not canonicalize to the host its
-    bare-ASCII decoding would, or a raw-vs-normalized host check is defeated."""
-    forged = _url_to_ascii("xn--ascii-.日本")
-    genuine = _url_to_ascii("ascii.日本")
-    assert forged != genuine
-    assert forged == "xn--ascii-.xn--wgv71a"
-
-
-def test_empty_punycode_label_decodes_to_an_empty_label() -> None:
-    """A bare ``xn--`` decodes to the empty string, the one all-ASCII decode the conformance vectors keep (an empty
-    label cannot forge a host), so it maps to ``""`` rather than being held verbatim."""
-    assert not _url_to_ascii("xn--")
-    assert _url_to_ascii("xn--.example") == ".example"
-
-
-# A punycode payload of many high-value base-36 digits: the decode accumulator ``i += digit * w`` and its weight
-# ``w *= base - t`` must fail on the RFC 3492 overflow bound (Libidn2 CVE-2017-14062) rather than wrap and mis-decode.
-@pytest.mark.parametrize(
-    "label",
-    [
-        pytest.param("xn--" + "z" * 64, id="long-high-digit-run"),
-        pytest.param("xn--a-" + "9" * 64, id="basic-run-then-high-digits"),
-        pytest.param("xn--99999999999", id="all-digit-accumulator"),
-    ],
-)
-def test_punycode_decode_accumulator_overflow_is_rejected(label: str) -> None:
-    """A crafted digit run that would overflow the punycode decode accumulator is rejected, leaving the label
-    verbatim, never a wrapped-around host."""
-    assert _url_to_ascii(f"{label}.example") == f"{label}.example"
-
-
-@pytest.mark.parametrize(
-    "label",
-    [
-        pytest.param("é" * 512, id="max-expansion-non-ascii"),
-        pytest.param("a" * 512 + "é", id="long-basic-run-with-tail"),
-        pytest.param("xn--" + "a" * 512 + "-", id="long-basic-punycode-run"),
-    ],
-)
-def test_boundary_length_label_round_trips_without_overrun(label: str) -> None:
-    """A label near the buffer-sizing bounds encodes (or is kept verbatim) without an out-of-bounds write, and the
-    result is idempotent under a second pass -- the check ASan exercises for the OpenSSL CVE-2022-3602 write class."""
-    encoded = _url_to_ascii(f"{label}.example")
-    assert encoded.endswith(".example")
-    assert _url_to_ascii(encoded) == encoded
-
-
-def test_host_at_the_input_cap_still_encodes() -> None:
-    assert normalize_url("http://" + "\u3400" * 16384 + "/").startswith("http://xn--")
-
-
-def test_oversize_host_keeps_its_unicode_form() -> None:
-    # past the 16384-code-point cap the host skips the O(n^2) reorder and punycode passes and keeps its Unicode form;
-    # U+0316 then U+0301 alternate combining classes 220 and 230, the input an insertion-sort reorder is O(n^2) on
-    url: Final = "http://" + "\u0316\u0301" * 60000 + "/"
-    assert normalize_url(url) == url
-
-
-@pytest.mark.parametrize(
-    "code_point",
-    [
-        pytest.param(0x0085, id="c1-control-NEL"),
-        pytest.param(0x2028, id="line-separator"),
-        pytest.param(0x202E, id="right-to-left-override"),
-        pytest.param(0xE000, id="private-use"),
-        pytest.param(0xFFFE, id="noncharacter"),
-    ],
-)
-def test_disallowed_code_point_host_is_not_punycode_encoded(code_point: int) -> None:
-    """UTS #46 validity criterion 6 rejects a disallowed code point, so the host keeps its Unicode form."""
-    url: Final = f"http://a{chr(code_point)}b.example/"
-    assert normalize_url(url) == url
-
-
-if TYPE_CHECKING:
-    from _pytest.mark import ParameterSet
-
-_CASES: Final[list[ParameterSet]] = [
+_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param("münchen.example", "xn--mnchen-3ya.example", id="normalized"),
     pytest.param("a\u0301.example", "xn--1ca.example", id="decomposed"),
     pytest.param("q\u0301\u0323.example", "xn--q-xbb5h.example", id="reordered"),
@@ -383,3 +43,134 @@ _CASES: Final[list[ParameterSet]] = [
 @pytest.mark.parametrize(("host", "expected"), _CASES)
 def test_idna_shared_public_target(host: str, expected: str) -> None:
     assert normalize_url(f"https://{host}/item?q=1") == f"https://{expected}/item?q=1"
+
+
+# A label whose punycode delta would overflow the 32-bit accumulator: a long run of one code point, then a distant one.
+# In the first case the jump between the two code points alone passes the limit, in the second it lands just under and
+# the distant code point's position in the label carries it over. Both stay under the 16384-code-point input cap and
+# use CJK code points UTS #46 keeps, so they reach the encoder rather than the disallowed-code-point or input-cap
+# rejection.
+_OVERFLOW_LABELS: Final[tuple[str, ...]] = ("\u3400" * 16000 + "\U000323af", "\u3400" * 11159 + "\U000323ab")
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        pytest.param(_OVERFLOW_LABELS[0], id="code-point-jump"),
+        pytest.param(_OVERFLOW_LABELS[1], id="jump-plus-position"),
+    ],
+)
+def test_punycode_delta_overflow_is_rejected(label: str) -> None:
+    # A label whose encoding would overflow the punycode accumulator keeps its Unicode form, never a wrong host.
+    url: Final = f"http://{label}.example/"
+    assert normalize_url(url) == url
+
+
+def test_host_at_the_input_cap_still_encodes() -> None:
+    assert normalize_url("http://" + "\u3400" * 16384 + "/").startswith("http://xn--")
+
+
+def test_oversize_host_keeps_its_unicode_form() -> None:
+    # past the 16384-code-point cap the host skips the O(n^2) reorder and punycode passes and keeps its Unicode form;
+    # U+0316 then U+0301 alternate combining classes 220 and 230, the input an insertion-sort reorder is O(n^2) on
+    url: Final = "http://" + "\u0316\u0301" * 60000 + "/"
+    assert normalize_url(url) == url
+
+
+@pytest.mark.parametrize(
+    "code_point",
+    [
+        pytest.param(0x0085, id="c1-control-NEL"),
+        pytest.param(0x2028, id="line-separator"),
+        pytest.param(0x202E, id="right-to-left-override"),
+        pytest.param(0xE000, id="private-use"),
+        pytest.param(0xFFFE, id="noncharacter"),
+    ],
+)
+def test_disallowed_code_point_host_is_not_punycode_encoded(code_point: int) -> None:
+    # UTS #46 validity criterion 6 rejects a disallowed code point, so the host keeps its Unicode form.
+    url: Final = f"http://a{chr(code_point)}b.example/"
+    assert normalize_url(url) == url
+
+
+_ACUTE: Final[str] = "\u0301"
+_GRAVE_BELOW: Final[str] = "\u0316"
+_DIALYTIKA: Final[str] = "\u0344"
+_TIBETAN_II: Final[str] = "\u0f73"
+_FFI: Final[str] = "\ufb03"
+_INPUT_CAP: Final[int] = 16384
+_FFI_PREFIX: Final[str] = "\u4e00\u4e8c\u4e09\u56db"
+
+
+def test_host_mapped_to_the_input_cap_still_encodes() -> None:
+    # U+FB03 maps to "ffi", so the host is exactly at the cap after the mapping
+    host: Final = f"{_FFI_PREFIX}{_FFI * ((_INPUT_CAP - len(_FFI_PREFIX)) // 3)}"
+    assert normalize_url(f"http://{host}/").startswith("http://xn--ffiffi")
+
+
+def test_misordered_marks_at_the_input_cap_reorder_in_linear_steps(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: partial(normalize_url, f"http://{_ACUTE * n}{_GRAVE_BELOW * n}/"), (1500, 6000))
+
+
+@pytest.mark.parametrize("length", [*range(56, 72), 300])
+def test_punycode_matches_the_rfc_3492_sample_codec_on_both_sides_of_the_sorted_switch(length: int) -> None:
+    # Labels from 64 code points (and payloads from 64 digits) up take the sorted encoder and decoder. The stdlib codec
+    # is the RFC 3492 sample, so both paths must agree with it, and decoding then re-encoding must give the ACE label
+    # back. The trailing non-ASCII label sends the host through ToASCII, which an all-ASCII host skips. The label mixes
+    # out-of-order and repeated code points from three scripts with letters, digits and hyphens.
+    pool: Final = "ab7-\u03b1\u03c3\u03c2\u03c9\uac00\ud7a3\u4e00\u9fa5\u5c71"
+    label: Final = f"{''.join(pool[(index * 7 + index // 3) % len(pool)] for index in range(length - 1))}\u03b2"
+    ace: Final = f"xn--{label.encode('punycode').decode('ascii')}"
+    assert normalize_url(f"http://{label}.\u00e9/") == f"http://{ace}.xn--9ca/"
+    assert normalize_url(f"http://{ace}.\u00e9/") == f"http://{ace}.xn--9ca/"
+
+
+def test_label_of_distinct_code_points_encodes_in_linear_steps(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda n: partial(normalize_url, f"http://{''.join(chr(0x4E00 + offset) for offset in range(n))}/"),
+        (1500, 6000),
+    )
+
+
+def test_punycode_label_decodes_in_linear_steps(work_steps: WorkSteps) -> None:
+    # descending code points: the decoder inserts each one in front of all it decoded before
+    def host(count: int) -> str:
+        label = "".join(chr(0x4E00 + count - offset) for offset in range(count))
+        return f"http://xn--{label.encode('punycode').decode('ascii')}.\u00e9/"
+
+    work_steps.assert_linear(lambda n: partial(normalize_url, host(n)), (1000, 4000))
+
+
+@pytest.mark.parametrize(
+    ("host", "ordered"),
+    [
+        pytest.param(f"a{(_ACUTE + _GRAVE_BELOW) * 20}", f"a{_GRAVE_BELOW * 20}{_ACUTE * 20}", id="one-long-run"),
+        pytest.param(
+            f"a{_ACUTE * 40}{_GRAVE_BELOW}b{_ACUTE}{_GRAVE_BELOW}",
+            f"a{_GRAVE_BELOW}{_ACUTE * 40}b{_GRAVE_BELOW}{_ACUTE}",
+            id="long-run-then-short-run",
+        ),
+        pytest.param(f"{_ACUTE * 33}{_GRAVE_BELOW}", f"{_GRAVE_BELOW}{_ACUTE * 33}", id="run-opens-the-host"),
+        pytest.param(f"a{_ACUTE * 31}{_GRAVE_BELOW}", f"a{_GRAVE_BELOW}{_ACUTE * 31}", id="run-just-under-the-switch"),
+    ],
+)
+def test_long_mark_runs_reorder_like_short_ones(host: str, ordered: str) -> None:
+    assert normalize_url(f"http://{host}/") == normalize_url(f"http://{ordered}/")
+    assert unicodedata.normalize("NFC", host) == unicodedata.normalize("NFC", ordered)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        pytest.param(f"{_FFI_PREFIX}{_FFI * ((_INPUT_CAP - len(_FFI_PREFIX)) // 3 + 1)}", id="mapping-ligature"),
+        # U+3300 maps to four code points, so the host passes the input check and exceeds the cap once mapped
+        pytest.param("\u3300" * (_INPUT_CAP // 4 + 5), id="mapping-expansion"),
+        # U+0344 and U+0F73 each map to two combining marks, so this host is past the cap once mapped
+        pytest.param(f"a{_DIALYTIKA * 6000}{_TIBETAN_II * 5000}", id="mapping-reorder"),
+        # U+01D8 is u + U+0308 + U+0301; U+0323 sorts before both and composes with the u, leaving three code points
+        pytest.param("\u01d8\u0323" * (_INPUT_CAP // 3 + 11), id="normalization"),
+    ],
+)
+def test_host_lengthened_past_the_input_cap_keeps_its_unicode_form(host: str) -> None:
+    url: Final = f"http://{host}/"
+    assert normalize_url(url) == url

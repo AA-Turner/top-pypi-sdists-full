@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: btclib-secp256k1
-Version: 0.8.0.15
+Version: 0.8.0.16
 Summary: Simple python bindings to libsecp256k1
 Project-URL: homepage, https://btclib.org/btclib-secp256k1/
 Project-URL: documentation, https://btclib-secp256k1.readthedocs.io/
@@ -22,6 +22,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
+Classifier: Operating System :: iOS
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
@@ -68,8 +69,9 @@ python -m pip install --upgrade btclib-secp256k1
 ## Quickstart
 
 Sign and verify, ECDSA and BIP340. Every line below is executed by the
-test suite, on every interpreter and every kind of wheel, so an example
-that stops working fails a build rather than sitting here:
+test suite, on every interpreter and against every static wheel but the
+iOS device's, so an example that stops working fails a build rather than
+sitting here:
 
 ```python
 >>> import hashlib
@@ -248,7 +250,7 @@ went:
   coverage is ratcheted at 100%, with only the unreachable excluded
   from the measure
 - provenance is checkable: every wheel and the sdist are built and
-  tested in public CI from the pinned source, and published by the
+  checked in public CI from the pinned source, and published by the
   workflow itself through Trusted Publishing with PEP 740 attestations
   — no long-lived token, and no maintainer laptop in the path. The sdist
   attached to the GitHub release carries a build provenance attestation
@@ -1366,7 +1368,9 @@ The vendored libsecp256k1 is built with CMake on every platform, out of
 tree: the submodule is only ever read from. CMake is declared as a build
 requirement, so a PEP 517 frontend provisions it and only a C toolchain
 has to be there already; a system CMake 3.22 or newer serves just as
-well, with `--no-build-isolation`.
+well, with `--no-build-isolation`. An iOS build is the exception, and
+takes CMake from the machine: `pyproject.toml` gives the reason beside
+the requirement.
 
 The cffi extension itself is compiled with the interpreter's own
 toolchain, which on Windows is the standard setuptools/MSVC one; a `gcc`
@@ -1427,9 +1431,9 @@ magnitude to read there, never a number to quote here.
 
 ## Contributing
 
-Development is LLM-based: humans are welcome, as long as they are
-comfortable with agentic development ;-). A contribution must have been
-read and understood by the person who submits it.
+Software development in btclib-org is mainly LLM-driven, but human
+beings are welcome too. A contribution must have been read and
+understood by the person who submits it.
 [`CONTRIBUTING.md`](https://github.com/btclib-org/btclib-secp256k1/blob/main/CONTRIBUTING.md#working-with-an-llm)
 has the rules.
 

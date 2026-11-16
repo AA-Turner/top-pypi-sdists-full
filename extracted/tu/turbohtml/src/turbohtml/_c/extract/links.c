@@ -4,25 +4,38 @@
    This file is the walk that locates every link-bearing location and, for the rewrite path, splices a replacement back
    in place. The genuinely new capability over iterating <a href> by hand is the URLs embedded in CSS url()/@import (in
    a style attribute and in <style> text), in a <meta http-equiv=refresh> content value, and in the srcset/ping/archive
-   list attributes. URL resolution itself (resolve_links) is the C _url_join, bound through functools.partial here, so
-   RFC 3986 resolution is not reinvented and a reference's host matches the one a browser resolves. */
+   list attributes. URL resolution itself (resolve_links) is the C _url_join_link, bound through functools.partial here,
+   so RFC 3986 resolution is not reinvented and a reference's host matches the one a browser resolves. */
 
 #include "core/ascii.h"
 #include "core/common.h"
 
+#include "core/refresh.h"
+#include "core/srcset.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
 #include "tokenizer/binding.h" /* Py_BEGIN_CRITICAL_SECTION shim for the GIL/pre-3.13 build */
+#include "dom/nodes.h"
 #include "dom/tree.h"
 
 #include <string.h>
 
 /* A scanner reports each URL span [start, end) inside a value buffer through this callback; returning -1 aborts the
-   walk with a Python error already set. Keeping the scanners callback-driven means none of them allocates. */
-typedef int (*link_emit)(void *ctx, Py_ssize_t start, Py_ssize_t end);
+   walk with a Python error already set. Keeping the scanners callback-driven means none of them allocates. `css` says
+   how the span's text spells its URL: 0 when the text is the URL (an attribute value, which the HTML parser already
+   decoded), and for CSS source the quote of the string that holds it or CSS_BARE_URL for an unquoted url() token. A CSS
+   span is the URL only once its escapes are decoded (span_url), and takes a replacement only with the code points its
+   syntax reserves escaped again (spell_url). */
+typedef int (*link_emit)(void *ctx, Py_ssize_t start, Py_ssize_t end, Py_UCS4 css);
 typedef int (*scanner_fn)(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, void *ctx);
 
-/* A CSS/identifier byte, used to reject url(/import/url= matches that are only the tail of a longer identifier (e.g.
-   "blur(" must not match "url(", "curl" must not match the refresh keyword). */
+/* An unquoted url() token goes by the parenthesis that opens it, which like the quote of a string is a code point the
+   token cannot hold unescaped. */
+#define CSS_BARE_URL ((Py_UCS4)'(')
+#define CSS_NO_CODE_POINT ((Py_UCS4) - 1) /* what css_escape_end decodes a backslash that escapes nothing to */
+
+/* A CSS/identifier byte, used to reject url(/@import matches that are only the tail of a longer identifier (e.g.
+   "blur(" must not match "url("). */
 static int is_ident(Py_UCS4 c) {
     return is_ascii_alpha(c) || is_ascii_digit(c) || c == '_' || c == '-' || c >= 0x80;
 }
@@ -54,7 +67,7 @@ static int scan_single(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, voi
         end--;
     }
     if (end > start) {
-        return emit(ctx, start, end);
+        return emit(ctx, start, end, 0);
     }
     return 0;
 }
@@ -71,8 +84,8 @@ static int scan_space_list(const Py_UCS4 *value, Py_ssize_t len, link_emit emit,
             pos++;
         }
         if (pos > start) {
-            if (emit(ctx, start, pos) < 0) { /* GCOVR_EXCL_BR_LINE: emit fails only on collect_span's realloc */
-                return -1;                   /* GCOVR_EXCL_LINE: allocation-failure path */
+            if (emit(ctx, start, pos, 0) < 0) { /* GCOVR_EXCL_BR_LINE: emit fails only on collect_span's realloc */
+                return -1;                      /* GCOVR_EXCL_LINE: allocation-failure path */
             }
         }
     }
@@ -80,7 +93,7 @@ static int scan_space_list(const Py_UCS4 *value, Py_ssize_t len, link_emit emit,
 }
 
 /* A comma inside a srcset URL belongs to the URL; only trailing URL commas and descriptor commas separate candidates.
- */
+   A candidate whose descriptors are invalid is not one the browser keeps, so it is not reported (core/srcset.h). */
 static int scan_srcset(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, void *ctx) {
     Py_ssize_t pos = 0;
     while (pos < len) {
@@ -98,23 +111,50 @@ static int scan_srcset(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, voi
         while (value[end - 1] == ',') {
             end--;
         }
-        if (emit(ctx, start, end) < 0) { /* GCOVR_EXCL_BR_LINE: emit fails only on collect_span's realloc */
-            return -1;                   /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        if (end < pos) {
-            continue;
-        }
-        while (pos < len && value[pos] != ',') {
-            pos++;
+        int valid = end < pos || srcset_descriptors_valid(value, len, &pos);
+        if (valid && emit(ctx, start, end, 0) < 0) { /* GCOVR_EXCL_BR_LINE: emit fails only on collect_span's realloc */
+            return -1;                               /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
     return 0;
 }
 
+/* The end of the CSS escape whose backslash sits at `pos`, and in *decoded the code point it stands for (CSS Syntax 3
+   section 4.3.7): one to six hexadecimal digits and one whitespace after them, a CRLF counting as one, or the code
+   point after the backslash. A backslash before a newline, which continues a string onto the next line, and one that
+   ends the input stand for nothing: *decoded is CSS_NO_CODE_POINT. */
+static Py_ssize_t css_escape_end(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t pos, Py_UCS4 *decoded) {
+    Py_ssize_t index = pos + 1;
+    *decoded = CSS_NO_CODE_POINT;
+    if (index == len) {
+        return index;
+    }
+    if (!is_ascii_hexdigit(value[index])) {
+        if (value[index] == '\r' && index + 1 < len && value[index + 1] == '\n') {
+            return index + 2;
+        }
+        if (value[index] != '\n' && value[index] != '\r' && value[index] != '\f') {
+            *decoded = value[index];
+        }
+        return index + 1;
+    }
+    Py_UCS4 point = 0;
+    for (int digits = 0; digits < 6 && index < len && is_ascii_hexdigit(value[index]); digits++) {
+        Py_UCS4 digit = value[index++] | 0x20;
+        point = (point << 4) + (digit <= '9' ? digit - '0' : digit - 'a' + 10);
+    }
+    if (index < len && is_space(value[index])) {
+        index += value[index] == '\r' && index + 1 < len && value[index + 1] == '\n' ? 2 : 1;
+    }
+    *decoded = point == 0 || point > 0x10FFFF || (point >= 0xD800 && point <= 0xDFFF) ? 0xFFFD : point;
+    return index;
+}
+
 static Py_ssize_t css_string_end(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t pos, Py_UCS4 quote) {
     while (pos < len && value[pos] != quote) {
-        if (value[pos] == '\\' && pos + 1 < len) {
-            pos += value[pos + 1] == '\r' && pos + 2 < len && value[pos + 2] == '\n' ? 3 : 2;
+        if (value[pos] == '\\') {
+            Py_UCS4 decoded;
+            pos = css_escape_end(value, len, pos, &decoded);
         } else if (value[pos] == '\n' || value[pos] == '\r' || value[pos] == '\f') {
             break;
         } else {
@@ -125,7 +165,9 @@ static Py_ssize_t css_string_end(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_
 }
 
 /* The URL inside a url(...) function: skip whitespace and an optional quote after the '(', then read to the matching
-   quote, or to the first whitespace or ')'. Emits the span between, or nothing for an empty url(). */
+   quote, or as an unquoted url token (CSS Syntax 3 section 4.3.6). Emits the span between, or nothing for an empty
+   url() and for a bad url: whitespace before anything but the ')', a quote, a '(' or a non-printable code point makes
+   the token one CSS discards up to the next ')', and text rewritten inside it would move where it ends. */
 static int css_url_span(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t open, link_emit emit, void *ctx,
                         Py_ssize_t *resume) {
     Py_ssize_t pos = open;
@@ -145,13 +187,44 @@ static int css_url_span(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t open, l
         }
         *resume = pos < len ? pos + 1 : pos;
     } else {
-        while (pos < len && value[pos] != ')' && !is_space(value[pos])) {
-            pos++;
+        Py_ssize_t end = pos;
+        int bad = 0;
+        while (pos < len && value[pos] != ')') {
+            Py_UCS4 current = value[pos];
+            if (is_space(current)) {
+                while (pos < len && is_space(value[pos])) {
+                    pos++;
+                }
+                bad = pos < len && value[pos] != ')';
+                break;
+            }
+            Py_UCS4 decoded = 0;
+            Py_ssize_t after = current == '\\' ? css_escape_end(value, len, pos, &decoded) : pos + 1;
+            /* a url token has no line continuation, so a backslash that escapes nothing is not an escape, except the
+               one ending the input, which CSS Syntax 3 decodes to U+FFFD */
+            if (current == '\\' && pos + 1 == len) {
+                decoded = 0xFFFD;
+            }
+            if (current == '"' || current == '\'' || current == '(' || current < 0x20 || current == 0x7F ||
+                decoded == CSS_NO_CODE_POINT) {
+                bad = 1;
+                break;
+            }
+            pos = end = after;
+        }
+        if (bad) {
+            while (pos < len && value[pos] != ')') {
+                Py_UCS4 decoded;
+                pos = value[pos] == '\\' ? css_escape_end(value, len, pos, &decoded) : pos + 1;
+            }
+            *resume = pos < len ? pos + 1 : pos;
+            return 0;
         }
         *resume = pos;
+        pos = end;
     }
     if (pos > start) {
-        return emit(ctx, start, pos);
+        return emit(ctx, start, pos, quote ? quote : CSS_BARE_URL);
     }
     return 0;
 }
@@ -173,10 +246,23 @@ static int css_import_span(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t afte
             return 0;
         }
         if (pos > start) {
-            return emit(ctx, start, pos);
+            return emit(ctx, start, pos, quote);
         }
     }
     return 0;
+}
+
+/* Whether the first `count` code points of an identifier, lowercased, spell the ASCII `word`. */
+static int decodes_to(const Py_UCS4 *spelled, Py_ssize_t count, const char *word) {
+    if (count != (Py_ssize_t)strlen(word)) {
+        return 0;
+    }
+    for (Py_ssize_t index = 0; index < count; index++) {
+        if (spelled[index] != (Py_UCS4)word[index]) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /* CSS text (a style attribute or <style> content): every url(...) target and every @import string. */
@@ -202,9 +288,64 @@ static int scan_css(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, void *
                 pos++;
             }
             continue;
+        case '\\': {
+            /* An escape is part of an identifier, which may have started before it. Spelled with escapes the name is
+               still the url function when it decodes to "url", and the at-keyword when an at-sign precedes it and it
+               decodes to "import"; any other name that ends in url( is a function of its own, whose argument is not a
+               URL token. */
+            Py_ssize_t name = pos;
+            while (name > 0 && is_ident(value[name - 1])) {
+                name--;
+            }
+            Py_UCS4 spelled[6] = {0, 0, 0, 0, 0, 0};
+            Py_ssize_t count = 0;
+            Py_ssize_t cursor = name;
+            while (cursor < len) {
+                Py_UCS4 decoded = value[cursor];
+                Py_ssize_t after = cursor + 1;
+                if (decoded == '\\') {
+                    after = css_escape_end(value, len, cursor, &decoded);
+                    if (decoded == CSS_NO_CODE_POINT) {
+                        break;
+                    }
+                } else if (!is_ident(decoded)) {
+                    break;
+                }
+                if (count < 6) {
+                    spelled[count] = lower_ascii(decoded);
+                }
+                count++;
+                cursor = after;
+            }
+            if (cursor <= pos) { /* a backslash before a newline or at the end of the input escapes nothing */
+                Py_UCS4 decoded;
+                pos = css_escape_end(value, len, pos, &decoded);
+                continue;
+            }
+            pos = cursor;
+            if (name > 0 && value[name - 1] == '@' && decodes_to(spelled, count, "import")) {
+                Py_ssize_t resume = pos;
+                if (css_import_span(value, len, pos, emit, ctx, &resume) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+                    return -1;                                                  /* GCOVR_EXCL_LINE: alloc-failure */
+                }
+                pos = resume;
+                continue;
+            }
+            int function = name == 0 || (value[name - 1] != '#' && value[name - 1] != '@');
+            if (function && decodes_to(spelled, count, "url") && pos < len && value[pos] == '(') {
+                Py_ssize_t resume = pos + 1;
+                if (css_url_span(value, len, pos + 1, emit, ctx, &resume) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+                    return -1;                                                   /* GCOVR_EXCL_LINE: alloc-failure */
+                }
+                pos = resume;
+            }
+            continue;
+        }
         case 'u':
         case 'U':
-            if ((pos == 0 || !is_ident(value[pos - 1])) && imatch(value, len, pos, "url(", 4)) {
+            /* "#url(" is a hash token and "@url(" an at-keyword, each followed by a plain parenthesis block */
+            if ((pos == 0 || (!is_ident(value[pos - 1]) && value[pos - 1] != '#' && value[pos - 1] != '@')) &&
+                imatch(value, len, pos, "url(", 4)) {
                 Py_ssize_t resume = pos + 4;
                 if (css_url_span(value, len, pos + 4, emit, ctx, &resume) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
                     return -1;                                                   /* GCOVR_EXCL_LINE: alloc-failure */
@@ -231,54 +372,40 @@ static int scan_css(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, void *
     return 0;
 }
 
-/* A <meta http-equiv=refresh content="delay; url=..."> target: the value after the first url= keyword, trimmed and
-   unquoted. A bare timed refresh with no url= carries no link. */
+/* A <meta http-equiv=refresh> target, read by the shared refresh steps that Document.meta_refresh also uses. */
 static int scan_meta_refresh(const Py_UCS4 *value, Py_ssize_t len, link_emit emit, void *ctx) {
-    for (Py_ssize_t pos = 0; pos < len; pos++) {
-        int boundary = pos == 0 || !is_ident(value[pos - 1]);
-        if (!boundary || !imatch(value, len, pos, "url", 3)) {
-            continue;
-        }
-        Py_ssize_t after = pos + 3;
-        while (after < len && is_space(value[after])) {
-            after++;
-        }
-        if (after >= len || value[after] != '=') {
-            continue;
-        }
-        after++;
-        while (after < len && is_space(value[after])) {
-            after++;
-        }
-        Py_UCS4 quote = 0;
-        if (after < len && (value[after] == '"' || value[after] == '\'')) {
-            quote = value[after++];
-        }
-        Py_ssize_t start = after;
-        Py_ssize_t end = len;
-        while (after < len && (quote ? value[after] != quote : !is_space(value[after]))) {
-            after++;
-        }
-        end = after;
-        if (end > start) {
-            return emit(ctx, start, end);
-        }
+    refresh_span span;
+    if (!refresh_read(value, len, &span) || span.target_end == span.target_start) {
         return 0;
     }
-    return 0;
+    return emit(ctx, span.target_start, span.target_end, 0);
 }
 
 typedef struct {
     Py_ssize_t start;
     Py_ssize_t end;
+    Py_UCS4 css; /* how the text spells the URL, as link_emit describes */
 } link_span;
+
+/* What the walk made of one attribute value, for the other elements that hold the same buffer. The tree builder
+   reopens an unclosed formatting element in every block that follows it, and each of those clones borrows the value
+   buffers of the one start tag (node_clone). A str per link per clone, or a rewritten copy of the value per clone, then
+   costs value length x clones for an input of value length + clones, so the clones share what the first of them got
+   as they share the source. A value is never written in place and the arena keeps it until the tree is freed, so its
+   address identifies its content. */
+typedef struct {
+    const Py_UCS4 *from; /* the value, by its address in the tree's arena; NULL marks a free slot */
+    PyObject *urls;      /* links(): a tuple of the str built for each link */
+    const Py_UCS4 *to;   /* a rewrite: the value the attribute held afterwards, `from` itself when no link changed */
+    Py_ssize_t to_len;
+} shared_value;
 
 /* The walk's shared state. Exactly one of `result` (enumerate) and `replace` (rewrite) is set. `spans` is reused across
    values to avoid a per-value allocation. */
 typedef struct {
     th_tree *tree;
     module_state *state; /* the module's per-interpreter state, for the Link record type */
-    PyObject *handle;    /* the per-tree handle, held for the critical section across the walk */
+    PyObject *handle;    /* the per-tree handle, owned: it is the walk's lock and keeps the snapshot's tree alive */
     PyObject *owner;     /* the element/document the public call was made on, for wrapping enumerated nodes */
     PyObject *result;    /* list[Link] for enumerate, else NULL */
     PyObject *replace;   /* callable (str) -> str | None for rewrite, else NULL */
@@ -287,6 +414,9 @@ typedef struct {
     const char *base_scheme;
     Py_ssize_t base_scheme_len;
     int base_netloc_scheme; /* the base scheme reserializes an absolute same-scheme URL unchanged (http/https) */
+    shared_value *shared;   /* open addressing at no more than half load, keyed by `from` */
+    size_t shared_cap;
+    size_t shared_count;
     link_span *spans;
     Py_ssize_t span_count;
     Py_ssize_t span_cap;
@@ -317,7 +447,7 @@ static int collect_node(th_node ***array, Py_ssize_t *count, Py_ssize_t *cap, th
     return 0;
 }
 
-static int collect_span(void *ctx, Py_ssize_t start, Py_ssize_t end) {
+static int collect_span(void *ctx, Py_ssize_t start, Py_ssize_t end, Py_UCS4 css) {
     link_walk *walk = ctx;
     if (walk->span_count == walk->span_cap) {
         size_t cap;
@@ -338,6 +468,7 @@ static int collect_span(void *ctx, Py_ssize_t start, Py_ssize_t end) {
     }
     walk->spans[walk->span_count].start = start;
     walk->spans[walk->span_count].end = end;
+    walk->spans[walk->span_count].css = css;
     walk->span_count++;
     return 0;
 }
@@ -346,21 +477,180 @@ static PyObject *ucs4_slice(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t e
     return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, value + start, end - start);
 }
 
-/* Append a Link(element, attr, url) for each span to the result list. The Element wrapper for `report_node` is minted
-   on the first link and cached in *report_element, so an element with no link (the vast majority on a real page) is
-   never wrapped. `report_attr` is the attribute name (or None for <style> text), borrowed for the call's duration. */
+/* Whether a CSS span spells its URL with an escape, so that its text is not the URL itself. */
+static int span_is_escaped(const Py_UCS4 *value, const link_span *span) {
+    for (Py_ssize_t index = span->start; span->css && index < span->end; index++) {
+        if (value[index] == '\\') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The URL a span holds, as a new str: its text, with the escapes of a CSS span decoded as a browser decodes them
+   before it resolves the URL. Taking the source text for the URL names a host the browser does not contact
+   ("good.example\40 evil.example" is good.example@evil.example), and resolving it lets a character the URL parser
+   drops or rewrites take the escape's backslash apart from what it escaped. */
+static PyObject *span_url(const Py_UCS4 *value, const link_span *span) {
+    if (!span_is_escaped(value, span)) {
+        return ucs4_slice(value, span->start, span->end);
+    }
+    /* an escape never decodes longer than it is written */
+    Py_UCS4 *url = PyMem_Malloc((size_t)(span->end - span->start) * sizeof(Py_UCS4));
+    if (url == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;      /* GCOVR_EXCL_LINE */
+    }
+    Py_ssize_t url_len = 0;
+    for (Py_ssize_t pos = span->start; pos < span->end;) {
+        Py_UCS4 decoded = value[pos];
+        pos = decoded == '\\' ? css_escape_end(value, span->end, pos, &decoded) : pos + 1;
+        if (decoded == CSS_NO_CODE_POINT && span->css == CSS_BARE_URL) {
+            decoded = 0xFFFD;
+        }
+        if (decoded != CSS_NO_CODE_POINT) {
+            url[url_len++] = decoded;
+        }
+    }
+    PyObject *result = ucs4_slice(url, 0, url_len);
+    PyMem_Free(url);
+    return result;
+}
+
+/* Write `url` at `out` as the text of a span of kind `css` and return the length written; a NULL `out` only measures.
+   The inverse of span_url: in CSS source a backslash, the quote that ends the string and a control character (a
+   newline ends a string early) are written as escapes, as are the quotes, parentheses and space that end or void an
+   unquoted url() token. The solidus of "</" is escaped too, so that a URL cannot write the end tag of the <style> whose
+   text it is spliced into. */
+static Py_ssize_t spell_url(PyObject *url, Py_UCS4 css, Py_UCS4 *out) {
+    static const char hex[] = "0123456789abcdef";
+    Py_ssize_t len = PyUnicode_GET_LENGTH(url);
+    if (css == 0) {
+        for (Py_ssize_t at = 0; out != NULL && at < len; at++) {
+            out[at] = PyUnicode_READ_CHAR(url, at);
+        }
+        return len;
+    }
+    int bare = css == CSS_BARE_URL;
+    Py_ssize_t written = 0;
+    Py_UCS4 previous = 0;
+    for (Py_ssize_t at = 0; at < len; at++) {
+        Py_UCS4 codepoint = PyUnicode_READ_CHAR(url, at);
+        Py_UCS4 spelled[4];
+        int count = 0;
+        if (codepoint < 0x20 || codepoint == 0x7F || (bare && codepoint == ' ')) {
+            spelled[count++] = '\\';
+            if (codepoint >= 0x10) {
+                spelled[count++] = (Py_UCS4)hex[codepoint >> 4];
+            }
+            spelled[count++] = (Py_UCS4)hex[codepoint & 0xF];
+            spelled[count++] = ' '; /* ends the escape, so a hexadecimal digit after it is not read into it */
+        } else {
+            int reserved = codepoint == '\\' || codepoint == css || (codepoint == '/' && previous == '<') ||
+                           (bare && (codepoint == '"' || codepoint == '\'' || codepoint == ')'));
+            if (reserved) {
+                spelled[count++] = '\\';
+            }
+            spelled[count++] = codepoint;
+        }
+        for (int index = 0; out != NULL && index < count; index++) {
+            out[written + index] = spelled[index];
+        }
+        written += count;
+        previous = codepoint;
+    }
+    return written;
+}
+
+static shared_value *shared_slot(shared_value *entries, size_t cap, const Py_UCS4 *from) {
+    size_t slot = (size_t)(((uint64_t)(uintptr_t)from * UINT64_C(0x9E3779B97F4A7C15)) >> 32) & (cap - 1);
+    while (entries[slot].from != NULL && entries[slot].from != from) {
+        slot = (slot + 1) & (cap - 1);
+    }
+    return &entries[slot];
+}
+
+/* What the walk recorded for `from`, or NULL. */
+static const shared_value *shared_find(const link_walk *walk, const Py_UCS4 *from) {
+    if (walk->shared_cap == 0) {
+        return NULL;
+    }
+    const shared_value *found = shared_slot(walk->shared, walk->shared_cap, from);
+    return found->from != NULL ? found : NULL;
+}
+
+/* Record what became of `from`, which shared_find does not know. The table takes over the `urls` reference unless it
+   fails to grow. */
+static int shared_add(link_walk *walk, const Py_UCS4 *from, PyObject *urls, const Py_UCS4 *to, Py_ssize_t to_len) {
+    if (walk->shared_count >= walk->shared_cap / 2) {
+        size_t cap;
+        size_t bytes;
+        int grew = th_grow_cap((walk->shared_count + 1) * 2, walk->shared_cap, 16, sizeof(shared_value), &cap, &bytes);
+        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: size-overflow path */
+            return -1;        /* GCOVR_EXCL_LINE */
+        }
+        shared_value *grown = PyMem_Calloc(1, bytes);
+        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE */
+        }
+        for (size_t slot = 0; slot < walk->shared_cap; slot++) {
+            if (walk->shared[slot].from != NULL) {
+                const shared_value *entry = &walk->shared[slot];
+                *shared_slot(grown, cap, entry->from) = *entry;
+            }
+        }
+        PyMem_Free(walk->shared);
+        walk->shared = grown;
+        walk->shared_cap = cap;
+    }
+    *shared_slot(walk->shared, walk->shared_cap, from) = (shared_value){from, urls, to, to_len};
+    walk->shared_count++;
+    return 0;
+}
+
+/* A tuple of the URL (span_url) of each span just scanned in `value`, for the elements that hold the value to share. */
+static PyObject *span_urls(const link_walk *walk, const Py_UCS4 *value) {
+    PyObject *urls = PyTuple_New(walk->span_count);
+    if (urls == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t index = 0; index < walk->span_count; index++) {
+        PyObject *url = span_url(value, &walk->spans[index]);
+        if (url == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            Py_DECREF(urls); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return NULL;     /* GCOVR_EXCL_LINE */
+        }
+        PyTuple_SET_ITEM(urls, index, url);
+    }
+    return urls;
+}
+
+/* Append a Link(element, attr, url) for each link to the result list: each str of `urls` when the value's links are
+   shared (span_urls), else each span cut from `value`. The Element wrapper for `report_node` is minted on the first
+   link and cached in *report_element, so an element with no link (the vast majority on a real page) is never wrapped.
+   `report_attr` is the attribute name (or None for <style> text), borrowed for the call's duration. */
 static int emit_enumerated(link_walk *walk, PyObject **report_element, th_node *report_node, PyObject *report_attr,
-                           const Py_UCS4 *value) {
+                           const Py_UCS4 *value, PyObject *urls) {
+    Py_ssize_t count = urls != NULL ? PyTuple_GET_SIZE(urls) : walk->span_count;
+    if (count == 0) {
+        return 0;
+    }
     if (*report_element == NULL) {
         *report_element = turbohtml_node_wrap_in(walk->owner, report_node);
         if (*report_element == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;                 /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
-    for (Py_ssize_t index = 0; index < walk->span_count; index++) {
-        PyObject *url = ucs4_slice(value, walk->spans[index].start, walk->spans[index].end);
+    for (Py_ssize_t index = 0; index < count; index++) {
+        PyObject *url = urls != NULL ? Py_NewRef(PyTuple_GET_ITEM(urls, index)) : span_url(value, &walk->spans[index]);
         if (url == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;     /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (PyUnicode_GET_LENGTH(url) == 0) { /* escapes that decode to nothing: an empty url(), which holds no link */
+            Py_DECREF(url);
+            continue;
         }
         PyObject *record = PyObject_CallFunction(walk->state->link_type, "OOO", *report_element, report_attr, url);
         Py_DECREF(url);
@@ -392,10 +682,7 @@ static int splice_value(link_walk *walk, th_node *target, const char *attr_name,
             out[out_len++] = value[cursor];
         }
         if (replacements[index] != NULL) {
-            Py_ssize_t rep_len = PyUnicode_GET_LENGTH(replacements[index]);
-            for (Py_ssize_t at = 0; at < rep_len; at++) {
-                out[out_len++] = PyUnicode_READ_CHAR(replacements[index], at);
-            }
+            out_len += spell_url(replacements[index], walk->spans[index].css, out + out_len);
         } else {
             for (; cursor < walk->spans[index].end; cursor++) {
                 out[out_len++] = value[cursor];
@@ -406,8 +693,15 @@ static int splice_value(link_walk *walk, th_node *target, const char *attr_name,
     for (; cursor < len; cursor++) {
         out[out_len++] = value[cursor];
     }
-    int status = attr_name != NULL ? th_node_attr_set(walk->tree, target, attr_name, attr_len, out, out_len, 1)
-                                   : th_node_set_data(walk->tree, target, out, out_len);
+    TH_WORK_STEPS_ADD(out_len);
+    int status;
+    if (attr_name != NULL) {
+        status = th_node_attr_set(walk->tree, target, attr_name, attr_len, out, out_len, 1);
+    } else {
+        status = th_node_set_data(walk->tree, target, out, out_len);
+        /* the text node is a <style>'s, and computed_style() keeps that sheet compiled across edits */
+        handle_clear_css_cache((HandleObject *)walk->handle);
+    }
     PyMem_Free(out);
     return status;
 }
@@ -454,7 +748,9 @@ static int url_resolves_to_itself(const Py_UCS4 *value, Py_ssize_t start, Py_ssi
         return 0;
     }
     Py_ssize_t netloc = colon + 3;
-    if (netloc >= end || value[netloc] == '/' || value[netloc] == '?' || value[netloc] == '#') {
+    /* '\\' too: the join skips it like a third '/' before it reads the host, so the link does not come back verbatim */
+    if (netloc >= end || value[netloc] == '/' || value[netloc] == '\\' || value[netloc] == '?' ||
+        value[netloc] == '#') {
         return 0;
     }
     for (Py_ssize_t index = start; index < end; index++) {
@@ -478,15 +774,21 @@ static int rewrite_value(link_walk *walk, th_node *target, const char *attr_name
     int changed = 0;
     int failed = 0;
     for (Py_ssize_t index = 0; index < walk->span_count; index++) {
-        if (walk->base_scheme != NULL &&
-            url_resolves_to_itself(value, walk->spans[index].start, walk->spans[index].end, walk->base_scheme,
-                                   walk->base_scheme_len, walk->base_netloc_scheme)) {
+        const link_span *span = &walk->spans[index];
+        /* the text of an escaped CSS span is not the URL the check below reads, so that one always takes the call */
+        if (walk->base_scheme != NULL && !span_is_escaped(value, span) &&
+            url_resolves_to_itself(value, span->start, span->end, walk->base_scheme, walk->base_scheme_len,
+                                   walk->base_netloc_scheme)) {
             continue; /* an absolute URL resolve_links would leave unchanged; skip the urljoin call */
         }
-        PyObject *url = ucs4_slice(value, walk->spans[index].start, walk->spans[index].end);
+        PyObject *url = span_url(value, span);
         if (url == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             failed = 1;    /* GCOVR_EXCL_LINE: allocation-failure path */
             break;         /* GCOVR_EXCL_LINE */
+        }
+        if (PyUnicode_GET_LENGTH(url) == 0) { /* an empty url(), as in emit_enumerated */
+            Py_DECREF(url);
+            continue;
         }
         PyObject *out = PyObject_CallFunctionObjArgs(walk->replace, url, NULL);
         if (out == NULL) {
@@ -497,7 +799,7 @@ static int rewrite_value(link_walk *walk, th_node *target, const char *attr_name
         if (out == Py_None || PyUnicode_Check(out)) {
             if (out != Py_None && PyUnicode_Compare(out, url) != 0) {
                 replacements[index] = Py_NewRef(out);
-                new_len += PyUnicode_GET_LENGTH(out) - (walk->spans[index].end - walk->spans[index].start);
+                new_len += spell_url(out, span->css, NULL) - (span->end - span->start);
                 changed = 1;
             }
         } else {
@@ -536,7 +838,7 @@ static int handle_value(link_walk *walk, PyObject **report_element, th_node *rep
         return 0;
     }
     if (walk->result != NULL) {
-        return emit_enumerated(walk, report_element, report_node, report_attr, value);
+        return emit_enumerated(walk, report_element, report_node, report_attr, value, NULL);
     }
     return rewrite_value(walk, target, attr_name, attr_len, value, len);
 }
@@ -551,6 +853,47 @@ static const Py_UCS4 *attr_value(link_walk *walk, th_node *element, const char *
     }
     *len = element->attrs[index].value_len;
     return element->attrs[index].value;
+}
+
+/* handle_value for an attribute of an element without a start tag of its own, which may hold `value` with others (see
+   shared_value). The first such element does the work; the others adopt its result, so the callback runs once per
+   link of each distinct value rather than once per clone. */
+static int handle_shared_value(link_walk *walk, PyObject **report_element, th_node *element, PyObject *report_attr,
+                               const char *name, Py_ssize_t name_len, const Py_UCS4 *value, Py_ssize_t len,
+                               scanner_fn scan) {
+    const shared_value *known = shared_find(walk, value);
+    if (known != NULL && walk->result != NULL) {
+        return emit_enumerated(walk, report_element, element, report_attr, value, known->urls);
+    }
+    if (known != NULL) {
+        if (known->to == value) {
+            return 0;
+        }
+        return th_node_attr_set_shared(walk->tree, element, name, name_len, known->to, known->to_len);
+    }
+    walk->span_count = 0;
+    if (scan(value, len, collect_span, walk) < 0) { /* GCOVR_EXCL_BR_LINE: scan alloc only (collect_span realloc) */
+        return -1;                                  /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (walk->result != NULL) {
+        PyObject *urls = span_urls(walk, value);
+        /* GCOVR_EXCL_BR_START: the tuple and its table entry fail only on allocation */
+        if (urls == NULL || shared_add(walk, value, urls, NULL, 0) < 0) {
+            Py_XDECREF(urls); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE */
+        }
+        /* GCOVR_EXCL_BR_STOP */
+        return emit_enumerated(walk, report_element, element, report_attr, value, urls);
+    }
+    int status = walk->span_count > 0 ? rewrite_value(walk, element, name, name_len, value, len) : 0;
+    if (status == 0) {
+        Py_ssize_t to_len = 0;
+        const Py_UCS4 *to = attr_value(walk, element, name, name_len, &to_len);
+        if (to != NULL) { /* a rewrite_links callback may have removed the attribute */
+            status = shared_add(walk, value, NULL, to, to_len);
+        }
+    }
+    return status;
 }
 
 static int value_imatch(const Py_UCS4 *value, Py_ssize_t len, const char *lit, Py_ssize_t lit_len) {
@@ -672,8 +1015,14 @@ static int process_element(link_walk *walk, th_node *element) {
                 break;                 /* GCOVR_EXCL_LINE */
             }
         }
-        failed = handle_value(walk, &report_element, element, report_attr, element, name, name_len,
-                              element->attrs[index].value, element->attrs[index].value_len, scan) < 0;
+        if (element->tag_flags & TH_ELEM_IMPLIED) {
+            /* only an element without a start tag of its own, a reopened formatting element, borrows its values */
+            failed = handle_shared_value(walk, &report_element, element, report_attr, name, name_len,
+                                         element->attrs[index].value, element->attrs[index].value_len, scan) < 0;
+        } else {
+            failed = handle_value(walk, &report_element, element, report_attr, element, name, name_len,
+                                  element->attrs[index].value, element->attrs[index].value_len, scan) < 0;
+        }
         Py_XDECREF(report_attr);
     }
     Py_XDECREF(report_element);
@@ -718,8 +1067,9 @@ static PyObject *run_walk(PyObject *owner, th_tree *tree, th_node *root, PyObjec
                       .base_netloc_scheme = base_netloc_scheme};
     walk.state = PyType_GetModuleState(Py_TYPE(owner));
     /* read the handle into the struct (always, so it is covered) rather than into the macro argument, which the GIL
-       build's no-op Py_BEGIN_CRITICAL_SECTION does not evaluate */
-    walk.handle = turbohtml_node_handle(owner);
+       build's no-op Py_BEGIN_CRITICAL_SECTION does not evaluate. The reference is the walk's own: replace can move
+       owner into another tree, which drops the one owner holds, and the walk finishes on the tree it snapshotted */
+    walk.handle = Py_NewRef(turbohtml_node_handle(owner));
     int failed;
     Py_BEGIN_CRITICAL_SECTION(walk.handle); /* per-tree lock: no concurrent mutation mid-walk */
     failed = collect_subtree(&walk, root) < 0;
@@ -727,6 +1077,11 @@ static PyObject *run_walk(PyObject *owner, th_tree *tree, th_node *root, PyObjec
         failed = process_element(&walk, walk.nodes[index]) < 0;
     }
     Py_END_CRITICAL_SECTION();
+    Py_DECREF(walk.handle);
+    for (size_t slot = 0; slot < walk.shared_cap; slot++) {
+        Py_XDECREF(walk.shared[slot].urls);
+    }
+    PyMem_Free(walk.shared);
     PyMem_Free(walk.spans);
     PyMem_Free(walk.nodes);
     if (failed) {
@@ -753,7 +1108,8 @@ PyObject *turbohtml_node_links(PyObject *owner, th_tree *tree, th_node *root) {
     return run_walk(owner, tree, root, result, NULL, NULL, 0, 0);
 }
 
-/* Node.rewrite_links(replace) -> None. Calls replace(url) for every link; a str result replaces it, None leaves it. */
+/* Node.rewrite_links(replace) -> None. Calls replace(url) for every link, except that the copies of a reopened element
+   share the first copy's result; a str result replaces it, None leaves it. */
 PyObject *turbohtml_node_rewrite_links(PyObject *owner, th_tree *tree, th_node *root, PyObject *replace) {
     if (!PyCallable_Check(replace)) {
         PyErr_SetString(PyExc_TypeError, "rewrite_links expected a callable");
@@ -783,8 +1139,8 @@ static Py_ssize_t base_scheme_of(PyObject *base_url, char *out, Py_ssize_t cap) 
 }
 
 /* Node.resolve_links(base_url) -> None. Rewrites every link absolute against base_url with functools.partial bound over
-   the C _url_join, so a reference's host matches the one a browser resolves -- including the WHATWG backslash authority
-   forms stdlib urllib.parse.urljoin misattributes -- without reinventing RFC 3986 resolution. */
+   the C _url_join_link, so a reference's host matches the one a browser resolves -- including the WHATWG backslash and
+   extra-slash authority forms stdlib urllib.parse.urljoin misattributes -- without reinventing RFC 3986 resolution. */
 PyObject *turbohtml_node_resolve_links(PyObject *owner, th_tree *tree, th_node *root, PyObject *base_url) {
     if (!PyUnicode_Check(base_url)) {
         PyErr_SetString(PyExc_TypeError, "resolve_links expected a base URL string");
@@ -798,9 +1154,9 @@ PyObject *turbohtml_node_resolve_links(PyObject *owner, th_tree *tree, th_node *
     if (html_module == NULL) { /* GCOVR_EXCL_BR_LINE: the extension's own module is already imported */
         return NULL;           /* GCOVR_EXCL_LINE: import-failure path */
     }
-    PyObject *urljoin = PyObject_GetAttrString(html_module, "_url_join");
+    PyObject *urljoin = PyObject_GetAttrString(html_module, "_url_join_link");
     Py_DECREF(html_module);
-    if (urljoin == NULL) { /* GCOVR_EXCL_BR_LINE: _url_join is always registered on the module */
+    if (urljoin == NULL) { /* GCOVR_EXCL_BR_LINE: _url_join_link is always registered on the module */
         return NULL;       /* GCOVR_EXCL_LINE: attribute-failure path */
     }
     PyObject *functools_module = PyImport_ImportModule("functools");

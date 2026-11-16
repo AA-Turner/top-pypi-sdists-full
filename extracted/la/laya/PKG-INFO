@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laya
-Version: 0.4.32
+Version: 0.4.35
 Summary: Fast, non-autoregressive System 1 decision engine with calibrated probabilities
 Author: Convai Innovations
 License: Apache-2.0
@@ -87,6 +87,8 @@ Dynamic: license-file
 </details>
 
 **Multilingual, non-autoregressive System 1 decision engine.** Typed decisions over 100+ languages in a single forward pass — 33 ms — trained with reinforcement learning against strictly proper scoring rules (RLCD), with a router that picks the right checkpoint per request.
+
+> **Train your own decision engine at [studio.embedding.in](https://studio.embedding.in).** Studio, from Embedding Space, trains a System 1 decision engine from a description of your company: it writes the questions and the examples, fits and calibrates a vega model, and gives you a signed policy file that runs on your own machine with `vegaml`. No labelled data is needed to start, and a new workspace gets $10 of free credit.
 
 <div align="center">
 
@@ -325,16 +327,12 @@ The shipped checkpoints work zero-shot, but fine-tuning on decisions from your o
 
 **[nandhakishorm.github.io/laya](https://nandhakishorm.github.io/laya/)**: guides for [prediction hooks](https://nandhakishorm.github.io/laya/hooks/), [schema-driven decisions](https://nandhakishorm.github.io/laya/structured/), [Docker](https://nandhakishorm.github.io/laya/docker/) and [LangChain and LangGraph](https://nandhakishorm.github.io/laya/langchain/), plus a full [API reference](https://nandhakishorm.github.io/laya/reference/).
 
-## What's new in 0.4.32
+## What's new in 0.4.35
 
-* **Calibration fits about 2.4x faster.** Fitting temperatures, abstention thresholds and the
-  binning map over 100,000 records went from 6.4 s to 2.7 s, with byte-identical results (#1496).
-* **`LayaToolSelector` takes a per-bucket `min_confidence` map.** It used to crash comparing a
-  number with the map; it now gates each answer at its own bucket's threshold, as the core gate
-  does (#1494).
-* **`OptionStabilityHook` no longer counts the original question twice** when the option keys
-  are already `A`, `B`, ...; that doubled one rendering's weight and could turn a `VERIFY`
-  into an `ACCEPT` (#1498).
+* **The TypeScript HTTP client can ask the server which model it would route to.**
+  `client.route(state, questions, { explain: true })` calls the server's existing `/v1/route`
+  endpoint with the client's auth, timeout and cancellation, and runs no prediction (#1503).
+  The Python package code is the same as 0.4.32.
 
 ## Where to go next
 

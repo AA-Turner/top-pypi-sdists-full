@@ -57,7 +57,11 @@ from trajectory.types.benchmark_task_count_response import (
 from trajectory.types.benchmark_task_diff_response import (
   BenchmarkTaskDiffResponse as BenchmarkTaskDiffResponse,
 )
+from trajectory.types.benchmark_task_env_resources import (
+  BenchmarkTaskEnvResources as BenchmarkTaskEnvResources,
+)
 from trajectory.types.benchmark_tools_page import BenchmarkToolsPage as BenchmarkToolsPage
+from trajectory.types.benchmark_type import BenchmarkType as BenchmarkType
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl as BenchmarkUploadUrl
 from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem as BenchmarkListItem
 from trajectory.types.benchmarks.benchmark_readiness import BenchmarkReadiness as BenchmarkReadiness
@@ -77,7 +81,6 @@ from trajectory.types.benchmarks.specs.benchmark_details import (
 )
 from trajectory.types.benchmarks.task_spec import EnvResources as EnvResources
 from trajectory.types.benchmarks.task_spec import McpServerSpec as McpServerSpec
-from trajectory.types.benchmarks.task_spec import NetworkMode as NetworkMode
 from trajectory.types.benchmarks.task_spec import TaskSpec as TaskSpec
 from trajectory.types.benchmarks.tasks.benchmark_spec_task import (
   BenchmarkSpecTask as BenchmarkSpecTask,
@@ -132,6 +135,18 @@ from trajectory.types.create_training_run_response import (
 )
 from trajectory.types.create_trajectory_response import (
   CreateTrajectoryResponse as CreateTrajectoryResponse,
+)
+from trajectory.types.decisions.create_decision_response import (
+  ChoiceProbabilityResponse as ChoiceProbabilityResponse,
+)
+from trajectory.types.decisions.create_decision_response import (
+  CreateDecisionResponse as CreateDecisionResponse,
+)
+from trajectory.types.decisions.create_decision_response import (
+  DecisionAnswerResponse as DecisionAnswerResponse,
+)
+from trajectory.types.decisions.create_decision_response import (
+  DecisionUsageResponse as DecisionUsageResponse,
 )
 from trajectory.types.delete_agent_response import DeleteAgentResponse as DeleteAgentResponse
 from trajectory.types.delete_benchmark_response import (
@@ -233,6 +248,7 @@ from trajectory.types.log_trajectory_reward_response import (
 )
 from trajectory.types.message_usage import MessageUsage as MessageUsage
 from trajectory.types.model_list import ModelList as ModelList
+from trajectory.types.network_mode import NetworkMode as NetworkMode
 from trajectory.types.paginated_response_benchmark_list_item import (
   PaginatedResponseBenchmarkListItem as PaginatedResponseBenchmarkListItem,
 )
@@ -405,8 +421,10 @@ __all__ = [
   "BenchmarkTaskCategory",
   "BenchmarkTaskCountResponse",
   "BenchmarkTaskDiffResponse",
+  "BenchmarkTaskEnvResources",
   "BenchmarkTaskWriteFailure",
   "BenchmarkToolsPage",
+  "BenchmarkType",
   "BenchmarkUploadProgress",
   "BenchmarkUploadUrl",
   "BillingRunCost",
@@ -431,13 +449,17 @@ __all__ = [
   "CheckpointExportPrecisionOption",
   "CheckpointExportState",
   "CheckpointExportType",
+  "ChoiceProbabilityResponse",
   "CompleteTrajectoryResponse",
   "CompletionTokensDetails",
   "CreateBenchmarkUploadResponse",
+  "CreateDecisionResponse",
   "CreateResponseResult",
   "CreateSecretResponse",
   "CreateTrainingRunResponse",
   "CreateTrajectoryResponse",
+  "DecisionAnswerResponse",
+  "DecisionUsageResponse",
   "DeleteAgentResponse",
   "DeleteBenchmarkResponse",
   "DeleteEvalRunResponse",

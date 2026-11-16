@@ -7,8 +7,19 @@ from typing import Final
 
 import pytest
 
-from turbohtml import Element, etree, parse
-from turbohtml.etree import ElementView, XPath, document_context
+from turbohtml import Element, Range, etree, parse
+from turbohtml.etree import (
+    ElementView,
+    SubElement,
+    XPath,
+    document_context,
+    from_lxml,
+    strip_elements,
+    strip_tags,
+    to_lxml,
+    to_lxml_html,
+    tostring,
+)
 
 
 def test_element_view_identity(tree: ElementView) -> None:
@@ -56,7 +67,7 @@ def test_element_view_replace_keeps_both_tails(tree: ElementView) -> None:
 def test_element_view_drop_tree_keeps_tail_in_parent(tree: ElementView) -> None:
     child: Final = tree[0]
     child.drop_tree()
-    assert (child.tail, child.getparent(), tree.text_content()) == ("tail", None, "beforetaillastend")
+    assert (child.tail, child.getparent(), tree.text_content()) == (None, None, "beforetaillastend")
 
 
 def test_element_view_detached_tail_moves_with_element(tree: ElementView) -> None:
@@ -139,6 +150,62 @@ def test_element_view_removed_node_retains_document_context(tree: ElementView) -
 
 
 @pytest.mark.parametrize(
+    ("content", "target", "expected"),
+    [
+        pytest.param("<span>x</span>", "span", "span", id="child"),
+        pytest.param("<p><em>x</em></p>", "em", "p", id="descendant"),
+    ],
+)
+def test_element_view_root_in_shadow_tree_is_outermost_element(content: str, target: str, expected: str) -> None:
+    markup: Final = f'<div><template shadowrootmode="open">{content}</template></div>'
+    host: Final = parse(markup, source_locations=True).find("div")
+    assert host is not None
+    shadow: Final = host.shadow_root
+    assert shadow is not None
+    node: Final = shadow.find(target)
+    assert node is not None
+    root: Final = ElementView(node).getroottree().getroot()
+    assert (root.tag, root.getparent(), root.node.parent) == (expected, None, shadow)
+    root.attrib["data-marked"] = "1"
+    assert root.node.attr("data-marked") == "1"
+
+
+def test_element_view_root_in_fragment_is_outermost_element() -> None:
+    element: Final = parse("<div><p><b>bold</b></p>tail</div>", source_locations=True).find("div")
+    assert element is not None
+    boundary: Final = Range(element, 0)
+    boundary.set_end(element, 1)
+    fragment: Final = boundary.extract_contents()
+    bold: Final = fragment.find("b")
+    assert bold is not None
+    root: Final = ElementView(bold).getroottree().getroot()
+    assert (root.tag, root.getparent()) == ("p", None)
+    root.attrib["class"] = "moved"
+    assert fragment.html == '<p class="moved"><b>bold</b></p>'
+
+
+def test_element_view_removed_from_shadow_tree_is_its_own_root() -> None:
+    markup: Final = '<div><template shadowrootmode="open"><p><b>bold</b></p><i>last</i></template></div>'
+    host: Final = parse(markup, source_locations=True).find("div")
+    assert host is not None
+    shadow: Final = host.shadow_root
+    assert shadow is not None
+    paragraph: Final = shadow.find("p")
+    assert paragraph is not None
+    parent: Final = ElementView(paragraph)
+    child: Final = parent[0]
+
+    @document_context
+    def detach() -> tuple[ElementView, ElementView | None]:
+        parent.remove(child)
+        return child.getroottree().getroot(), child.find("//i")
+
+    root, last = detach()
+    assert last is not None
+    assert (root, last.tag) == (child, "i")
+
+
+@pytest.mark.parametrize(
     ("tags", "with_tail", "expected"),
     [
         pytest.param((), True, ["before", "bold", "inner", "tail", "last", "end"], id="all"),
@@ -178,22 +245,22 @@ def test_element_tree_factory_normalizes_invalid_names(name: str, expected: str)
 
 
 def test_element_tree_subelement_attaches_to_parent(tree: ElementView) -> None:
-    child: Final = etree.SubElement(tree, "span", {"class": "one two"})
+    child: Final = SubElement(tree, "span", {"class": "one two"})
     assert (child.getparent(), tree[-1], child.get("class")) == (tree, child, "one two")
 
 
 def test_element_tree_xml_serialization_escapes_tail(tree: ElementView) -> None:
     child: Final = tree[0]
     child.tail = "<&"
-    assert etree.tostring(child, encoding="unicode") == "<b>bold<i>inner</i></b>&lt;&amp;"
+    assert tostring(child, encoding="unicode") == "<b>bold<i>inner</i></b>&lt;&amp;"
 
 
 def test_element_tree_text_serialization_keeps_tail(tree: ElementView) -> None:
-    assert etree.tostring(tree[0], method="text") == b"boldinnertail"
+    assert tostring(tree[0], method="text") == b"boldinnertail"
 
 
 def test_element_tree_strip_tags_keeps_descendant_text(tree: ElementView) -> None:
-    etree.strip_tags(tree, "b", "i")
+    strip_tags(tree, "b", "i")
     assert (tree.text, [child.tag for child in tree], tree.text_content()) == (
         "beforeboldinnertail",
         ["p"],
@@ -202,7 +269,7 @@ def test_element_tree_strip_tags_keeps_descendant_text(tree: ElementView) -> Non
 
 
 def test_element_tree_strip_elements_without_tail(tree: ElementView) -> None:
-    etree.strip_elements(tree, "b", "i", with_tail=False)
+    strip_elements(tree, "b", "i", with_tail=False)
     assert tree.text_content() == "beforetaillastend"
 
 
@@ -211,8 +278,8 @@ def test_element_tree_lxml_copy_drops_comments_but_keeps_text() -> None:
     html: Final = pytest.importorskip("lxml.html")
 
     source: Final = html.fromstring("<div>one<!--comment-->two<b>bold</b>tail<!--comment-->end</div>")
-    copied: Final = etree.from_lxml(source)
-    assert etree.tostring(copied, encoding="unicode") == "<div>onetwo<b>bold</b>tailend</div>"
+    copied: Final = from_lxml(source)
+    assert tostring(copied, encoding="unicode") == "<div>onetwo<b>bold</b>tailend</div>"
 
 
 @pytest.mark.oracle
@@ -221,15 +288,15 @@ def test_element_tree_copy_to_lxml_keeps_comment_tails() -> None:
 
     node: Final = parse("<div>one<!--comment-->two<b>bold</b>tail<!--comment-->end</div>").find("div")
     assert node is not None
-    copied: Final = etree.to_lxml(ElementView(node))
+    copied: Final = to_lxml(ElementView(node))
     assert lxml.tostring(copied, encoding="unicode") == "<div>onetwo<b>bold</b>tailend</div>"
 
 
 @pytest.mark.oracle
 def test_element_tree_copy_to_html_supports_lxml_links(tree: ElementView) -> None:
     pytest.importorskip("lxml.html")
-    etree.SubElement(tree, "a", href="page")
-    copied: Final = etree.to_lxml_html(tree)
+    SubElement(tree, "a", href="page")
+    copied: Final = to_lxml_html(tree)
     copied.make_links_absolute("https://example.com/")
     assert copied.xpath(".//a/@href") == ["https://example.com/page"]
 
@@ -238,25 +305,31 @@ def test_element_tree_copy_to_html_supports_lxml_links(tree: ElementView) -> Non
 def test_element_tree_lxml_copy_normalizes_namespace_less_names() -> None:
     lxml: Final = pytest.importorskip("lxml.etree")
     tree: Final = etree.Element("foo:bar", {"foo:attr": "drop", "id": "keep"})
-    assert lxml.tostring(etree.to_lxml(tree), encoding="unicode") == '<foo_bar id="keep"/>'
+    assert lxml.tostring(to_lxml(tree), encoding="unicode") == '<foo_bar id="keep"/>'
 
 
 @pytest.mark.oracle
 def test_element_tree_lxml_copy_preserves_existing_lxml_identity() -> None:
     lxml: Final = pytest.importorskip("lxml.etree")
     tree: Final = lxml.Element("p")
-    assert etree.to_lxml(tree) is tree
+    assert to_lxml(tree) is tree
 
 
 @pytest.mark.oracle
-@pytest.mark.parametrize("child", [pytest.param(False, id="root"), pytest.param(True, id="child")])
-def test_element_tree_lxml_copy_rejects_unrepresentable_name(*, child: bool) -> None:
+def test_element_tree_lxml_copy_rejects_unrepresentable_root_name() -> None:
     pytest.importorskip("lxml.etree")
-    tree: Final = etree.Element("p" if child else "a²")
-    if child:
-        etree.SubElement(tree, "a²")
+    tree: Final = etree.Element("a²")
     with pytest.raises(ValueError, match="Invalid tag name"):
-        etree.to_lxml(tree)
+        to_lxml(tree)
+
+
+@pytest.mark.oracle
+def test_element_tree_lxml_copy_rejects_unrepresentable_child_name() -> None:
+    pytest.importorskip("lxml.etree")
+    tree: Final = etree.Element("p")
+    SubElement(tree, "a²")
+    with pytest.raises(ValueError, match="Invalid tag name"):
+        to_lxml(tree)
 
 
 @pytest.mark.oracle
@@ -264,10 +337,10 @@ def test_element_tree_lxml_copy_rejects_unrepresentable_name(*, child: bool) -> 
 def test_element_tree_lxml_copy_rejects_xml_control_characters(placement: str) -> None:
     pytest.importorskip("lxml.etree")
     tree: Final = etree.Element("p")
-    child: Final = etree.SubElement(tree, "b")
+    child: Final = SubElement(tree, "b")
     setattr(child, placement, "\x01")
     with pytest.raises(ValueError, match="XML compatible"):
-        etree.to_lxml(tree)
+        to_lxml(tree)
 
 
 @pytest.fixture

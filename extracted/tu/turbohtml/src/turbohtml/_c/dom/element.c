@@ -3,13 +3,14 @@
 
 #include "dom/nodes.h"
 #include "dom/form_value.h"
+#include "core/hash.h"
 #include "core/node_map.h"
 
 #include "core/vec.h" /* th_grow_cap overflow-safe buffer growth */
 
 #include "css/select/selector.h"
 
-static uint64_t path_id_hash(const Py_UCS4 *value, Py_ssize_t len, int ci);
+static uint64_t path_id_hash(const Py_UCS4 *value, Py_ssize_t len, int ci, int keyed);
 
 static int element_attr_value(PyObject *value, Py_UCS4 **points, Py_ssize_t *len, int *has_value);
 
@@ -334,9 +335,7 @@ TH_NODE_API(static, PyObject *, attrs_copy, (PyObject * self, PyObject *ignored)
 /* Remove the attribute at index and return its value; the caller holds the tree lock. */
 static PyObject *attrs_take(PyObject *self, th_tree *tree, th_node *node, Py_ssize_t index) {
     PyObject *value = attrs_value(self, &node->attrs[index]);
-    Py_ssize_t name_len;
-    const char *name = th_attr_name(tree, node->attrs[index].name_atom, &name_len);
-    th_node_attr_del(tree, node, name, name_len);
+    th_node_attr_del_at(tree, node, index);
     return value;
 }
 
@@ -405,10 +404,9 @@ TH_NODE_API(static, PyObject *, attrs_clear, (PyObject * self, PyObject *ignored
     th_node *node = owner->node;
     th_tree *tree = tree_of((PyObject *)owner);
     Py_BEGIN_CRITICAL_SECTION(owner->handle);
+    /* last first and by position: no name scan and nothing to shift, so clearing is linear in the attribute count */
     while (node->attr_count > 0) {
-        Py_ssize_t name_len;
-        const char *name = th_attr_name(tree, node->attrs[node->attr_count - 1].name_atom, &name_len);
-        th_node_attr_del(tree, node, name, name_len);
+        th_node_attr_del_at(tree, node, node->attr_count - 1);
     }
     Py_END_CRITICAL_SECTION();
     Py_RETURN_NONE;
@@ -718,26 +716,91 @@ static PyObject *option_value_str(th_tree *tree, th_node *option) {
     return result;
 }
 
-/* The next option element after current within root's subtree, in document order. */
-static th_node *next_option(th_node *current, th_node *root) {
-    for (th_node *node = preorder_next(current, root); node != NULL; node = preorder_next(node, root)) {
-        if (node->atom == TH_TAG_OPTION) { /* only option elements carry this atom (text nodes are TH_TAG_UNKNOWN) */
-            return node;
+/* The optgroups an option walk is inside and has already asked for their disabled attribute, outermost first. Every
+   option asks its parent group, so without this a group's attribute list is searched once per option; with it, once
+   per group. It is a stack, not one remembered group, because groups nest (the parser builds
+   <optgroup><div><optgroup>) and an inner group's options then sit between two of the outer group's. Entries are
+   compared and never dereferenced. A tree built by hand can nest groups deeper than the tree builder's cap; the groups
+   past it are searched per option. */
+typedef struct {
+    uint64_t attr_version; /* the tree's attribute version the answers were read at */
+    Py_ssize_t count;
+    const th_node *groups[TH_MAX_TREE_DEPTH];
+    uint8_t disabled[TH_MAX_TREE_DEPTH];
+} optgroup_memo;
+
+/* A walk starts with no answers; option_disabled records the version when it reads the first. */
+static void optgroup_memo_init(optgroup_memo *memo) {
+    memo->attr_version = 0;
+    memo->count = 0;
+}
+
+/* Whether a select's list of options (HTML Standard) leaves out everything below node: an option under another
+   option, a datalist, an hr, or a template's content has no nearest ancestor select, and one under a nested select
+   belongs to that select, as option_nearest_select() has it in the tree builder. An SVG or MathML element that shares
+   one of these atoms is none of them, so the list goes on below it. */
+static int ends_option_descent(const th_node *node) {
+    return ((node->atom == TH_TAG_OPTION || node->atom == TH_TAG_SELECT || node->atom == TH_TAG_DATALIST ||
+             node->atom == TH_TAG_HR) &&
+            node->ns == TH_NS_HTML) ||
+           node->type == TH_NODE_CONTENT;
+}
+
+/* The node after node's subtree in root's preorder, or NULL past root's last descendant. As in preorder_next, the
+   climb meets NULL when the cursor was detached (extract()) mid-walk. The memo drops each optgroup the climb leaves. */
+static th_node *skip_option_subtree(th_node *node, th_node *root, optgroup_memo *memo) {
+    while (node != NULL && node != root && node->next_sibling == NULL) { /* GCOVR_EXCL_BR_LINE: NULL as above */
+        node = node->parent;
+        if (memo != NULL && memo->count > 0 && memo->groups[memo->count - 1] == node) {
+            memo->count--;
         }
     }
-    return NULL;
+    return node == NULL || node == root ? NULL : node->next_sibling; /* GCOVR_EXCL_BR_LINE: NULL as above */
+}
+
+/* The next option after current in root's list of options, in document order. An option belongs to one select and
+   no listed option holds another, so nested selects and nested options are each read once, not once per level. A walk
+   that calls option_disabled passes its memo, which drops each optgroup as the walk climbs out of it; any other walk
+   passes NULL. */
+static th_node *next_option(th_node *current, th_node *root, optgroup_memo *memo) {
+    /* current is root or an option this walk returned, and the list never goes below an option */
+    th_node *node = current == root ? root->first_child : skip_option_subtree(current, root, memo);
+    /* text nodes are TH_TAG_UNKNOWN, and an SVG or MathML element that shares the atom is no option */
+    while (node != NULL && (node->atom != TH_TAG_OPTION || node->ns != TH_NS_HTML)) {
+        node = node->first_child != NULL && !ends_option_descent(node) ? node->first_child
+                                                                       : skip_option_subtree(node, root, memo);
+    }
+    return node;
 }
 
 /* WHATWG: an option is disabled if its own disabled attribute is present or it is a
-   child of an optgroup whose disabled attribute is present. */
-static int option_disabled(th_node *option) {
+   child of an optgroup whose disabled attribute is present. The memo belongs to the walk
+   that reached the option and remembers the group's answer for its later options. */
+static int option_disabled(th_tree *tree, th_node *option, optgroup_memo *memo) {
     if (find_node_attr(option, TH_ATTR_DISABLED) != NULL) {
         return 1;
     }
     /* an option enumerated within a select always has a parent; only optgroup elements
        carry this atom (text and content nodes are TH_TAG_UNKNOWN) */
     th_node *group = option->parent;
-    return group->atom == TH_TAG_OPTGROUP && find_node_attr(group, TH_ATTR_DISABLED) != NULL;
+    if (group->atom != TH_TAG_OPTGROUP) {
+        return 0;
+    }
+    /* Pair allocation can run callbacks, so drop the answers read before an attribute was last written. */
+    uint64_t attr_version = th_tree_attr_version(tree);
+    if (memo->attr_version != attr_version) {
+        memo->attr_version = attr_version;
+        memo->count = 0;
+    }
+    if (memo->count > 0 && memo->groups[memo->count - 1] == group) {
+        return memo->disabled[memo->count - 1];
+    }
+    int disabled = find_node_attr(group, TH_ATTR_DISABLED) != NULL;
+    if (memo->count < TH_MAX_TREE_DEPTH) {
+        memo->groups[memo->count] = group;
+        memo->disabled[memo->count++] = (uint8_t)disabled;
+    }
+    return disabled;
 }
 
 /* WHATWG display size of a single (non-multiple) select: the parsed non-negative
@@ -777,11 +840,14 @@ static Py_ssize_t single_select_display_size(th_tree *tree, th_node *select) {
 static th_node *single_select_selection(th_tree *tree, th_node *select) {
     th_node *selected = NULL;
     th_node *first_enabled = NULL;
-    for (th_node *option = next_option(select, select); option != NULL; option = next_option(option, select)) {
+    optgroup_memo memo;
+    optgroup_memo_init(&memo);
+    for (th_node *option = next_option(select, select, &memo); option != NULL;
+         option = next_option(option, select, &memo)) {
         if (find_node_attr(option, TH_ATTR_SELECTED) != NULL) {
             selected = option;
         }
-        if (first_enabled == NULL && !option_disabled(option)) {
+        if (first_enabled == NULL && !option_disabled(tree, option, &memo)) {
             first_enabled = option;
         }
     }
@@ -801,7 +867,8 @@ static PyObject *select_value(th_tree *tree, th_node *select) {
         if (values == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        for (th_node *option = next_option(select, select); option != NULL; option = next_option(option, select)) {
+        for (th_node *option = next_option(select, select, NULL); option != NULL;
+             option = next_option(option, select, NULL)) {
             if (find_node_attr(option, TH_ATTR_SELECTED) == NULL) {
                 continue;
             }
@@ -828,7 +895,8 @@ TH_NODE_API(static, PyObject *, element_get_field_value, (PyObject * self, void 
     th_tree *tree = tree_of(self);
     PyObject *result = NULL;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    switch (node->atom) {
+    /* a foreign element that shares a control's atom has no value, as its text and options are not the control's */
+    switch (node->ns == TH_NS_HTML ? node->atom : TH_TAG_UNKNOWN) {
     case TH_TAG_INPUT:
         result = value_attr_or(node, input_kind(find_node_attr(node, TH_ATTR_TYPE)) == FIELD_CHECKABLE ? "on" : "");
         break;
@@ -902,7 +970,7 @@ static int set_textarea_value(PyObject *self, th_node *node, PyObject *value) {
     th_tree *tree = tree_of(self);
     int error = 0;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &node, 1);
     while (node->first_child != NULL) {
         th_node_remove_observed(tree, node->first_child);
     }
@@ -977,7 +1045,8 @@ static int set_select_value(PyObject *self, th_node *select, PyObject *value) {
     int error = 0;
     int selected_one = 0;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    for (th_node *option = next_option(select, select); option != NULL; option = next_option(option, select)) {
+    for (th_node *option = next_option(select, select, NULL); option != NULL;
+         option = next_option(option, select, NULL)) {
         PyObject *option_value = option_value_str(tree, option);
         if (option_value == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             error = 1;              /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1010,7 +1079,7 @@ TH_NODE_API(static, int, element_set_field_value, (PyObject * self, PyObject *va
             (self, value, closure), (PyObject * self, PyObject *value, void *Py_UNUSED(closure)), (NodeObject *)self,
             value != NULL && is_node(value, state_of(self)) ? (NodeObject *)value : NULL) {
     th_node *node = ((NodeObject *)self)->node;
-    switch (node->atom) {
+    switch (node->ns == TH_NS_HTML ? node->atom : TH_TAG_UNKNOWN) {
     case TH_TAG_INPUT:
     case TH_TAG_BUTTON:
     case TH_TAG_OPTION:
@@ -1056,11 +1125,38 @@ typedef struct {
     th_node *root;
     radio_id *ids;
     size_t mask;
+    int keyed; /* 1 once a walk on FNV-1a passed TH_FAST_PROBE_LIMIT and ids moved to path_id_keyed */
     int connected;
     th_node_map ancestors;
     int local_form;
     th_node *resolved_form;
 } radio_group;
+
+/* Seat every id under the root. 1 when a walk on FNV-1a went past TH_FAST_PROBE_LIMIT, which stops the fill, so the
+   fill costs at most the limit per id before radio_ids_build starts it over keyed. */
+static int radio_ids_fill(radio_group *group) {
+    for (th_node *node = group->root; node != NULL; node = preorder_next(node, group->root)) {
+        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? find_node_attr(node, TH_ATTR_ID) : NULL;
+        if (id == NULL || id->value_len == 0) {
+            continue;
+        }
+        const size_t home = (size_t)path_id_hash(id->value, id->value_len, 0, group->keyed) & group->mask;
+        size_t slot = home;
+        while (group->ids[slot].value != NULL &&
+               !ucs4_runs_equal(group->ids[slot].value, group->ids[slot].len, id->value, id->value_len)) {
+            TH_WORK_STEP();
+            slot = (slot + 1) & group->mask;
+        }
+        if (!group->keyed && ((slot - home) & group->mask) > TH_FAST_PROBE_LIMIT) {
+            return 1;
+        }
+        if (group->ids[slot].value == NULL) {
+            group->ids[slot] =
+                (radio_id){id->value, id->value_len, node->ns == TH_NS_HTML && node->atom == TH_TAG_FORM ? node : NULL};
+        }
+    }
+    return 0;
+}
 
 static int radio_ids_build(radio_group *group) {
     size_t count = 0;
@@ -1079,27 +1175,43 @@ static int radio_ids_build(radio_group *group) {
         return -1;            /* GCOVR_EXCL_LINE */
     }
     group->mask = capacity - 1;
-    for (th_node *node = group->root; node != NULL; node = preorder_next(node, group->root)) {
-        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? find_node_attr(node, TH_ATTR_ID) : NULL;
-        if (id == NULL || id->value_len == 0) {
-            continue;
-        }
-        size_t slot = (size_t)path_id_hash(id->value, id->value_len, 0) & group->mask;
-        while (group->ids[slot].value != NULL &&
-               !ucs4_runs_equal(group->ids[slot].value, group->ids[slot].len, id->value, id->value_len)) {
-            slot = (slot + 1) & group->mask;
-        }
-        if (group->ids[slot].value == NULL) {
-            group->ids[slot] =
-                (radio_id){id->value, id->value_len, node->ns == TH_NS_HTML && node->atom == TH_TAG_FORM ? node : NULL};
-        }
+    if (radio_ids_fill(group)) {
+        memset(group->ids, 0, capacity * sizeof(radio_id));
+        group->keyed = 1;
+        radio_ids_fill(group);
     }
     return 0;
 }
 
-static int radio_form_owner(radio_group *group, th_node *radio, th_node **owner, int initial) {
+/* radio_form_owner for a form id its path_id_hash walk missed: on keyed ids, the walk under path_id_keyed; on ids still
+   on path_id_hash after a walk past TH_FAST_PROBE_LIMIT, that walk once the ids move to path_id_keyed for good. A miss
+   walks to the end of the run its home falls in, and the page can line up homes into one long run without seating any
+   id far from its own. Out of line, so the path_id_hash walk keeps its registers. */
+static TH_NOINLINE int radio_form_owner_keyed(radio_group *group, const th_node_attr *form, th_node **owner) {
+    if (!group->keyed) {
+        PyMem_Free(group->ids);
+        group->ids = NULL;
+        group->keyed = 1;
+        if (radio_ids_build(group) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
+            return -1;                    /* GCOVR_EXCL_LINE */
+        }
+    }
+    size_t slot = (size_t)path_id_hash(form->value, form->value_len, 0, 1) & group->mask;
+    while (group->ids[slot].value != NULL) {
+        if (ucs4_runs_equal(form->value, form->value_len, group->ids[slot].value, group->ids[slot].len)) {
+            *owner = group->ids[slot].form;
+            return 0;
+        }
+        TH_WORK_STEP();
+        slot = (slot + 1) & group->mask;
+    }
+    return 0;
+}
+
+/* The form owner of radio, whose form attribute the caller already looked up. */
+static int radio_form_owner(radio_group *group, th_node *radio, const th_node_attr *form, th_node **owner,
+                            int initial) {
     *owner = NULL;
-    const th_node_attr *form = find_node_attr(radio, TH_ATTR_FORM);
     if (form != NULL && group->connected < 0) {
         group->connected = radio_tree_connected(group->tree, group->root);
     }
@@ -1121,15 +1233,21 @@ static int radio_form_owner(radio_group *group, th_node *radio, th_node **owner,
         if (group->ids == NULL && radio_ids_build(group) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
             return -1;                                          /* GCOVR_EXCL_LINE */
         }
-        size_t slot = (size_t)path_id_hash(form->value, form->value_len, 0) & group->mask;
+        /* The path_id_hash walk runs on keyed ids too: they hold each id once, so finding it anywhere is the answer,
+           and runs under path_id_keyed are short wherever the walk starts. */
+        size_t slot = (size_t)path_id_hash(form->value, form->value_len, 0, 0) & group->mask;
+        const size_t home = slot;
         while (group->ids[slot].value != NULL) {
             if (ucs4_runs_equal(form->value, form->value_len, group->ids[slot].value, group->ids[slot].len)) {
                 *owner = group->ids[slot].form;
-                break;
+                return 0;
             }
+            TH_WORK_STEP();
             slot = (slot + 1) & group->mask;
         }
-        return 0;
+        return group->keyed || ((slot - home) & group->mask) > TH_FAST_PROBE_LIMIT
+                   ? radio_form_owner_keyed(group, form, owner)
+                   : 0;
     }
     for (th_node *ancestor = radio->parent; ancestor != NULL; ancestor = ancestor->parent) {
         if (ancestor->ns == TH_NS_HTML && ancestor->atom == TH_TAG_FORM) {
@@ -1152,8 +1270,8 @@ static int radio_owner_matches(radio_group *group, th_node *radio, th_node *form
             return 0;
         }
         th_node *owner;
-        if (radio_form_owner(group, radio, &owner, 0) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
-            return -1;                                       /* GCOVR_EXCL_LINE */
+        if (radio_form_owner(group, radio, explicit_form, &owner, 0) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            return -1;                                                      /* GCOVR_EXCL_LINE */
         }
         *matches = owner == form;
         return 0;
@@ -1211,19 +1329,20 @@ static int clear_radio_group(HandleObject *handle, th_node *radio) {
     }
     radio_group group = {.tree = tree, .root = root, .connected = -1};
     th_node *form;
-    if (radio_form_owner(&group, radio, &form, 1) < 0) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
-        return -1;                                       /* GCOVR_EXCL_LINE */
+    if (radio_form_owner(&group, radio, find_node_attr(radio, TH_ATTR_FORM), &form, 1) < 0) { /* GCOVR_EXCL_BR_LINE */
+        return -1; /* GCOVR_EXCL_LINE: allocation cannot be forced */
     }
-    /* Forms without IDs cannot own controls outside their subtree. */
-    group.local_form = form != NULL && find_node_attr(form, TH_ATTR_ID) == NULL;
-    th_node *scope = group.local_form ? form : root;
+    /* Forms without IDs cannot own controls outside their subtree. The loop reads a copy, as group's address escapes
+       to the owner lookups and reading the field would reload it every step. */
+    const int local_form = form != NULL && find_node_attr(form, TH_ATTR_ID) == NULL;
+    group.local_form = local_form;
+    th_node *scope = local_form ? form : root;
     const int indexed = scope == root && handle->index_built && handle_index_usable(handle, root);
     Py_ssize_t cursor = indexed ? handle->index_offsets[TH_TAG_INPUT] : 0;
     const Py_ssize_t end = indexed ? handle->index_offsets[TH_TAG_INPUT + 1] : 0;
     int status = 0;
     for (th_node *node = indexed ? handle->index_nodes[cursor] : scope; node != NULL;
-         node = indexed ? (++cursor < end ? handle->index_nodes[cursor] : NULL)
-                        : radio_next(node, scope, group.local_form)) {
+         node = indexed ? (++cursor < end ? handle->index_nodes[cursor] : NULL) : radio_next(node, scope, local_form)) {
         if (node == radio || node->atom != TH_TAG_INPUT || !input_type_is(node, "radio")) {
             continue;
         }
@@ -1285,9 +1404,15 @@ TH_NODE_API(static, int, element_set_checked, (PyObject * self, PyObject *value,
     return 0;
 }
 
+/* Whether node is an HTML element with this atom. An SVG or MathML element can share a local name with an HTML one, so
+   the atom alone does not say which exclusion applies. */
+static int is_html_atom(const th_node *node, uint16_t atom) {
+    return node->atom == atom && node->ns == TH_NS_HTML;
+}
+
 static th_node *fieldset_first_legend(th_node *fieldset) {
     for (th_node *child = fieldset->first_child; child != NULL; child = child->next_sibling) {
-        if (child->atom == TH_TAG_LEGEND) {
+        if (is_html_atom(child, TH_TAG_LEGEND)) {
             return child;
         }
     }
@@ -1318,7 +1443,7 @@ static int fieldset_disables(th_node *control, th_node *form) {
         if (ancestor == NULL) {
             return 1;
         }
-        if (ancestor->atom == TH_TAG_FIELDSET && find_node_attr(ancestor, TH_ATTR_DISABLED) != NULL &&
+        if (is_html_atom(ancestor, TH_TAG_FIELDSET) && find_node_attr(ancestor, TH_ATTR_DISABLED) != NULL &&
             !control_in_first_legend(ancestor, control)) {
             return 1;
         }
@@ -1375,24 +1500,18 @@ static control_attrs read_control_attrs(const th_node *node) {
     return found;
 }
 
-/* Append a (name, value) pair, taking ownership of value and stealing nothing from
-   name. Returns 0, or -1 with an exception set. */
-static int emit_pair(form_pairs *pairs, const th_node_attr *name, PyObject *value) {
+/* Append a (name, value) pair, taking ownership of value and a new reference to the
+   name str. Returns 0, or -1 with an exception set. */
+static int emit_named_pair(form_pairs *pairs, PyObject *name_obj, PyObject *value) {
     if (value == NULL) { /* GCOVR_EXCL_BR_LINE: a value builder only fails on OOM */
         return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    PyObject *name_obj = ucs4_to_str(name->value, name->value_len);
-    if (name_obj == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        Py_DECREF(value);   /* GCOVR_EXCL_LINE: allocation-failure path */
-        return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
-    }
     PyObject *pair = PyTuple_New(2);
-    if (pair == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        Py_DECREF(name_obj); /* GCOVR_EXCL_LINE: allocation-failure path */
-        Py_DECREF(value);    /* GCOVR_EXCL_LINE: allocation-failure path */
-        return -1;           /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (pair == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        Py_DECREF(value); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    PyTuple_SET_ITEM(pair, 0, name_obj);
+    PyTuple_SET_ITEM(pair, 0, Py_NewRef(name_obj));
     PyTuple_SET_ITEM(pair, 1, value);
 #ifdef FORM_WALKS_ANCESTOR_FIELDSETS
     int rc = PyList_Append(pairs, pair);
@@ -1424,22 +1543,49 @@ static int emit_pair(form_pairs *pairs, const th_node_attr *name, PyObject *valu
 #endif
 }
 
+/* Append a control's single (name, value) pair, taking ownership of value and stealing
+   nothing from name. Returns 0, or -1 with an exception set. */
+static int emit_pair(form_pairs *pairs, const th_node_attr *name, PyObject *value) {
+    if (value == NULL) { /* GCOVR_EXCL_BR_LINE: a value builder only fails on OOM */
+        return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *name_obj = ucs4_to_str(name->value, name->value_len);
+    if (name_obj == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        Py_DECREF(value);   /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    int rc = emit_named_pair(pairs, name_obj, value);
+    Py_DECREF(name_obj);
+    return rc;
+}
+
 /* Append the submitted option(s) of a select as (name, value) pairs: every selected
    non-disabled option for a multiple select, else the resolved single selection. */
 static int collect_select(th_tree *tree, th_node *select, const th_node_attr *name, form_pairs *pairs) {
+    optgroup_memo memo;
+    optgroup_memo_init(&memo);
     if (find_node_attr(select, TH_ATTR_MULTIPLE) != NULL) {
-        for (th_node *option = next_option(select, select); option != NULL; option = next_option(option, select)) {
-            if (option_disabled(option) || find_node_attr(option, TH_ATTR_SELECTED) == NULL) {
+        /* One name str shared by every pair: a copy per selected option costs options x name length. */
+        PyObject *name_obj = ucs4_to_str(name->value, name->value_len);
+        if (name_obj == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        int rc = 0;
+        for (th_node *option = next_option(select, select, &memo); option != NULL;
+             option = next_option(option, select, &memo)) {
+            if (option_disabled(tree, option, &memo) || find_node_attr(option, TH_ATTR_SELECTED) == NULL) {
                 continue;
             }
-            if (emit_pair(pairs, name, option_value_str(tree, option)) < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
-                return -1;                                                    /* GCOVR_EXCL_LINE: alloc-failure */
+            rc = emit_named_pair(pairs, name_obj, option_value_str(tree, option));
+            if (rc < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
+                break;    /* GCOVR_EXCL_LINE: alloc-failure */
             }
         }
-        return 0;
+        Py_DECREF(name_obj);
+        return rc;
     }
     th_node *use = single_select_selection(tree, select);
-    if (use == NULL || option_disabled(use)) { /* a disabled resolved option is not submittable */
+    if (use == NULL || option_disabled(tree, use, &memo)) { /* a disabled resolved option is not submittable */
         return 0;
     }
     return emit_pair(pairs, name, option_value_str(tree, use));
@@ -1448,7 +1594,9 @@ static int collect_select(th_tree *tree, th_node *select, const th_node_attr *na
 /* Append node's submission pair(s) to pairs when it is a successful control. */
 static int collect_control(th_tree *tree, th_node *form, th_node *node, form_pairs *pairs) {
     uint16_t atom = node->atom;
-    if (atom != TH_TAG_INPUT && atom != TH_TAG_TEXTAREA && atom != TH_TAG_SELECT) {
+    /* Atoms span namespaces: an SVG or MathML element named like a control is not one. Unlike an HTML textarea those
+       nest, so each in a chain would submit the text of every one below it. */
+    if (node->ns != TH_NS_HTML || (atom != TH_TAG_INPUT && atom != TH_TAG_TEXTAREA && atom != TH_TAG_SELECT)) {
         return 0;
     }
     control_attrs attrs = read_control_attrs(node);
@@ -1491,16 +1639,31 @@ PyDoc_STRVAR(form_data_doc, "form_data()\n--\n\n"
                             "normalized, range clamped to min/max/step); hidden and color inputs submit the\n"
                             "value attribute as written. A textarea submits its text with CRLF and CR\n"
                             "normalized to LF. Controls inside a datalist or a template's contents are\n"
-                            "excluded. Controls are matched by containment in the form.\n\n"
+                            "excluded. Controls are matched by containment in the form. An SVG or MathML element\n"
+                            "named like a control or an option is not one.\n\n"
                             ":returns: the (name, value) pairs in document order.");
 
+/* Whether no legend precedes this one among its siblings. Only the first legend of a disabled fieldset is walked
+   into, so only it needs the fieldset's disabled attribute looked up before its later siblings are skipped; asking
+   this first keeps that search to one per fieldset, not one per legend. Each legend looks back no further than the
+   legend before it. */
+static int legend_is_first(const th_node *legend) {
+    for (const th_node *earlier = legend->prev_sibling; earlier != NULL; earlier = earlier->prev_sibling) {
+        if (is_html_atom(earlier, TH_TAG_LEGEND)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static th_node *next_form_control(th_node *current, th_node *form) {
-    if (current->atom == TH_TAG_FIELDSET && find_node_attr(current, TH_ATTR_DISABLED) != NULL) {
+    if (is_html_atom(current, TH_TAG_FIELDSET) && find_node_attr(current, TH_ATTR_DISABLED) != NULL) {
         th_node *legend = fieldset_first_legend(current);
         if (legend != NULL) {
             return legend;
         }
-    } else if (current->atom != TH_TAG_TEMPLATE && current->atom != TH_TAG_DATALIST && current->first_child != NULL) {
+    } else if (!is_html_atom(current, TH_TAG_TEMPLATE) && !is_html_atom(current, TH_TAG_DATALIST) &&
+               current->first_child != NULL) {
         return current->first_child;
     }
     while (current != form) {
@@ -1511,8 +1674,9 @@ static th_node *next_form_control(th_node *current, th_node *form) {
 #endif
         th_node *parent = current->parent;
         /* Pair allocation can run callbacks, so re-read fieldset state before skipping siblings. */
-        if (current->next_sibling != NULL && !(current->atom == TH_TAG_LEGEND && parent->atom == TH_TAG_FIELDSET &&
-                                               find_node_attr(parent, TH_ATTR_DISABLED) != NULL)) {
+        if (current->next_sibling != NULL &&
+            !(is_html_atom(current, TH_TAG_LEGEND) && is_html_atom(parent, TH_TAG_FIELDSET) &&
+              legend_is_first(current) && find_node_attr(parent, TH_ATTR_DISABLED) != NULL)) {
             return current->next_sibling;
         }
         current = parent;
@@ -1578,8 +1742,10 @@ PyDoc_STRVAR(rows_doc, "rows()\n--\n\n"
                        "Return the table's cells as a list of rows, each a list[str], with rowspan and\n"
                        "colspan resolved by filling every spanned slot with a copy of the cell text.\n"
                        "Rows are padded to a rectangular width; a nested table's rows belong to that\n"
-                       "table, not this one. Cell text is the cell's text content with surrounding\n"
-                       "whitespace stripped. Raises TypeError on a non-table element.");
+                       "table, not this one, and a row inside a cell is that cell's content. Cell text\n"
+                       "is the cell's text content with surrounding whitespace stripped. Raises\n"
+                       "TypeError on a non-table element, and ValueError when the spans and the padding\n"
+                       "add more than 4,000,000 cells to the grid.");
 
 TH_NODE_API(static, PyObject *, element_rows, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
@@ -1596,7 +1762,8 @@ PyDoc_STRVAR(records_doc, "records()\n--\n\n"
                           "header, typically the thead row) over each later row, with rowspan and colspan\n"
                           "resolved as in rows(). A table with no rows or only a header yields an empty\n"
                           "list; a duplicated header keeps the rightmost column's value. Pass the result\n"
-                          "to pandas.DataFrame for a frame. Raises TypeError on a non-table element.");
+                          "to pandas.DataFrame for a frame. Raises TypeError on a non-table element, and\n"
+                          "ValueError when the spans and the padding add more than 4,000,000 cells to the grid.");
 
 TH_NODE_API(static, PyObject *, element_records, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
@@ -1649,12 +1816,9 @@ TH_NODE_API(static, PyObject *, element_attr, (PyObject * self, PyObject *args, 
     return value;
 }
 
-/* Drop the cached element index so the next whole-tree query rebuilds it. Called
-   under the handle's critical section from every structural mutator. */
-void handle_drop_index(PyObject *handle_obj) {
-    HandleObject *handle = (HandleObject *)handle_obj;
+static void drop_index(HandleObject *handle) {
     handle->mutation_version++;
-    handle_clear_css_cache(handle);
+    th_tree_note_element_edit(handle->tree);
     PyMem_Free(handle->index_offsets);
     PyMem_Free(handle->index_nodes);
     handle->index_offsets = NULL;
@@ -1664,6 +1828,27 @@ void handle_drop_index(PyObject *handle_obj) {
     handle->path_ids = NULL;
     path_positions_free(handle->path_positions);
     handle->path_positions = NULL;
+    th_markdown_ordinals_free(handle->md_ordinals);
+    handle->md_ordinals = NULL;
+    path_positions_free(handle->path_child_positions);
+    handle->path_child_positions = NULL;
+}
+
+/* Drop the cached element index so the next whole-tree query rebuilds it. Called
+   under the handle's critical section from every structural mutator. */
+void handle_drop_index(PyObject *handle_obj) {
+    HandleObject *handle = (HandleObject *)handle_obj;
+    handle_clear_css_cache(handle);
+    drop_index(handle);
+}
+
+/* handle_drop_index for a mutator that only unlinks nodes, each with its subtree, or links them under parent (NULL
+   when it links nothing): the compiled <style> sheets outlive an edit no <style> element is part of (see
+   handle_clear_css_edit). Called before the edit, while each node still has the parent it leaves. */
+void handle_drop_index_edit(PyObject *handle_obj, const th_node *parent, th_node *const *nodes, Py_ssize_t count) {
+    HandleObject *handle = (HandleObject *)handle_obj;
+    handle_clear_css_edit(handle, parent, nodes, count);
+    drop_index(handle);
 }
 
 PyDoc_STRVAR(element_doc, "An element node: a tag, a namespace, attributes, and child nodes.\n\n"
@@ -2103,15 +2288,70 @@ static int path_id_safe(const Py_UCS4 *value, Py_ssize_t len, int *escaped) {
     return 1;
 }
 
-/* FNV-1a over an id value, folding case in quirks mode so values that the id
-   selector treats as equal hash equal. */
-static uint64_t path_id_hash(const Py_UCS4 *value, Py_ssize_t len, int ci) {
+/* The keyed hash (core/hash.h) of an id value, which an id table moves to once a walk on FNV-1a passes
+   TH_FAST_PROBE_LIMIT, since the page picks its ids. Quirks mode folds case, and values the id selector treats as
+   equal must hash equal, so there the folded code points go into a buffer that is hashed in one call; an id longer
+   than the buffer is hashed a buffer at a time, each chained behind the hash of the one before. */
+static TH_NOINLINE uint64_t path_id_keyed(const Py_UCS4 *value, Py_ssize_t len, int ci) {
+    if (!ci) {
+        return th_name_hash(value, len * (Py_ssize_t)sizeof(Py_UCS4));
+    }
+    enum { PATH_ID_BUFFER = 64 };
+    uint32_t block[PATH_ID_BUFFER + 1];
+    uint32_t chained = 0;
+    for (Py_ssize_t start = 0; start < len; start += PATH_ID_BUFFER) {
+        Py_ssize_t count = len - start < PATH_ID_BUFFER ? len - start : PATH_ID_BUFFER;
+        block[0] = chained;
+        for (Py_ssize_t index = 0; index < count; index++) {
+            block[index + 1] = (uint32_t)sel_fold(value[start + index], ci);
+        }
+        chained = th_name_hash(block, (count + 1) * (Py_ssize_t)sizeof(uint32_t));
+    }
+    return chained;
+}
+
+/* FNV-1a over an id value, folding case in quirks mode so values that the id selector treats as equal hash equal: the
+   hash the id tables start on (core/hash.h). path_id_keyed once keyed. */
+static uint64_t path_id_hash(const Py_UCS4 *value, Py_ssize_t len, int ci, int keyed) {
+    if (keyed) {
+        return path_id_keyed(value, len, ci);
+    }
     uint64_t hash = 14695981039346656037u;
     for (Py_ssize_t index = 0; index < len; index++) {
         hash ^= (uint64_t)sel_fold(value[index], ci);
         hash *= 1099511628211u;
     }
     return hash;
+}
+
+/* Count every id in the document into the map. 1 when a walk on FNV-1a went past TH_FAST_PROBE_LIMIT, which stops the
+   fill, so the fill costs at most the limit per id before path_id_map_build starts it over keyed. */
+static int path_id_map_fill(path_id_map *map, th_node *document) {
+    for (th_node *node = document->first_child; node != NULL; node = preorder_next(node, document)) {
+        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? find_node_attr(node, TH_ATTR_ID) : NULL;
+        if (id == NULL || id->value == NULL) {
+            continue;
+        }
+        const size_t home = (size_t)path_id_hash(id->value, id->value_len, map->ci, map->keyed) & map->mask;
+        size_t slot = home;
+        TH_WORK_STEP();
+        while (map->slots[slot].value != NULL &&
+               !sel_eq(map->slots[slot].value, map->slots[slot].len, id->value, id->value_len, map->ci)) {
+            TH_WORK_STEP();
+            slot = (slot + 1) & map->mask;
+        }
+        if (!map->keyed && ((slot - home) & map->mask) > TH_FAST_PROBE_LIMIT) {
+            return 1;
+        }
+        if (map->slots[slot].value == NULL) {
+            map->slots[slot].value = id->value;
+            map->slots[slot].len = id->value_len;
+            map->slots[slot].count = 1;
+        } else {
+            map->slots[slot].count++;
+        }
+    }
+    return 0;
 }
 
 /* Build the document's id-occurrence map: every element's id value mapped to how
@@ -2141,77 +2381,192 @@ static path_id_map *path_id_map_build(th_tree *tree, th_node *document) {
     }
     map->mask = capacity - 1;
     map->id_version = th_tree_id_version(tree);
-    const int ci = th_tree_quirks(tree);
-    map->ci = ci;
-    for (th_node *node = document->first_child; node != NULL; node = preorder_next(node, document)) {
-        const th_node_attr *id = node->type == TH_NODE_ELEMENT ? find_node_attr(node, TH_ATTR_ID) : NULL;
-        if (id == NULL || id->value == NULL) {
-            continue;
-        }
-        size_t slot = (size_t)path_id_hash(id->value, id->value_len, ci) & map->mask;
-        while (map->slots[slot].value != NULL &&
-               !sel_eq(map->slots[slot].value, map->slots[slot].len, id->value, id->value_len, ci)) {
-            slot = (slot + 1) & map->mask;
-        }
-        if (map->slots[slot].value == NULL) {
-            map->slots[slot].value = id->value;
-            map->slots[slot].len = id->value_len;
-            map->slots[slot].count = 1;
-        } else {
-            map->slots[slot].count++;
-        }
+    map->ci = th_tree_quirks(tree);
+    map->keyed = 0;
+    if (path_id_map_fill(map, document)) {
+        memset(map->slots, 0, capacity * sizeof(path_id_slot));
+        map->keyed = 1;
+        path_id_map_fill(map, document);
     }
     return map;
 }
 
 /* Whether value names exactly one element, so #value selects it alone. Only an element inside the document probes,
-   and the map counts every id there, so the candidate's own id is present and the probe ends on its slot. */
+   and the map counts every id there, so the candidate's own id is present and the probe ends on its slot, no further
+   from its home than the fill walked to seat it. */
 static int path_id_unique(const path_id_map *map, const Py_UCS4 *value, Py_ssize_t len) {
-    size_t slot = (size_t)path_id_hash(value, len, map->ci) & map->mask;
+    size_t slot = (size_t)path_id_hash(value, len, map->ci, map->keyed) & map->mask;
+    TH_WORK_STEP();
     while (!sel_eq(map->slots[slot].value, map->slots[slot].len, value, len, map->ci)) {
+        TH_WORK_STEP();
         slot = (slot + 1) & map->mask;
     }
     return map->slots[slot].count == 1;
 }
 
+/* The per-tree position cache of css_path and xpath_path: every element of a resolved child list mapped to its 1-based
+   position among the siblings of its type, shifted up one bit, the low bit set when the type occurs there more than
+   once, so the step needs the position. */
+typedef struct {
+    th_node_map map;
+    uint64_t seed; /* salts the type hash so chosen tag names cannot flood one bucket */
+} path_position_map;
+
+/* One element type of the child list being resolved. */
+typedef struct {
+    const th_node *first; /* the first child of the type; NULL marks a free slot */
+    Py_ssize_t count;     /* children of the type so far */
+} path_type_slot;
+
 void path_positions_free(void *positions) {
-    th_node_map *const map = positions;
-    if (map != NULL) {
-        PyMem_Free(map->entries);
-        PyMem_Free(map);
+    path_position_map *const cache = positions;
+    if (cache != NULL) {
+        PyMem_Free(cache->map.entries);
+        PyMem_Free(cache);
     }
 }
 
-static int path_step_index(HandleObject *handle, th_node *node, int *needs_index) {
-    th_node_map *map = handle->path_positions;
+/* The slot of node's type, or the free slot it would take, hashed over what sel_same_type compares. */
+static path_type_slot *path_type_find(path_type_slot *slots, size_t capacity, uint64_t seed, const th_node *node) {
+    uint64_t hash = (seed ^ UINT64_C(14695981039346656037) ^ node->ns) * UINT64_C(1099511628211);
+    hash = (hash ^ node->atom) * UINT64_C(1099511628211);
+    if (node->atom == TH_TAG_UNKNOWN) {
+        for (Py_ssize_t index = 0; index < node->text_len; index++) {
+            hash = (hash ^ node->text[index]) * UINT64_C(1099511628211);
+        }
+    }
+    size_t slot = th_hash_slot(th_fibonacci_hash((uint32_t)(hash >> 32)), capacity);
+    while (slots[slot].first != NULL && !sel_same_type(slots[slot].first, node)) {
+        slot = (slot + 1) & (capacity - 1);
+    }
+    return &slots[slot];
+}
+
+/* Resolve every element child of parent in one pass. Resolving one element at a time walks back to the previous
+   sibling of its type and forward to the next, the whole list for the only element of a type, so a path per element
+   is quadratic in a list that holds such an element, and any order but document order recounts ordinary lists. */
+static int path_positions_fill(path_position_map *cache, const th_node *parent) {
+    size_t elements = 0;
+    for (const th_node *child = parent->first_child; child != NULL; child = child->next_sibling) {
+        elements += child->type == TH_NODE_ELEMENT;
+    }
+    size_t capacity;
+    size_t bytes;
+    /* GCOVR_EXCL_BR_START: allocation-size overflow */
+    if (!th_grow_cap(elements * 2, 0, 16, sizeof(path_type_slot), &capacity, &bytes)) {
+        return -1; /* GCOVR_EXCL_LINE: allocation-size overflow */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    path_type_slot local[16] = {{0}}; /* most lists are short */
+    path_type_slot *slots = capacity <= 16 ? local : PyMem_Calloc(1, bytes);
+    /* GCOVR_EXCL_START: allocation failure */
+    if (slots == NULL || th_node_map_reserve(&cache->map, cache->map.count + elements) < 0) {
+        if (slots != local) {
+            PyMem_Free(slots);
+        }
+        return -1;
+    }
+    /* GCOVR_EXCL_STOP */
+    /* a run of one type, the usual list, reuses the slot of the element before */
+    path_type_slot *slot = NULL;
+    for (const th_node *child = parent->first_child; child != NULL; child = child->next_sibling) {
+        TH_WORK_STEP();
+        if (child->type != TH_NODE_ELEMENT) {
+            continue;
+        }
+        if (slot == NULL || !sel_same_type(slot->first, child)) {
+            slot = path_type_find(slots, capacity, cache->seed, child);
+        }
+        if (slot->first == NULL) {
+            slot->first = child;
+        } else if (slot->count == 1) {
+            cache->map.entries[th_node_map_slot(&cache->map, slot->first)].value |= 1;
+        }
+        slot->count++;
+        /* the first path after a mutation entered its own steps; the map is reserved, so the insert cannot fail */
+        if (th_node_map_find(&cache->map, child) == 0) {
+            (void)th_node_map_insert(&cache->map, child, (slot->count << 1) | (slot->count > 1));
+        }
+    }
+    if (slots != local) {
+        PyMem_Free(slots);
+    }
+    return 0;
+}
+
+/* The 1-based position of node among the siblings of its type, setting *needs_index when there is more than one of
+   them. alone is set for the first path after a mutation, which counts its own steps by walking the siblings, so one
+   path on a fresh tree does not pay to resolve every list it passes through; any later step resolves its list. */
+static int path_step_index(HandleObject *handle, th_node *node, int alone, int *needs_index) {
+    if (node->parent == NULL) {
+        *needs_index = 0;
+        return 1;
+    }
+    path_position_map *cache = handle->path_positions;
+    if (cache == NULL) {
+        /* Python's randomized bytes hash is the salt, as it is for the XML parser's duplicate-attribute table. */
+        PyObject *salt = PyBytes_FromStringAndSize("turbohtml:path-type", 19);
+        if (salt == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;      /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        cache = PyMem_Calloc(1, sizeof(*cache));
+        if (cache == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            Py_DECREF(salt); /* GCOVR_EXCL_LINE: allocation failure */
+            return -1;       /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        cache->seed = (uint64_t)PyObject_Hash(salt);
+        Py_DECREF(salt);
+        handle->path_positions = cache;
+    }
+    Py_ssize_t value = th_node_map_find(&cache->map, node);
+    if (value == 0 && alone) {
+        Py_ssize_t position = 1;
+        for (const th_node *sibling = node->prev_sibling; sibling != NULL; sibling = sibling->prev_sibling) {
+            TH_WORK_STEP();
+            position += sibling->type == TH_NODE_ELEMENT && sel_same_type(node, sibling);
+        }
+        value = (position << 1) | (position > 1 || !sel_no_sibling(node, 1, 1));
+        if (th_node_map_insert(&cache->map, node, value) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                                          /* GCOVR_EXCL_LINE: allocation failure */
+        }
+    } else if (value == 0) {
+        if (path_positions_fill(cache, node->parent) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                                      /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        value = th_node_map_find(&cache->map, node);
+    }
+    *needs_index = (int)(value & 1);
+    return (int)(value >> 1);
+}
+
+/* The 1-based position of node among all its element siblings, the index of the "*[n]" step xpath_path writes for a
+   tag name XPath cannot spell. Cached like path_step_index, and a miss places every element of the child list in one
+   pass, so taking the path of every child stays linear in any order. Returns -1 on allocation failure. */
+static Py_ssize_t path_child_index(HandleObject *handle, th_node *node) {
+    th_node_map *map = handle->path_child_positions;
     if (map == NULL) {
         map = PyMem_Calloc(1, sizeof(*map));
         if (map == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             return -1;     /* GCOVR_EXCL_LINE: allocation failure */
         }
-        handle->path_positions = map;
+        handle->path_child_positions = map;
     }
     Py_ssize_t value = th_node_map_find(map, node);
     if (value == 0) {
-        th_node *previous = node->prev_sibling;
-        while (previous != NULL && (previous->type != TH_NODE_ELEMENT || !sel_same_type(node, previous))) {
-            previous = previous->prev_sibling;
-        }
-        value = previous == NULL ? 1 : th_node_map_find(map, previous) + 1;
-        if (previous != NULL && value == 1) {
-            value = 2;
-            for (th_node *sibling = previous->prev_sibling; sibling != NULL; sibling = sibling->prev_sibling) {
-                if (sibling->type == TH_NODE_ELEMENT && sel_same_type(node, sibling)) {
-                    value++;
-                }
+        const th_node *first = node->parent == NULL ? node : node->parent->first_child;
+        Py_ssize_t position = 0;
+        for (const th_node *sibling = first; sibling != NULL; sibling = sibling->next_sibling) {
+            if (sibling->type != TH_NODE_ELEMENT) {
+                continue;
             }
-        }
-        if (th_node_map_insert(map, node, value) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            return -1;                                  /* GCOVR_EXCL_LINE: allocation failure */
+            position++;
+            if (th_node_map_insert(map, sibling, position) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;                                        /* GCOVR_EXCL_LINE: allocation failure */
+            }
+            value = sibling == node ? position : value;
         }
     }
-    *needs_index = value > 1 || !sel_no_sibling(node, 1, 1);
-    return (int)value;
+    return value;
 }
 
 /* Snapshot the element ancestor chain, node first up to the topmost element
@@ -2274,9 +2629,12 @@ TH_NODE_API(static, PyObject *, element_css_path, (PyObject * self, PyObject *ig
         error = 1;                                                 /* GCOVR_EXCL_LINE: alloc-failure */
     } else { /* GCOVR_EXCL_LINE: brace of the alloc-failure branch */
         const path_id_map *id_map = attached ? handle_obj->path_ids : NULL;
+        const int alone = handle_obj->path_positions == NULL;
         Py_ssize_t top = count - 1;
         int anchored = 0;
-        for (Py_ssize_t index = 0; index < count; index++) {
+        /* select() searches the document's descendants only, so a detached fragment root never anchors itself */
+        const Py_ssize_t anchors = chain[count - 1] == document ? count - 1 : count;
+        for (Py_ssize_t index = 0; index < anchors; index++) {
             const th_node_attr *id = find_node_attr(chain[index], TH_ATTR_ID);
             int escaped;
             if (id != NULL && id->value != NULL && path_id_safe(id->value, id->value_len, &escaped) && id_map != NULL &&
@@ -2313,7 +2671,7 @@ TH_NODE_API(static, PyObject *, element_css_path, (PyObject * self, PyObject *ig
                     path_put_ucs4(&buf, element->text, element->text_len);
                 }
                 int needs_index;
-                int sibling_index = path_step_index(handle_obj, element, &needs_index);
+                int sibling_index = path_step_index(handle_obj, element, alone, &needs_index);
                 if (sibling_index < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
                     error = 1;           /* GCOVR_EXCL_LINE: allocation failure */
                     break;               /* GCOVR_EXCL_LINE: allocation failure */
@@ -2341,8 +2699,10 @@ PyDoc_STRVAR(xpath_path_doc, "xpath_path()\n--\n\n"
                              "Return the positional XPath that locates this element from the document\n"
                              "root, like lxml's getroottree().getpath(). Each step is the tag name with a\n"
                              "1-based [n] index among same-name siblings when more than one exists\n"
-                             "(\"/html/body/div[2]/p[3]\"). Feeding the result back to xpath() on the\n"
-                             "document returns exactly this element.");
+                             "(\"/html/body/div[2]/p[3]\"). A tag name XPath cannot write as a name test,\n"
+                             "one with a namespace prefix or a character of XPath syntax, becomes ``*[n]``,\n"
+                             "the position among all element siblings. Feeding the result back to xpath()\n"
+                             "on the document returns exactly this element.");
 
 TH_NODE_API(static, PyObject *, element_xpath_path, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
@@ -2355,12 +2715,23 @@ TH_NODE_API(static, PyObject *, element_xpath_path, (PyObject * self, PyObject *
     if (count < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         error = 1;   /* GCOVR_EXCL_LINE: allocation-failure path */
     } else {         /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
+        HandleObject *handle = (HandleObject *)((NodeObject *)self)->handle;
+        const int alone = handle->path_positions == NULL;
         for (Py_ssize_t index = count - 1; index >= 0; index--) {
             th_node *element = chain[index];
             path_puts(&buf, "/");
-            path_put_ucs4(&buf, element->text, element->text_len);
-            int needs_index;
-            int sibling_index = path_step_index((HandleObject *)((NodeObject *)self)->handle, element, &needs_index);
+            /* the tokenizer lets XPath syntax into a tag name ("|", "[", "(", ":", "*", "=", quotes) and XPath cannot
+               escape it, so only a name the lexer reads back verbatim is written, which every builtin name is; any
+               other takes a positional "*[n]" step, the form lxml's getpath uses for a name it cannot write */
+            int needs_index = 1;
+            Py_ssize_t sibling_index;
+            if (element->atom != TH_TAG_UNKNOWN || xp_is_plain_name(element->text, element->text_len)) {
+                path_put_ucs4(&buf, element->text, element->text_len);
+                sibling_index = path_step_index(handle, element, alone, &needs_index);
+            } else {
+                path_puts(&buf, "*");
+                sibling_index = path_child_index(handle, element);
+            }
             if (sibling_index < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
                 error = 1;           /* GCOVR_EXCL_LINE: allocation failure */
                 break;               /* GCOVR_EXCL_LINE: allocation failure */
@@ -2534,6 +2905,7 @@ static int element_attr_value(PyObject *value, Py_UCS4 **points, Py_ssize_t *len
 static int has_attr_named(th_tree *tree, const th_node *node, Py_ssize_t filled, const char *name,
                           Py_ssize_t name_len) {
     for (Py_ssize_t index = 0; index < filled; index++) {
+        TH_WORK_STEP();
         Py_ssize_t existing_len;
         const char *existing = th_attr_name(tree, node->attrs[index].name_atom, &existing_len);
         if (existing_len == name_len && memcmp(existing, name, (size_t)name_len) == 0) {
@@ -2543,12 +2915,90 @@ static int has_attr_named(th_tree *tree, const th_node *node, Py_ssize_t filled,
     return 0;
 }
 
+/* The ASCII-lowercased UTF-8 spelling of one attribute key, in a buffer the caller frees. -1 with an exception set when
+   the key is not a valid attribute name. */
+static int folded_attr_key_name(PyObject *name, char **stored, Py_ssize_t *stored_len) {
+    if (!PyUnicode_Check(name)) {
+        PyErr_SetString(PyExc_TypeError, "attribute name must be a str");
+        return -1;
+    }
+    if (th_validate_markup_name(name, 1) < 0) {
+        return -1;
+    }
+    Py_ssize_t name_len;
+    const char *name_utf8 = PyUnicode_AsUTF8AndSize(name, &name_len);
+    if (name_utf8 == NULL) { /* GCOVR_EXCL_BR_LINE: a lone-surrogate name cannot encode, hard to force */
+        return -1;           /* GCOVR_EXCL_LINE: surrogate path */
+    }
+    char *bytes = PyMem_Malloc((size_t)name_len);
+    if (bytes == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t byte = 0; byte < name_len; byte++) {
+        char ch = name_utf8[byte];
+        bytes[byte] = ch >= 'A' && ch <= 'Z' ? (char)(ch + 32) : ch;
+    }
+    *stored = bytes;
+    *stored_len = name_len;
+    return 0;
+}
+
+/* fill_element_attrs for TH_WIDE_ATTR_COUNT or more keys. Every name is stored first and one sort marks the repeats,
+   so a repeated key's value is never read, as in the scan below. */
+static int fill_wide_element_attrs(th_tree *tree, th_node *node, PyObject *attrs, PyObject *keys) {
+    Py_ssize_t count = PyList_GET_SIZE(keys);
+    for (Py_ssize_t index = 0; index < count; index++) {
+        char *stored;
+        Py_ssize_t stored_len;
+        if (folded_attr_key_name(PyList_GET_ITEM(keys, index), &stored, &stored_len) < 0) {
+            return -1;
+        }
+        int rc = th_tree_set_attr_name(tree, node, index, stored, stored_len);
+        PyMem_Free(stored);
+        if (rc < 0) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    if (th_node_attr_mark_repeats(node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyErr_NoMemory();                      /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;                             /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t index = 0; index < count; index++) {
+        if (node->attrs[index].name_atom == TH_ATTR_UNKNOWN) {
+            continue;
+        }
+        PyObject *name = PyList_GET_ITEM(keys, index);
+        PyObject *value = PyObject_GetItem(attrs, name);
+        Py_UCS4 *points;
+        Py_ssize_t value_len;
+        int has_value;
+        int bad = value == NULL || element_attr_value(value, &points, &value_len, &has_value) < 0;
+        Py_XDECREF(value);
+        if (bad) {
+            return -1;
+        }
+        int rc = th_tree_set_attr_value(tree, node, index, points, value_len, has_value);
+        PyMem_Free(points);
+        if (rc < 0) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    th_node_attr_drop_marked(node);
+    return 0;
+}
+
 /* Fill a constructed element's attribute slots from the keys of attrs. fold lowercases
    each name for an HTML tree; an XML tree keeps case, so its names are stored verbatim.
    Two keys that fold to one name keep the first, as the HTML tokenizer does for a
    repeated attribute, so the element never carries the same name twice. */
 static int fill_element_attrs(th_tree *tree, th_node *node, PyObject *attrs, PyObject *keys, int fold) {
     Py_ssize_t count = PyList_GET_SIZE(keys);
+    if (fold && count >= TH_WIDE_ATTR_COUNT) {
+        return fill_wide_element_attrs(tree, node, attrs, keys);
+    }
     Py_ssize_t filled = 0;
     for (Py_ssize_t index = 0; index < count; index++) {
         PyObject *name = PyList_GET_ITEM(keys, index);
@@ -2812,9 +3262,10 @@ static int relocate_subtree(PyObject *dest_handle, PyObject *source_handle, th_n
 }
 
 /* Taking the source lock can suspend the destination's critical section, so callers
-   must recheck destination tree state after importing. */
-static th_node *import_node(PyObject *dest_handle, NodeObject *child) {
-    th_tree *dest_tree = ((HandleObject *)dest_handle)->tree;
+   must recheck destination tree state after importing. dest_parent is where the caller links the copy, or NULL when
+   the caller drops the caches itself once it has linked the copy. */
+static th_node *import_node(PyObject *dest_handle, const th_node *dest_parent, NodeObject *child) {
+    HandleObject *dest = (HandleObject *)dest_handle;
 #ifdef Py_GIL_DISABLED
     node_guard guard;
     node_guard_begin_with_handle(&guard, dest_handle, child);
@@ -2824,7 +3275,9 @@ static th_node *import_node(PyObject *dest_handle, NodeObject *child) {
 #endif
     th_node *copy;
     Py_BEGIN_CRITICAL_SECTION2(dest_handle, source_handle);
-    copy = th_tree_adopt_copy(dest_tree, tree_of((PyObject *)child), child->node);
+    /* a handle's hash_salt is unique to it for the process, so copies made from one source never match another's */
+    dest->copies.source = ((HandleObject *)source_handle)->hash_salt;
+    copy = th_tree_adopt_copy_sharing(dest->tree, tree_of((PyObject *)child), child->node, &dest->copies);
     if (copy != NULL && /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         relocate_subtree(dest_handle, source_handle, child->node, copy) == 0) {
         handle_drop_index(source_handle);
@@ -2842,7 +3295,7 @@ static th_node *import_node(PyObject *dest_handle, NodeObject *child) {
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     /* a reader may have rebuilt the index while the section was suspended */
-    handle_drop_index(dest_handle);
+    handle_drop_index_edit(dest_handle, dest_parent, &copy, 1);
     return copy;
 }
 
@@ -2868,16 +3321,18 @@ static PyObject *import_fragment_children(PyObject *dest_handle, NodeObject *fra
     th_node *copy;
     Py_BEGIN_CRITICAL_SECTION2(dest_handle, source_handle);
     copy = th_tree_make_fragment(dest_tree);
+    th_copy_memo memo = {0}; /* one for all the children, so attribute values they share are copied once */
     /* copy is NULL only on allocation failure */
     for (th_node *child = fragment->node->first_child; copy != NULL && child != NULL; /* GCOVR_EXCL_BR_LINE */
          child = child->next_sibling) {
-        th_node *child_copy = th_tree_adopt_copy(dest_tree, tree_of((PyObject *)fragment), child);
+        th_node *child_copy = th_tree_adopt_copy_sharing(dest_tree, tree_of((PyObject *)fragment), child, &memo);
         if (child_copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             copy = NULL;          /* GCOVR_EXCL_LINE: allocation-failure path */
             break;                /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         th_node_append_child(copy, child_copy);
     }
+    th_copy_memo_free(&memo);
     if (copy != NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         handle_drop_index(source_handle);
         for (th_node *child_copy = copy->first_child; child_copy != NULL; child_copy = child_copy->next_sibling) {
@@ -2898,24 +3353,27 @@ static PyObject *import_fragment_children(PyObject *dest_handle, NodeObject *fra
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     /* a reader may have rebuilt the index while the section was suspended */
-    handle_drop_index(dest_handle);
+    handle_drop_index_edit(dest_handle, NULL, &copy, 1);
     return node_wrap(state_of(dest_handle), dest_handle, copy);
 }
 
 /* Prepare wrapper_obj, an element the wrap methods link in, to become a child of dest_parent in anchor's tree and
    return the th_node to link (already detached from any old position). A node in the same tree is moved in place, its
    wrapper unchanged; a node from another tree is imported (see import_node). handle is the tree lock the caller
-   holds. NULL with an exception on a cycle (making a node a descendant of itself) or allocation failure. */
+   holds. NULL with an exception on a cycle (making a node a descendant of itself) or allocation failure. The caches
+   are dropped for the link under dest_parent only: the nodes the caller then moves into the wrapper keep their <style>
+   elements and their text, so they do not change the sheets. */
 static th_node *adopt_into(PyObject *handle, th_node *dest_parent, PyObject *wrapper_obj) {
     NodeObject *child = (NodeObject *)wrapper_obj;
     th_tree *dest_tree = ((HandleObject *)handle)->tree;
     if (!node_owned_by(child, handle)) {
-        return import_node(handle, child);
+        return import_node(handle, dest_parent, child);
     }
     if (th_node_contains(dest_tree, child->node, dest_parent)) {
         PyErr_SetString(PyExc_ValueError, "cannot insert a node into its own subtree");
         return NULL;
     }
+    handle_drop_index_edit(handle, dest_parent, &child->node, 1);
     th_node_remove_observed(dest_tree, child->node);
     return child->node;
 }
@@ -2947,8 +3405,8 @@ int import_foreign_node(PyObject *dest_handle, PyObject **slot) {
             return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         Py_SETREF(*slot, local);
-    } else if (import_node(dest_handle, (NodeObject *)node) == NULL) { /* GCOVR_EXCL_BR_LINE: OOM only */
-        return -1;                                                     /* GCOVR_EXCL_LINE: OOM path */
+    } else if (import_node(dest_handle, NULL, (NodeObject *)node) == NULL) { /* GCOVR_EXCL_BR_LINE: OOM only */
+        return -1;                                                           /* GCOVR_EXCL_LINE: OOM path */
     }
     return 1;
 }
@@ -3057,6 +3515,26 @@ static void link_gathered(th_tree *tree, th_node *parent, th_node *const *nodes,
     }
 }
 
+/* The sibling that many links after node (forward) or before it, or NULL when the list ends first. An index past the
+   end walks every sibling, so the links go in fixed blocks of eight that test only for the end; that keeps the walk no
+   dearer per sibling than counting the children. */
+static inline th_node *sibling_links_away(th_node *node, Py_ssize_t links, int forward) {
+    for (; links >= 8; links -= 8) {
+        for (int link = 0; link < 8; link++) {
+            if (node == NULL) {
+                return NULL;
+            }
+            TH_WORK_STEP();
+            node = forward ? node->next_sibling : node->prev_sibling;
+        }
+    }
+    for (; links > 0 && node != NULL; links--) {
+        TH_WORK_STEP();
+        node = forward ? node->next_sibling : node->prev_sibling;
+    }
+    return node;
+}
+
 /* Insert the arguments in list into parent before ref (NULL appends), the whole call checked first (see
    gather_insert). The caller holds the critical section of handle, parent's tree, and has imported the foreign
    arguments. Returns 0, or -1 with an exception. */
@@ -3066,7 +3544,7 @@ static int insert_gathered(PyObject *handle, th_node *parent, PyObject *list, th
     if (nodes == NULL) {
         return -1;
     }
-    handle_drop_index(handle);
+    handle_drop_index_edit(handle, parent, nodes, count);
     link_gathered(((HandleObject *)handle)->tree, parent, nodes, count, ref, 0);
     PyMem_Free(nodes);
     return 0;
@@ -3107,8 +3585,8 @@ static int append_one(PyObject *self, th_node *parent, PyObject *item) {
     int fresh = 0;
     while (!node_owned_by(child, handle)) {
         uint64_t version = ((HandleObject *)handle)->mutation_version;
-        if (import_node(handle, child) == NULL) { /* GCOVR_EXCL_BR_LINE: OOM only */
-            return -1;                            /* GCOVR_EXCL_LINE: OOM path */
+        if (import_node(handle, NULL, child) == NULL) { /* GCOVR_EXCL_BR_LINE: OOM only */
+            return -1;                                  /* GCOVR_EXCL_LINE: OOM path */
         }
         /* the import bumps the version once; a further bump means another thread edited this tree while the import
            gave its lock up, and that edit can have linked the copy */
@@ -3125,7 +3603,7 @@ static int append_one(PyObject *self, th_node *parent, PyObject *item) {
         PyErr_SetString(PyExc_ValueError, message);
         return -1;
     }
-    handle_drop_index(handle);
+    handle_drop_index_edit(handle, parent, &node, 1);
     if (!fresh) {
         th_node_remove_observed(tree, node);
     }
@@ -3414,19 +3892,15 @@ TH_NODE_API(static, PyObject *, element_insert, (PyObject * self, PyObject *args
     Py_BEGIN_CRITICAL_SECTION(handle);
     /* the index resolves after the import, which can suspend the section */
     if (import_all(handle, list) == 0) { /* GCOVR_EXCL_BR_LINE: the import fails only on allocation failure */
-        Py_ssize_t count = 0;
-        for (th_node *walk = parent->first_child; walk != NULL; walk = walk->next_sibling) {
-            count++;
-        }
-        if (index < 0 && (index += count) < 0) {
-            index = 0;
-        }
-        th_node *ref = NULL;
-        if (index < count) {
-            ref = parent->first_child;
-            for (Py_ssize_t step = 0; step < index; step++) {
-                ref = ref->next_sibling;
+        /* walk from the end the index counts from, so an insert near either end skips the other siblings */
+        th_node *ref;
+        if (index < 0) {
+            ref = sibling_links_away(parent->last_child, -1 - index, 0);
+            if (ref == NULL) {
+                ref = parent->first_child;
             }
+        } else {
+            ref = sibling_links_away(parent->first_child, index, 1);
         }
         error = insert_gathered(handle, parent, list, ref) < 0;
     }
@@ -3442,7 +3916,7 @@ TH_NODE_API(static, PyObject *, element_clear, (PyObject * self, PyObject *ignor
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
     th_node *parent = ((NodeObject *)self)->node;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &parent, 1);
     while (parent->first_child != NULL) {
         th_node_remove_observed(tree_of(self), parent->first_child);
     }
@@ -3455,6 +3929,8 @@ TH_NODE_API(static, PyObject *, element_normalize, (PyObject * self, PyObject *i
     int status;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
     status = th_node_normalize(tree_of(self), ((NodeObject *)self)->node);
+    /* merging and emptying Text nodes changes slottables without any index drop */
+    handle_drop_slots((HandleObject *)((NodeObject *)self)->handle);
     Py_END_CRITICAL_SECTION();
     if (status < 0) {            /* GCOVR_EXCL_BR_LINE: allocation failure */
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation failure */
@@ -3476,7 +3952,6 @@ TH_NODE_API(static, PyObject *, element_wrap_children, (PyObject * self, PyObjec
     PyObject *handle = ((NodeObject *)self)->handle;
     int error = 0;
     Py_BEGIN_CRITICAL_SECTION(handle);
-    handle_drop_index(handle);
     th_node *wrapper = adopt_into(handle, parent, wrapper_obj);
     if (wrapper == NULL) {
         error = 1;
@@ -3575,10 +4050,11 @@ static PyObject *sibling_edit(PyObject *self, PyObject *nodes, enum sibling_edit
                                                         keep_self ? NULL : anchor, keep_self ? NULL : anchor, &count);
     if (gathered != NULL) {
         error = 0;
-        handle_drop_index(handle);
+        handle_drop_index_edit(handle, parent, gathered, count);
         link_gathered(((HandleObject *)handle)->tree, parent, gathered, count, anchor, edit == SIBLING_AFTER);
         PyMem_Free(gathered);
         if (!keep_self) {
+            handle_drop_index_edit(handle, NULL, &anchor, 1);
             th_node_remove_observed(((HandleObject *)handle)->tree, anchor);
         }
     }
@@ -3635,7 +4111,6 @@ TH_NODE_API(, PyObject *, node_wrap_in, (PyObject * self, PyObject *wrapper_obj)
     if (wrapped->parent == NULL) {
         standalone = 1;
     } else {
-        handle_drop_index(handle);
         th_node *parent = sibling_parent(wrapped, handle, wrapper_list);
         /* parent is NULL only when another thread detached this node, or on OOM */
         th_node *wrapper = /* GCOVR_EXCL_LINE: detached node or OOM */
@@ -3698,7 +4173,6 @@ TH_NODE_API(, PyObject *, node_wrap_siblings, (PyObject * self, PyObject *args, 
     const char *value_error = NULL;
     PyObject *handle = node->handle;
     Py_BEGIN_CRITICAL_SECTION(handle);
-    handle_drop_index(handle);
     /* The parent and the run are resolved under the lock after the wrapper import;
        reading them earlier could stale them against a concurrent move that relinks
        this node to another parent. */
@@ -3781,7 +4255,7 @@ TH_NODE_API(, PyObject *, node_unwrap, (PyObject * self, PyObject *ignored), (se
     if (parent == NULL) {
         error = 1;
     } else {
-        handle_drop_index(((NodeObject *)self)->handle);
+        handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &node, 1);
         while (node->first_child != NULL) {
             th_node *child = node->first_child;
             th_node_remove_observed(tree_of(self), child);
@@ -3799,7 +4273,7 @@ TH_NODE_API(, PyObject *, node_unwrap, (PyObject * self, PyObject *ignored), (se
 TH_NODE_API(, PyObject *, node_extract, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &((NodeObject *)self)->node, 1);
     th_node_remove_observed(tree_of(self), ((NodeObject *)self)->node);
     Py_END_CRITICAL_SECTION();
     return Py_NewRef(self);
@@ -3808,7 +4282,7 @@ TH_NODE_API(, PyObject *, node_extract, (PyObject * self, PyObject *ignored), (s
 TH_NODE_API(, PyObject *, node_decompose, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &((NodeObject *)self)->node, 1);
     th_node_remove_observed(tree_of(self), ((NodeObject *)self)->node);
     Py_END_CRITICAL_SECTION();
     Py_RETURN_NONE;
@@ -3826,7 +4300,7 @@ TH_NODE_API(static, int, element_set_text, (PyObject * self, PyObject *value, vo
     th_tree *tree = tree_of(self);
     int error = 0;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, &node, 1);
     while (node->first_child != NULL) {
         th_node_remove_observed(tree, node->first_child);
     }
@@ -4130,11 +4604,13 @@ static int splice_fragment(th_tree *dest, th_tree *fragment, th_node *parent, th
                            enum th_adjacency position) {
     th_node *first_ref = position == TH_ADJ_AFTERBEGIN ? target->first_child : NULL;
     th_node *cursor = target;
+    th_copy_memo memo = {0}; /* one for all the top-level nodes, so attribute values they share are copied once */
     for (th_node *child = th_tree_document(fragment)->first_child; child != NULL;) {
         th_node *next = child->next_sibling;
-        th_node *copy = th_tree_copy_node(dest, fragment, child);
-        if (copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
+        th_node *copy = th_tree_copy_node_sharing(dest, fragment, child, &memo);
+        if (copy == NULL) {           /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            th_copy_memo_free(&memo); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;                /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         switch (position) { /* GCOVR_EXCL_BR_LINE: the enum is exhaustive; the implicit default is unreachable */
         case TH_ADJ_BEFOREBEGIN:
@@ -4153,6 +4629,7 @@ static int splice_fragment(th_tree *dest, th_tree *fragment, th_node *parent, th
         }
         child = next;
     }
+    th_copy_memo_free(&memo);
     return 0;
 }
 
@@ -4170,9 +4647,10 @@ TH_NODE_API(static, PyObject *, element_set_inner_html, (PyObject * self, PyObje
         return NULL;
     }
     th_tree *dest = tree_of(self);
+    th_node *const edited[] = {node, th_tree_document(fragment)};
     int error;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, NULL, edited, 2);
     while (node->first_child != NULL) {
         th_node_remove_observed(dest, node->first_child);
     }
@@ -4215,9 +4693,10 @@ TH_NODE_API(static, PyObject *, element_insert_adjacent_html, (PyObject * self, 
         return NULL;
     }
     th_tree *dest = tree_of(self);
+    th_node *incoming = th_tree_document(fragment);
     int error;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    handle_drop_index(((NodeObject *)self)->handle);
+    handle_drop_index_edit(((NodeObject *)self)->handle, context, &incoming, 1);
     error = splice_fragment(dest, fragment, parent, node, position_kind);
     Py_END_CRITICAL_SECTION();
     th_tree_free(fragment);

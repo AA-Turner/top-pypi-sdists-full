@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wsgidav
-Version: 4.4.0
+Version: 4.4.1
 Summary: Generic and extendable WebDAV server based on WSGI
 Home-page: https://github.com/mar10/wsgidav
 Author: Martin Wendt

@@ -31,8 +31,6 @@ use sqlbuild_analysis::lineage_command::models::{
 };
 use sqlbuild_core::cli_text::models::CliStyle;
 
-use crate::bindings::_helpers::build_progress::transient_status::maybe_status;
-use crate::bindings::_helpers::command_runtime::adapters::resolve_cli_adapter;
 use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
 use crate::bindings::_helpers::compile_driver::project::build_project_graph;
 use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
@@ -48,12 +46,16 @@ use crate::bindings::_helpers::planner_selection::selectors::{
     match_project_selector, parse_project_selector,
 };
 use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::presentation_text::terminal::stdout_supports_color;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::record_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::{ErrorId, NativeAttr, RecordId};
-use crate::bindings::_helpers::records::registry;
+use sqlbuild_python_base::build_progress::main::transient_status::maybe_status::maybe_status;
+use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
+use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
+use sqlbuild_python_base::records::main::construct::error_class::error_class;
+use sqlbuild_python_base::records::main::construct::record_class::record_class;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::registry::native_attr::native_attr;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::NativeAttr;
+use sqlbuild_python_base::records::types::RecordId;
 
 const UNKNOWN_SELECTOR_ERROR_CODE: &str = "S007";
 const RICH_MODE: &str = "rich";
@@ -373,7 +375,7 @@ fn column_lineage<'py>(
         py,
         (&message, rich && count >= RICH_STATUS_MODEL_THRESHOLD),
         || {
-            registry::native(py, NativeAttr::BuildProjectColumnLineage)?.call1((
+            native_attr(py, NativeAttr::BuildProjectColumnLineage)?.call1((
                 native_field(graph, "project")?,
                 dialect,
                 mode,

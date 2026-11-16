@@ -54,8 +54,8 @@ CLI output:
   590,053, not 619,845.
 
 Lines are counted live the same way, never recorded for the
-canonical list: the as-assembled set runs to 69,310 lines,
-62,819 of them non-blank (AS_ASSEMBLED_LINES and
+canonical list: the as-assembled set runs to 69,475 lines,
+62,976 of them non-blank (AS_ASSEMBLED_LINES and
 AS_ASSEMBLED_NONBLANK_LINES below), and the CLI prints the
 canonical list's own line count beside its token counts.
 
@@ -580,6 +580,20 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # which is root can raise its ceiling, growing
 # runner/guard/macos_confine.py by 30 lines more
 # (the hosted run's two answers).
+# Re-measured again that day when the profile came
+# to name the services of the session a job may
+# look up -- the user database, and whatever the
+# operator names -- and the probe's trial to ask
+# the pasteboard, growing
+# runner/guard/macos_confine.py by 161 lines,
+# runner/ops/install.py by 1 and
+# runner/ops/remediation_ops.py by 1
+# (the session's services).
+# Re-measured again that day after the hosted Macs
+# answered that landing: the report says of a
+# named pasteboard that it answers a job, growing
+# runner/guard/macos_confine.py by 2 lines more
+# (the hosted run's answer on the pasteboard).
 # Recorded constants: they describe the as-assembled set (the
 # canonical list as first recorded -- 132 files -- plus the 3 suite runners named in
 # the module docstring; the list itself stands at 137 since
@@ -592,20 +606,20 @@ except ImportError:  # plain script: python3 runner/ops/core.py
 # here come from this module's own deterministic build and
 # counter over the current tree.
 AS_ASSEMBLED_FILES = 140
-AS_ASSEMBLED_ZIP_BYTES = 894316
-AS_ASSEMBLED_LINES = 69310
-AS_ASSEMBLED_NONBLANK_LINES = 62819
+AS_ASSEMBLED_ZIP_BYTES = 896432
+AS_ASSEMBLED_LINES = 69475
+AS_ASSEMBLED_NONBLANK_LINES = 62976
 # The as-assembled set's lines, part by part; the parts sum
 # to AS_ASSEMBLED_LINES. A part is a folder under runner/, or
 # a file standing directly under runner/ as its own part.
 AS_ASSEMBLED_PART_LINES = {
-    "runner/ops": 23928,
+    "runner/ops": 23930,
     "runner/tools": 10063,
     "runner/wire": 9047,
     "runner/runner.py": 7205,
     "runner/oracle": 5063,
     "runner/transport_extensions": 2775,
-    "runner/guard": 7412,
+    "runner/guard": 7575,
     "runner/cloud": 2080,
     "runner/hosting": 1704,
     "runner/__init__.py": 23,
@@ -762,11 +776,24 @@ _ZIP_COMPRESSLEVEL = 9
 
 
 def _read_core_file(root: str, name: str) -> bytes:
-    """One listed file's bytes; a missing file is an error."""
+    """One listed file's bytes, as stored; a missing file
+    is an error.
+
+    The bytes come back with CRLF line endings folded to
+    LF. The figures this module keeps are properties of
+    the stored tree, and a checkout that converts endings
+    on the way out must not move them: Git for Windows'
+    autocrlf hands the Windows legs CRLF bytes for the
+    same stored tree, and before this fold the live
+    as-assembled zip read 5,968 bytes more there than
+    the recorded figure (Q199). No stored core file
+    carries a CRLF, so the fold is exact, and a lone
+    carriage return is kept as stored.
+    """
     path = os.path.join(root, name)
     try:
         with open(path, "rb") as fh:
-            return fh.read()
+            return fh.read().replace(b"\r\n", b"\n")
     except OSError:
         raise FileNotFoundError(
             "core file missing under %r: %s" % (root, name))
@@ -778,7 +805,9 @@ def core_zip_bytes(root: str,
 
     Entries are written in the order of `files` (the canonical
     list is sorted), each with the fixed zip-epoch timestamp,
-    so 2 builds over the same tree are byte-identical.
+    so 2 builds over the same stored tree are byte-identical,
+    on any platform: the reader folds a checkout's converted
+    line endings back to the stored bytes.
     """
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w",

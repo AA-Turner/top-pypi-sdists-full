@@ -50,6 +50,8 @@ mod process;
 #[cfg(all(unix, feature = "profiler"))]
 mod profiler;
 #[cfg(unix)]
+mod pty;
+#[cfg(unix)]
 mod resource_limit;
 #[cfg(feature = "schemars")]
 mod schema;
@@ -243,6 +245,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.includes,
                 args.skips,
                 args.hook_types,
+                args.hook_command.as_ref(),
                 args.prepare_hooks,
                 args.force,
                 args.allow_missing_config,
@@ -404,6 +407,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                     args.directory,
                     cli.globals.config,
                     args.hook_types,
+                    args.hook_command.as_ref(),
                     args.no_allow_missing_config,
                     cli.globals.refresh,
                     printer,
@@ -451,6 +455,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.directory,
                 cli.globals.config,
                 args.hook_types,
+                args.hook_command.as_ref(),
                 args.no_allow_missing_config,
                 cli.globals.refresh,
                 printer,

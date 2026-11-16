@@ -21,6 +21,9 @@ class RunOptions(BaseModel):
     validation cadence.
     """
 
+  full_parameter: bool = False
+  """Train every weight instead of a LoRA adapter. Supported for Qwen3.6-35B-A3B."""
+
   density_aware_training: bool | None = None
   """
     Train each task at four output-token budgets, with group_size trajectories per budget.

@@ -1,5 +1,6 @@
 //! `sqb load`: run the selected source loaders and report each load.
 
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use std::time::Instant;
 
 use pyo3::prelude::{
@@ -17,11 +18,8 @@ use sqlbuild_core::load_command::main::render_load_ready::render_load_ready;
 use sqlbuild_core::load_command::models::{LoadCounts, LoadResultText};
 use sqlbuild_host::entries::models::{AdapterHost, ExecutorHost, UserCodeHost};
 
-use crate::bindings::_helpers::boundary::python_calls::call_with;
-use crate::bindings::_helpers::boundary::python_calls::keywords;
 use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
 use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
-use crate::bindings::_helpers::command_runtime::adapters::resolve_cli_adapter;
 use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
 use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_runtime_config;
@@ -29,25 +27,31 @@ use crate::bindings::_helpers::compile_attachment::effective_config::build_effec
 use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
 use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
 use crate::bindings::_helpers::cursor::overrides::{cursor_integer, cursor_timestamp};
+use crate::bindings::_helpers::discovery::provider_secrets::{
+    SecretPolicy, consumer_uses, require_used_secrets, sink_uses,
+};
 use crate::bindings::_helpers::load::load_progress::{
     LoadCallbackRelay, LoadProgressReporter, load_result_text,
 };
 use crate::bindings::_helpers::load::load_selection::{
     LoadProject, LoaderDefaults, loader_defaults, loader_write_schemas, target_vars,
 };
-use crate::bindings::_helpers::native_host::connections::connection_failure;
-use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_resolution::cursor_overrides::type_cursor_overrides;
 use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::presentation_text::terminal::stdout_supports_color;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::new_record;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::references::source_relations::render_source_relation;
 use crate::bindings::_helpers::result_output::documents::format_load_execution_json;
 use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use crate::bindings::_helpers::result_output::event_writer::ExecutionEventWriter;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
+use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
+use sqlbuild_python_base::records::main::construct::new_record::new_record;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 const LOADER_NODE_KEY: &str = "sqlbuild_loader_node";
 const EXECUTION_COMMAND: &str = "sqb load";
@@ -85,6 +89,27 @@ fn write(stream: &Bound<'_, PyAny>, value: &str) -> PyResult<()> {
     Ok(())
 }
 
+/// Fail before loading anything when the selected sources' loaders or the sinks need provider secrets that are unset.
+fn require_loader_secrets(
+    discovered: &Bound<'_, PyAny>,
+    selected: &[Bound<'_, PyAny>],
+) -> PyResult<()> {
+    let mut loaders: Vec<String> = Vec::new();
+    for entry in selected {
+        let loader: Bound<'_, PyAny> = native_field(entry, "loader")?;
+        if !loader.is_none() {
+            loaders.push(loader.extract()?);
+        }
+    }
+    let mut uses: Vec<(String, String)> =
+        consumer_uses(&native_field(discovered, "loader_functions")?)?
+            .into_iter()
+            .filter(|(_, loader)| loaders.contains(loader))
+            .collect();
+    uses.extend(sink_uses(discovered)?);
+    require_used_secrets(discovered, &uses)
+}
+
 fn invocation<'py>(py: Python<'py>, request: &Bound<'py, PyAny>) -> PyResult<Invocation<'py>> {
     let project_dir: Bound<'py, PyAny> = match native_field(request, "project_dir")? {
         directory if !directory.is_none() => directory,
@@ -92,7 +117,16 @@ fn invocation<'py>(py: Python<'py>, request: &Bound<'py, PyAny>) -> PyResult<Inv
     };
     let discovered: Bound<'py, PyAny> = discover_project_inputs(
         py,
-        Some(keywords(py, &[("project_dir", project_dir.clone())])?),
+        Some(keywords(
+            py,
+            &[
+                ("project_dir", project_dir.clone()),
+                (
+                    "secret_policy",
+                    PyString::new(py, SecretPolicy::Defer.name()).into_any(),
+                ),
+            ],
+        )?),
     )?;
     let select: Bound<'py, PyAny> = native_field(request, "select")?;
     let exclude: Bound<'py, PyAny> = native_field(request, "exclude")?;
@@ -122,6 +156,7 @@ fn invocation<'py>(py: Python<'py>, request: &Bound<'py, PyAny>) -> PyResult<Inv
         ),
         &defaults,
     )?;
+    require_loader_secrets(&discovered, &selected)?;
     loader_write_schemas(
         &discovered,
         (&selected_target, &native_field(request, "cli_vars")?),
@@ -147,10 +182,7 @@ fn invocation<'py>(py: Python<'py>, request: &Bound<'py, PyAny>) -> PyResult<Inv
 }
 
 fn user_error(py: Python<'_>, message: String) -> PyErr {
-    match error_class(py, ErrorId::CliUser).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::CliUser, &message)
 }
 
 fn target_name<'py>(source: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
@@ -195,7 +227,7 @@ fn check_reference_targets(
             })
             .collect::<PyResult<_>>()?;
         let lookup: Bound<'_, PyAny> = call_with(
-            &host::entry(py, AdapterHost::BuildRelationLookup)?,
+            &host_entry(py, AdapterHost::BuildRelationLookup)?,
             &[
                 ("adapter", adapter.clone()),
                 ("connection", connection.clone()),
@@ -259,9 +291,9 @@ fn project_relations<'py>(
             sources.set_item(native_field(source, "name")?, source)?;
         }
     }
-    let reference_class: Bound<'py, PyAny> = host::entry(py, UserCodeHost::SqlResourceRef)?;
+    let reference_class: Bound<'py, PyAny> = host_entry(py, UserCodeHost::SqlResourceRef)?;
     let source_kind: Bound<'py, PyAny> =
-        host::entry(py, UserCodeHost::SqlResourceRefKind)?.getattr("SOURCE")?;
+        host_entry(py, UserCodeHost::SqlResourceRefKind)?.getattr("SOURCE")?;
     let relations: Bound<'py, PyDict> = PyDict::new(py);
     for (name, source) in sources.iter() {
         let key: Bound<'py, PyAny> = call_with(
@@ -321,7 +353,7 @@ fn prepare<'py>(
         new_record(py, RecordId::CursorOverrides, (), None)?
     };
     let provider_session: Bound<'py, PyAny> = call_with(
-        &host::entry(py, UserCodeHost::BuildProviderSession)?,
+        &host_entry(py, UserCodeHost::BuildProviderSession)?,
         &[(
             "discovered_providers",
             native_field(discovered, "providers")?,
@@ -349,7 +381,7 @@ fn runtime_params<'py>(
     let (target_name, effective_vars, run_id) = &preparation.runtime;
     let overrides: &Bound<'py, PyAny> = &preparation.cursor_overrides;
     call_with(
-        &host::entry(py, ExecutorHost::LoadRuntimeParams)?,
+        &host_entry(py, ExecutorHost::LoadRuntimeParams)?,
         &[
             ("run_id", run_id.clone()),
             (
@@ -457,7 +489,7 @@ fn execute<'py>(
     )?;
     let executed: PyResult<Vec<Bound<'py, PyAny>>> = (|| {
         let callbacks: Bound<'py, PyAny> = call_with(
-            &host::entry(py, ExecutorHost::LoadCallbacks)?,
+            &host_entry(py, ExecutorHost::LoadCallbacks)?,
             &[
                 ("on_load_start", native_field(&reporter, "on_start")?),
                 ("on_load_progress", native_field(&reporter, "on_progress")?),
@@ -480,7 +512,7 @@ fn execute<'py>(
             ],
         )?;
         call_with(
-            &host::entry(py, ExecutorHost::RunLoadPipeline)?,
+            &host_entry(py, ExecutorHost::RunLoadPipeline)?,
             &[
                 (
                     "sources",

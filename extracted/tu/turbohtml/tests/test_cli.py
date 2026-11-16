@@ -1,5 +1,3 @@
-"""End-to-end tests for the ``python -m turbohtml`` command-line interface."""
-
 from __future__ import annotations
 
 import io
@@ -69,6 +67,14 @@ def test_cli_writes_output_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     destination = tmp_path / "out.html"
     assert main(["minify", "-o", str(destination)]) == 0
     assert destination.read_text(encoding="utf-8") == "<p>a b"
+
+
+def test_cli_file_output_preserves_line_endings(tmp_path: Path) -> None:
+    source = tmp_path / "in.html"
+    source.write_text("<pre>a&#13;b&#10;c</pre>", encoding="utf-8")
+    destination = tmp_path / "out.txt"
+    assert main(["to-text", str(source), "-o", str(destination)]) == 0
+    assert destination.read_bytes() == b"a\rb\nc"
 
 
 def test_cli_detect_empty_input_fails(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:

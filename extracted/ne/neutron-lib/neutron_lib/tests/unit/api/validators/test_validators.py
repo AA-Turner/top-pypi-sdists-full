@@ -12,9 +12,12 @@
 #    under the License.
 
 import string
+import subprocess
+import sys
 from unittest import mock
 
 import netaddr
+import webob.exc
 
 from neutron_lib._i18n import _
 from neutron_lib.api import converters
@@ -374,6 +377,30 @@ class TestAttributeValidation(base.BaseTestCase):
         msg = validators.validate_integer(2, [2, 3, 4, 5])
         self.assertIsNone(msg)
         msg = validators.validate_integer(1, [2, 3, 4, 5])
+        self.assertEqual("1 is not in valid_values", msg)
+
+    def test_validate_integer_or_none(self):
+        msg = validators.validate_integer_or_none(None)
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none(1)
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none("1")
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none(2 ** 32)
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none(-1)
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none(0.1)
+        self.assertEqual("'0.1' is not an integer", msg)
+        msg = validators.validate_integer_or_none("0.1")
+        self.assertEqual("'0.1' is not an integer", msg)
+        msg = validators.validate_integer_or_none(True)
+        self.assertEqual("'True' is not an integer:boolean", msg)
+        msg = validators.validate_integer_or_none("None")
+        self.assertEqual("'None' is not an integer", msg)
+        msg = validators.validate_integer_or_none(2, [2, 3])
+        self.assertIsNone(msg)
+        msg = validators.validate_integer_or_none(1, [2, 3])
         self.assertEqual("1 is not in valid_values", msg)
 
     def test_validate_no_whitespace(self):
@@ -1473,6 +1500,45 @@ class TestServicePluginType(base.BaseTestCase):
             validators.validate_service_plugin_type, 'ntype')
 
 
+class TestSubnetServiceTypesValidation(base.BaseTestCase):
+
+    def test_empty(self):
+        self.assertIsNone(validators.validate_subnet_service_types(None))
+        self.assertIsNone(validators.validate_subnet_service_types([]))
+
+    def test_not_a_list(self):
+        self.assertRaises(webob.exc.HTTPBadRequest,
+                          validators.validate_subnet_service_types,
+                          'network:floatingip')
+
+    def test_not_a_string(self):
+        self.assertRaises(n_exc.InvalidInputSubnetServiceType,
+                          validators.validate_subnet_service_types,
+                          ['network:floatingip', 2])
+
+    def test_valid(self):
+        self.assertIsNone(validators.validate_subnet_service_types(
+            ['network:floatingip',
+             'network:router_gateway',
+             'network:floatingip_agent_gateway',
+             'neutron:LOADBALANCERV2',
+             'compute:nova',
+             'compute:my zone',
+             # Unmatched values are used to drain a subnet (bug 2024921).
+             'network:drain',
+             'compute:bogus']))
+
+    def test_invalid_prefix(self):
+        # Most of these start with a character of "compute:", which the
+        # validator used to accept as a prefix (bug 2173642).
+        for service_type in ('compute', 'compute-nova', 'test', 'ovn',
+                             'uplink', 'port', 'e', ':x', 'bogus',
+                             'foo:bar', ''):
+            self.assertRaises(n_exc.InvalidSubnetServiceType,
+                              validators.validate_subnet_service_types,
+                              ['network:floatingip', service_type])
+
+
 class TestAddressNotMulticastValidation(base.BaseTestCase):
 
     def test_validate_ip_not_multicast(self):
@@ -1531,3 +1597,19 @@ class TestAddressNotMulticastValidation(base.BaseTestCase):
         ):
             result = validators.validate_mac_address_not_multicast(data)
             self.assertIsNotNone(result)
+
+
+class TestValidatorsImports(base.BaseTestCase):
+
+    def test_os_ken_not_imported(self):
+        # Run in a fresh interpreter: the test process may already have
+        # imported os_ken. Only validate_ethertype needs it, and only when
+        # sg_filter_ethertypes is set.
+        code = ('import sys\n'
+                'import neutron_lib.api.validators\n'
+                'print(",".join(m for m in sys.modules\n'
+                '               if m == "os_ken" or m.startswith("os_ken.")))'
+                '\n')
+        out = subprocess.check_output(  # noqa: S603
+            [sys.executable, '-c', code], text=True)
+        self.assertEqual('', out.strip())

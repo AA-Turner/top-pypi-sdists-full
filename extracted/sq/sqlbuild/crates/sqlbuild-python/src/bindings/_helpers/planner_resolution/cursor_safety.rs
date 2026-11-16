@@ -1,22 +1,23 @@
 //! Shared safety horizon conversion and Python evidence construction.
 
-use crate::bindings::_helpers::boundary::python_calls::{call_with, imported, keywords};
 use crate::bindings::_helpers::cursor::conversion::CursorSession;
 use crate::bindings::_helpers::planner_resolution::cursor_bounds::duration;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::{new_record_with, record_class};
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::replaced_keywords;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
 use sqlbuild_cursor::algebra::models::{DurationSpan, Grain, Scalar};
 use sqlbuild_cursor::planner::main::safety_horizon::safety_horizon;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::construct::record_class::record_class;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::replaced_keywords::replaced_keywords;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 pub(super) fn safety_error(py: Python<'_>, class: ErrorId, message: &str) -> PyErr {
-    match error_class(py, class).and_then(|class| class.call1((message,))) {
-        Ok(value) => PyErr::from_value(value),
-        Err(error) => error,
-    }
+    new_plain_error(py, class, message)
 }
 
 pub(super) fn safety_duration(value: &Bound<'_, PyAny>, future: bool) -> PyResult<DurationSpan> {

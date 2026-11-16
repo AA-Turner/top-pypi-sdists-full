@@ -13,6 +13,7 @@ from river_client.images import Image
 import json
 import math
 import re
+from functools import cached_property
 from typing import Any, cast
 
 
@@ -41,6 +42,11 @@ from river_client.renderers.base import (
     image_part,
     image_part_size,
 )
+from river_client.renderers.literal_markup import (
+    LiteralMarkup,
+    RenderedPrompt,
+    literal_markup,
+)
 from river_client.renderers.tool_arguments import (
     ToolArguments,
     protect_value_ends,
@@ -50,7 +56,6 @@ from river_client.renderers.tool_arguments import (
 IMAGE_BEGIN = "<|begin_of_image|>"
 IMAGE_TOKEN = "<|image|>"
 IMAGE_END = "<|end_of_image|>"
-_IMAGE_MARKER = f"{IMAGE_BEGIN}{IMAGE_TOKEN}{IMAGE_END}"
 _EOS = "<|endoftext|>"
 _OBSERVATION = "<|observation|>"
 _THINK_OPEN = "<think>"
@@ -228,6 +233,27 @@ def parse_glm53_content_blocks(
     return parts, tool_results
 
 
+def _template_content(
+    segments: list[str | dict[str, str]],
+) -> str | list[dict[str, str]]:
+    """Content for GLM's template: a string, or text and image parts."""
+    if all(isinstance(segment, str) for segment in segments):
+        return "".join(cast(list[str], segments))
+    parts: list[dict[str, str]] = []
+    text = ""
+    for segment in segments:
+        if isinstance(segment, str):
+            text += segment
+            continue
+        if text:
+            parts.append({"type": "text", "text": text})
+            text = ""
+        parts.append(segment)
+    if text:
+        parts.append({"type": "text", "text": text})
+    return parts
+
+
 def glm_smart_resize(
     height: int,
     width: int,
@@ -378,24 +404,26 @@ class Glm53FlashRenderer(Renderer):
             content = message["content"]
             reasoning = message.get("reasoning_content")
             thinking: list[str] = []
+            # Text stays one string. An image stays a part, which the
+            # template writes as its own image marker, so the marker is
+            # template structure rather than quoted text (``literal_markup``).
+            segments: list[str | dict[str, str]] = []
             if isinstance(content, str):
-                rendered_content = content
+                segments.append(content)
             else:
-                parts: list[str] = []
                 for part in content:
                     part_type = part["type"]
                     if part_type == "text":
-                        parts.append(cast(TextPart, part)["text"])
+                        segments.append(cast(TextPart, part)["text"])
                     elif part_type == "thinking":
                         thinking.append(cast(ThinkingPart, part)["thinking"])
                     elif part_type == "image":
                         image_parts.append(cast(ImagePart, part))
-                        parts.append(_IMAGE_MARKER)
+                        segments.append({"type": "image"})
                     else:
                         raise ValueError(
                             f"Unsupported content part type: {part_type!r}"
                         )
-                rendered_content = "".join(parts)
             if (
                 message["role"] == "assistant"
                 and not isinstance(reasoning, str)
@@ -410,7 +438,8 @@ class Glm53FlashRenderer(Renderer):
             # Rejected blocks keep their raw text. The template writes the
             # content before the calls, and a block ends where the next one
             # opens, so one the output ended inside cannot swallow a call.
-            rendered_content += rejected_call_text(message)
+            segments.append(rejected_call_text(message))
+            rendered_content = _template_content(segments)
             rendered_message: dict[str, Any] = {
                 "role": message["role"],
                 "content": rendered_content,
@@ -477,8 +506,47 @@ class Glm53FlashRenderer(Renderer):
             raise TypeError("GLM tokenizer chat template did not return a string")
         return rendered
 
-    def _encode(self, prompt: str) -> list[int]:
-        return list(self.tokenizer.encode(prompt, add_special_tokens=False))
+    @cached_property
+    def _literal_markup(self) -> LiteralMarkup | None:
+        return literal_markup(self.tokenizer)
+
+    def _render(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        add_generation_prompt: bool,
+        tools: list[ToolSpec] | None = None,
+    ) -> RenderedPrompt:
+        """Render with the spans of markup quoted from message text."""
+
+        def render(messages: list[dict[str, Any]], tools: Any) -> str:
+            return self._apply_template(
+                messages, add_generation_prompt=add_generation_prompt, tools=tools
+            )
+
+        literal = self._literal_markup
+        if literal is None:
+            return RenderedPrompt(render(messages, tools))
+        return literal.render(render, messages, tools)
+
+    def _encode(self, prompt: RenderedPrompt | str) -> list[int]:
+        """Encode template text; quoted markup in a rendered prompt stays text."""
+        if isinstance(prompt, str):
+            return list(self.tokenizer.encode(prompt, add_special_tokens=False))
+        literal = self._literal_markup
+        if literal is None:
+            return list(self.tokenizer.encode(prompt.text, add_special_tokens=False))
+        return literal.encode(prompt)
+
+    def _sample_prompt(
+        self, prompt: RenderedPrompt, image_parts: list[ImagePart]
+    ) -> SamplePrompt:
+        return SamplePrompt(
+            prompt=prompt.text,
+            images=[part["image"] for part in image_parts],
+            image_formats=[part["format"] for part in image_parts],
+            prompt_token_ids=self._encode(prompt) if prompt.literal_spans else None,
+        )
 
     @staticmethod
     def _common_prefix_length(left: list[int], right: list[int]) -> int:
@@ -503,12 +571,9 @@ class Glm53FlashRenderer(Renderer):
         tools: list[ToolSpec] | None = None,
     ) -> SamplePrompt:
         rendered, image_parts = self._render_messages(messages)
-        return SamplePrompt(
-            prompt=self._apply_template(
-                rendered, add_generation_prompt=True, tools=tools
-            ),
-            images=[part["image"] for part in image_parts],
-            image_formats=[part["format"] for part in image_parts],
+        return self._sample_prompt(
+            self._render(rendered, add_generation_prompt=True, tools=tools),
+            image_parts,
         )
 
     def build_continuation_prompt(
@@ -523,17 +588,13 @@ class Glm53FlashRenderer(Renderer):
         rendered, image_parts = self._render_messages(messages)
         anchor = [{"role": "user", "content": ""}]
         prefix = self._apply_template(anchor, add_generation_prompt=False)
-        prompt = self._apply_template(anchor + rendered, add_generation_prompt=True)
-        if not prompt.startswith(prefix):
+        prompt = self._render(anchor + rendered, add_generation_prompt=True)
+        if not prompt.text.startswith(prefix):
             raise ValueError("GLM chat template rewrites the continuation anchor")
-        prompt = prompt[len(prefix) :]
-        if last_stop in (_OBSERVATION, "<|user|>") and prompt.startswith(last_stop):
-            prompt = prompt[len(last_stop) :]
-        return SamplePrompt(
-            prompt=prompt,
-            images=[part["image"] for part in image_parts],
-            image_formats=[part["format"] for part in image_parts],
-        )
+        prompt = prompt.removeprefix(prefix)
+        if last_stop in (_OBSERVATION, "<|user|>"):
+            prompt = prompt.removeprefix(last_stop)
+        return self._sample_prompt(prompt, image_parts)
 
     def get_stop_strings(self) -> list[str]:
         # The checkpoint's generation_config declares observation, user, and EOS
@@ -579,7 +640,7 @@ class Glm53FlashRenderer(Renderer):
     ) -> TrainingExample:
         rendered, image_parts = self._render_messages(messages)
         full_ids = self._encode(
-            self._apply_template(rendered, add_generation_prompt=False, tools=tools)
+            self._render(rendered, add_generation_prompt=False, tools=tools)
         )
         weights = [0.0] * len(full_ids)
         assistant_indexes = [
@@ -620,9 +681,7 @@ class Glm53FlashRenderer(Renderer):
             without_content[index].pop("reasoning_content", None)
             without_content[index].pop("tool_calls", None)
             without_ids = self._encode(
-                self._apply_template(
-                    without_content, add_generation_prompt=False, tools=tools
-                )
+                self._render(without_content, add_generation_prompt=False, tools=tools)
             )
             # Bound the diff by this turn: removing calls can also change the
             # template's ordering of later tool results. Empty answers can have
@@ -691,7 +750,7 @@ class Glm53FlashRenderer(Renderer):
             # Keep the full conversation's reasoning-clearing behavior when
             # rendering a prefix that would otherwise end before the last user.
             prefix.append({"role": "user", "content": ""})
-        text = self._apply_template(prefix, add_generation_prompt=False, tools=tools)
+        text = self._render(prefix, add_generation_prompt=False, tools=tools)
         if clear_history:
             text = text.removesuffix("<|user|>")
         return len(self._encode(text))

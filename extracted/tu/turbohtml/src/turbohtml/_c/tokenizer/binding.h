@@ -90,6 +90,7 @@ typedef struct {
     PyObject *xpath_string_type;      /* turbohtml._xpath.XPathString, for smart_strings xpath() results */
     PyObject *xpath_type;             /* XPath, the precompiled reusable expression object */
     PyObject *selector_error;         /* turbohtml.SelectorSyntaxError, raised on a malformed CSS selector or XPath */
+    PyObject *xpath_depth_error;      /* turbohtml.XPathDepthError, raised past the XPath nesting cap */
     PyObject *link_type;              /* turbohtml._links.Link, the (element, attribute, url) record links() yields */
     PyObject *json_ld_parser;         /* turbohtml._structured_data._parse_json_ld, the JSON-LD text parser */
     PyObject *microdata_item_type;    /* turbohtml._structured_data.MicrodataItem, one Microdata item record */
@@ -120,6 +121,7 @@ typedef struct {
        skips it (a shared pool would race) and keeps the tp_alloc/tp_free path. */
     PyObject *node_freelist;
     int node_freelist_len;
+    uint64_t handles_created; /* numbers each _TreeHandle, so no two trees salt their node hashes alike */
 } module_state;
 
 /* Register the types and enum into module/state. Each returns 0 or -1. */
@@ -137,6 +139,7 @@ int phone_register(PyObject *module, module_state *state);
    turbohtml.rewrite.rewrite(). Matches METH_VARARGS:
    (source, element_handlers, text_handler, comment_handler, doctype_handler). */
 PyObject *turbohtml_rewrite(PyObject *module, PyObject *args);
+PyObject *turbohtml_builder_reads_attr(PyObject *module, PyObject *args);
 
 /* Parse markup and return a _SaxEvents iterator that walks the constructed tree in
    document order, yielding one event tuple at a time without ever handing back a

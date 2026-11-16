@@ -13,17 +13,19 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from probe.integrations.miles.samples.mapping import (
-    ERROR_REASONS,
     HOST,
     SCHEDULED_STEP_KEY,
     build_group_key,
     build_task,
     get_status,
+    read_error_message,
+    read_named_error,
     read_reward,
 )
 from probe.integrations.miles.samples.producers import PROCESS, ROLLOUT
 
 from .engines import EngineAborter, RidStamp
+from .gpu import GpuTraces
 from .rollout import Rollout
 from .schedule import RolloutSchedule, wrap_train_input
 from .sessions import SessionWatcher, wrap_endpoint_tracer
@@ -77,6 +79,8 @@ class LiveRollouts:
         self.schedule = RolloutSchedule()
         self.stamp = RidStamp(self.aborter, on_request=self._record_request, on_reply=self._record_reply)
         self.sessions = SessionWatcher(lambda: self._writer)
+        #: Finished tries' GPU readings until `log_train` / `log_eval` binds them to their samples (`gpu.py`).
+        self.gpu = GpuTraces()
 
     def reset(self) -> None:
         """Forget every try, the writer and the wraps' state (tests; a process whose run closed)."""
@@ -117,6 +121,12 @@ class LiveRollouts:
         with self._lock:
             self._writer = writer
         self._send_plan()
+
+    def get_generate_kinds(self) -> frozenset[str]:
+        """How this process's generate functions send model calls: "generate" (Miles' `post`, stamped), "agent"
+        (a session server), "not_stamped" (neither Probe can see)."""
+        with self._lock:
+            return frozenset(self._kinds)
 
     def record_generate(self, *, is_agent: bool, can_abort: bool) -> None:
         """A generate function this process runs: what its samples can be asked (D47: only proven paths)."""
@@ -221,7 +231,11 @@ class LiveRollouts:
         rollout.outputs = list(outputs)
         statuses = [get_status(output) for output in outputs]
         if rollout.stop == "retry" and outputs and all(status == ABORTED for status in statuses) and rollout.can_retry:
-            return self._retry(rollout, sample, args)
+            return self._retry(rollout, sample, args)  # replaced: no sample carries its key, so no readings kept
+        try:
+            self.gpu.put(rollout.key, rollout.gpu.to_dict())
+        except Exception as exc:  # noqa: BLE001 -- GPU readings never cost a try
+            log.debug("probe: a Miles try's GPU readings could not be kept: %s", exc)
         if any(status == ABORTED for status in statuses):
             self._end(rollout, ABORTED)
         elif any(status == "failed" for status in statuses):
@@ -285,8 +299,9 @@ class LiveRollouts:
             if is_group_graded and not is_last_chance and any(reward is None for reward in rewards):
                 continue
             graded = [reward for reward in rewards if reward is not None]
-            if not graded:
-                self._end(rollout, ERROR, "reward_fn", "Miles graded none of this try's samples")
+            if not graded:  # an agent function's named error (it cannot set the status) beats "nothing graded it"
+                named = _read_named_error(rollout.outputs)
+                self._end(rollout, ERROR, *(named or ("reward_fn", "Miles graded none of this try's samples")))
                 continue
             reward_max = getattr(args, "probe_reward_max", None)
             reward_max = float(reward_max) if isinstance(reward_max, (int, float)) and not isinstance(reward_max, bool) else 1.0
@@ -476,11 +491,18 @@ def _read_failure(outputs: list) -> tuple[str, str, str]:
         metadata = getattr(output, "metadata", None)
         metadata = metadata if isinstance(metadata, Mapping) else {}
         if get_status(output) == "failed":
-            named = metadata.get("error_reason")
-            reason = named if isinstance(named, str) and named in ERROR_REASONS else "unknown"
-            message = metadata.get("error") or metadata.get("exception") or "Miles sample status failed"
-            return ERROR, reason, str(message)[:1024]
+            reason = read_named_error(metadata) or "unknown"
+            return ERROR, reason, (read_error_message(metadata) or "Miles sample status failed")[:1024]
     return ERROR, "unknown", "Miles sample status failed"
+
+
+def _read_named_error(outputs: list) -> tuple[str, str] | None:
+    """The first error an ungraded try's agent function named, and its message."""
+    for output in outputs:
+        metadata = getattr(output, "metadata", None)
+        if isinstance(metadata, Mapping) and (reason := read_named_error(metadata)):
+            return reason, (read_error_message(metadata) or f"Miles sample status {get_status(output)}")[:1024]
+    return None
 
 
 def _get_attempt_key(sample: Any) -> str | None:

@@ -101,3 +101,67 @@ def test_a_body_no_level_points_at_is_still_adopted_at_a_sibling(tree):
     assert _add(tree / "b", "", hook="When x, do y sharpened.") == 0
     assert _levels_pointing(tree) == ["b"]
     assert "BODY FROM A" in us.body_path(str(tree), SLUG).read_text(encoding="utf-8")
+
+
+def test_a_pointer_whose_body_is_gone_still_owns_its_slug(tree, capsys):
+    """A line whose body file was renamed away is dangling, not free: an add of its slug at a
+    sibling wrote a new body that the old line then read as its own, and exited 0."""
+    assert _add(tree / "a", "BODY FROM A") == 0
+    body = us.body_path(str(tree), SLUG)
+    body.rename(body.with_name("renamed-away.md"))
+    before = _snapshot(tree)
+    capsys.readouterr()
+
+    rc = _add(tree / "b", "BODY FROM B", hook="When x, do z.")
+
+    out = capsys.readouterr().out
+    assert rc == 2, out
+    assert out.startswith("! refused:"), out
+    assert "--proj %s" % (tree / "a") in out, out
+    assert _snapshot(tree) == before                    # no body and no line at b
+    assert _levels_pointing(tree) == ["a"]
+
+
+def test_the_route_the_dangling_refusal_names_restores_the_body(tree, capsys):
+    """The refusal sends the writer to the owning level; an add there writes the body back under
+    the line that was waiting for it."""
+    assert _add(tree / "a", "BODY FROM A") == 0
+    body = us.body_path(str(tree), SLUG)
+    body.rename(body.with_name("renamed-away.md"))
+
+    assert _add(tree / "a", "BODY WRITTEN BACK") == 0
+
+    assert "BODY WRITTEN BACK" in body.read_text(encoding="utf-8")
+    assert _levels_pointing(tree) == ["a"]
+
+
+def test_an_unreadable_level_elsewhere_does_not_block_a_new_slug(tree, capsys):
+    """A new slug has no body, so the walk for a dangling line is best effort: a level whose
+    CLAUDE.local.md cannot be read is skipped. Refusing would stop every new add in the tree
+    over one damaged level that has nothing to do with the slug (a migration of a healthy
+    level failed that way)."""
+    (tree / "a" / "CLAUDE.local.md").write_bytes(b"\xff\xfe not utf-8\n")
+    capsys.readouterr()
+
+    rc = _add(tree / "b", "BODY FROM B")
+
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "BODY FROM B" in us.body_path(str(tree), SLUG).read_text(encoding="utf-8")
+
+
+def test_an_unreadable_level_still_stops_an_add_of_a_slug_whose_body_exists(tree, capsys):
+    """With a body on disk another level may well own the slug, so a level that cannot be
+    read still stops the add (exit 2) rather than letting it adopt the body."""
+    assert _add(tree / "b", "BODY FROM B") == 0
+    (tree / "a" / "CLAUDE.local.md").write_bytes(b"\xff\xfe not utf-8\n")
+    before = _snapshot(tree)
+    capsys.readouterr()
+
+    rc = _add(tree / "a" / "sub", "BODY FROM SUB")
+
+    cap = capsys.readouterr()
+    out = cap.out + cap.err
+    assert rc == 2, out
+    assert "CLAUDE.local.md" in out, out
+    assert _snapshot(tree) == before

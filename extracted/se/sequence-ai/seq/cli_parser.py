@@ -64,7 +64,9 @@ class _Parser(argparse.ArgumentParser):
 
     def _check_value(self, action: argparse.Action, value: Any) -> None:
         if isinstance(action, argparse._SubParsersAction) and value not in action.choices:
-            meant = _meant(self.prog, value, list(action.choices))
+
+            live = [name for name, p in action.choices.items() if not (p.description or "").startswith("Gone:")]
+            meant = _meant(self.prog, value, live)
             said = (f"did you mean {' or '.join(f'`{m}`' for m in meant)}?" if meant
                     else f"`{self.prog} --help` lists them")
 
@@ -175,10 +177,9 @@ the core flow:
 
 policy      ls status logs doctor shell debug versions source upgrade rollback stop start rename rm
             set settings fork data
-robot       create list show set rm key                   (a robot of your own: make it, set its policies)
-gpu         add places list history allow ssh save saved remove
+robot       create list show set record rm key            (a robot of your own: make it, set its policies, record it)
+gpu         add places list history logs allow ssh save saved remove
                                                           (GPU machines you run yourself, root over SSH)
-record      add list revoke                               (keys for your own recorder of a policy's steps)
 key         list add set revoke                           (your keys: you, signed in)
 benchmark   ls tasks versions source logs shell status upgrade cancel rm
 adapter     ls versions source rm check
@@ -543,10 +544,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--out", default=None, metavar="DIR",
                    help="save each camera's newest frame here as a JPEG file, <connection>-<camera>.jpg")
     p = rsub.add_parser("set", help="set the whole list of policies a robot may connect to: policies=<p1>,<p2> "
-                                    "(policies= clears it), and whether it keeps what it does: record=on|off")
+                                    "(policies= clears it), and whether its steps may be recorded: record=on|off")
     p.add_argument("name", help="the robot's name")
     p.add_argument("pairs", nargs="+", metavar="KEY=VALUE",
-                   help="policies=<p1>,<p2> (policies= to clear the list); record=on|off; record.retention_days=<days>")
+                   help="policies=<p1>,<p2> (policies= to clear the list); record=on|off")
+    p = rsub.add_parser("record", help="record a robot's steps to a file here as they come, straight from the workers "
+                                       "that serve it - the platform keeps none - until Ctrl-C or its Record is turned "
+                                       "off; its Record must be on (seq robot set <name> record=on). It runs as you "
+                                       "(seq login), or with SEQUENCES_API_KEY: your account's key, or that robot's own")
+    p.add_argument("name", help="the robot's name")
+    p.add_argument("-o", "--out", metavar="FILE", default=None,
+                   help="the file to write, a new one (default: <name>-<when>.msgpack here): one msgpack map an item, "
+                        "as sequence_ai.read_record reads it back")
     rsub.add_parser("rm", help="delete a robot and its key: it connects no more, and its name is free again"
                     ).add_argument("name", help="the robot's name")
     rsub.add_parser("key", help="replace a robot's key with a new one, printed once - the old one fails at once"
@@ -565,18 +574,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 
-    resub = _group(ap, sub, "record", "Keys for your own recorder of a policy's steps (sequence_ai.record): each step "
-                                      "straight from its workers, nothing kept by the platform. Turn it on with "
-                                      "`seq policy set <name> record=on`.")
-    p = resub.add_parser("add", help="issue a new record key of a policy, printed this once: it reads that policy's "
-                                     "steps and opens nothing else")
-    p.add_argument("--policy", required=True, help="the policy whose steps it reads")
-    p.add_argument("--expires", metavar="WHEN", choices=KEY_EXPIRIES,
-                   help="when it expires: 7d, 1m, 3m, 6m, 1y or never (default: never)")
-    resub.add_parser("list", help="your record keys, by their id and last four, each with its policy, expiry and last "
-                                  "use")
-    resub.add_parser("revoke", help="revoke a record key: its recorders are closed now and it connects no more"
-                     ).add_argument("key", help="the key's id, or its last four")
+    resub = _group(ap, sub, "record", "Gone: a robot's Record is a switch now, and you record its steps yourself - "
+                                      "`seq robot record <name>`.")
+    for gone in ("add", "list", "revoke"):
+        p = resub.add_parser(gone, description="Gone: `seq robot set <name> record=on`, then `seq robot record <name>`.")
+        p.add_argument("rest", nargs="*", help=argparse.SUPPRESS)
+        p.add_argument("--policy", help=argparse.SUPPRESS)
+        p.add_argument("--expires", help=argparse.SUPPRESS)
 
 
     kysub = _group(ap, sub, "key", "Your keys: list them, add one, set its expiry or limit, revoke "
@@ -801,19 +805,24 @@ def build_parser() -> argparse.ArgumentParser:
                                        "GiB of memory cost.")
 
     gpusub = _group(ap, sub, "gpu", "GPU machines you run yourself: open them near a place in the US, list them, ssh in "
-                                    "as root, remove them. A machine is a container you are root in, on one card — "
-                                    "install and run what you like; remove ends it and its disk. (seq gpus, plural, is "
-                                    "the card catalogue and its prices.)")
-    p = gpusub.add_parser("add", help="open GPU machines near a place in the US — a machine with that card you are root "
-                                      "on, yours until seq gpu remove; reach it with seq gpu ssh")
+                                    "as root, remove them. A machine is a container you are root in, with its cards: 1, "
+                                    "2, 4 or 8 — install and run what you like; remove ends it and its disk. (seq gpus, "
+                                    "plural, is the card catalogue and its prices.)")
+    p = gpusub.add_parser("add", help="open a GPU machine near a place in the US — one of --count cards you are root on, "
+                                      "yours until seq gpu remove; reach it with seq gpu ssh")
     p.add_argument("--place", required=True, metavar="PLACE",
-                   help='where to open them near, in the US: a US city ("San Francisco, CA") or a lat,lon in the US '
+                   help='where to open it near, in the US: a US city ("San Francisco, CA") or a lat,lon in the US '
                         '("37.77,-122.42"), as seq gpu places lists them - one outside the US is refused; the platform '
-                        "opens each on the nearest place it can get the card")
+                        "opens it on the nearest place it can get its cards")
     p.add_argument("--gpu", required=True, metavar="CARD", help="the card, as seq gpus names them (L4, A100-40GB)")
+
+
+
     p.add_argument("--count", type=int, default=1, metavar="N",
-                   help="how many (default 1): your limits and credit are checked for all before any opens, and none is "
-                        "added if one finds nowhere to ask for its card; then each waits for its own, up to 20 minutes")
+                   help="how many cards its one machine has: 1, 2, 4 or 8 (default 1) - for any other number, add "
+                        "several GPUs, each with its own id, as for cards in different places. Your limits (in cards) "
+                        "and credit are checked before it opens, and it is not added if it finds nowhere to ask for its "
+                        "cards; then it waits for them, up to 20 minutes")
     p.add_argument("--from", dest="snapshot", metavar="NAME",
                    help="start from a snapshot of yours (seq gpu save), its run command with it unless --run is given")
     p.add_argument("--port", type=int, action="append", dest="ports", metavar="PORT",
@@ -830,11 +839,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", metavar="NAME",
                    help="a fixed name, 1-40 lowercase letters, digits and hyphens: the GPU is also reached at "
                         "NAME.<your id>.gpu.generalsequences.com, which moves to each GPU you add later with this name once "
-                        "it runs - set your robots up with it once. One GPU's: not with --count above 1")
+                        "it runs - set your robots up with it once")
     p.add_argument("--no-wait", action="store_true", dest="no_wait",
-                   help="return once each GPU is asked for - seconds, not the minute or two it takes to run; by default it "
-                        "waits until each runs and says its address, and Ctrl-C meanwhile cancels those not running and "
-                        "says what each was billed")
+                   help="return once the GPU is asked for - seconds, not the minute or two it takes to run; by default it "
+                        "waits until it runs and says its address, and Ctrl-C meanwhile cancels it if it does not run yet "
+                        "and says what it was billed")
     p = gpusub.add_parser("places", help="the US cities a --place can be, whose name or another name they go by starts "
                                          "with the words, the largest first: each with its latitude and longitude, "
                                          "and the other name it was found by (as Big Apple)")
@@ -884,10 +893,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="from this time on: 30m, 1h or 2d back from now, or a time such as 2026-11-12T21:00:00Z")
     p.add_argument("--follow", "-f", action="store_true", help="go on printing what comes, until the machine ends")
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
-                                                 "the payment method its bill goes to, and your GPUs: the limit, how "
-                                                 "many serving, evals, "
-                                                 "build checks and shells hold now, how many are left, and the evals waiting for "
-                                                 "GPUs. `set` and `delete` change the account as the console's Account "
+                                                 "the payment method its bill goes to, and your GPU cards: the "
+                                                 "limit, how many serving, evals, build checks, shells and GPUs "
+                                                 "hold now, how many are left, and the evals waiting for GPUs. "
+                                                 "`set` and `delete` change the account as the console's Account "
                                                  "page does - they need you signed in (seq login).")
 
     asub = acct.add_subparsers(dest="account_cmd", metavar="<command>", action=_DescFromHelp)

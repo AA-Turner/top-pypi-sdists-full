@@ -279,17 +279,16 @@ static int element_walk_matches(th_node *node, ElementWalkerObject *walker) {
     return 0;
 }
 
-static int element_walk_inside(th_node *node, th_node *root) {
-    for (th_node *parent = node->parent; parent != NULL; parent = parent->parent) {
-        if (parent == root) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static th_node *element_walk_next(th_node *current, th_node *root, ElementWalkerObject *walker) {
+/* Next match after current, or NULL when the walk is done. An edit can move current out of root; testing that up
+   front climbs current's ancestors on every step, so the climb instead ends at a parentless node, and stepping onto
+   root from outside drops the bound and sets *entered. */
+static inline th_node *element_walk_next(th_node *current, th_node *root, ElementWalkerObject *walker, int *entered) {
     for (th_node *node = current->first_child; node != NULL; node = preorder_next(node, current)) {
+        TH_WORK_STEP();
+        if (node == root) {
+            root = NULL;
+            *entered = 1;
+        }
         if (element_walk_matches(node, walker)) {
             return node;
         }
@@ -298,13 +297,19 @@ static th_node *element_walk_next(th_node *current, th_node *root, ElementWalker
         return NULL;
     }
     th_node *branch = current;
-    while (branch != root && branch->next_sibling == NULL) {
+    while (branch != NULL && branch != root && branch->next_sibling == NULL) {
+        TH_WORK_STEP();
         branch = branch->parent;
     }
-    if (branch == root) {
+    if (branch == NULL || branch == root) {
         return NULL;
     }
     for (th_node *node = branch->next_sibling; node != NULL; node = preorder_next(node, root)) {
+        TH_WORK_STEP();
+        if (node == root) {
+            root = NULL;
+            *entered = 1;
+        }
         if (element_walk_matches(node, walker)) {
             return node;
         }
@@ -329,7 +334,7 @@ static PyObject *walker_next(PyObject *self) {
             walker->current = node->prev_sibling;
             break;
         case WALK_PRECEDING:
-            walker->current = preceding_skip(previous_element(node), walker->root);
+            walker->current = preceding_skip(previous_element(node), &walker->root);
             break;
         default: /* WALK_DESCENDANTS, and the following axis bounded by a NULL root */
             walker->current = preorder_next(node, walker->root);
@@ -351,7 +356,6 @@ static void element_walker_dealloc(PyObject *self) {
     PyTypeObject *type = Py_TYPE(self);
     ElementWalkerObject *walker = (ElementWalkerObject *)self;
     Py_XDECREF(walker->pending);
-    Py_XDECREF(walker->pending_handle);
     Py_XDECREF(walker->tags);
     Py_XDECREF(walker->scope);
     Py_XDECREF(walker->owner);
@@ -381,14 +385,12 @@ static PyObject *element_walker_next(PyObject *self) {
         Py_BEGIN_CRITICAL_SECTION(handle);
 #endif
         th_node *root = owner->node;
-        th_node *first =
-            walker->include_self && element_walk_matches(root, walker) ? root : element_walk_next(root, root, walker);
+        int entered = 0; /* stays 0: a walk that starts at its own root never steps onto it */
+        th_node *first = walker->include_self && element_walk_matches(root, walker)
+                             ? root
+                             : element_walk_next(root, root, walker, &entered);
         if (first != NULL) {
             walker->pending = node_wrap(state_of(self), handle, first);
-            if (walker->pending != NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-                walker->pending_handle = Py_NewRef(handle);
-                walker->pending_version = ((HandleObject *)handle)->mutation_version;
-            }
         }
 #ifdef Py_GIL_DISABLED
         node_guard_end(&guard);
@@ -405,7 +407,7 @@ static PyObject *element_walker_next(PyObject *self) {
     PyObject *result = walker->pending;
     walker->pending = NULL;
     NodeObject *current = (NodeObject *)result;
-    int inside;
+    int entered = 0;
     int failed = 0;
     PyObject *next_scope = NULL;
 #ifdef Py_GIL_DISABLED
@@ -417,39 +419,26 @@ static PyObject *element_walker_next(PyObject *self) {
     Py_BEGIN_CRITICAL_SECTION(handle);
 #endif
     NodeObject *scope = (NodeObject *)walker->scope;
-    th_node *root = scope->node;
-    inside = walker->pending_handle == handle && walker->pending_version == ((HandleObject *)handle)->mutation_version;
+    /* a scope that another tree owns bounds nothing here */
 #ifdef Py_GIL_DISABLED
-    inside = inside || (guard.first == handle && element_walk_inside(current->node, root));
+    th_node *root = guard.first == handle ? scope->node : NULL;
 #else
-    inside = inside || (scope->handle == handle && element_walk_inside(current->node, root));
+    th_node *root = scope->handle == handle ? scope->node : NULL;
 #endif
-    if (!inside) {
-        root = current->node;
-        while (root->parent != NULL) {
-            root = root->parent;
-        }
-    }
-    if (!inside) {
-        next_scope = root == current->node ? Py_NewRef(result) : node_wrap(state_of(self), handle, root);
+    th_node *following = element_walk_next(current->node, root, walker, &entered);
+    if (entered) {
+        /* the walk came onto its scope from outside, so the whole tree bounds it from here on */
+        next_scope = node_wrap(state_of(self), handle, node_root(current->node));
         if (next_scope == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             failed = 1;           /* GCOVR_EXCL_LINE */
         } /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     if (!failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        th_node *following = element_walk_next(current->node, root, walker);
         if (following != NULL) {
             walker->pending = node_wrap(state_of(self), handle, following);
             if (walker->pending == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 failed = 1;                /* GCOVR_EXCL_LINE */
             } /* GCOVR_EXCL_LINE: allocation-failure path */
-            else {
-                Py_SETREF(walker->pending_handle, Py_NewRef(handle));
-                walker->pending_version = ((HandleObject *)handle)->mutation_version;
-            }
-        } else {
-            Py_DECREF(walker->pending_handle);
-            walker->pending_handle = NULL;
         }
     } /* GCOVR_EXCL_LINE: allocation-failure path */
 #ifdef Py_GIL_DISABLED
@@ -651,6 +640,11 @@ static PyObject *serialize_iter_new(module_state *state, PyObject *handle, th_no
     self->opts = *opts;
     self->cursor.node = root;
     self->cursor.depth = 0;
+    self->cursor.xlink.last = NULL;
+    self->cursor.xlink.scope = NULL;
+    self->cursor.xml_ns = (th_xml_ns_spend){0, 0, TH_XML_NS_BASE};
+    self->cursor.unwrap = (th_xml_unwrap){.spend = {0, 0, TH_XML_NS_BASE}};
+    self->cursor.clone_credit = 0;
     self->indent = indent;
     self->indent_len = indent_len;
     self->mutation_version = ((HandleObject *)handle)->mutation_version;
@@ -661,12 +655,13 @@ static void serialize_iter_dealloc(PyObject *self) {
     PyTypeObject *type = Py_TYPE(self);
     Py_DECREF(((SerializeIterObject *)self)->handle);
     Py_XDECREF(((SerializeIterObject *)self)->layout);
+    th_xml_unwrap_free(&((SerializeIterObject *)self)->cursor.unwrap);
     type->tp_free(self);
     Py_DECREF(type);
 }
 
-/* normalize, linkify and strip_comments unlink nodes without bumping mutation_version, so a detached resume node shows
-   only as a broken parent chain, not as a version change. */
+/* normalize and strip_comments unlink nodes without bumping mutation_version, so a detached resume node shows only as
+   a broken parent chain, not as a version change. */
 static int cursor_reaches_root(const th_node *cursor, const th_node *root) {
     for (const th_node *node = cursor; node != NULL; node = node->parent) {
         if (node == root) {
@@ -700,7 +695,13 @@ static PyObject *serialize_iter_next(PyObject *self) {
                                             "the iterator before editing the tree");
         return NULL;
     }
-    if (data == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+    if (data == NULL) {
+        /* inherited namespace declarations past their allowance leave ValueError set; a bare NULL with no exception
+           is the unforceable allocation failure */
+        if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: the no-exception NULL is an unforceable allocation failure */
+            iter->cursor.node = NULL; /* the failed chunk is lost, so later calls stop rather than resume past it */
+            return NULL;
+        }
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     if (out_len == 0) {
@@ -912,10 +913,12 @@ TH_NODE_API(static, PyObject *, node_get_preceding, (PyObject * self, void *clos
             (PyObject * self, void *Py_UNUSED(closure)), (NodeObject *)self, NULL) {
     NodeObject *node = (NodeObject *)self;
     th_node *start;
+    th_node *origin;
     Py_BEGIN_CRITICAL_SECTION(node->handle);
-    start = preceding_skip(previous_element(node->node), node->node);
+    origin = node->node;
+    start = preceding_skip(previous_element(origin), &origin);
     Py_END_CRITICAL_SECTION();
-    return walker_new(state_of(self), node->handle, start, node->node, WALK_PRECEDING);
+    return walker_new(state_of(self), node->handle, start, origin, WALK_PRECEDING);
 }
 
 TH_NODE_API(static, PyObject *, node_get_strings, (PyObject * self, void *closure), (self, closure),
@@ -1259,17 +1262,22 @@ static PyObject *node_markdown_render(PyObject *self, PyObject *spec) {
         }
         if (conv != Py_None) {
             wrap_ctx.state = state_of(self);
-            wrap_ctx.handle = ((NodeObject *)self)->handle;
             opt.converters = conv;
             opt.wrap_node = md_wrap_node;
             opt.wrap_node_ctx = &wrap_ctx;
         }
     }
+    /* a converter can move self into another tree, which drops the reference self holds on this one; the render takes
+       its own once the converters are unpacked, so the walk and the elements it wraps stay on the tree it started in */
+    PyObject *handle = Py_NewRef(((NodeObject *)self)->handle);
+    wrap_ctx.handle = handle;
     Py_ssize_t out_len;
     Py_UCS4 *data;
-    Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
-    data = th_node_markdown(tree_of(self), ((NodeObject *)self)->node, &opt, &out_len);
+    Py_BEGIN_CRITICAL_SECTION(handle);
+    data = th_node_markdown(((HandleObject *)handle)->tree, ((NodeObject *)self)->node, &opt,
+                            &((HandleObject *)handle)->md_ordinals, &out_len);
     Py_END_CRITICAL_SECTION();
+    Py_DECREF(handle);
     Py_XDECREF(conv);
     if (data == NULL) {
         /* a converter that raised or returned a non-str leaves the exception set;
@@ -1508,7 +1516,8 @@ TH_NODE_API(static, PyObject *, node_to_annotated_text, (PyObject * self, PyObje
 PyDoc_STRVAR(links_doc, "links()\n--\n\n"
                         "Find every link in this node and its subtree. Beyond <a href>, this finds the\n"
                         "URLs hidden in srcset/ping/archive lists, a <meta http-equiv=refresh>\n"
-                        "redirect, and CSS url()/@import in a style attribute or a <style> sheet.\n\n"
+                        "redirect, and CSS url()/@import in a style attribute or a <style> sheet.\n"
+                        "A srcset candidate whose descriptors a browser rejects is skipped.\n\n"
                         ":returns: the Link records in document order.");
 
 TH_NODE_API(static, PyObject *, node_links, (PyObject * self, PyObject *ignored), (self, ignored),
@@ -1529,7 +1538,8 @@ TH_NODE_API(static, PyObject *, node_rewrite_links, (PyObject * self, PyObject *
 
 PyDoc_STRVAR(resolve_links_doc, "resolve_links(base_url, /)\n--\n\n"
                                 "Rewrite every link in this node and its subtree to an absolute URL, in\n"
-                                "place, using stdlib urllib.parse.urljoin.\n\n"
+                                "place, as urllib.parse.urljoin does except for the authority forms a browser reads\n"
+                                "differently.\n\n"
                                 ":param base_url: the base each relative URL is resolved against.");
 
 TH_NODE_API(static, PyObject *, node_resolve_links, (PyObject * self, PyObject *base_url), (self, base_url),
@@ -1542,7 +1552,10 @@ PyDoc_STRVAR(tables_doc, "tables()\n--\n\n"
                          "Return every table in this node and its subtree, in document order, each as the\n"
                          "list of rows that Element.rows() produces. A nested table appears as its own\n"
                          "entry. The result is a list[list[list[str]]] of plain strings, with no pandas\n"
-                         "dependency; pass one table to pandas.DataFrame for a frame.");
+                         "dependency; pass one table to pandas.DataFrame for a frame. Raises ValueError\n"
+                         "when tables nested inside two or more other tables repeat more than 16,000,000\n"
+                         "characters of cell text in one call, or when the spans and the padding of all the tables\n"
+                         "together add more than 4,000,000 cells to their grids.");
 
 TH_NODE_API(static, PyObject *, node_tables, (PyObject * self, PyObject *ignored), (self, ignored),
             (PyObject * self, PyObject *Py_UNUSED(ignored)), (NodeObject *)self, NULL) {
@@ -1697,6 +1710,7 @@ TH_NODE_API(static, PyObject *, node_article, (PyObject * self, PyObject *ignore
     /* GCOVR_EXCL_BR_START: failed or a NULL text_data only when out of memory */
     if (!failed && (winner == NULL || text_data != NULL)) {
         th_article_metadata(tree, th_tree_document(tree), &meta);
+        failed = th_tree_failed(tree);
     }
     Py_END_CRITICAL_SECTION();
     if (failed || (winner != NULL && text_data == NULL)) {
@@ -1906,14 +1920,18 @@ PyDoc_STRVAR(select_doc, "select(selector, /)\n--\n\n"
                          ":param selector: the CSS selector.\n"
                          ":returns: the matching descendant Elements in document order.\n"
                          ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                         "    and the source offset.");
+                         "    and the source offset.\n"
+                         ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                         "    this thread has left can match.");
 
 PyDoc_STRVAR(select_one_doc, "select_one(selector, /)\n--\n\n"
                              "Find the first descendant Element matching a CSS selector.\n\n"
                              ":param selector: the CSS selector.\n"
                              ":returns: the first matching Element, or None.\n"
                              ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                             "    and the source offset.");
+                             "    and the source offset.\n"
+                             ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                             "    this thread has left can match.");
 
 PyDoc_STRVAR(xpath_doc, "xpath(expression, /, *, smart_strings=False, extensions=None, **variables)\n--\n\n"
                         "Evaluate an XPath expression relative to this node. A node-set returns a list\n"
@@ -1968,7 +1986,9 @@ PyDoc_STRVAR(matches_doc, "matches(selector, /)\n--\n\n"
                           ":param selector: the CSS selector.\n"
                           ":returns: whether this node is an Element that matches.\n"
                           ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                          "    and the source offset.");
+                          "    and the source offset.\n"
+                          ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                          "    this thread has left can match.");
 
 PyDoc_STRVAR(closest_doc, "closest(selector, /)\n--\n\n"
                           "Find the nearest Element matching a CSS selector, testing this node then each\n"
@@ -1976,7 +1996,9 @@ PyDoc_STRVAR(closest_doc, "closest(selector, /)\n--\n\n"
                           ":param selector: the CSS selector.\n"
                           ":returns: the nearest matching Element, or None.\n"
                           ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                          "    and the source offset.");
+                          "    and the source offset.\n"
+                          ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                          "    this thread has left can match.");
 
 PyDoc_STRVAR(prune_doc, "prune(selector, /)\n--\n\n"
                         "Keep only the descendants matching a CSS selector, together with their\n"
@@ -1987,7 +2009,9 @@ PyDoc_STRVAR(prune_doc, "prune(selector, /)\n--\n\n"
                         ":param selector: the CSS selector the kept descendants must match.\n"
                         ":returns: this node.\n"
                         ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                        "    and the source offset.");
+                        "    and the source offset.\n"
+                        ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                        "    this thread has left can match.");
 
 PyDoc_STRVAR(remove_doc, "remove(selector, /)\n--\n\n"
                          "Drop every descendant Element matching the CSS selector, each with its\n"
@@ -1997,7 +2021,9 @@ PyDoc_STRVAR(remove_doc, "remove(selector, /)\n--\n\n"
                          ":param selector: the CSS selector the dropped descendants must match.\n"
                          ":returns: this node.\n"
                          ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                         "    and the source offset.");
+                         "    and the source offset.\n"
+                         ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                         "    this thread has left can match.");
 
 PyDoc_STRVAR(strip_tags_doc, "strip_tags(selector, /)\n--\n\n"
                              "Unwrap every descendant Element matching the CSS selector, replacing each\n"
@@ -2007,7 +2033,9 @@ PyDoc_STRVAR(strip_tags_doc, "strip_tags(selector, /)\n--\n\n"
                              ":param selector: the CSS selector the unwrapped descendants must match.\n"
                              ":returns: this node.\n"
                              ":raises ValueError: the selector is not valid CSS; the message names the reason\n"
-                             "    and the source offset.");
+                             "    and the source offset.\n"
+                             ":raises RecursionError: the selector chains more compound selectors than the C stack\n"
+                             "    this thread has left can match.");
 
 static PyObject *node_serialize(PyObject *self, PyObject *args, PyObject *kwds);
 
@@ -2045,7 +2073,9 @@ PyDoc_STRVAR(canonicalize_doc, "canonicalize(options=None)\n--\n\n"
                                ":param options: a Canonical configuration object (version, exclusive,\n"
                                "    with_comments, inclusive_ns_prefixes), or None for the defaults.\n"
                                ":returns: the canonical XML, encoded as UTF-8 bytes.\n"
-                               ":raises TypeError: if options is not a Canonical configuration object.");
+                               ":raises TypeError: if options is not a Canonical configuration object.\n"
+                               ":raises ValueError: if the namespace declarations repeated on elements that\n"
+                               "    do not carry them would outgrow what the rest of the output funds.");
 
 PyDoc_STRVAR(serialize_doc, "serialize(options=None, *, inner=False)\n--\n\n"
                             "Serialize this node and its subtree to a str.\n\n"
@@ -2053,7 +2083,10 @@ PyDoc_STRVAR(serialize_doc, "serialize(options=None, *, inner=False)\n--\n\n"
                             ":param options: an Html configuration object (formatter, layout, attribute\n"
                             "    ordering, and meta-charset handling), or None for the defaults.\n"
                             ":returns: the serialized markup.\n"
-                            ":raises TypeError: if options is not an Html configuration object.");
+                            ":raises TypeError: if options is not an Html configuration object.\n"
+                            ":raises ValueError: if inner XML output of a parse_xml tree would copy more\n"
+                            "    inherited namespace declarations onto the children than the rest of the\n"
+                            "    output funds.");
 
 PyDoc_STRVAR(serialize_iter_doc, "serialize_iter(options=None, *, inner=False)\n--\n\n"
                                  "Serialize this node and its subtree lazily, yielding the markup in bounded\n"
@@ -2069,24 +2102,35 @@ PyDoc_STRVAR(serialize_iter_doc, "serialize_iter(options=None, *, inner=False)\n
                                  "    Minify layout is rejected: minification needs the whole tree at once.\n"
                                  ":returns: an iterator of str chunks whose concatenation is the markup.\n"
                                  ":raises TypeError: if options is not an Html configuration object.\n"
-                                 ":raises ValueError: if options selects a Minify layout, which cannot stream.\n"
+                                 ":raises ValueError: if options selects a Minify layout, which cannot stream;\n"
+                                 "    from the iterator, if inner XML output of a parse_xml tree would copy more\n"
+                                 "    inherited namespace declarations onto the children than the rest of the\n"
+                                 "    output funds. The iterator is finished after that.\n"
                                  ":raises RuntimeError: from the iterator, after such an edit.");
 
-PyDoc_STRVAR(encode_doc, "encode(encoding='utf-8', options=None, *, inner=False)\n--\n\n"
-                         "Serialize this node and its subtree to bytes, with the same formatting controls\n"
-                         "as serialize().\n\n"
-                         ":param encoding: the codec to encode the markup with.\n"
-                         ":param options: an Html configuration object, or None for the defaults.\n"
-                         ":returns: the serialized markup encoded as bytes.\n"
-                         ":raises TypeError: if options is not an Html configuration object.\n"
-                         ":raises LookupError: if encoding names a codec Python does not know.\n"
-                         ":raises UnicodeEncodeError: if the markup has characters the encoding cannot\n"
-                         "    represent.");
+PyDoc_STRVAR(encode_doc,
+             "encode(encoding='utf-8', options=None, *, inner=False)\n--\n\n"
+             "Serialize this node and its subtree to bytes, with the same formatting controls\n"
+             "as serialize().\n\n"
+             ":param encoding: the codec to encode the markup with.\n"
+             ":param options: an Html configuration object, or None for the defaults.\n"
+             ":returns: the serialized markup encoded as bytes.\n"
+             ":raises TypeError: if options is not an Html configuration object.\n"
+             ":raises ValueError: if inner XML output of a parse_xml tree would copy more\n"
+             "    inherited namespace declarations onto the children than the rest of the\n"
+             "    output funds.\n"
+             ":raises LookupError: if encoding names a codec Python does not know.\n"
+             ":raises ValueError: if meta_charset would declare the codec and no WHATWG encoding label names it,\n"
+             "    such as an ISO-2022 variant other than ISO-2022-JP, or UTF-16.\n"
+             ":raises UnicodeEncodeError: if the markup has characters the encoding cannot\n"
+             "    represent. Under an ISO-2022 codec those include U+000E, U+000F and U+001B,\n"
+             "    which would reach the output as the shift codes that switch a decoder's state.");
 
 PyDoc_STRVAR(find_doc,
              "find(tag=None, /, *, axis=Axis.DESCENDANTS, attrs=None, class_=None, text=None, **filters)\n--\n\n"
              "Find the first Element along axis matching the tag filter and every attribute\n"
-             "filter. A filter is a str, bool, compiled regex, callable, or a list of those.\n\n"
+             "filter. A filter is a str, bool, compiled regex, callable, or a list of those. A callable filter\n"
+             "may edit the tree during the search; the search then carries on from the element it had reached.\n\n"
              ":param tag: filter on the tag name.\n"
              ":param axis: which nodes to walk relative to this one.\n"
              ":param attrs: a mapping of attribute name to filter.\n"
@@ -2102,7 +2146,8 @@ PyDoc_STRVAR(find_all_doc,
              "find_all(tag=None, /, *, axis=Axis.DESCENDANTS, attrs=None, class_=None, text=None, limit=None, "
              "**filters)\n--\n\n"
              "Find every Element along axis matching the tag filter and every attribute\n"
-             "filter, with the same filter forms as find().\n\n"
+             "filter, with the same filter forms as find(). A callable filter may edit the tree during the\n"
+             "search; the search then carries on from the element it had reached.\n\n"
              ":param tag: filter on the tag name.\n"
              ":param axis: which nodes to walk relative to this one.\n"
              ":param attrs: a mapping of attribute name to filter.\n"
@@ -2299,6 +2344,7 @@ static int resolve_layout(module_state *state, PyObject *layout_obj, enum th_lay
         opts->minify_js_mangle = minify->minify_js_mangle;
         opts->minify_css = minify->minify_css;
         opts->minify_css_baseline = minify->minify_css_baseline;
+        opts->source = NULL;
         *mode = TH_LAYOUT_MINIFY;
         return 0;
     }
@@ -2307,13 +2353,42 @@ static int resolve_layout(module_state *state, PyObject *layout_obj, enum th_lay
 }
 
 /* Serialize self to a str under the given Formatter member, layout mode, and the
-   two output normalizations. charset is the label the meta_charset option writes
-   (the str output is conceptually UTF-8 for serialize, the target encoding for
-   encode); it is borrowed only for the duration of the call. */
+   two output normalizations. encoding is the codec encode() writes, whose WHATWG
+   name a meta_charset option declares; NULL is the str output, which declares
+   utf-8. A codec no label names is refused only when the output would declare it,
+   so a tree with no head and no charset meta is not refused. It is borrowed only
+   for the duration of the call. */
 static PyObject *node_serialize_str(PyObject *self, PyObject *formatter_obj, PyObject *layout_obj, int sort_attributes,
-                                    int meta_charset, int xml, const char *charset, int inner) {
-    th_serialize_opts opts = {0,   sort_attributes, meta_charset, charset, (Py_ssize_t)strlen(charset),
-                              xml, inner,           NULL,         0};
+                                    int meta_charset, int xml, const char *encoding, int inner) {
+    const char *charset = "utf-8";
+    int unlabelled = 0;
+    int *charset_missing = NULL;
+    if (meta_charset && encoding != NULL) {
+        const char *label = meta_charset_label(encoding);
+        if (label == NULL && PyErr_Occurred()) {
+            return NULL;
+        }
+        if (label == NULL) {
+            charset_missing = &unlabelled;
+        } else {
+            charset = label;
+        }
+    }
+    th_serialize_opts opts = {0,
+                              sort_attributes,
+                              meta_charset,
+                              charset,
+                              (Py_ssize_t)strlen(charset),
+                              xml,
+                              inner,
+                              NULL,
+                              0,
+                              charset_missing,
+                              NULL,
+                              NULL,
+                              NULL,
+                              NULL,
+                              0};
     if (resolve_formatter(state_of(self), formatter_obj, &opts.formatter) < 0) {
         return NULL;
     }
@@ -2336,17 +2411,81 @@ static PyObject *node_serialize_str(PyObject *self, PyObject *formatter_obj, PyO
         data = th_node_serialize(tree_of(self), ((NodeObject *)self)->node, &opts, indent, indent_len, &out_len);
     }
     Py_END_CRITICAL_SECTION();
-    if (data == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+    if (data == NULL) {
+        /* inherited namespace declarations past their allowance leave ValueError set; a bare NULL with no exception
+           is the unforceable allocation failure */
+        if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: the no-exception NULL is an unforceable allocation failure */
+            return NULL;
+        }
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (unlabelled) {
+        PyMem_Free(data);
+        return PyErr_Format(PyExc_ValueError, "meta_charset cannot declare %s: no WHATWG encoding label names it",
+                            encoding);
     }
     PyObject *result = ucs4_to_str(data, out_len);
     PyMem_Free(data);
     return result;
 }
 
-/* Serialize self to a str under the Html config in spec (a borrowed dict of the
-   config's non-default values, or NULL for the defaults), writing charset as the
-   meta_charset label. */
+/* The first unstable noscript span, or NULL. */
+static const th_noscript_span *first_unstable(const th_noscript_track *track) {
+    for (Py_ssize_t index = 0; index < track->count; index++) {
+        if (!track->spans[index].stable) {
+            return &track->spans[index];
+        }
+    }
+    return NULL;
+}
+
+/* _minify_document(html, layout): parse html with scripting off and minify the document, copying each stable
+   noscript's content from the source. From the first noscript the two scripting modes part at, the rest of the source
+   follows verbatim when the minified markup before it rebuilds the parser's state there; otherwise html comes back
+   unchanged. */
+PyObject *turbohtml_minify_document(PyObject *module, PyObject *args) {
+    PyObject *html;
+    PyObject *layout;
+    if (!PyArg_ParseTuple(args, "UO:_minify_document", &html, &layout)) {
+        return NULL;
+    }
+    module_state *state = PyModule_GetState(module);
+    enum th_layout_mode mode;
+    const Py_UCS4 *indent_unit = NULL;
+    Py_ssize_t indent_len = 0;
+    th_minify_opts minify_opts;
+    if (resolve_layout(state, layout, &mode, &indent_unit, &indent_len, &minify_opts) < 0) {
+        return NULL;
+    }
+    if (mode != TH_LAYOUT_MINIFY) {
+        PyErr_SetString(PyExc_TypeError, "layout must be a Minify");
+        return NULL;
+    }
+    th_noscript_track track = {0};
+    th_tree *tree =
+        th_tree_parse_noscript(PyUnicode_KIND(html), PyUnicode_DATA(html), PyUnicode_GET_LENGTH(html), &track);
+    if (tree == NULL) {                 /* GCOVR_EXCL_BR_LINE: only an allocation failure returns NULL */
+        th_noscript_track_free(&track); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return PyErr_NoMemory();        /* GCOVR_EXCL_LINE */
+    }
+    const th_noscript_span *unstable = first_unstable(&track);
+    PyObject *result;
+    if (unstable != NULL && !unstable->cut) {
+        result = Py_NewRef(html);
+    } else {
+        th_minify_source source = {track.spans, track.count};
+        minify_opts.source = track.count > 0 ? &source : NULL; /* with no noscript, the walk skips the source checks */
+        th_serialize_opts opts = {0, 0, 0, "utf-8", 5, 0, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0};
+        Py_ssize_t out_len;
+        Py_UCS4 *data = th_node_minify(tree, th_tree_document(tree), &minify_opts, &opts, &out_len);
+        result = data == NULL ? PyErr_NoMemory() : ucs4_to_str(data, out_len); /* GCOVR_EXCL_BR_LINE: OOM */
+        PyMem_Free(data);
+    }
+    th_tree_free(tree);
+    th_noscript_track_free(&track);
+    return result;
+}
+
 /* Parse an Html config's non-default values (spec) into the four serialize settings,
    leaving each unmentioned one at the caller's default. Returns 0 on success, -1 with
    an exception set. */
@@ -2364,7 +2503,10 @@ static int parse_html_spec(PyObject *spec, PyObject **formatter_obj, PyObject **
     return parsed ? 0 : -1;
 }
 
-static PyObject *node_serialize_from_spec(PyObject *self, PyObject *spec, const char *charset, int inner) {
+/* Serialize self to a str under the Html config in spec (a borrowed dict of the
+   config's non-default values, or NULL for the defaults), declaring encoding under
+   meta_charset. */
+static PyObject *node_serialize_from_spec(PyObject *self, PyObject *spec, const char *encoding, int inner) {
     PyObject *formatter_obj = NULL;
     PyObject *layout_obj = NULL;
     int sort_attributes = 0;
@@ -2373,20 +2515,20 @@ static PyObject *node_serialize_from_spec(PyObject *self, PyObject *spec, const 
     if (parse_html_spec(spec, &formatter_obj, &layout_obj, &sort_attributes, &meta_charset, &xml) < 0) {
         return NULL;
     }
-    return node_serialize_str(self, formatter_obj, layout_obj, sort_attributes, meta_charset, xml, charset, inner);
+    return node_serialize_str(self, formatter_obj, layout_obj, sort_attributes, meta_charset, xml, encoding, inner);
 }
 
-/* Resolve a serialize/encode call's options object to a str rendering under charset.
-   None renders the defaults; otherwise the config's _unpack() supplies its keywords. */
-static PyObject *node_serialize_options(PyObject *self, PyObject *options, const char *charset, int inner) {
+/* Resolve a serialize/encode call's options object to a str rendering, declaring encoding under meta_charset
+   (NULL for the str output). None renders the defaults; otherwise the config's _unpack() supplies its keywords. */
+static PyObject *node_serialize_options(PyObject *self, PyObject *options, const char *encoding, int inner) {
     if (options == NULL || options == Py_None) {
-        return node_serialize_str(self, NULL, NULL, 0, 0, 0, charset, inner);
+        return node_serialize_str(self, NULL, NULL, 0, 0, 0, encoding, inner);
     }
     PyObject *spec = config_unpack(options, state_of(self)->html_config_type, "Html");
     if (spec == NULL) {
         return NULL;
     }
-    PyObject *result = node_serialize_from_spec(self, spec, charset, inner);
+    PyObject *result = node_serialize_from_spec(self, spec, encoding, inner);
     Py_DECREF(spec);
     return result;
 }
@@ -2400,7 +2542,93 @@ TH_NODE_API(static, PyObject *, node_serialize, (PyObject * self, PyObject *args
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O$p", keywords, &options, &inner)) {
         return NULL;
     }
-    return node_serialize_options(self, options, "utf-8", inner);
+    return node_serialize_options(self, options, NULL, inner);
+}
+
+PyObject *codec_registry_name(const char *encoding) {
+    PyObject *codecs = PyImport_ImportModule("codecs");
+    /* GCOVR_EXCL_BR_START: the untested arm requires the codecs module to fail to import */
+    PyObject *info = codecs == NULL ? NULL : PyObject_CallMethod(codecs, "lookup", "s", encoding);
+    /* GCOVR_EXCL_BR_STOP */
+    Py_XDECREF(codecs);
+    if (info == NULL) {
+        return NULL;
+    }
+    PyObject *name = PyObject_GetAttrString(info, "name");
+    Py_DECREF(info);
+    if (name == NULL) {
+        PyErr_Clear(); /* a CodecInfo-like tuple a search function registered has no name */
+        return Py_NewRef(Py_None);
+    }
+    return name;
+}
+
+/* Whether encoding resolves to one of CPython's ISO-2022 codecs (iso2022_jp and its variants, iso2022_kr): 1 or 0, or
+   -1 with the registry's LookupError set. */
+static int codec_is_iso2022(const char *encoding) {
+    PyObject *name = codec_registry_name(encoding);
+    if (name == NULL) {
+        return -1;
+    }
+    const char *resolved = PyUnicode_Check(name) ? PyUnicode_AsUTF8(name) : NULL;
+    int iso2022 = resolved != NULL && strncmp(resolved, "iso2022", 7) == 0;
+    PyErr_Clear(); /* a codec a search function registered without a str name is not one of CPython's */
+    Py_DECREF(name);
+    return iso2022;
+}
+
+/* The first U+000E, U+000F or U+001B in text, or -1: each sweep stops where the one before it matched. */
+static Py_ssize_t shift_code_find(PyObject *text) {
+    static const Py_UCS4 shift_codes[] = {0x0E, 0x0F, 0x1B};
+    Py_ssize_t first = -1;
+    for (size_t index = 0; index < sizeof(shift_codes) / sizeof(shift_codes[0]); index++) {
+        Py_ssize_t end = first < 0 ? PyUnicode_GET_LENGTH(text) : first;
+        Py_ssize_t found = PyUnicode_FindChar(text, shift_codes[index], 0, end, 1);
+        if (found >= 0) {
+            first = found;
+        }
+    }
+    return first;
+}
+
+static int label_may_be_iso2022(const char *encoding) {
+    return strstr(encoding, "2022") != NULL;
+}
+
+/* CPython's ISO-2022 encoders write U+000E, U+000F and U+001B unchanged, and a decoder reads those bytes as shift
+   codes that change how the bytes after them are read, so markup holding one would not read back as serialized. The
+   WHATWG ISO-2022-JP encoder errors on all three for that reason
+   (https://encoding.spec.whatwg.org/#iso-2022-jp-encoder), so under those codecs they are characters the encoding
+   cannot represent: a strict encode raises UnicodeEncodeError, and charrefs writes them the way "xmlcharrefreplace"
+   writes every other such character. Only a label containing "2022" pays for the scan, because CPython gives every
+   ISO-2022 codec name and alias that substring. */
+PyObject *markup_encode(PyObject *text, const char *encoding, int charrefs) {
+    const char *errors = charrefs ? "xmlcharrefreplace" : NULL;
+    Py_ssize_t shift = label_may_be_iso2022(encoding) ? shift_code_find(text) : -1;
+    int iso2022 = shift < 0 ? 0 : codec_is_iso2022(encoding);
+    if (iso2022 < 0) {
+        return NULL;
+    }
+    if (!iso2022) {
+        return PyUnicode_AsEncodedString(text, encoding, errors);
+    }
+    if (!charrefs) {
+        PyObject *error = PyObject_CallFunction(PyExc_UnicodeEncodeError, "sOnns", encoding, text, shift, shift + 1,
+                                                "a shift code would change the decoder's state");
+        if (error != NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_SetObject(PyExc_UnicodeEncodeError, error);
+            Py_DECREF(error);
+        }
+        return NULL;
+    }
+    PyObject *table = Py_BuildValue("{i:s,i:s,i:s}", 0x0E, "&#14;", 0x0F, "&#15;", 0x1B, "&#27;");
+    /* GCOVR_EXCL_BR_START: the untested arms require allocation failure */
+    PyObject *inert = table == NULL ? NULL : PyObject_CallMethod(text, "translate", "O", table);
+    Py_XDECREF(table);
+    PyObject *encoded = inert == NULL ? NULL : PyUnicode_AsEncodedString(inert, encoding, errors);
+    /* GCOVR_EXCL_BR_STOP */
+    Py_XDECREF(inert);
+    return encoded;
 }
 
 TH_NODE_API(static, PyObject *, node_encode, (PyObject * self, PyObject *args, PyObject *kwds), (self, args, kwds),
@@ -2417,7 +2645,7 @@ TH_NODE_API(static, PyObject *, node_encode, (PyObject * self, PyObject *args, P
     if (text == NULL) {
         return NULL;
     }
-    PyObject *encoded = PyUnicode_AsEncodedString(text, encoding, NULL);
+    PyObject *encoded = markup_encode(text, encoding, 0);
     Py_DECREF(text);
     return encoded;
 }
@@ -2556,8 +2784,21 @@ TH_NODE_API(static, PyObject *, node_to_source, (PyObject * self, PyObject *igno
 static PyObject *node_make_serialize_iter(PyObject *self, PyObject *formatter_obj, PyObject *layout_obj,
                                           int sort_attributes, int meta_charset, int xml, int inner) {
     module_state *state = state_of(self);
-    th_serialize_opts opts = {0,   sort_attributes, meta_charset, "utf-8", (Py_ssize_t)strlen("utf-8"),
-                              xml, inner,           NULL,         0};
+    th_serialize_opts opts = {0,
+                              sort_attributes,
+                              meta_charset,
+                              "utf-8",
+                              (Py_ssize_t)strlen("utf-8"),
+                              xml,
+                              inner,
+                              NULL,
+                              0,
+                              NULL,
+                              NULL,
+                              NULL,
+                              NULL,
+                              NULL,
+                              0};
     if (resolve_formatter(state, formatter_obj, &opts.formatter) < 0) {
         return NULL;
     }

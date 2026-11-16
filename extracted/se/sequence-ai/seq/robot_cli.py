@@ -1,7 +1,7 @@
 """
-`seq robot create | list | show | set | rm | key` and seq.robot_create / robot_list / robot_set / robot_rm / robot_key:
-a robot as a thing of its own - a record on the gateway, not a machine, one key to a robot - made, listed, given a list
-of policies it may connect to, deleted, its key replaced.
+`seq robot create | list | show | set | record | rm | key` and seq.robot_create / robot_list / robot_set / robot_record
+/ robot_rm / robot_key: a robot as a thing of its own - a record on the gateway, not a machine, one key to a robot - made,
+listed, given a list of policies it may connect to, its steps recorded to a file here, deleted, its key replaced.
 
 
 In one sentence: robot_create makes a robot and returns its key as the string it connects with - shown this once, how it
@@ -16,11 +16,14 @@ lands in a CI log.
 """
 from __future__ import annotations
 
+import os
+import sys
+import time
 from typing import Any, Callable
 from urllib.parse import quote
 
 from sequence_ai._core.names import segment
-from sequence_ai.errors import InvalidRequest
+from sequence_ai.errors import Conflict, InvalidRequest
 
 from seq import clock
 from seq.deployments_cli import _call
@@ -34,6 +37,16 @@ ADD_GONE = ("seq robot add is gone: a robot is its own thing now, made before an
 
 REVOKE_GONE = ("seq robot revoke is gone: a robot has one key now. Replace it with `seq robot key <name>` - the old "
                "one fails at once - or delete the robot and its key with `seq robot rm <name>`.")
+
+
+
+
+RECORD_GONE = ("seq record is gone: a robot's Record is a switch now, and you record its steps yourself - no record key. "
+               "Turn it on with `seq robot set <name> record=on` (or by its name in the console), then "
+               "`seq robot record <name>` writes its steps to a file here, or sequence_ai.record(<name>) reads them.")
+RETENTION_GONE = ("record.retention_days is gone: the platform keeps no recording now, so there are no days to keep it "
+                  "for. A robot's Record says whether its steps may be recorded - `seq robot record <name>` writes "
+                  "them to a file here.")
 
 
 def _say(echo: Echo, line: str) -> None:
@@ -99,11 +112,6 @@ def robot_list(*, base_url: str | None = None, echo: Echo = None) -> list[dict]:
     return rows
 
 
-
-
-RECORD_DAYS = 30
-
-
 def parse_pairs(pairs: list[str]) -> dict:
     """`seq robot set NAME key=value ...` as {key: value}: each value kept as text, an empty value (`policies=`) clearing
     the list. robot_set says which settings there are."""
@@ -116,24 +124,16 @@ def parse_pairs(pairs: list[str]) -> dict:
     return out
 
 
-def _days(text: str) -> int | None:
-    """`record.retention_days=`'s value as a number of days, None for empty: back to the 30 it starts with."""
-    text = text.strip()
-    if not text:
-        return None
-    if not text.isdigit() or not 1 <= int(text) <= 365:
-        raise InvalidRequest(f"record.retention_days takes a whole number from 1 to 365 days; got {text}")
-    return int(text)
-
-
 def robot_set(name: str, changes: dict, *, base_url: str | None = None, echo: Echo = None) -> dict:
     """A robot's settings: `policies=<p1>,<p2>` replaces its whole list (an empty value, `policies=`, clears it) - what the
-    robot may connect to, `teleop` one of the names, a name off it refused - `record=on|off` is whether it keeps what it
-    does, and `record.retention_days=<days>` how long (1 to 365, empty for the 30 days it starts with).
+    robot may connect to, `teleop` one of the names, a name off it refused - and `record=on|off`, whether its steps may
+    be recorded, by you (robot_record, sequence_ai.record): the platform keeps none.
 """
-    unknown = [k for k in changes if k not in ("policies", "record", "record.retention_days")]
+    if "record.retention_days" in changes:
+        raise InvalidRequest(RETENTION_GONE)
+    unknown = [k for k in changes if k not in ("policies", "record")]
     if unknown:
-        raise InvalidRequest(f"{', '.join(unknown)}: a robot's settings are policies=, record= and record.retention_days=. "
+        raise InvalidRequest(f"{', '.join(unknown)}: a robot's settings are policies= and record=. "
                              "`seq robot set <name> policies=<p1>,<p2> record=on`")
     if not changes:
         raise InvalidRequest("nothing to change: `seq robot set <name> policies=<p1>,<p2>` (or policies= to clear it), "
@@ -146,8 +146,6 @@ def robot_set(name: str, changes: dict, *, base_url: str | None = None, echo: Ec
         if said not in ("on", "off"):
             raise InvalidRequest(f"record is on or off; got {changes['record']!r}")
         body["record"] = said == "on"
-    if "record.retention_days" in changes:
-        body["record_retention_days"] = _days(changes["record.retention_days"])
     out = _call("PATCH", f"/v1/robots/{segment(name, 'robot')}", base_url, body) or {}
     robot = out.get("robot") or {}
     shown = robot.get("name") or name
@@ -155,16 +153,77 @@ def robot_set(name: str, changes: dict, *, base_url: str | None = None, echo: Ec
         on = robot.get("policies") or []
         _say(echo, f"the robot {shown} connects to " + (", ".join(on) if on else "no policy"))
     if body.get("record"):
-        _say(echo, f"the robot {shown} keeps what it does, as capture:robot.{shown}: `seq volume ls`")
+        _say(echo, f"the robot {shown}'s steps may be recorded now: `seq robot record {shown}` writes them to a file "
+                   "here; the platform keeps none")
     elif "record" in body:
-        _say(echo, f"the robot {shown} keeps nothing more; what it has kept stays until its retention ends")
-    if "record_retention_days" in body:
-        days = body["record_retention_days"]
-        n = days if days is not None else RECORD_DAYS
-        _say(echo, f"what the robot {shown} keeps stays for {n} day{'' if n == 1 else 's'}")
+        _say(echo, f"the robot {shown}'s steps may not be recorded now: a recorder reading them stops")
     if out.get("notice"):
         _say(echo, out["notice"])
     return {"robot": robot}
+
+
+def _note(text: str) -> None:
+    """A line for whoever runs it, on stderr: what it prints on stdout stays its answer, `--json`'s too."""
+    print(text, file=sys.stderr, flush=True)
+
+
+def _mb(n: int) -> str:
+    return f"{n / 1e6:.1f} MB"
+
+
+def robot_record(name: str, out: str | None = None, *, base_url: str | None = None, echo: Echo = None) -> dict:
+    """`seq robot record <name> [-o FILE]`: the robot's steps as they come (sequence_ai.record), each written to a file
+    here - one msgpack map after another, a header first, the items Recorder.steps() gives: sequence_ai.read_record reads
+    them back, as does any msgpack reader - until Ctrl-C, or its Record is turned off. `out` a new file (never one there
+    already); unset, <name>-<when>.msgpack here. Said on stderr: where it writes, that the robot is not connected where it
+    is not (it is waited for) or is connected to teleop alone (its own SDK writes its file), each gap, and what it
+    wrote as it stops. Returns {"robot", "file", "items", "steps",
+    "gaps", "bytes", "stopped"}. Conflict (record_off) where its Record is off as it begins.
+
+"""
+    import sequence_ai
+    from sequence_ai._core import recorder as recording
+
+    path = out or f"{name}-{time.strftime('%Y%m%d-%H%M%S')}.msgpack"
+    if os.path.exists(path):
+        raise InvalidRequest(f"{path} is there already: name a new file with -o")
+    said: dict = {"robot": name, "file": path, "items": 0, "steps": 0, "gaps": 0, "bytes": 0, "stopped": "Ctrl-C"}
+    rec = sequence_ai.record(name, base_url=base_url)
+    try:
+        with open(path, "xb") as f:
+            said["robot"] = rec.robot or name
+            said["bytes"] += recording.write(f, recording.header(said["robot"]))
+            _note(f"recording {said['robot']} to {path} - Ctrl-C stops")
+            if not rec.connected:
+                _note(f"{said['robot']} is not connected: its steps are recorded once it connects")
+            elif rec.teleop_only:
+
+
+                _note(f"{said['robot']} is connected to teleop alone, which no worker serves: none of its steps come "
+                      "here - its own SDK writes them to a file where it runs ($SEQUENCES_RECORD_DIR, else the "
+                      "folder it runs in); this waits in case it connects to a policy")
+            try:
+                for item in rec.steps():
+                    said["bytes"] += recording.write(f, item)
+                    f.flush()
+                    said["items"] += 1
+                    if item.get("kind") == "step":
+                        said["steps"] += 1
+                    elif item.get("kind") == "gap":
+                        said["gaps"] += 1
+                        lost = item.get("count")
+                        _note(f"gap: {'records' if lost is None else lost} lost - {item.get('why')}")
+            except KeyboardInterrupt:
+                pass
+            except Conflict as exc:
+                if (exc.details or {}).get("reason") != "record_off":
+                    raise
+                said["stopped"] = "its Record was turned off"
+    finally:
+        rec.close()
+    _note(f"stopped ({said['stopped']}): {said['steps']} steps, {said['items']} items, {_mb(said['bytes'])} in {path}")
+    _say(echo, path)
+    return said
 
 
 def robot_rm(name: str, *, base_url: str | None = None, echo: Echo = None) -> dict:

@@ -72,6 +72,7 @@ from .amberskitchencooks import AmbersKitchencooks
 from .ambitiouskitchen import AmbitiousKitchen
 from .ameessavorydish import AmeesSavoryDish
 from .americastestkitchen import AmericasTestKitchen
+from .amysnuritionkitchen import AmysNuritionKitchen
 from .andycooks import AndyCooks
 from .anitalianinmykitchen import AnItalianInMyKitchen
 from .archanaskitchen import ArchanasKitchen
@@ -81,6 +82,7 @@ from .asweetpeachef import ASweetPeaChef
 from .atelierdeschefs import AtelierDesChefs
 from .aubreyskitchen import AubreysKitchen
 from .averiecooks import AverieCooks
+from .bakedbree import BakedBree
 from .bakeeatrepeat import BakeEatRepeat
 from .bakeitwithlove import BakeItWithLove
 from .bakels import Bakels
@@ -103,6 +105,7 @@ from .beyondfrosting import BeyondFrosting
 from .biancazapatka import BiancaZapatka
 from .biggerbolderbaking import BiggerBolderBaking
 from .bigoven import BigOven
+from .billa import Billa
 from .billyparisi import BillyParisi
 from .bitsofcarey import BitsOfCarey
 from .blessthismessplease import BlessThisMessPlease
@@ -143,6 +146,7 @@ from .choosehomemade import ChooseHomemade
 from .cleaneatingkitchen import CleanEatingKitchen
 from .closetcooking import ClosetCooking
 from .cloudykitchen import CloudyKitchen
+from .coffeecopycat import CoffeeCopycat
 from .coleycooks import ColeyCooks
 from .colleenchristensennutrition import ColleenChristensenNutrition
 from .comidinhasdochef import ComidinhasDoChef
@@ -207,6 +211,7 @@ from .eatwhattonight import EatWhatTonight
 from .edeka import EDEKA
 from .editionslarousse import EditionsLarousse
 from .eggsca import EggsCa
+from .einfachkochen import EinfachKochen
 from .elavegan import ElaVegan
 from .emilybites import EmilyBites
 from .emmikochteinfach import EmmiKochtEinfach
@@ -220,6 +225,7 @@ from .ethanchlebowski import EthanChlebowski
 from .everydaydelicious import EverydayDelicious
 from .everydaypie import EverydayPie
 from .evolvingtable import EvolvingTable
+from .experimenteausmeinerkueche import ExperimenteAusMeinerKueche
 from .familyfoodonthetable import FamilyfoodOnTheTable
 from .familyspice import FamilySpice
 from .fantabulosity import Fantabulosity
@@ -370,6 +376,7 @@ from .letscampsmore import LetsCampSmore
 from .leukerecepten import Leukerecepten
 from .lidiasitaly import LidiasItaly
 from .lifestyleofafoodie import LifestyleOfAFoodie
+from .linasmatkasse import LinasMatkasse
 from .littleferrarokitchen import LittleFerraroKitchen
 from .littlespicejar import LittleSpiceJar
 from .littlespoonfarm import LittleSpoonFarm
@@ -422,6 +429,7 @@ from .mykidslickthebowl import MyKidsLickTheBowl
 from .mykitchen101 import MyKitchen101
 from .mykitchen101en import MyKitchen101en
 from .mykoreankitchen import MyKoreanKitchen
+from .mymessykitchenn import MyMessyKitchenn
 from .myrecipes import MyRecipes
 from .myriadrecipes import MyriadRecipes
 from .myvegetarianroots import MyVegetarianRoots
@@ -724,6 +732,7 @@ SCRAPERS = {
     AmbitiousKitchen.host(): AmbitiousKitchen,
     AmeesSavoryDish.host(): AmeesSavoryDish,
     AmericasTestKitchen.host(): AmericasTestKitchen,
+    AmysNuritionKitchen.host(): AmysNuritionKitchen,
     AndyCooks.host(): AndyCooks,
     AnItalianInMyKitchen.host(): AnItalianInMyKitchen,
     ArchanasKitchen.host(): ArchanasKitchen,
@@ -733,6 +742,7 @@ SCRAPERS = {
     AtelierDesChefs.host(): AtelierDesChefs,
     AubreysKitchen.host(): AubreysKitchen,
     AverieCooks.host(): AverieCooks,
+    BakedBree.host(): BakedBree,
     BakeEatRepeat.host(): BakeEatRepeat,
     BakeItWithLove.host(): BakeItWithLove,
     Bakels.host(): Bakels,
@@ -757,6 +767,7 @@ SCRAPERS = {
     BiancaZapatka.host(): BiancaZapatka,
     BiggerBolderBaking.host(): BiggerBolderBaking,
     BigOven.host(): BigOven,
+    Billa.host(): Billa,
     BillyParisi.host(): BillyParisi,
     BitsOfCarey.host(): BitsOfCarey,
     BlessThisMessPlease.host(): BlessThisMessPlease,
@@ -872,6 +883,7 @@ SCRAPERS = {
     CleanEatingKitchen.host(): CleanEatingKitchen,
     ClosetCooking.host(): ClosetCooking,
     CloudyKitchen.host(): CloudyKitchen,
+    CoffeeCopycat.host(): CoffeeCopycat,
     ColeyCooks.host(): ColeyCooks,
     ColleenChristensenNutrition.host(): ColleenChristensenNutrition,
     ComidinhasDoChef.host(): ComidinhasDoChef,
@@ -937,6 +949,7 @@ SCRAPERS = {
     EDEKA.host(): EDEKA,
     EditionsLarousse.host(): EditionsLarousse,
     EggsCa.host(): EggsCa,
+    EinfachKochen.host(): EinfachKochen,
     ElaVegan.host(): ElaVegan,
     EmilyBites.host(): EmilyBites,
     EmmiKochtEinfach.host(): EmmiKochtEinfach,
@@ -950,6 +963,7 @@ SCRAPERS = {
     EverydayDelicious.host(): EverydayDelicious,
     EverydayPie.host(): EverydayPie,
     EvolvingTable.host(): EvolvingTable,
+    ExperimenteAusMeinerKueche.host(): ExperimenteAusMeinerKueche,
     FamilyfoodOnTheTable.host(): FamilyfoodOnTheTable,
     FamilySpice.host(): FamilySpice,
     Fantabulosity.host(): Fantabulosity,
@@ -1120,6 +1134,7 @@ SCRAPERS = {
     Leukerecepten.host(): Leukerecepten,
     LidiasItaly.host(): LidiasItaly,
     LifestyleOfAFoodie.host(): LifestyleOfAFoodie,
+    LinasMatkasse.host(): LinasMatkasse,
     LittleFerraroKitchen.host(): LittleFerraroKitchen,
     LittleSpiceJar.host(): LittleSpiceJar,
     LittleSpoonFarm.host(): LittleSpoonFarm,
@@ -1172,6 +1187,7 @@ SCRAPERS = {
     MyKitchen101.host(): MyKitchen101,
     MyKitchen101en.host(): MyKitchen101en,
     MyKoreanKitchen.host(): MyKoreanKitchen,
+    MyMessyKitchenn.host(): MyMessyKitchenn,
     MyRecipes.host(): MyRecipes,
     MyriadRecipes.host(): MyriadRecipes,
     MyVegetarianRoots.host(): MyVegetarianRoots,
@@ -1447,6 +1463,7 @@ def scrape_html(
     supported_only: bool | None = None,
     wild_mode: bool | None = None,
     best_image: bool | None = None,
+    simple_opengraph: bool | None = None,
 ) -> AbstractScraper:
     """
     Accepts optional HTML and a required URL as input, and returns a scraper object.
@@ -1457,7 +1474,9 @@ def scrape_html(
     If the 'supported_only' flag is enabled (the default), then only websites
     that are known to be supported by the library (as determined by their
     domain name) will return scrapers.  When disabled, the library will attempt
-    to retrieve generic schema.org recipe metadata from the HTML.
+    to retrieve [schema.org recipe](https://schema.org/Recipe) metadata from the HTML. If the
+    'simple_opengraph' flag is active, the library will instead try as a fallback to retrieve
+    basic [OpenGraph](https://ogp.me/) data (title, description, image).
 
     Args:
         html (str | None): HTML of the recipe webpage.
@@ -1469,6 +1488,9 @@ def scrape_html(
         wild_mode (bool | None): deprecated: whether to attempt scraping unsupported domains.
         best_image (bool | None): whether to prefer the highest-quality image when multiple
             are available. Defaults to the configured setting when not provided.
+        simple_opengraph (bool | None): if true, when the site does not have schema.org
+            metadata, it will try to scrape at least title, description, and image from the
+            OpenGraph metadata, if they exist.
 
     Raises:
         ElementNotFoundInHtml: Retrieval of data failed because an HTML element was not found.
@@ -1510,7 +1532,7 @@ def scrape_html(
             raise ImportError(msg) from requests_import_error
 
         try:
-            html = requests.get(url=org_url, headers=HEADERS).text
+            html = requests.get(url=org_url, headers=HEADERS, timeout=30).text
         except Exception as e:
             raise Exception(f"Failed to retrieve HTML content from {org_url}.") from e
 
@@ -1536,14 +1558,21 @@ def scrape_html(
         raise WebsiteNotImplementedError(msg)
 
     schema_scraper = SchemaScraperFactory.generate(
-        html=html, url=org_url, best_image=best_image
+        html=html, url=org_url, best_image=best_image, simple_opengraph=simple_opengraph
     )
-    if schema_scraper.schema.data:
+    if schema_scraper.schema.data or (
+        simple_opengraph
+        and (
+            schema_scraper.title()
+            or schema_scraper.description()
+            or schema_scraper.image()
+        )
+    ):
         return schema_scraper
 
     raise NoSchemaFoundInWildMode(org_url)
 
 
 def scrape_me(url: str) -> AbstractScraper:
-    html = urlopen(Request(url, headers=HEADERS)).read().decode("utf-8")
+    html = urlopen(Request(url, headers=HEADERS), timeout=30).read().decode("utf-8")
     return scrape_html(html, org_url=url)

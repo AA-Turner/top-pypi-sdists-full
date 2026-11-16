@@ -1181,9 +1181,8 @@ object_id-query:
     an ``object_type`` of ``qos-policy`` returns a QoS policy ID,
     an ``object_type`` of ``security-group`` returns a security group ID,
     an `object_type`` of ``address-scope`` returns a address scope ID,
-    an ``object_type`` of ``subnetpool`` returns a subnetpool ID,
-    an ``object_type`` of ``address-group`` returns an address group ID and
-    an ``object_type`` of ``bgpvpn`` returns a bgpvpn ID.
+    an ``object_type`` of ``subnetpool`` returns a subnetpool ID and
+    an ``object_type`` of ``address-group`` returns an address group ID.
   in: query
   required: false
   type: string
@@ -1191,8 +1190,7 @@ object_type-query:
   description: |
     Filter the RBAC policy list result by the type of the object that the
     RBAC policy affects. Types include ``qos-policy``, ``network``,
-    ``security-group``, ``address-scope``, ``subnetpool``, ``address-group`` or
-    ``bgpvpn``.
+    ``security-group``, ``address-scope``, ``subnetpool`` or ``address-group``.
   in: query
   required: false
   type: string
@@ -1863,6 +1861,20 @@ trunk_port_id-query:
   in: query
   required: false
   type: string
+used_in_default_sg-query:
+  description: |
+    Filter by security group rule templates which should be used in default
+    security group created automatically for each new project.
+  in: query
+  required: false
+  type: boolean
+used_in_non_default_sg-query:
+  description: |
+    Filter by security group rule templates which should be used in custom
+    security groups created by project users.
+  in: query
+  required: false
+  type: boolean
 verbose:
   description: |
     Show detailed information.
@@ -2599,9 +2611,7 @@ binding:profile-request:
     This field is only meant for machine-machine communication for compute
     services like Nova, Ironic or Zun to pass information to a Neutron
     back-end. It should not be used by multiple services concurrently or by
-    cloud end users. The existing counterexamples
-    (``capabilities: [switchdev]`` for Open vSwitch hardware offload and
-    ``trusted=true`` for Trusted Virtual Functions) are due to be cleaned up.
+    cloud end users.
     The networking API does not define a specific format of this field.
     The default is an empty dictionary.
     If you update it with null then it is treated like {} in the response.
@@ -2973,7 +2983,9 @@ direction_taf:
 directions_tap_mirror:
   description: |
     A dictionary of ``direction`` and ``tunnel_id``.
-    Direction can be ``IN``, ``OUT`` and ``BOTH``.
+    Direction can be ``IN``, ``OUT`` and ``BOTH``. For an ``lport`` mirror
+    the tunnel ID values are not used and must be ``null``, for example
+    ``{"BOTH": null}`` or ``{"IN": null, "OUT": null}``.
   in: body
   required: true
   type: object
@@ -3128,6 +3140,44 @@ ethertype-request:
   in: body
   required: false
   type: string
+evpn_rt-network:
+  description: |
+    The BGP route target used for both import and export of the network's
+    EVPN routes. Available when the ``evpn-l2`` extension is enabled and
+    a route target is configured.
+  in: body
+  required: false
+  type: string
+evpn_rt-network-request:
+  description: |
+    The BGP route target to set on network update. Supported formats are
+    ``<2-byte-AS>:<4-byte-local-value>``,
+    ``<IPv4-address>:<2-byte-local-value>``, and
+    ``<4-byte-AS>:<2-byte-local-value>``. Set to ``null`` to remove the route
+    target. Only administrative users can set or remove this attribute.
+    Available when the ``evpn-l2`` extension is enabled.
+  in: body
+  required: false
+  type: string
+evpn_vni-network:
+  description: |
+    The VNI assigned to the network for EVPN Type-2 route advertisement.
+    Available when the ``evpn-l2`` extension is enabled and a VNI is
+    configured.
+  in: body
+  required: false
+  type: integer
+evpn_vni-network-request:
+  description: |
+    The VNI to assign to the network. Set to ``0`` to request automatic
+    allocation from the configured ``evpn_vni_auto_ranges``. Only
+    administrative users can request an explicit VNI between ``1`` and
+    ``16777215``, outside the automatic allocation ranges. Set to ``null``
+    on update to remove the VNI. Available when the ``evpn-l2`` extension
+    is enabled.
+  in: body
+  required: false
+  type: integer
 excluded:
   description: |
     Indicates whether to count the traffic of a specific IP address with the
@@ -4681,6 +4731,26 @@ max_prefixlen:
   in: body
   required: false
   type: integer
+metadata_enabled:
+  description: |
+    Controls whether the metadata service is enabled for the network.
+    ``true`` enables the metadata service, ``false`` disables it, and
+    ``null`` means the network inherits the deployment default.
+    Available when the ``network-metadata`` extension is enabled.
+    This attribute is not available as a list filter or sort key.
+  in: body
+  required: true
+  type: boolean
+metadata_enabled-request:
+  description: |
+    Controls whether the metadata service is enabled for the network.
+    ``true`` enables the metadata service, ``false`` disables it, and
+    ``null`` means the network inherits the deployment default.
+    Available when the ``network-metadata`` extension is enabled.
+    This attribute is not available as a list filter or sort key.
+  in: body
+  required: false
+  type: boolean
 metainfo:
   description: |
     JSON-formatted meta information.
@@ -4833,7 +4903,8 @@ mirror_port_tas:
   type: string
 mirror_type:
   description: |
-    The type of the mirroring, it can be ``gre`` or ``erspanv1``.
+    The type of the mirroring, it can be ``gre``, ``erspanv1`` or ``lport``
+    (mirror to another Neutron port).
   in: body
   required: true
   type: string
@@ -6195,9 +6266,17 @@ remote_ip_prefix-request:
 remote_ip_tap_mirror:
   description: |
     The remote IP of the Tap Mirror, this will be the remote end of the
-    GRE or ERSPAN v1 tunnel.
+    GRE or ERSPAN v1 tunnel. Required for ``gre`` and ``erspanv1`` mirrors,
+    must be omitted for ``lport`` mirrors.
   in: body
-  required: true
+  required: false
+  type: string
+remote_port_id_tap_mirror:
+  description: |
+    The ID of the Neutron port that receives the mirrored traffic. Required
+    for ``lport`` mirrors, must be omitted for the other mirror types.
+  in: body
+  required: false
   type: string
 resource:
   description: |
@@ -6641,9 +6720,7 @@ router:external:
     Defines whether the network may be used for creation of floating IPs. Only
     networks with this flag may be an external gateway for routers.
     The network must have an external routing facility that is not managed by
-    the networking service. If the network is updated from external to internal
-    the unused floating IPs of this network are automatically deleted when
-    extension ``floatingip-autodelete-internal`` is present.
+    the networking service.
   in: body
   required: true
   type: boolean
@@ -7378,7 +7455,9 @@ tap_mirror_port_id:
   description: |
     The Port ID of the Tap Mirror, this will be the source of the mirrored
     traffic, and this traffic will be tunneled into the GRE or ERSPAN v1
-    tunnel. The tunnel itself is not starting from this port!
+    tunnel. The tunnel itself is not starting from this port! For an
+    ``lport`` mirror the traffic is delivered to the port given by
+    ``remote_port_id`` instead.
   in: body
   required: true
   type: string
@@ -7492,24 +7571,10 @@ used_in_default_sg:
   in: body
   required: false
   type: boolean
-used_in_default_sg-query:
-  description: |
-    Fiter by security group rule templates which should be used in default
-    security group created automatically for each new project.
-  in: body
-  required: false
-  type: boolean
 used_in_non_default_sg:
   description: |
     Whether this security group rule template should be used in custom
     security groups created by project user. Default value is ``True``.
-  in: body
-  required: false
-  type: boolean
-used_in_non_default_sg-query:
-  description: |
-    Fiter by security group rule templates which should be used in custom
-    security groups created by project users.
   in: body
   required: false
   type: boolean

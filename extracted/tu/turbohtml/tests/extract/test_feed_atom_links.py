@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from typing import Final
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from turbohtml.extract import Feed
 
 import pytest
 
@@ -45,18 +50,18 @@ from turbohtml.extract import feed
         pytest.param('<link rel="" href="https://example.org/page"/>', None, id="empty-rel"),
     ],
 )
-@pytest.mark.parametrize("target", ["feed", "entry"])
-def test_feed_atom_link_relation(links: str, expected: str | None, target: str) -> None:
-    xml: Final = (
-        '<feed xmlns="http://www.w3.org/2005/Atom"><id>urn:feed</id><title>Feed</title>'
-        "<updated>2020-01-01T00:00:00Z</updated>"
-        + links
-        + "<entry><id>urn:entry</id><title>Entry</title><updated>2020-01-01T00:00:00Z</updated>"
-        "<content>Body</content>" + links + "</entry></feed>"
-    )
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param(lambda result: result.link, id="feed"),
+        pytest.param(lambda result: result.entries[0].link, id="entry"),
+    ],
+)
+def test_feed_atom_link_relation(links: str, expected: str | None, target: Callable[[Feed], str | None]) -> None:
+    xml: Final = f'<feed xmlns="http://www.w3.org/2005/Atom"><id>urn:feed</id><title>Feed</title><updated>2020-01-01T00:00:00Z</updated>{links}<entry><id>urn:entry</id><title>Entry</title><updated>2020-01-01T00:00:00Z</updated><content>Body</content>{links}</entry></feed>'
     result = feed(xml)
     assert result is not None
-    assert (result.link if target == "feed" else result.entries[0].link) == expected
+    assert target(result) == expected
 
 
 @pytest.mark.parametrize(
@@ -89,15 +94,49 @@ def test_feed_atom_link_relation(links: str, expected: str | None, target: str) 
         ),
     ],
 )
-@pytest.mark.parametrize("target", ["feed", "entry"])
-def test_feed_atom_link_empty_reference(base: str, link: str, expected: str, target: str) -> None:
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param(lambda result: result.link, id="feed"),
+        pytest.param(lambda result: result.entries[0].link, id="entry"),
+    ],
+)
+def test_feed_atom_link_empty_reference(
+    base: str, link: str, expected: str, target: Callable[[Feed], str | None]
+) -> None:
     xml: Final = (
-        f'<feed xmlns="http://www.w3.org/2005/Atom"{base}>'
-        + link
-        + "<entry><content>Body</content>"
-        + link
-        + "</entry></feed>"
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{base}>{link}<entry><content>Body</content>{link}</entry></feed>'
     )
     result = feed(xml)
     assert result is not None
-    assert (result.link if target == "feed" else result.entries[0].link) == expected
+    assert target(result) == expected
+
+
+@pytest.mark.parametrize(
+    ("feed_base", "link_base", "expected"),
+    [
+        pytest.param(
+            f"https://example.org/{'a' * (2048 - 21)}/",
+            "",
+            f"https://example.org/{'a' * (2048 - 21)}/page",
+            id="at-limit",
+        ),
+        pytest.param(f"https://example.org/{'a' * (2048 - 20)}/", "", "page", id="past-limit"),
+        pytest.param(
+            "https://example.org/base/",
+            f' xml:base="{"b" * (2048 + 1)}/"',
+            "https://example.org/base/page",
+            id="nested-past-limit-keeps-outer",
+        ),
+        pytest.param(f"{'a' * 1500}/", f' xml:base="{"b" * 1500}/"', "page", id="nested-sum-past-limit"),
+    ],
+)
+def test_feed_atom_link_overlong_xml_base_is_ignored(feed_base: str, link_base: str, expected: str) -> None:
+    # every relative link of the feed is joined onto its base, so a feed must not be able to make it as long as it likes
+    xml: Final = (
+        f'<feed xmlns="http://www.w3.org/2005/Atom" xml:base="{feed_base}">'
+        f'<entry><content>Body</content><link{link_base} href="page"/></entry></feed>'
+    )
+    result = feed(xml)
+    assert result is not None
+    assert result.entries[0].link == expected

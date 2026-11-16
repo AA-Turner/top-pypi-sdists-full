@@ -12,9 +12,11 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import select
 import signal
 import socket
 import subprocess
+import time
 
 from probe.foundation.service_api.env import SERVICE_OWNED_ENV
 
@@ -22,6 +24,11 @@ from probe.foundation.service_api.env import SERVICE_OWNED_ENV
 #: process group is the shim's), the rest are passed on.
 TERMINAL_SIGNALS = ("SIGINT", "SIGQUIT", "SIGTSTP")
 PASSED_ON = ("SIGTERM", "SIGHUP")
+#: How often a program waited for alone is looked at between its command's messages, in seconds.
+ALONE_POLL_S = 0.2
+#: Once that program ended, how long a command that outlived its service gets to record it and end
+#: (its channel closes): its last lines print before the shell's prompt. Seconds.
+COMMAND_END_WAIT_S = 30.0
 
 
 class ProgramLauncher:
@@ -61,8 +68,10 @@ class ProgramLauncher:
                         self.program.send_signal(message["signal"])
 
     def wait_alone(self) -> int:
-        """The service went away while the program runs (H5): wait for it here, passing
-        SIGTERM and SIGHUP on; its exit status as a shell reports it (128 + N for a signal)."""
+        """The service or the command went away while the program runs (H5, U-D1): wait for it
+        here, passing SIGTERM and SIGHUP on. A command that outlived its service (a person's run,
+        `commands.PERSON_RUNS`) is still served: its signals, then the exit it records. The
+        program's exit status as a shell reports it (128 + N for a signal)."""
         program = self.program
         if program is None:
             return 70
@@ -72,8 +81,33 @@ class ProgramLauncher:
         for name in PASSED_ON:
             with contextlib.suppress(Exception):
                 signal.signal(getattr(signal, name), lambda number, _frame: program.send_signal(number))
-        code = program.wait()
+        while program.poll() is None:
+            if not self.is_open:
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    program.wait(timeout=ALONE_POLL_S)
+                continue
+            try:
+                ready, _, _ = select.select([self.channel], [], [], ALONE_POLL_S)
+            except (OSError, ValueError):
+                self.is_open = False  # gone: the program alone is waited for
+                continue
+            if ready:
+                self.receive()
+        code = program.returncode
+        self.report_exit()
+        self._wait_for_command_end()
         return 128 - code if code < 0 else code
+
+    def _wait_for_command_end(self) -> None:
+        """Until a command still on the channel closes it (it ended), at most COMMAND_END_WAIT_S."""
+        deadline = time.monotonic() + COMMAND_END_WAIT_S
+        while self.is_open and time.monotonic() < deadline:
+            try:
+                ready, _, _ = select.select([self.channel], [], [], max(0.0, deadline - time.monotonic()))
+            except (OSError, ValueError):
+                return
+            if ready:
+                self.receive()
 
     def report_exit(self) -> None:
         """The program ended: its status goes to the command."""

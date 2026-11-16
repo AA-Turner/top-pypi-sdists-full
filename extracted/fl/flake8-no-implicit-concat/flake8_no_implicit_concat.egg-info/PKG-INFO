@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-no-implicit-concat
-Version: 0.3.7
+Version: 0.3.8
 Summary: Flake8 plugin that forbids implicit str/bytes literal concatenations
 Home-page: https://github.com/10sr/flake8-no-implicit-concat
 Author: 10sr
@@ -17,40 +17,42 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: flake8
-Requires-Dist: more-itertools; python_version < "3.10"
-Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: isort; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: hacking>=4; extra == "dev"
-Requires-Dist: flake8-black; extra == "dev"
-Requires-Dist: flake8-isort; extra == "dev"
-Requires-Dist: pep8-naming; extra == "dev"
-Requires-Dist: flake8-broken-line; extra == "dev"
-Requires-Dist: flake8-builtins; extra == "dev"
-Requires-Dist: flake8-2020; extra == "dev"
-Requires-Dist: flake8-docstrings; extra == "dev"
-Requires-Dist: flake8-rst-docstrings; extra == "dev"
-Requires-Dist: darglint; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: codecov; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: codecov; extra == "test"
+Provides-Extra: lint
+Requires-Dist: black; extra == "lint"
+Requires-Dist: isort; extra == "lint"
+Requires-Dist: flake8; extra == "lint"
+Requires-Dist: hacking>=4; extra == "lint"
+Requires-Dist: flake8-black; extra == "lint"
+Requires-Dist: flake8-isort; extra == "lint"
+Requires-Dist: pep8-naming; extra == "lint"
+Requires-Dist: flake8-broken-line; extra == "lint"
+Requires-Dist: flake8-builtins; extra == "lint"
+Requires-Dist: flake8-2020; extra == "lint"
+Requires-Dist: flake8-docstrings; extra == "lint"
+Requires-Dist: flake8-rst-docstrings; extra == "lint"
+Requires-Dist: pydoclint[flake8]; extra == "lint"
+Requires-Dist: mypy; extra == "lint"
+Provides-Extra: publish
+Requires-Dist: twine; extra == "publish"
+Requires-Dist: build; extra == "publish"
+Requires-Dist: setuptools; extra == "publish"
+Dynamic: license-file
 
 [![PyPI version](https://badge.fury.io/py/flake8-no-implicit-concat.svg)](https://badge.fury.io/py/flake8-no-implicit-concat)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flake8-no-implicit-concat)
@@ -123,10 +125,15 @@ Other Plugins & Linters
 Development
 -----------
 
-Use tools like Pipenv:
+Use tools like Pipenv/uv:
 
-    pipenv run python -m pip install -e .[dev]
+    pipenv --python 3.14
+    pipenv run python -m pip install -e .[test,lint]
     pipenv run make check
+    # uv example
+    uv venv --python 3.14
+    uv pip install -e .[test,lint]
+    uv run make check
 
 
 License

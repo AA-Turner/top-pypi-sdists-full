@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scs
-Version: 3.3.1
+Version: 3.3.2
 Summary: Splitting conic solver
 Author-Email: Brendan O'Donoghue <bodonoghue85@gmail.com>
 License: MIT License
@@ -35,6 +35,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -86,6 +87,18 @@ selects the best available solver for the platform:
 - **Linux / Windows**: MKL Pardiso if available, otherwise QDLDL
 
 ```python
+import numpy as np
+import scipy.sparse as sp
+import scs
+
+# A minimal LP:  maximize x  subject to  0 <= x <= 1
+data = {
+    "A": sp.csc_matrix(np.array([[1.0], [-1.0]])),
+    "b": np.array([1.0, 0.0]),
+    "c": np.array([-1.0]),
+}
+cone = {"l": 2}
+
 # Auto-detect best backend (default)
 solver = scs.SCS(data, cone)
 
@@ -121,11 +134,17 @@ pip install . -Csetup-args=-Duse_lapack=true
 
 # Spectral cones (logdet, nuclear norm, ell-1, sum-of-largest)
 pip install . -Csetup-args=-Duse_spectral_cones=true
+
+# Project the PSD blocks of a problem in parallel with OpenMP. Off by
+# default: it is only faster when BLAS runs on one thread inside the threads
+# of SCS (see "Parallel projection of PSD blocks" in the SCS documentation).
+pip install . -Csetup-args=-Duse_openmp=true -Csetup-args=-Duse_parallel_psd=true
 ```
 
 Notes:
+- With `use_parallel_psd`, a verbose solve prints `psd cones projected in parallel by N threads` when SCS projects the PSD blocks in parallel. The line is absent when SCS keeps the projection serial, for example with a single PSD block, with too little work for threads, with one OpenMP thread, or when it sees an OpenBLAS with a thread pool of its own on more than one thread (set `OPENBLAS_NUM_THREADS=1` for that one).
 - x86-64 manylinux wheels ship a `_scs_mkl` extension with sequential MKL linked statically (CI asserts the shipped inventory and that no wheel carries a dynamic MKL dependency). The musllinux, aarch64, macOS and Windows wheels do not include the MKL backend; Windows source builds use sequential MKL because Intel's conda `pkg-config` metadata for the threaded variant is still broken.
-- Windows wheels link conda-forge OpenBLAS pinned to 0.3.33: the win-64 0.3.34 build crashes inside its DGEMM kernels on AMD Zen 4/5 CPUs that expose AVX-512 (conda-forge/openblas-feedstock#196), so Windows source builds should avoid that build too.
+- Windows x86-64 wheels link the OpenBLAS 0.3.33 release binaries from OpenBLAS's GitHub releases, and Windows ARM64 wheels link OpenBLAS 0.3.33 built for the portable ARMV8 target. 0.3.34 is skipped because its DGEMM kernels crash on AMD Zen 4/5 CPUs that expose AVX-512 (fixed in OpenMathLib/OpenBLAS#6013), so Windows source builds should avoid it too.
 - `BLAS64` is a general SCS build mode for ILP64 BLAS/LAPACK libraries, not an MKL-only feature.
 - For the MKL Pardiso backend specifically, `BLAS64` must be paired with 64-bit SCS integers (`DLONG` / `int32=false`), and SCS now fails early if another library in the process has already fixed MKL to an incompatible LP64/ILP64 interface layer.
 
@@ -135,6 +154,8 @@ Notes:
 import numpy as np
 import scipy.sparse as sp
 import scs
+
+np.random.seed(0)  # so the printed status below is reproducible
 
 m, n = 4, 2
 A = sp.random(m, n, density=0.5, format="csc")

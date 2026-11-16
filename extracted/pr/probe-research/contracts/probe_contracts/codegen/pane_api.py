@@ -35,6 +35,7 @@ _ENUMS = (
     ("PanePartialReason", "reasons", "Why a resolved entry is `partial`."),
     ("PaneCheckStatus", "check_statuses", "What the render check at push answered."),
     ("PaneCheckState", "check_states", "A state the render check draws the pane in."),
+    ("PaneCheckErrorKind", "check_error_kinds", "What kind of error a check state saw."),
 )
 #: Server-only: project previews have no dashboard (Richard, 2026-11-12), so the TS target skips them.
 _SERVER_ENUMS = (
@@ -71,6 +72,10 @@ def render_pane_api_python(contracts: Contracts) -> str:
         _wrap(preview.doc, "#: ")
         + f"PREVIEW_PANE_SLUG = {json.dumps(preview.slug)}\n"
     )
+    frame = api.preview_frame
+    preview_frame = "".join(
+        _wrap(size.doc, "#: ") + f"PREVIEW_FRAME_{size.name.upper()} = {size.value!r}\n" for size in frame.sizes
+    )
     return (
         _PY_HEADER
         + f'"""{textwrap.fill(api.doc, WIDTH - 4, break_long_words=False)}\n"""\n\n'
@@ -80,6 +85,9 @@ def render_pane_api_python(contracts: Contracts) -> str:
         + enums
         + "\n\n"
         + caps
+        + "\n"
+        + _wrap(frame.doc, "# ")
+        + preview_frame
         + "\n"
         + preview_pane
     )
@@ -104,6 +112,9 @@ def render_pane_api_typescript(contracts: Contracts) -> str:
     api = contracts.pane_api or PaneApi.load()
     enums = "".join(_render_typescript_enum(name, doc, getattr(api, field)) for name, field, doc in _ENUMS)
     caps = "".join(_wrap(c.doc, "  // ") + f"  {_to_camel(c.name)}: {c.value},\n" for c in api.caps)
+    frame = "".join(
+        _wrap(size.doc, "  // ") + f"  {_to_camel(size.name)}: {json.dumps(size.value)},\n" for size in api.preview_frame.sizes
+    )
     return (
         _TS_HEADER
         + "\n"
@@ -113,4 +124,6 @@ def render_pane_api_typescript(contracts: Contracts) -> str:
         + enums
         + "\n/** The caps the server and the frame both hold. */\n"
         + f"export const PANE_CAPS = {{\n{caps}}} as const;\n"
+        + f"\n/**\n{_wrap(api.preview_frame.doc, ' * ')} */\n"
+        + f"export const PREVIEW_FRAME = {{\n{frame}}} as const;\n"
     )

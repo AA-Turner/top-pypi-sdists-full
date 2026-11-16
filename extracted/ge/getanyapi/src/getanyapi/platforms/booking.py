@@ -152,10 +152,10 @@ class BookingNamespace:
         room occupancy and get hotel results (name, price, review score, location)
         as normalized JSON.
 
-        Price: $0.0008 per request.
+        Price: $0.0022 per request plus $0.00495 per result (maximum $0.102).
 
         Example:
-            res = client.booking.search(adults=2, checkIn="2026-12-15", checkOut="2026-12-17", limit=3, query="New York")
+            res = client.booking.search(adults=2, checkIn="2026-12-16", checkOut="2026-12-18", limit=3, query="New York")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "booking.search", dict(input), options
@@ -181,10 +181,10 @@ class AsyncBookingNamespace:
         room occupancy and get hotel results (name, price, review score, location)
         as normalized JSON.
 
-        Price: $0.0008 per request.
+        Price: $0.0022 per request plus $0.00495 per result (maximum $0.102).
 
         Example:
-            res = client.booking.search(adults=2, checkIn="2026-12-15", checkOut="2026-12-17", limit=3, query="New York")
+            res = client.booking.search(adults=2, checkIn="2026-12-16", checkOut="2026-12-18", limit=3, query="New York")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "booking.search", dict(input), options

@@ -14,6 +14,8 @@ from ..samples import MAX_KEY_CHARS
 
 #: The activity line, after the credential scrubber: `tool bash: pytest -x tests/test_io.py`.
 MAX_ACTIVITY_CHARS = 512
+#: The longest own phase limit a producer may send (7 days): a bigger one overflows the server's `ends_by`.
+MAX_PHASE_LIMIT_SECONDS = 7 * 24 * 3600
 
 
 class AttemptKind(StrEnum):
@@ -28,6 +30,8 @@ class AttemptPhase(StrEnum):
     """What a running attempt is doing now."""
 
     QUEUED = "queued"
+    #: Its agent runs, as one phase (a Harbor trial between its agent's start and end): progress is its output growing.
+    AGENT = "agent"
     GENERATING = "generating"
     TOOL = "tool"
     ENVIRONMENT = "environment"
@@ -75,6 +79,12 @@ class AttemptProgress(BaseModel):
     turns: int | None = Field(default=None, ge=0)
     tokens: int | None = Field(default=None, ge=0)
     activity: str | None = Field(default=None, max_length=MAX_ACTIVITY_CHARS)
+    #: The producer's own time limit on the current phase, seconds (Harbor's agent timeout). The server counts it from
+    #: its first receipt of this (phase, limit) pair: `LiveSample.ends_by`.
+    phase_limit_s: float | None = Field(default=None, ge=0, le=MAX_PHASE_LIMIT_SECONDS, allow_inf_nan=False)
+    #: Whether the producer can see the agent's output (Harbor without `auto_mounting`, a remote sandbox: False).
+    #: None: it does not say, read as visible.
+    is_output_visible: bool | None = None
 
 
 class AttemptEnd(BaseModel):

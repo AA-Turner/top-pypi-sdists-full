@@ -5,7 +5,9 @@ Make beautiful, interactive maps with Python and Leaflet.js
 
 import time
 import webbrowser
-from typing import Any, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from importlib.resources import files as _resource_files
+from typing import Any
 
 from branca.element import Element, Figure
 
@@ -24,7 +26,7 @@ from folium.utilities import (
 )
 
 _default_js = [
-    ("leaflet", "https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"),
+    ("leaflet", "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"),
     ("jquery", "https://code.jquery.com/jquery-3.7.1.min.js"),
     (
         "bootstrap",
@@ -37,16 +39,17 @@ _default_js = [
 ]
 
 _default_css = [
-    ("leaflet_css", "https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"),
+    ("leaflet_css", "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"),
     (
         "bootstrap_css",
         "https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css",
     ),
-    # glyphicons came from Bootstrap 3 and are used for Awesome Markers
-    (
-        "glyphicons_css",
-        "https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css",
-    ),
+    # glyphicons (used for the default Awesome Markers) are inlined into every
+    # ``Map`` as a ``<style>`` block from ``_GLYPHICONS_CSS`` below, rather than
+    # linked from a CDN. The previous netdna stylesheet shipped a full
+    # Bootstrap-3 reset that leaked global ``body`` styles onto the host page
+    # (GH-1820); inlining a glyphicons-only sheet keeps markers working with no
+    # page-wide side effects and no external stylesheet request.
     (
         "awesome_markers_font_css",
         "https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css",
@@ -61,16 +64,21 @@ _default_css = [
     ),  # noqa
 ]
 
+# Glyphicons-only stylesheet inlined into every ``Map`` (see the note in
+# ``_default_css``). Read once from the packaged template; the file ships via
+# ``recursive-include folium/templates`` in ``MANIFEST.in``.
+_GLYPHICONS_CSS = (
+    _resource_files("folium") / "templates" / "glyphicons.css"
+).read_text(encoding="utf-8")
+
 
 class GlobalSwitches(Element):
-    _template = Template(
-        """
+    _template = Template("""
         <script>
             L_NO_TOUCH = {{ this.no_touch |tojson}};
             L_DISABLE_3D = {{ this.disable_3d|tojson }};
         </script>
-    """
-    )
+    """)
 
     def __init__(self, no_touch=False, disable_3d=False):
         super().__init__()
@@ -158,7 +166,7 @@ class Map(JSCSSMixin, Evented):
         string ending in 'rem', 'em', or 'px'.
     **kwargs
         Additional keyword arguments are passed to Leaflets Map class:
-        https://leafletjs.com/reference.html#map
+        https://leafletjs.com/reference-1.9.4.html#map
 
     Returns
     -------
@@ -177,16 +185,26 @@ class Map(JSCSSMixin, Evented):
 
     """  # noqa
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro header(this, kwargs) %}
             <meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
             <style>
                 #{{ this.get_name() }} {
                     position: {{this.position}};
+                    {%- if this._width_is_percent %}
+                    width: {{this.width[0]}}vw;
+                    {%- else %}
                     width: {{this.width[0]}}{{this.width[1]}};
+                    min-width: {{this.width[0]}}{{this.width[1]}};
+                    {%- endif %}
+                    {%- if this._height_is_percent %}
+                    height: {{this.height[0]}}vh;
+                    {%- else %}
                     height: {{this.height[0]}}{{this.height[1]}};
+                    min-height: {{this.height[0]}}{{this.height[1]}};
+                    {%- endif %}
+
                     left: {{this.left[0]}}{{this.left[1]}};
                     top: {{this.top[0]}}{{this.top[1]}};
                 }
@@ -201,14 +219,7 @@ class Map(JSCSSMixin, Evented):
             }
             </style>
 
-            <style>#map {
-                position:absolute;
-                top:0;
-                bottom:0;
-                right:0;
-                left:0;
-                }
-            </style>
+            <style>{{ this.glyphicons_css }}</style>
 
             <script>
                 L_NO_TOUCH = {{ this.global_switches.no_touch |tojson}};
@@ -251,25 +262,27 @@ class Map(JSCSSMixin, Evented):
             {%- endif %}
 
         {% endmacro %}
-        """
-    )
+        """)
 
     # use the module variables for backwards compatibility
     default_js = _default_js
     default_css = _default_css
 
+    # Inlined into the map header as a ``<style>`` block (see ``_GLYPHICONS_CSS``).
+    glyphicons_css = _GLYPHICONS_CSS
+
     def __init__(
         self,
-        location: Optional[Sequence[float]] = None,
-        width: Union[str, float] = "100%",
-        height: Union[str, float] = "100%",
-        left: Union[str, float] = "0%",
-        top: Union[str, float] = "0%",
+        location: Sequence[float] | None = None,
+        width: str | float = "100%",
+        height: str | float = "100%",
+        left: str | float = "0%",
+        top: str | float = "0%",
         position: str = "relative",
-        tiles: Union[str, TileLayer, None] = "OpenStreetMap",
-        attr: Optional[str] = None,
-        min_zoom: Optional[int] = None,
-        max_zoom: Optional[int] = None,
+        tiles: str | TileLayer | None = "OpenStreetMap",
+        attr: str | None = None,
+        min_zoom: int | None = None,
+        max_zoom: int | None = None,
         zoom_start: int = 10,
         min_lat: float = -90,
         max_lat: float = 90,
@@ -282,14 +295,14 @@ class Map(JSCSSMixin, Evented):
         no_touch: bool = False,
         disable_3d: bool = False,
         png_enabled: bool = False,
-        zoom_control: Union[bool, str] = True,
+        zoom_control: bool | str = True,
         font_size: str = "1rem",
         **kwargs: TypeJsonValue,
     ):
         super().__init__()
         self._name = "Map"
 
-        self._png_image: Optional[bytes] = None
+        self._png_image: bytes | None = None
         self.png_enabled = png_enabled
 
         if location is None:
@@ -304,6 +317,8 @@ class Map(JSCSSMixin, Evented):
         # Map Size Parameters.
         self.width = _parse_size(width)
         self.height = _parse_size(height)
+        self._height_is_percent = self.height[1] == "%"
+        self._width_is_percent = self.width[1] == "%"
         self.left = _parse_size(left)
         self.top = _parse_size(top)
         self.position = position
@@ -337,7 +352,7 @@ class Map(JSCSSMixin, Evented):
             **kwargs,
         )
 
-        self.objects_to_stay_in_front: List[Layer] = []
+        self.objects_to_stay_in_front: list[Layer] = []
 
         if isinstance(tiles, TileLayer):
             self.add_child(tiles)
@@ -359,7 +374,7 @@ class Map(JSCSSMixin, Evented):
         return out
 
     def _to_png(
-        self, delay: int = 3, driver: Any = None, size: Optional[Sequence[int]] = None
+        self, delay: int = 3, driver: Any = None, size: Sequence[int] | None = None
     ) -> bytes:
         """Export the HTML to byte representation of a PNG image.
 
@@ -371,15 +386,16 @@ class Map(JSCSSMixin, Evented):
         Examples
         --------
         >>> m._to_png()
-        >>> m._to_png(time=10)  # Wait 10 seconds between render and snapshot.
+        >>> m._to_png(delay=10)  # Wait 10 seconds between render and snapshot.
 
         """
 
         if self._png_image is None:
             if driver is None:
                 from selenium import webdriver
+                from selenium.webdriver.firefox.options import Options
 
-                options = webdriver.firefox.options.Options()
+                options = Options()
                 options.add_argument("--headless")
                 driver = webdriver.Firefox(options=options)
 
@@ -394,18 +410,23 @@ class Map(JSCSSMixin, Evented):
                     *size,
                 )
                 driver.set_window_size(*window_size)
+            from selenium.webdriver.support.ui import WebDriverWait
+
             html = self.get_root().render()
             with temp_html_filepath(html) as fname:
                 # We need the tempfile to avoid JS security issues.
                 driver.get(f"file:///{fname}")
-                time.sleep(delay)
+                WebDriverWait(driver, delay).until(
+                    lambda _driver: _driver.execute_script("return document.readyState")
+                    == "complete"
+                )
                 div = driver.find_element("class name", "folium-map")
                 png = div.screenshot_as_png
                 driver.quit()
             self._png_image = png
         return self._png_image
 
-    def _repr_png_(self) -> Optional[bytes]:
+    def _repr_png_(self) -> bytes | None:
         """Displays the PNG Map in a Jupyter notebook."""
         # The notebook calls all _repr_*_ by default.
         # We don't want that here b/c this one is quite slow.
@@ -431,10 +452,10 @@ class Map(JSCSSMixin, Evented):
     def fit_bounds(
         self,
         bounds: TypeBounds,
-        padding_top_left: Optional[Sequence[float]] = None,
-        padding_bottom_right: Optional[Sequence[float]] = None,
-        padding: Optional[Sequence[float]] = None,
-        max_zoom: Optional[int] = None,
+        padding_top_left: Sequence[float] | None = None,
+        padding_bottom_right: Sequence[float] | None = None,
+        padding: Sequence[float] | None = None,
+        max_zoom: int | None = None,
     ) -> None:
         """Fit the map to contain a bounding box with the
         maximum zoom level possible.

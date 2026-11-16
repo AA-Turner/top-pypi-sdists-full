@@ -331,6 +331,10 @@ class SamplePrompt:
     prompt: str
     images: list[Image] = field(default_factory=list)
     image_formats: list[str] = field(default_factory=list)
+    # The renderer's own ids for ``prompt``, set when encoding the string
+    # verbatim would turn markup quoted in message text into control tokens.
+    # Image placeholders stay unexpanded, one per image.
+    prompt_token_ids: list[int] | None = None
 
     def __post_init__(self):
         if len(self.images) != len(self.image_formats):
@@ -348,8 +352,16 @@ class SamplePrompt:
         advisory. The field is still carried on the :class:`SamplePrompt`
         dataclass itself for introspection / caching keys, but doesn't traverse
         the API.
+
+        When the renderer set :attr:`prompt_token_ids`, they replace
+        ``prompt``: the server encodes a prompt string verbatim, control
+        markup included.
         """
-        out: dict = {"prompt": self.prompt}
+        out: dict = (
+            {"prompt": self.prompt}
+            if self.prompt_token_ids is None
+            else {"prompt_token_ids": list(self.prompt_token_ids)}
+        )
         if self.images:
             out["images"] = list(self.images)
         return out

@@ -102,6 +102,8 @@ from pathlib import Path
 
 import pytest
 
+from .ios_test import STARTS_A_PROCESS
+
 _ROOT = Path(__file__).parents[1]
 
 # resolved once, the way check_sdist_exclude.py's own _GIT is: a bare
@@ -136,7 +138,7 @@ _WRAP = re.compile(r"\n[ \t]*#?[ \t]*(?=_)")
 _EXCLUDED_FILES = frozenset({
     "CHANGELOG.md",
     "RELEASE_NOTES.md",
-    "tests/" + Path(__file__).name,
+    f"tests/{Path(__file__).name}",
 })
 # fuzz/corpus/ holds the fuzzing seeds, octets rather than prose: a
 # public key or a DER signature decodes as no text at all. So does
@@ -358,6 +360,7 @@ def _prefix_mentions() -> dict[str, list[str]]:
     return where
 
 
+@STARTS_A_PROCESS
 def test_every_named_symbol_is_declared() -> None:
     """A `secp256k1_*` or `SECP256K1_*` name in prose is one upstream owns.
 
@@ -378,6 +381,7 @@ def test_every_named_symbol_is_declared() -> None:
     )
 
 
+@STARTS_A_PROCESS
 def test_no_prefix_glob_has_gone_stale() -> None:
     """A glob prefix exempted from the check above still means something."""
     oracle = _oracle()
@@ -410,6 +414,7 @@ def test_the_oracle_excludes_what_upstream_removed() -> None:
     assert removed in _names(upstream_changelog)
 
 
+@STARTS_A_PROCESS
 def test_the_prose_was_read_at_all() -> None:
     """The two guards above pass for free over an empty population.
 

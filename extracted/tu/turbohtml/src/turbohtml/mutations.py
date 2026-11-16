@@ -17,11 +17,23 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from ._html import MutationObserver as MutationObserver  # ruff:ignore[useless-import-alias]  # re-export the C type
-from ._html import Node, _register_mutation_record
+from ._html import Node
+from ._html import register_mutation_record as _register_mutation_record
 
 
 class MutationRecord(NamedTuple):
-    """One change delivered to an observer, mirroring the DOM MutationRecord."""
+    """
+    One change delivered to an observer, mirroring the DOM MutationRecord.
+
+    :param type: ``"childList"``, ``"attributes"``, or ``"characterData"``.
+    :param target: the node the change applies to: the parent for a childList change, else the changed node.
+    :param added_nodes: the nodes added, for a childList change (else empty).
+    :param removed_nodes: the nodes removed, for a childList change (else empty).
+    :param previous_sibling: the sibling before the added or removed nodes, or ``None``.
+    :param next_sibling: the sibling after the added or removed nodes, or ``None``.
+    :param attribute_name: the changed attribute's name, for an attributes change (else ``None``).
+    :param old_value: the previous value, when the registration asked for it (else ``None``).
+    """
 
     type: str
     """``"childList"``, ``"attributes"``, or ``"characterData"``."""

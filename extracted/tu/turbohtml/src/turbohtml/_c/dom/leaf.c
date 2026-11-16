@@ -4,9 +4,14 @@
 #include "dom/nodes.h"
 
 /* Take ownership of tree and the node built within it, wrap that node in a fresh
-   handle, and return the wrapper. On allocation failure frees the tree and returns
-   NULL with an exception set. */
+   handle, and return the wrapper. A Document node is recorded as the tree's document,
+   which the whole-document readers (structured data, schema validation) ask the tree for
+   and a copy into an empty tree leaves unset. On allocation failure frees
+   the tree and returns NULL with an exception set. */
 PyObject *wrap_fresh_tree_node(module_state *state, th_tree *tree, th_node *node) {
+    if (node->type == TH_NODE_DOCUMENT) {
+        th_tree_set_document(tree, node);
+    }
     PyObject *handle = handle_new(state, tree, Py_None, Py_None, 0);
     if (handle == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         th_tree_free(tree); /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -187,7 +192,7 @@ TH_NODE_API(static, int, node_set_data, (PyObject * self, PyObject *value, void 
     int rc;
     Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle);
     rc = th_node_set_data(tree_of(self), ((NodeObject *)self)->node, points, len);
-    handle_clear_css_cache((HandleObject *)((NodeObject *)self)->handle);
+    handle_clear_css_edit((HandleObject *)((NodeObject *)self)->handle, NULL, &((NodeObject *)self)->node, 1);
     Py_END_CRITICAL_SECTION();
     PyMem_Free(points);
     return rc < 0 ? -1 : 0; /* GCOVR_EXCL_BR_LINE: th_node_set_data only fails on OOM */

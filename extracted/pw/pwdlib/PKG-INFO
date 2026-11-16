@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pwdlib
-Version: 0.4.1
+Version: 0.4.2
 Summary: Modern password hashing for Python
 Project-URL: Documentation, https://frankie567.github.io/pwdlib/
 Project-URL: Source, https://github.com/frankie567/pwdlib

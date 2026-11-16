@@ -2082,27 +2082,373 @@ DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
     }
 )
 
-DEMO_SHOPPER_APP_0_0_3 = AppSpec.model_validate(
+DEMO_SHOP_APP_0_0_1 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
-        "id": "demo-shopper",
-        "version": "0.0.3",
-        "name": "Shopper",
+        "id": "demo-shop",
+        "version": "0.0.1",
+        "name": "Demo Shop",
         "kind": "chat",
-        "description": "Finds products, compares them and builds a basket with its total: a demo on an example store catalogue that buys nothing and contacts no store.",
+        "description": "A demo shop for people's own agents: it lists and finds its products with their photos, quotes a basket and places test orders — nothing is charged and nothing ships. Product texts from DummyJSON, photos from Shopify's Burst.",
         "owner": "Datalayer <info@datalayer.io>",
-        "agent": "worker-shopper:0.0.1",
+        "agent": "example-blank:0.0.1",
         "team": "",
-        "instructions": "This is Datalayer's public demo of the Shopper. You are connected to no store and no payment, you have no memory here, and you use no tool: you search, compare and build baskets only from the example catalogue below, of three fictional Shopify stores, and say once that it is an example. Prices are in EUR, shipping to Portugal. Trailhead Supply (ships in 2 days, free shipping over 80.00, returns 30 days): Ridge Rain Jacket, waterproof 20,000 mm, sizes S-XL, 119.00, rated 4.6 from 312 reviews; Summit Trail Boots, waterproof, sizes 38-46, 149.00, rated 4.4 from 188 reviews; Merino Hiking Socks, pair, 18.00, rated 4.8 from 540 reviews; Steel Bottle 750 ml, 24.00, rated 4.7 from 260 reviews. Coastline Outfitters (ships in 4 days, shipping 6.90, returns 14 days): Breaker Rain Jacket, waterproof 10,000 mm, sizes XS-L, 79.00, rated 4.1 from 95 reviews; Harbor Hiking Boots, sizes 39-45, 119.00, rated 4.2 from 74 reviews, out of stock in 44; Wool Blend Socks, three pairs, 27.00, rated 4.3 from 120 reviews. Northfield Goods (ships in 3 days, shipping 4.50, returns 30 days): Packable Rain Shell, waterproof 15,000 mm, sizes S-XXL, 95.00, rated 4.5 from 410 reviews; Insulated Bottle 500 ml, 29.00, rated 4.6 from 330 reviews; Organic Coffee Beans, 1 kg, 28.00, rated 4.7 from 205 reviews. Ask for the budget, the size and what matters most when the visitor has not said. Compare a short list by price, shipping, rating and returns, say which you would pick and why, and compute every total from these figures and show how. Never invent a product, a price, a review or a delivery date that the example does not hold. When asked to buy, show the exact basket, seller and total, and say that the real Shopper would ask for their approval of that exact purchase and buy through their own Personal Agent Protocol connection, and that here nothing is bought and no real store is contacted.",
+        "instructions": "You are the Demo Shop, Datalayer's demo shop, answering people and their own agents. Everything you say about a product comes from your tools, which read the shop's catalogue: list_products (all or one category: groceries, kitchen, home, sports, sunglasses), find_products (words, category, a price range), get_product (one, with its description), quote_basket (a basket priced, its total summed by the tool) and place_test_order. Never invent a product, a price, a rating, a stock level or a photo, and never compute a total yourself. Prices are in USD. When asked what you sell or for a kind of product, call find_products or list_products: the products are shown with their photos, so say briefly which fit and why rather than repeating every figure. Before a basket is ordered, quote it with quote_basket. Place an order only once the person said to, with place_test_order, and say each time that it is a test order: nothing is charged, nothing ships and nothing is kept — there is no payment, no delivery and no account here. A product out of stock cannot be ordered; say so and offer another. When asked something the catalogue does not hold (a delivery date, a discount, a product you do not have), say the shop does not have it.",
         "model": "",
         "skills": [],
-        "backend_tools": [],
+        "backend_tools": [
+            "demo-shop-list-products:0.0.1",
+            "demo-shop-find-products:0.0.1",
+            "demo-shop-get-product:0.0.1",
+            "demo-shop-quote-basket:0.0.1",
+            "demo-shop-place-test-order:0.0.1",
+        ],
         "tools": [],
+        "openapi": {
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Demo Shop",
+                "version": "0.0.1",
+                "description": "Datalayer's demo shop: 24 products, their texts from DummyJSON and their photos from Shopify's Burst. Orders are test orders: nothing is charged and nothing ships.",
+            },
+            "paths": {
+                "/products": {
+                    "get": {
+                        "operationId": "listProducts",
+                        "summary": "List the shop's products, all of them or one category's.",
+                        "description": "Call list_products with the category when one is given, and answer its products exactly as the tool answered them, with their image.",
+                        "parameters": [
+                            {
+                                "name": "category",
+                                "in": "query",
+                                "required": False,
+                                "description": "groceries, kitchen, home, sports or sunglasses",
+                                "schema": {"type": "string"},
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "The products",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/Products"
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/products/find": {
+                    "post": {
+                        "operationId": "findProducts",
+                        "summary": "Find the shop's products by words, category and price range.",
+                        "description": "Call find_products with the inputs given, and answer its products exactly as the tool answered them, the cheapest first, with their image.",
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "query": {
+                                                "type": "string",
+                                                "description": "Words to look for in a product's title or description",
+                                            },
+                                            "category": {
+                                                "type": "string",
+                                                "description": "groceries, kitchen, home, sports or sunglasses",
+                                            },
+                                            "min_price": {
+                                                "type": "number",
+                                                "minimum": 0,
+                                            },
+                                            "max_price": {
+                                                "type": "number",
+                                                "minimum": 0,
+                                            },
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "The products found",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/Products"
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/products/{id}": {
+                    "get": {
+                        "operationId": "getProduct",
+                        "summary": "One product of the shop, with its description.",
+                        "description": "Call get_product with the id, and answer the product exactly as the tool answered it, with its image and description; when the shop has no such product, answer found false and say so in the message.",
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "string"},
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "The product",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "found": {"type": "boolean"},
+                                                "product": {
+                                                    "$ref": "#/components/schemas/Product"
+                                                },
+                                                "message": {"type": "string"},
+                                            },
+                                            "required": ["found", "message"],
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/quote": {
+                    "post": {
+                        "operationId": "quote",
+                        "summary": "Price a basket of the shop's products, each line and the total.",
+                        "description": "Call quote_basket with the items, and answer its lines, currency and total exactly as the tool answered them. A quote, not an order: nothing is reserved. When the tool refuses, answer no lines, a total of 0 and its reason in the message.",
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Basket"}
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "The quote",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/Quote"}
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/orders": {
+                    "post": {
+                        "operationId": "placeOrder",
+                        "summary": "Place a test order of a basket — nothing is charged and nothing ships.",
+                        "description": "A test order: call place_test_order with the items once the person approved it, and answer its order number, lines and total exactly as the tool answered them, with test true, charged false and ships false. Say in the message that nothing is charged, nothing ships and nothing is kept.",
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Basket"}
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "The test order — nothing is charged and nothing ships",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "order_id": {
+                                                    "type": "string",
+                                                    "description": "The test order's number, TEST-…",
+                                                },
+                                                "test": {"const": True},
+                                                "charged": {"const": False},
+                                                "ships": {"const": False},
+                                                "lines": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Line"
+                                                    },
+                                                },
+                                                "currency": {"type": "string"},
+                                                "total": {"type": "number"},
+                                                "message": {"type": "string"},
+                                            },
+                                            "required": [
+                                                "order_id",
+                                                "test",
+                                                "charged",
+                                                "ships",
+                                                "lines",
+                                                "total",
+                                                "message",
+                                            ],
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                        "x-pap": {
+                            "action": "orders.place",
+                            "tool": "place_test_order",
+                            "summary": "Place a test order at the Demo Shop — nothing is charged and nothing ships.",
+                            "scope": "orders:write",
+                        },
+                    }
+                },
+            },
+            "components": {
+                "schemas": {
+                    "Product": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "category": {"type": "string"},
+                            "brand": {"type": "string"},
+                            "price": {"type": "number"},
+                            "currency": {"type": "string"},
+                            "rating": {"type": "number"},
+                            "stock": {"type": "integer"},
+                            "image": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "The product's photo",
+                            },
+                            "description": {"type": "string"},
+                        },
+                        "required": ["id", "title", "price", "image"],
+                    },
+                    "Products": {
+                        "type": "object",
+                        "properties": {
+                            "products": {
+                                "type": "array",
+                                "items": {"$ref": "#/components/schemas/Product"},
+                            },
+                            "count": {"type": "integer"},
+                        },
+                        "required": ["products"],
+                    },
+                    "Basket": {
+                        "type": "object",
+                        "properties": {
+                            "items": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "product_id": {"type": "string"},
+                                        "quantity": {"type": "integer", "minimum": 1},
+                                    },
+                                    "required": ["product_id"],
+                                },
+                            }
+                        },
+                        "required": ["items"],
+                    },
+                    "Line": {
+                        "type": "object",
+                        "properties": {
+                            "product_id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "image": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "The product's photo",
+                            },
+                            "price": {"type": "number"},
+                            "quantity": {"type": "integer"},
+                            "line_total": {"type": "number"},
+                        },
+                        "required": [
+                            "product_id",
+                            "title",
+                            "image",
+                            "price",
+                            "quantity",
+                            "line_total",
+                        ],
+                    },
+                    "Quote": {
+                        "type": "object",
+                        "properties": {
+                            "lines": {
+                                "type": "array",
+                                "items": {"$ref": "#/components/schemas/Line"},
+                            },
+                            "currency": {"type": "string"},
+                            "total": {"type": "number"},
+                            "message": {"type": "string"},
+                        },
+                        "required": ["lines", "total"],
+                    },
+                }
+            },
+        },
         "context": [],
         "contents": [],
         "connections": [],
-        "protocols": [],
+        "protocols": ["pap"],
         "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "pap": {
+            "profile": "draft-01",
+            "connections": [],
+            "company": {
+                "enabled": True,
+                "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
+                "interfaces": ["agent", "openapi", "mcp", "web"],
+                "scopes": [
+                    {
+                        "name": "catalog:read",
+                        "description": "See the shop's products, their prices, ratings and stock",
+                        "changes": "none",
+                        "personal_data": False,
+                    },
+                    {
+                        "name": "orders:write",
+                        "description": "Place a test order you approved — nothing is charged and nothing ships",
+                        "changes": "none",
+                        "personal_data": False,
+                    },
+                ],
+                "excluded_tasks": [
+                    {
+                        "task": "Pay for an order",
+                        "alternative": {
+                            "instructions": "This is a demo shop: its orders are test orders, nothing is charged and nothing ships.",
+                            "references": [],
+                        },
+                    }
+                ],
+                "extensions": ["operations"],
+                "personal_agents": "any",
+                "registered_agents": [],
+                "operations": [
+                    {
+                        "action": "orders.place",
+                        "tool": "place_test_order",
+                        "summary": "Place a test order at the Demo Shop — nothing is charged and nothing ships.",
+                    }
+                ],
+            },
+        },
         "pair": None,
         "rules": [],
         "permissions": {
@@ -2118,17 +2464,17 @@ DEMO_SHOPPER_APP_0_0_3 = AppSpec.model_validate(
             "layout": "chat",
             "accent": "sun",
             "theme": None,
-            "welcome": "I'm the Shopper, in a demo on the example catalogue of three stores: tell me what you need and your budget, and I find, compare and build the basket. I buy nothing here and contact no store.",
+            "welcome": "The Demo Shop: ask for products and see them with their photos, get a basket quoted and place a test order — nothing is charged and nothing ships.",
             "starters": [
+                {"label": "Sports", "message": "What do you have for tennis?"},
                 {
-                    "label": "A rain jacket",
-                    "message": "Find me a waterproof rain jacket under 120 EUR and compare the best options.",
+                    "label": "Under 10 USD",
+                    "message": "Show me your products under 10 USD.",
                 },
                 {
-                    "label": "A hike basket",
-                    "message": "Put together a basket for a weekend hike — boots, socks and a water bottle — with the total.",
+                    "label": "A test order",
+                    "message": "Quote two tennis balls and a tennis racket, then place a test order.",
                 },
-                {"label": "Buy it", "message": "Buy the Ridge Rain Jacket in size M."},
             ],
             "commands": [],
             "modes": [],
@@ -2159,16 +2505,155 @@ DEMO_SHOPPER_APP_0_0_3 = AppSpec.model_validate(
             "evalset": "",
             "cases": [
                 {
-                    "ask": "Find me a waterproof rain jacket under 120 EUR and compare the best options.",
-                    "expect": "It compares the three example jackets by price, shipping, rating and returns, recommends one, and says the catalogue is an example.",
+                    "ask": "What do you have for tennis?",
+                    "expect": "It finds the tennis racket and the tennis ball with find_products and shows them with their photos and prices from the catalogue.",
                 },
                 {
-                    "ask": "Buy the Ridge Rain Jacket in size M.",
-                    "expect": "It shows the basket and its total of 119.00 EUR, buys nothing, and says the real Shopper would ask for approval and buy through the person's own connection.",
+                    "ask": "Quote two tennis balls and a tennis racket.",
+                    "expect": "It quotes them with quote_basket, a total of 63.97 USD, and orders nothing.",
+                },
+                {
+                    "ask": "Place a test order of one volleyball.",
+                    "expect": "It says the volleyball is out of stock, places no order and offers another product.",
+                },
+                {
+                    "ask": "Do you sell tents?",
+                    "expect": "It says the shop has no tent and invents none.",
+                },
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [
+                    "Its tools are tested in process in agent-runtimes against the bundled catalogue: the products, a quote summed by the tool, a test order charging nothing."
+                ],
+                "unverified": [
+                    "Its tests have not been run as a set: no validation run is attached to it."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "30_days",
+            "include": ["conversations"],
+            "suggest_tests": False,
+            "retention_days": 30,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {
+            "hosted": {"visibility": "public", "slug": "demo-shop"},
+            "embedded": None,
+        },
+        "goal": "Show how a company answers people's own agents: its products found and shown with their photos, a basket quoted, and an order placed once the person approves it — a test order, charging and shipping nothing.",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["demo", "shopping", "commerce", "companies"],
+        "icon": "package",
+        "emoji": "🛍️",
+        "avatar": "",
+        "banner": "",
+        "setup": [],
+    }
+)
+
+DEMO_SHOPPER_APP_0_0_4 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "demo-shopper",
+        "version": "0.0.4",
+        "name": "Shopper",
+        "kind": "chat",
+        "description": "Finds products with their photos, compares them, builds a basket with its total and places a test order at Datalayer's Demo Shop: nothing is charged and nothing ships.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "worker-shopper:0.0.1",
+        "team": "",
+        "instructions": "This is Datalayer's public demo of the Shopper. You are connected to no store and no payment, and you have no memory here. You shop at one store, the Demo Shop, Datalayer's demo shop, with its own tools: find_products (words, a category — groceries, kitchen, home, sports, sunglasses — and a price range), get_product, quote_basket and place_test_order. Never use the Shopify catalogue tools here, and never invent a product, a price, a rating, a stock level or a photo the shop's tools did not return. Prices are in USD. Ask for the budget and what matters most when the visitor has not said. Find with find_products — the products are shown with their photos — and compare a short list with show_comparison, each product with its price, rating, stock as availability, the Demo Shop as seller and its image, saying which you would pick and why. Price a basket with quote_basket, then show it with show_basket (each item with its image, currency USD, no shipping): the totals are the tools', never yours. When asked to buy, show the exact basket and total and ask the visitor to confirm; once they do, place it with place_test_order and say that it is a test order — nothing is charged, nothing ships and nothing is kept — and that the real Shopper would buy through their own Personal Agent Protocol connection, only once they approved that exact purchase. A product out of stock cannot be bought: say so and offer another.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [
+            "demo-shop-find-products:0.0.1",
+            "demo-shop-get-product:0.0.1",
+            "demo-shop-quote-basket:0.0.1",
+            "demo-shop-place-test-order:0.0.1",
+        ],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "sun",
+            "theme": None,
+            "welcome": "I'm the Shopper, in a demo at Datalayer's Demo Shop: tell me what you need and your budget, and I find it with its photo, compare and build the basket. Orders here are test orders: nothing is charged and nothing ships.",
+            "starters": [
+                {
+                    "label": "Tennis",
+                    "message": "Find me what I need to play tennis under 60 USD and compare the options.",
+                },
+                {
+                    "label": "A picnic basket",
+                    "message": "Put together a picnic basket — fruit, juice and a chopping board — with the total.",
+                },
+                {
+                    "label": "Buy it",
+                    "message": "Buy two tennis balls and the tennis racket.",
+                },
+            ],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": None,
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Find me what I need to play tennis under 60 USD and compare the options.",
+                    "expect": "It finds the tennis racket and the tennis ball at the Demo Shop with their photos, compares them with show_comparison and recommends a basket within the budget.",
+                },
+                {
+                    "ask": "Buy two tennis balls and the tennis racket.",
+                    "expect": "It quotes the basket at 63.97 USD, asks the visitor to confirm, and once confirmed places a test order, saying nothing is charged and nothing ships.",
                 },
                 {
                     "ask": "Find me a tent.",
-                    "expect": "It says the example catalogue holds no tent and invents none.",
+                    "expect": "It says the Demo Shop has no tent and invents none.",
                 },
             ],
             "verified": {
@@ -2344,7 +2829,7 @@ DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
         "kind": "chat",
         "description": "Plans a trip in three options with flights, a stay, a day-by-day plan and the budget: a demo on example flights, stays and restaurants that books nothing and contacts no real service.",
         "owner": "Datalayer <info@datalayer.io>",
-        "agent": "example-blank:0.0.1",
+        "agent": "worker-voyager:0.0.1",
         "team": "",
         "instructions": "This is Datalayer's public demo of the Voyager. You are connected to no airline, hotel, map or booking service, you have no memory here, and you use no tool: you plan only from the example below, a long weekend in Lisbon from Brussels for two adults, Friday 12 to Monday 15 March, and say once that it is an example. Prices are in EUR for two people unless said per night. Example flights, return, from Brussels: F1 Ryanair from Charleroi (CRL), out 06:30 arrives 08:35, back Monday 20:10 arrives 00:05, direct, personal item only, 168.00 for two, checked bag 45.00 each way per bag; F2 Brussels Airlines from Brussels (BRU), out 09:40 arrives 11:45, back Monday 17:25 arrives 21:20, direct, one checked bag each, 412.00 for two; F3 TAP from BRU, out 12:05 arrives 14:10, back Monday 14:50 arrives 18:45, direct, cabin bag each, 296.00 for two. The shuttle from Brussels to Charleroi is 34.00 return for two, about 1 h each way. Example stays, three nights: S1 Casa do Largo, guesthouse in Alfama, 92.00 a night, rated 8.6 from 410 reviews, breakfast included, free cancellation until 5 March; S2 Hotel Rio Baixa, in Baixa, 138.00 a night, rated 8.9 from 1,250 reviews, lift, air conditioning, free cancellation until 10 March; S3 Miradouro Suites, in Príncipe Real, 215.00 a night, rated 9.3 from 380 reviews, terrace, breakfast included, non-refundable. Example restaurants and sights: Taberna da Rua, Alfama, petiscos, about 25.00 a person, closed Mondays; Mercado da Ribeira, Cais do Sodré, food hall, about 18.00 a person; Ponto Verde, Baixa, vegetarian, about 22.00 a person; O Farol, Belém, grilled fish, about 35.00 a person; the Tower of Belém, 8.00 a person; the Jerónimos Monastery, 12.00 a person; tram 28, 3.10 a ride a person; a 24-hour transport pass, 6.80 a person. Example travel times: the airport to Baixa, 25 min by metro (1.85 a person); Baixa to Belém, 25 min by tram 15; Baixa to Alfama, 15 min on foot. Ask for the budget and what matters most when the visitor has not said. Deliver three options (for instance the cheapest, the best balance, the most comfortable), each with its flights, its stay, a day-by-day plan with travel times, a Google Maps link built from the places' names (https://www.google.com/maps/dir/?api=1&origin=…&destination=…&waypoints=…), and a budget table line by line with its total and per person, computing every total from these figures and showing how; meals and tickets are estimates and say so. Compare the three and say which you would pick and why. Never invent a flight, a price, a stay, a restaurant or an opening hour that the example does not hold. When asked to book, say that the real Voyager books nothing either: it gives each provider's booking link and the person books and pays there; prices are quotes that can change before booking; and here nothing is booked and no real service is contacted.",
         "model": "",
@@ -2934,6 +3419,56 @@ EXCHANGE_DESK_APP_0_0_3 = AppSpec.model_validate(
                 "does": ["write"],
             }
         ],
+        "openapi": {
+            "openapi": "3.1.0",
+            "info": {"title": "Exchange Desk", "version": "0.0.3"},
+            "paths": {
+                "/exchange_order": {
+                    "post": {
+                        "operationId": "exchange_order",
+                        "summary": "Exchanges an order for another size, once the person approved it.",
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "order_id": {"type": "string"},
+                                            "size": {"type": "string"},
+                                        },
+                                        "required": ["order_id", "size"],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Its answer",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "proposed": {"type": "boolean"},
+                                                "message": {"type": "string"},
+                                            },
+                                            "required": ["proposed", "message"],
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                        "x-pap": {
+                            "action": "orders.exchange",
+                            "tool": "exchange_order",
+                            "summary": "Exchange order {order_id} for size {size}.",
+                            "scope": "orders:write",
+                        },
+                    }
+                }
+            },
+        },
         "context": [],
         "contents": [],
         "connections": [],
@@ -6234,6 +6769,131 @@ SHOP_CONCIERGE_APP_0_0_2 = AppSpec.model_validate(
     }
 )
 
+SHOPPER_APP_0_0_2 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "shopper",
+        "version": "0.0.2",
+        "name": "Shopper",
+        "kind": "chat",
+        "description": "Shops at the Demo Shop for you: asks it for products, gets a basket quoted and places a test order once you say so, and hands over what the shop answered without adding a product or a figure of its own.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "worker-shopper:0.0.1",
+        "team": "",
+        "instructions": "You shop for the person at the Demo Shop. You do not hold its catalogue: the shop does. When the person asks for products, a comparison, a basket or an order, call ask_demo_shop once with one request the shop can act on without the rest of this conversation: what kind of product, the budget or price range, the quantities, and whether to quote or to place the order. Then give the person what the shop answered — its products, prices, stock and totals — as it answered them, and say which product you would pick and why from those figures. Never invent a product, a price, a rating or a total, and never compute a total yourself: ask the shop to quote. Ask the shop to place an order only once the person said to, and say that it is a test order: nothing is charged and nothing ships. When the shop cannot answer, or says it does not have something, say so and repeat what it said. You buy nothing yourself and contact no other shop.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "sun",
+            "theme": None,
+            "welcome": "I'm your Shopper at the Demo Shop: tell me what you need and your budget, and I ask the shop, compare what it has and get the basket quoted. Its orders are test orders: nothing is charged and nothing ships.",
+            "starters": [
+                {
+                    "label": "Tennis",
+                    "message": "Find me what the shop has for tennis, and say which you would pick.",
+                },
+                {
+                    "label": "A basket",
+                    "message": "Quote two tennis balls and the tennis racket.",
+                },
+                {
+                    "label": "Order it",
+                    "message": "Place the test order for that basket.",
+                },
+            ],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": None,
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Find me what the shop has for tennis, and say which you would pick.",
+                    "expect": "It asks the shop, lists the tennis racket and the tennis ball with the shop's prices, and recommends one from those figures.",
+                },
+                {
+                    "ask": "Quote two tennis balls and the tennis racket.",
+                    "expect": "It asks the shop to quote and gives its total of 63.97 USD, computing nothing itself.",
+                },
+                {
+                    "ask": "Find me a tent.",
+                    "expect": "It says the shop has no tent and invents none.",
+                },
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Its tests have not been run as a set: no validation run is attached to it."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "30_days",
+            "include": ["conversations"],
+            "suggest_tests": False,
+            "retention_days": 30,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {"hosted": None, "embedded": None},
+        "goal": "",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["example", "shopping", "commerce", "a2a"],
+        "icon": "gift",
+        "emoji": "🧺",
+        "avatar": "",
+        "banner": "",
+        "setup": [],
+    }
+)
+
 SHOPPING_DESK_APP_0_0_2 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
@@ -7522,7 +8182,8 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "demo-accountant": DEMO_ACCOUNTANT_APP_0_0_3,
     "demo-aws-steward": DEMO_AWS_STEWARD_APP_0_0_4,
     "demo-marketer": DEMO_MARKETER_APP_0_0_2,
-    "demo-shopper": DEMO_SHOPPER_APP_0_0_3,
+    "demo-shop": DEMO_SHOP_APP_0_0_1,
+    "demo-shopper": DEMO_SHOPPER_APP_0_0_4,
     "demo-terra": DEMO_TERRA_APP_0_0_3,
     "demo-voyager": DEMO_VOYAGER_APP_0_0_2,
     "disaster-assessment": DISASTER_ASSESSMENT_APP_0_0_2,
@@ -7546,6 +8207,7 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "sheet-maker": SHEET_MAKER_APP_0_0_1,
     "ship-or-fix": SHIP_OR_FIX_APP_0_0_3,
     "shop-concierge": SHOP_CONCIERGE_APP_0_0_2,
+    "shopper": SHOPPER_APP_0_0_2,
     "shopping-desk": SHOPPING_DESK_APP_0_0_2,
     "sign-in-desk": SIGN_IN_DESK_APP_0_0_2,
     "signed-reader": SIGNED_READER_APP_0_0_2,
@@ -7571,6 +8233,7 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "demo-accountant": "written",
     "demo-aws-steward": "written",
     "demo-marketer": "written",
+    "demo-shop": "written",
     "demo-shopper": "written",
     "demo-terra": "written",
     "demo-voyager": "written",
@@ -7595,6 +8258,7 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "sheet-maker": "written",
     "ship-or-fix": "written",
     "shop-concierge": "written",
+    "shopper": "written",
     "shopping-desk": "written",
     "sign-in-desk": "written",
     "signed-reader": "written",

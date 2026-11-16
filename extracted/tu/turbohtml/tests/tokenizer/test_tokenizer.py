@@ -1,36 +1,20 @@
 from __future__ import annotations
 
 import gc
-import json
-import re
 import threading
-import time
+from functools import partial
 from html.parser import HTMLParser
-from pathlib import Path
-from typing import TYPE_CHECKING, Final, TypeAlias
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import pytest
 
-from turbohtml import Token, Tokenizer, TokenType, _html, tokenize
+from turbohtml import Token, Tokenizer, TokenType, parse, tokenize
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from _pytest.mark.structures import ParameterSet
-
-
-def _shape(token: Token) -> tuple[object, ...]:
-    return (token.type, token.tag, token.target, token.data, token.attrs, token.self_closing)
-
-
-def assert_streaming_matches_whole(document: str) -> None:
-    """Feeding one character at a time must match one-shot tokenization."""
-    tokenizer = Tokenizer()
-    streamed = [token for char in document for token in tokenizer.feed(char)]
-    streamed += list(tokenizer.close())
-    whole = list(tokenize(document))
-    assert [_shape(token) for token in streamed] == [_shape(token) for token in whole]
-    assert [(token.line, token.col) for token in streamed] == [(token.line, token.col) for token in whole]
+    from traced_bytes import RetainedBytes
+    from work_steps import WorkSteps
 
 
 def test_tokenize_simple_document() -> None:
@@ -39,6 +23,19 @@ def test_tokenize_simple_document() -> None:
     assert _shape(start) == (TokenType.START_TAG, "p", None, None, [("class", "x")], False)
     assert _shape(body) == (TokenType.TEXT, None, None, "b", None, False)
     assert _shape(end) == (TokenType.END_TAG, "p", None, None, [], False)
+
+
+def _shape(token: Token) -> _Shape:
+    return _Shape(token.type, token.tag, token.target, token.data, token.attrs, token.self_closing)
+
+
+class _Shape(NamedTuple):
+    token_type: TokenType
+    tag: str | None
+    target: str | None
+    data: str | None
+    attrs: list[tuple[str, str]] | None
+    self_closing: bool
 
 
 def test_tokenize_empty_input() -> None:
@@ -90,7 +87,9 @@ def test_invalid_processing_instruction_is_a_comment(document: str, data: str, w
 
 
 def test_processing_instruction_target_space_at_eof_is_dropped(width_prefix: str) -> None:
-    assert [token.data for token in tokenize(width_prefix + "<?pi ")] == ([width_prefix] if width_prefix else [])
+    assert [token.data for token in tokenize(f"{width_prefix}<?pi ")] == [
+        token.data for token in tokenize(width_prefix)
+    ]
 
 
 # each expected tuple is (type, name, public_id, system_id, force_quirks)
@@ -107,7 +106,7 @@ def test_processing_instruction_target_space_at_eof_is_dropped(width_prefix: str
         pytest.param("<p>", (TokenType.START_TAG, None, None, None, False), id="non-doctype"),
     ],
 )
-def test_doctype_fields(document: str, expected: tuple[object, ...]) -> None:
+def test_doctype_fields(document: str, expected: tuple[TokenType, str | None, str | None, str | None, bool]) -> None:
     (token,) = list(tokenize(document))
     assert (token.type, token.name, token.public_id, token.system_id, token.force_quirks) == expected
     assert token.data is None
@@ -130,21 +129,24 @@ def test_self_closing_tag() -> None:
 )
 def test_tag_attrs(document: str, tag_name: str, attrs: list[tuple[str, str | None]]) -> None:
     (tag,) = list(tokenize(document))
-    assert tag.tag == tag_name
-    assert tag.attrs == attrs
+    assert (tag.tag, tag.attrs) == (tag_name, attrs)
 
 
-@pytest.mark.parametrize("mode", ["whole", "streaming"])
-def test_capture_attributes_can_be_disabled(mode: str) -> None:
-    document = '<a href="a&amp;b" download>text</a>'
-    if mode == "streaming":
-        tokenizer = Tokenizer(capture_attributes=False)
-        tokens = [token for char in document for token in tokenizer.feed(char)]
-        tokens += list(tokenizer.close())
-    else:
-        tokens = list(tokenize(document, capture_attributes=False))
+def _whole_tokens(document: str) -> list[Token]:
+    return list(tokenize(document, capture_attributes=False))
 
-    start, text, end = tokens
+
+def _streamed_tokens(document: str) -> list[Token]:
+    tokenizer = Tokenizer(capture_attributes=False)
+    return [token for char in document for token in tokenizer.feed(char)] + list(tokenizer.close())
+
+
+@pytest.mark.parametrize(
+    "tokens_of",
+    [pytest.param(_whole_tokens, id="whole"), pytest.param(_streamed_tokens, id="streaming")],
+)
+def test_capture_attributes_can_be_disabled(tokens_of: Callable[[str], list[Token]]) -> None:
+    start, text, end = tokens_of('<a href="a&amp;b" download>text</a>')
     assert (start.tag, start.attrs, start.attr("href")) == ("a", [], None)
     assert (text.data, end.tag) == ("text", "a")
 
@@ -183,9 +185,9 @@ def test_attr_name_must_be_str() -> None:
     # a str-typed name rejects bytes (no silent latin-1 match) and other wrong types, naming str
     (tag,) = list(tokenize("<a href=x>"))
     with pytest.raises(TypeError):
-        tag.attr(b"href")  # ty: ignore[invalid-argument-type]
+        tag.attr(b"href")  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
     with pytest.raises(TypeError):
-        tag.attr(123)  # ty: ignore[invalid-argument-type]
+        tag.attr(123)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
     with pytest.raises(UnicodeEncodeError):
         tag.attr("\udfff")  # a lone surrogate has no UTF-8 form
 
@@ -204,9 +206,7 @@ def test_token_repr() -> None:
 
 def test_token_type_enum() -> None:
     assert [member.value for member in TokenType] == [0, 1, 2, 3, 4, 5, 6]
-    assert TokenType.TEXT == 0
-    assert TokenType.CHARACTER_REFERENCE == 5
-    assert TokenType.PROCESSING_INSTRUCTION == 6
+    assert (TokenType.TEXT, TokenType.CHARACTER_REFERENCE, TokenType.PROCESSING_INSTRUCTION) == (0, 5, 6)
     assert isinstance(TokenType.START_TAG, int)
 
 
@@ -218,9 +218,9 @@ def test_token_cannot_be_instantiated() -> None:
 def test_tokenizer_takes_no_arguments() -> None:
     # a streaming tokenizer starts empty; a constructor argument is an error, not a silent no-op
     with pytest.raises(TypeError):
-        Tokenizer("<p>")  # ty: ignore[too-many-positional-arguments]
+        Tokenizer("<p>")  # ty: ignore[too-many-positional-arguments]  # passes an extra positional argument on purpose to check the rejection
     with pytest.raises(TypeError):
-        Tokenizer(source="<p>")  # ty: ignore[unknown-argument]
+        Tokenizer(source="<p>")  # ty: ignore[unknown-argument]  # passes an unknown keyword on purpose to check the rejection
 
 
 def test_tokens_stay_valid_after_iteration() -> None:
@@ -248,11 +248,329 @@ def test_many_attributes() -> None:
         pytest.param("<noembed><p></noembed>", ["<p>"], id="noembed"),
         pytest.param("<noframes><p></noframes>", ["<p>"], id="noframes"),
         pytest.param("<noscript><p></noscript>", ["<p>"], id="noscript"),
+        pytest.param("<plaintext></plaintext><p>", ["</plaintext><p>"], id="plaintext"),
     ],
 )
 def test_content_model_switching(document: str, expected: list[str]) -> None:
     texts = [token.data for token in tokenize(document) if token.type is TokenType.TEXT]
     assert texts == expected
+
+
+def _start_tags(tokens: Iterable[Token]) -> list[str | None]:
+    return [token.tag for token in tokens if token.type is TokenType.START_TAG]
+
+
+class _StartTags(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.tags: list[str] = []
+        self.data: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # ruff:ignore[unused-method-argument]  # the callback signature is fixed by the protocol; this argument is unused
+        self.tags.append(tag)
+
+    def handle_data(self, data: str) -> None:
+        self.data.append(data)
+
+
+@pytest.mark.parametrize(
+    ("document", "expected"),
+    [
+        # SVG/MathML content stays markup: title, style, xmp, ... are ordinary elements there
+        pytest.param("<svg><title><i>", ["svg", "title", "i"], id="svg-title"),
+        pytest.param("<svg><style><i></style>", ["svg", "style", "i"], id="svg-style"),
+        pytest.param("<svg><script><i></script>", ["svg", "script", "i"], id="svg-script"),
+        pytest.param("<svg><plaintext><i>", ["svg", "plaintext", "i"], id="svg-plaintext"),
+        pytest.param("<math><xmp><i>", ["math", "xmp", "i"], id="math-xmp"),
+        pytest.param("<svg><g><textarea><i>", ["svg", "g", "textarea", "i"], id="nested"),
+        pytest.param("<svg><svg></svg><style><i>", ["svg", "svg", "style", "i"], id="inner-svg-closed"),
+        pytest.param("<svg><input><style><i>", ["svg", "input", "style", "i"], id="void-name-stays-open"),
+        # an integration point hands its start tags back to the HTML rules
+        pytest.param("<svg><foreignObject><style><i>", ["svg", "foreignobject", "style"], id="foreign-object"),
+        pytest.param("<svg><desc><xmp><i>", ["svg", "desc", "xmp"], id="desc"),
+        pytest.param("<svg><title><textarea><i>", ["svg", "title", "textarea"], id="title-point"),
+        pytest.param("<svg><title><title><i></title><i>", ["svg", "title", "title", "i"], id="title-in-title-point"),
+        pytest.param("<math><mi><style><i>", ["math", "mi", "style"], id="mathml-text-point"),
+        pytest.param("<math><mi><mglyph><style><i>", ["math", "mi", "mglyph", "style", "i"], id="mglyph"),
+        pytest.param("<math><mo><malignmark><style><i>", ["math", "mo", "malignmark", "style", "i"], id="malignmark"),
+        pytest.param("<math><mi><svg><style><i>", ["math", "mi", "svg", "style", "i"], id="svg-in-text-point"),
+        pytest.param("<svg><desc><math><style><i>", ["svg", "desc", "math", "style", "i"], id="math-in-desc"),
+        pytest.param("<math><annotation-xml><style><i>", ["math", "annotation-xml", "style", "i"], id="annotation-xml"),
+        pytest.param(
+            '<math><annotation-xml encoding="Text/HTML"><style><i>', ["math", "annotation-xml", "style"], id="html"
+        ),
+        pytest.param(
+            "<math><annotation-xml encoding=application/xhtml+xml><style><i>",
+            ["math", "annotation-xml", "style"],
+            id="xhtml",
+        ),
+        pytest.param(
+            "<math><annotation-xml id=a encoding=text/html><style><i>", ["math", "annotation-xml", "style"], id="second"
+        ),
+        pytest.param(
+            "<math><annotation-xml encoding=text/xml><style><i>", ["math", "annotation-xml", "style", "i"], id="xml"
+        ),
+        pytest.param(
+            "<math><annotation-xml encoding=text/htmł><style><i>",
+            ["math", "annotation-xml", "style", "i"],
+            id="wide-encoding",
+        ),
+        pytest.param(
+            "<math><annotation-xml encoding><style><i>", ["math", "annotation-xml", "style", "i"], id="bare-encoding"
+        ),
+        pytest.param(
+            "<math><annotation-xml encoding=x encoding=text/html><style><i>",
+            ["math", "annotation-xml", "style", "i"],
+            id="first-encoding-wins",
+        ),
+        pytest.param(
+            "<math><annotation-xml><svg><style><i>",
+            ["math", "annotation-xml", "svg", "style", "i"],
+            id="svg-in-annotation",
+        ),
+        pytest.param(
+            "<svg><annotation-xml encoding=text/html><style><i>",
+            ["svg", "annotation-xml", "style", "i"],
+            id="svg-annotation",
+        ),
+        # a breakout tag closes the foreign elements, so what follows is HTML again
+        pytest.param("<svg><g><p><style><i>", ["svg", "g", "p", "style"], id="breakout"),
+        pytest.param("<svg><img><style><i>", ["svg", "img", "style"], id="void-breakout"),
+        pytest.param(
+            "<svg><blzzzzzzze><style><i>", ["svg", "blzzzzzzze", "style", "i"], id="near-breakout-name"
+        ),  # shares blockquote's hash slot and length
+        pytest.param("<svg><font color=red><style><i>", ["svg", "font", "style"], id="font-color"),
+        pytest.param("<svg><font x FACE=a><style><i>", ["svg", "font", "style"], id="font-face"),
+        pytest.param("<svg><font size=1><style><i>", ["svg", "font", "style"], id="font-size"),
+        pytest.param("<svg><font ā size=1><style><i>", ["svg", "font", "style"], id="font-wide-name"),
+        pytest.param("<svg><font fāce=1><style><i>", ["svg", "font", "style", "i"], id="font-wide-same-length"),
+        pytest.param("<svg><font sized><style><i>", ["svg", "font", "style", "i"], id="font-plain"),
+        pytest.param("<svg><desc><svg><b><style><i>", ["svg", "desc", "svg", "b", "style"], id="breakout-to-point"),
+        pytest.param("<svg></p><style><i>", ["svg", "style"], id="end-p"),
+        pytest.param("<svg><g></br><style><i>", ["svg", "g", "style"], id="end-br"),
+        pytest.param("<p><svg></p><style><i>", ["p", "svg", "style"], id="end-p-closes-open-p"),
+        pytest.param("<svg><desc></p><style><i>", ["svg", "desc", "style"], id="end-p-at-point"),
+        # end tags: a foreign element closes by name, an HTML end tag stops at a scoping foreign element
+        pytest.param("<svg><g></svg><style><i>", ["svg", "g", "style"], id="end-svg"),
+        pytest.param("<svg><g></g x=1><style><i>", ["svg", "g", "style", "i"], id="end-tag-attributes"),
+        pytest.param(
+            "<svg><desc><b><svg></svg><style><i>", ["svg", "desc", "b", "svg", "style"], id="inner-svg-end-to-html"
+        ),
+        pytest.param("<svg><title></svg><style><i>", ["svg", "title", "style"], id="end-svg-from-point"),
+        pytest.param("<svg><g></x><style><i>", ["svg", "g", "style", "i"], id="stray-end"),
+        pytest.param("<svg><x-y><g></x-y><style><i>", ["svg", "x-y", "g", "style", "i"], id="custom-end"),
+        pytest.param("<x-y><svg><g></x-z></x-yy><style><i>", ["x-y", "svg", "g", "style", "i"], id="custom-stray-end"),
+        pytest.param(
+            "<div></dfn></span></dív><svg></div><style><i>", ["div", "svg", "style"], id="html-strays-keep-open"
+        ),
+        pytest.param("<x-ő><svg></x-ő><style><i>", ["x-ő", "svg", "style"], id="wide-custom-end"),
+        pytest.param(
+            "<x-abcdefgh><svg></x-abcdefgi><style><i>", ["x-abcdefgh", "svg", "style", "i"], id="long-custom-stray-end"
+        ),
+        pytest.param("<x-abcdefgh><svg></x-a><style><i>", ["x-abcdefgh", "svg", "style", "i"], id="short-end-of-long"),
+        pytest.param("<x-a><svg></x-abcdefgh><style><i>", ["x-a", "svg", "style", "i"], id="long-end-of-short"),
+        pytest.param("<x-abcdef><svg></x-abcdef><style><i>", ["x-abcdef", "svg", "style"], id="word-custom-end"),
+        pytest.param(
+            "<svg></svg></x><x-y></x-y><section><x-element></section><style><i>",
+            ["svg", "x-y", "section", "x-element", "style"],
+            id="html-after-foreign",
+        ),
+        pytest.param("<div><svg><g></div><style><i>", ["div", "svg", "g", "style"], id="html-end-closes-svg"),
+        pytest.param("<svg><title><b></title><style><i>", ["svg", "title", "b", "style"], id="point-bounds-own-end"),
+        pytest.param(
+            "<div><svg><desc><b></div></b></desc><style><i>",
+            ["div", "svg", "desc", "b", "style", "i"],
+            id="point-bounds",
+        ),
+        pytest.param(
+            "<div><math><annotation-xml><g></div><style><i>",
+            ["div", "math", "annotation-xml", "g", "style", "i"],
+            id="annotation-xml-bounds",
+        ),
+        pytest.param(
+            "<div><svg><annotation-xml></div><style><i>",
+            ["div", "svg", "annotation-xml", "style"],
+            id="svg-annotation-open",
+        ),
+        pytest.param(
+            "<table><td><svg><desc><b></td><style><i>", ["table", "td", "svg", "desc", "b", "style"], id="table-scope"
+        ),
+        pytest.param("<td><svg><td></td><style><i>", ["td", "svg", "td", "style", "i"], id="foreign-td"),
+        # an HTML start tag a browser leaves no element open for has no end tag to close foreign content with
+        pytest.param("<html><svg></html><style><i>", ["html", "svg", "style", "i"], id="html-not-opened"),
+        pytest.param("<head><svg></head><style><i>", ["head", "svg", "style", "i"], id="head-not-opened"),
+        pytest.param("<body><svg></body><style><i>", ["body", "svg", "style", "i"], id="body-not-opened"),
+        pytest.param("<frame><svg></frame><style><i>", ["frame", "svg", "style", "i"], id="frame-not-opened"),
+        pytest.param("x<frameset><svg></frameset><style><i>", ["frameset", "svg", "style", "i"], id="frameset-ignored"),
+        pytest.param("<image><svg></image><style><i>", ["image", "svg", "style", "i"], id="image-is-img"),
+        pytest.param("<td><svg></td><style><i>", ["td", "svg", "style", "i"], id="cell-outside-table"),
+        pytest.param("<p><tr><svg></tr><style><i>", ["p", "tr", "svg", "style", "i"], id="row-outside-table"),
+        pytest.param(
+            "<svg><desc><th><math></th><style><i>", ["svg", "desc", "th", "math", "style", "i"], id="cell-in-point"
+        ),
+        pytest.param("<template><td><svg></td><style><i>", ["template", "td", "svg", "style"], id="cell-in-template"),
+        pytest.param(
+            "<svg><desc><body><![CDATA[><!--]]><i><!---->", ["svg", "desc", "body", "i"], id="cdata-after-body"
+        ),
+        # an HTML end tag looks for its element as far as a browser does
+        pytest.param("<div><p><svg></div><style><i>", ["div", "p", "svg", "style"], id="scope-reaches-past-special"),
+        pytest.param(
+            "<div><table><td><svg></div><style><i>", ["div", "table", "td", "svg", "style", "i"], id="cell-bounds-scope"
+        ),
+        pytest.param(
+            "<div><object><svg></div><style><i>", ["div", "object", "svg", "style", "i"], id="object-bounds-scope"
+        ),
+        pytest.param("<span><div><svg></span><style><i>", ["span", "div", "svg", "style", "i"], id="special-bounds"),
+        pytest.param("<x-y><div><svg></x-y><style><i>", ["x-y", "div", "svg", "style", "i"], id="special-bounds-any"),
+        pytest.param("<span><u><svg></span><style><i>", ["span", "u", "svg", "style"], id="phrasing-does-not-bound"),
+        pytest.param("<b><div><svg></b><style><i>", ["b", "div", "svg", "style"], id="formatting-in-scope"),
+        pytest.param("<dialog><div><svg></dialog><style><i>", ["dialog", "div", "svg", "style"], id="dialog-in-scope"),
+        pytest.param("<h1><svg></h2><style><i>", ["h1", "svg", "style"], id="heading-closes-heading"),
+        pytest.param("<h1><div><svg></h6><style><i>", ["h1", "div", "svg", "style"], id="heading-in-scope"),
+        pytest.param("<p><svg></h1><style><i>", ["p", "svg", "style", "i"], id="heading-stray"),
+        pytest.param("<form><svg></form><style><i>", ["form", "svg", "style", "i"], id="form-leaves-content-open"),
+        pytest.param("<div><form><svg></form></div><style><i>", ["div", "form", "svg", "style"], id="form-removed"),
+        pytest.param(
+            "<form><x-y><svg></form></x-y><style><i>", ["form", "x-y", "svg", "style"], id="form-removed-under-custom"
+        ),
+        pytest.param("<svg><form><g></form><style><i>", ["svg", "form", "g", "style", "i"], id="foreign-form"),
+        pytest.param(
+            "<table><tr><td><div><svg></td><style><i>", ["table", "tr", "td", "div", "svg", "style"], id="cell-end"
+        ),
+        pytest.param("<table><td><svg></table><style><i>", ["table", "td", "svg", "style"], id="table-end"),
+        pytest.param(
+            "<table><tr><td><table><svg></tr><style><i>",
+            ["table", "tr", "td", "table", "svg", "style", "i"],
+            id="table-bounds-table-scope",
+        ),
+        pytest.param(
+            "<table><tr><template><svg></tr><style><i>",
+            ["table", "tr", "template", "svg", "style", "i"],
+            id="template-bounds-table-scope",
+        ),
+        pytest.param(
+            "<template><table><td><svg></template><style><i>",
+            ["template", "table", "td", "svg", "style"],
+            id="template-end-anywhere",
+        ),
+        pytest.param(
+            "<template><svg><desc><b></template><style><i>",
+            ["template", "svg", "desc", "b", "style"],
+            id="template-end-through-point",
+        ),
+        # the trailing slash ends a foreign element only
+        pytest.param("<svg><title/><style><i>", ["svg", "title", "style", "i"], id="self-closing-foreign"),
+        pytest.param("<svg/><style><i>", ["svg", "style"], id="self-closing-svg"),
+        pytest.param("<title/><i>", ["title"], id="self-closing-html-title"),
+        pytest.param("<script/><i></script><b>", ["script", "b"], id="self-closing-html-script"),
+        pytest.param("<b/><svg></b><style><i>", ["b", "svg", "style"], id="self-closing-html-stays-open"),
+        # a CDATA section is text where the innermost open element is SVG/MathML, a bogus comment elsewhere
+        pytest.param("<svg><![CDATA[><!--]]><i><!---->", ["svg", "i"], id="cdata-in-svg"),
+        pytest.param("<svg><desc><![CDATA[><!--]]><i><!---->", ["svg", "desc", "i"], id="cdata-in-point"),
+        pytest.param("<svg><desc><b><![CDATA[><!--]]><i><!---->", ["svg", "desc", "b"], id="cdata-in-html"),
+        pytest.param("<svg></svg><![CDATA[><!--]]><i><!---->", ["svg"], id="cdata-after-svg"),
+    ],
+)
+def test_foreign_content_tokenizes_like_a_browser(document: str, expected: list[str]) -> None:
+    assert _start_tags(tokenize(document)) == expected
+    # the rules that read a start tag's attributes still see them when the caller asked for none
+    bare: Final = list(tokenize(document, capture_attributes=False))
+    assert _start_tags(bare) == expected
+    assert not any(token.attrs for token in bare)
+    tokenizer: Final = Tokenizer()
+    streamed: Final = [token for char in document for token in tokenizer.feed(char)]
+    assert _start_tags([*streamed, *tokenizer.close()]) == expected
+    handler: Final = _StartTags()
+    dispatcher: Final = Tokenizer(capture_attributes=False)
+    dispatcher.feed(document)
+    dispatcher.dispatch(handler)
+    dispatcher.close()
+    dispatcher.dispatch(handler)
+    assert handler.tags == expected
+    # the tree builder agrees on which <i> is an element and which is text
+    assert len(parse(document).select("i")) == expected.count("i")
+
+
+def test_markup_inside_svg_title_keeps_its_attributes() -> None:
+    document: Final = "<svg><g><title><textarea>v</textarea></title><style><a href=1 class=k>"
+    assert _start_tags(tokenize(document)) == ["svg", "g", "title", "textarea", "style", "a"]
+    (anchor,) = [token for token in tokenize(document) if token.tag == "a"]
+    assert anchor.attrs == [("href", "1"), ("class", "k")]
+
+
+def test_cdata_section_in_foreign_content_is_text() -> None:
+    tokens: Final = list(tokenize("<svg><![CDATA[a<b>]]></svg><![CDATA[c]]>"))
+    assert [(token.type, token.tag or token.data) for token in tokens] == [
+        (TokenType.START_TAG, "svg"),
+        (TokenType.TEXT, "a<b>"),
+        (TokenType.END_TAG, "svg"),
+        (TokenType.COMMENT, "[CDATA[c]]"),
+    ]
+    handler: Final = _StartTags()
+    tokenizer: Final = Tokenizer()
+    tokenizer.feed("<math><![CDATA[<i>]]>")
+    tokenizer.close()
+    tokenizer.dispatch(handler)
+    assert (handler.tags, handler.data) == (["math"], ["<i>"])
+
+
+def test_reset_forgets_open_foreign_elements() -> None:
+    tokenizer: Final = Tokenizer(capture_attributes=False)
+    assert _start_tags([*tokenizer.feed("<svg><font color=red><svg><style><i>"), *tokenizer.close()]) == [
+        "svg",
+        "font",
+        "svg",
+        "style",
+        "i",
+    ]
+    tokenizer.reset()
+    tokens: Final = [*tokenizer.feed("<style><i></style><![CDATA[x]]><p id=a>"), *tokenizer.close()]
+    assert [(token.type, token.tag or token.data, token.attrs) for token in tokens] == [
+        (TokenType.START_TAG, "style", []),
+        (TokenType.TEXT, "<i>", None),
+        (TokenType.END_TAG, "style", []),
+        (TokenType.COMMENT, "[CDATA[x]]", None),
+        (TokenType.START_TAG, "p", []),
+    ]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        pytest.param("<p>" * 1500, id="omitted-end-tags"),
+        pytest.param("".join(f"<x-{index}>" for index in range(1500)), id="custom-names"),
+        pytest.param("".join(f"<x-element-{index}>" for index in range(1500)), id="long-custom-names"),
+        pytest.param(f"<svg>{'<g>' * 1500}", id="foreign"),
+    ],
+)
+def test_open_elements_past_the_depth_cap_keep_the_innermost(prefix: str) -> None:
+    assert _start_tags(tokenize(f"{prefix}<svg><title><textarea>x</textarea></title><style><i>"))[-5:] == [
+        "svg",
+        "title",
+        "textarea",
+        "style",
+        "i",
+    ]
+
+
+def _iterated(tokenizer: Tokenizer, chunks: list[str]) -> list[str | None]:
+    return _start_tags(token for chunk in chunks for token in tokenizer.feed(chunk))
+
+
+def _dispatched(tokenizer: Tokenizer, chunks: list[str]) -> list[str | None]:
+    handler: Final = _StartTags()
+    for chunk in chunks:
+        tokenizer.feed(chunk)
+        tokenizer.dispatch(handler)
+    return [*handler.tags]
+
+
+@pytest.mark.parametrize("read", [pytest.param(_iterated, id="iterate"), pytest.param(_dispatched, id="dispatch")])
+def test_long_stream_still_follows_open_elements(read: Callable[[Tokenizer, list[str]], list[str | None]]) -> None:
+    # the open elements are followed chunk by chunk, however much input came before the first <svg>
+    chunks: Final = ["<div>", *["<p>words</p>"] * 10_000, "<svg><style><i></style></div><style><b>"]
+    tags: Final = read(Tokenizer(), chunks)
+    assert (tags[0], tags[-4:]) == ("div", ["svg", "style", "i", "style"])
 
 
 @pytest.mark.parametrize(
@@ -284,8 +602,9 @@ def test_content_model_switching(document: str, expected: list[str]) -> None:
     ],
 )
 def test_script_end_tag_variants(document: str, kinds: list[TokenType], width_prefix: str) -> None:
-    lead = [TokenType.TEXT] if width_prefix else []
-    assert [token.type for token in tokenize(width_prefix + document)] == lead + kinds
+    assert [token.type for token in tokenize(width_prefix + document)] == [
+        token.type for token in tokenize(width_prefix)
+    ] + kinds
 
 
 @pytest.mark.parametrize(
@@ -308,19 +627,18 @@ def test_doctype_identifier_edge_cases(
     document: str, public_id: str | None, system_id: str | None, width_prefix: str
 ) -> None:
     doctype = list(tokenize(width_prefix + document))[-1]
-    assert doctype.public_id == public_id
-    assert doctype.system_id == system_id
+    assert (doctype.public_id, doctype.system_id) == (public_id, system_id)
 
 
 def test_large_text_runs_move_intact() -> None:
-    first, second = "&amp;" + "a" * 600, "&gt;" + "b" * 700
+    first, second = f"&amp;{'a' * 600}", f"&gt;{'b' * 700}"
     tokens = list(tokenize(f"{first}<p>{second}"))
-    expected = ["&" + "a" * 600, ">" + "b" * 700]
+    expected = [f"&{'a' * 600}", f">{'b' * 700}"]
     assert [token.data for token in tokens if token.type is TokenType.TEXT] == expected
 
 
 def test_tokens_outlive_the_source_string() -> None:
-    text = "y" * 700 + "<p>"
+    text = f"{'y' * 700}<p>"
     iterator = tokenize(text)
     del text
     gc.collect()
@@ -350,6 +668,40 @@ def test_streaming_charref_suspends() -> None:
     assert list(tokenizer.feed("x&am")) == []
     assert list(tokenizer.feed("p;y")) == []
     assert [token.data for token in tokenizer.close()] == ["x&y"]
+
+
+def test_reset_forgets_a_suspended_charref_run() -> None:
+    tokenizer = Tokenizer()
+    assert list(tokenizer.feed("&#x4141")) == []  # suspended in the digits, with its scan position remembered
+    tokenizer.reset()
+    assert list(tokenizer.feed("&#x42")) == []
+    assert [token.data for token in tokenizer.close()] == ["B"]
+
+
+@pytest.mark.parametrize(
+    ("prefix", "run"),
+    [
+        pytest.param("&#x", "c", id="hex-digits"),
+        pytest.param("&#", "9", id="decimal-digits"),
+        pytest.param("&", "a", id="name-over-cap"),
+        pytest.param("<a x='&#x", "c", id="attribute-hex-digits"),
+        pytest.param("<a x=&", "a", id="attribute-name-over-cap"),
+    ],
+)
+def test_unterminated_charref_run_streams_in_linear_time(prefix: str, run: str, work_steps: WorkSteps) -> None:
+    # a reference still open at the end of a feed resumes its scan there instead of restarting at its '&'
+    document = prefix + run * 20_000
+    assert _stream_fed_in_chunks(document) == [_shape(token) for token in tokenize(document)]
+    work_steps.assert_linear(lambda n: partial(_stream_fed_in_chunks, prefix + run * n), (5_000, 20_000))
+
+
+def _stream_fed_in_chunks(document: str) -> list[_Shape]:
+    tokenizer = Tokenizer()
+    tokens: list[Token] = []
+    for offset in range(0, len(document), 7):
+        tokens.extend(tokenizer.feed(document[offset : offset + 7]))
+    tokens.extend(tokenizer.close())
+    return [_shape(token) for token in tokens]
 
 
 def test_streaming_crlf_across_feeds() -> None:
@@ -419,6 +771,9 @@ def test_single_text_token(text: str, expected: str) -> None:
         pytest.param("<!doctype html public 'p' 's'><!doctype html system 'x'>", id="doctype-keywords"),
         pytest.param("&amp; &am &#x41; &#65; &#xZ &# &cent", id="charrefs"),
         pytest.param(f"&{'a' * 40};", id="charref-name-over-cap"),
+        pytest.param(f"&#x{'0' * 40}41;&#{'0' * 40}66;&#x{'f' * 40};&#{'9' * 40}", id="charref-long-digit-runs"),
+        pytest.param(f"&{'a' * 40}&#x41;&#{'0' * 40}66&{'b' * 40};&#67;", id="charref-runs-back-to-back"),
+        pytest.param(f"<a x='&#x{'0' * 40}41;' y=&{'a' * 40}; z=\"&#{'0' * 40}66\">", id="attribute-charref-runs"),
         pytest.param("<div class='a' id=b checked>x</div>", id="attributes"),
         pytest.param("<a x='&amp;' y=\"&gt;\" z=&lt; w=&cent>", id="attribute-charrefs"),
         pytest.param("<a x=&notit y=&ampz> &0 &#", id="charref-prefix-and-digit"),
@@ -433,6 +788,16 @@ def test_single_text_token(text: str, expected: str) -> None:
 )
 def test_feed_char_by_char_matches_whole(document: str, width_prefix: str) -> None:
     assert_streaming_matches_whole(width_prefix + document)
+
+
+def assert_streaming_matches_whole(document: str) -> None:
+    # Feeding one character at a time must match one-shot tokenization.
+    tokenizer = Tokenizer()
+    streamed = [token for char in document for token in tokenizer.feed(char)]
+    streamed += list(tokenizer.close())
+    whole = list(tokenize(document))
+    assert [_shape(token) for token in streamed] == [_shape(token) for token in whole]
+    assert [(token.line, token.col) for token in streamed] == [(token.line, token.col) for token in whole]
 
 
 @pytest.mark.parametrize(
@@ -479,40 +844,6 @@ def test_feed_char_by_char_matches_whole(document: str, width_prefix: str) -> No
 )
 def test_eof_mid_construct_matches_streaming(document: str, width_prefix: str) -> None:
     assert_streaming_matches_whole(width_prefix + document)
-
-
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        pytest.param("x]", "x]", id="bracket-eof"),
-        pytest.param("x]]", "x]]", id="double-bracket-eof"),
-        pytest.param("x]y", "x]y", id="bracket-text"),
-        pytest.param("x]]]>y", "x]y", id="bracket-run-close"),
-        pytest.param("x]]y", "x]]y", id="double-bracket-text"),
-    ],
-)
-def test_cdata_section_edges(text: str, expected: str, storage_kind: int) -> None:
-    tokens, _ = _html._tokenize_states(text, "CDATA section state", None, storage_kind)
-    assert tokens == [("Character", expected)]
-
-
-@pytest.mark.parametrize(
-    ("state", "text", "expected"),
-    [
-        pytest.param("PLAINTEXT state", "a\nb", "a\nb", id="plaintext-newline"),
-        pytest.param("PLAINTEXT state", "a\x00b", "a�b", id="plaintext-nul"),
-        pytest.param("RCDATA state", "a\x00b", "a�b", id="rcdata-nul"),
-        pytest.param("RCDATA state", "a\nb", "a\nb", id="rcdata-newline"),
-        pytest.param("RAWTEXT state", "a\x00b", "a�b", id="rawtext-nul"),
-        pytest.param("RAWTEXT state", "a\nb", "a\nb", id="rawtext-newline"),
-        pytest.param("Script data state", "a\x00b", "a�b", id="script-nul"),
-        pytest.param("Script data state", "a\nb", "a\nb", id="script-newline"),
-        pytest.param("CDATA section state", "a\nb]", "a\nb]", id="cdata-newline"),
-    ],
-)
-def test_text_run_breaks_on_special_characters(state: str, text: str, expected: str, storage_kind: int) -> None:
-    tokens, _ = _html._tokenize_states(text, state, None, storage_kind)
-    assert tokens == [("Character", expected)]
 
 
 def test_reset_discards_state() -> None:
@@ -593,16 +924,16 @@ def test_positions_match_html_parser() -> None:
             super().__init__(convert_charrefs=True)
             self.positions: list[tuple[int, int]] = []
 
-        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # ruff:ignore[unused-method-argument]
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # ruff:ignore[unused-method-argument]  # the callback signature is fixed by the protocol; this argument is unused
             self.positions.append(self.getpos())
 
-        def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # ruff:ignore[unused-method-argument]
+        def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # ruff:ignore[unused-method-argument]  # the callback signature is fixed by the protocol; this argument is unused
             self.positions.append(self.getpos())
 
-        def handle_data(self, data: str) -> None:  # ruff:ignore[unused-method-argument]
+        def handle_data(self, data: str) -> None:  # ruff:ignore[unused-method-argument]  # the callback signature is fixed by the protocol; this argument is unused
             self.positions.append(self.getpos())
 
-        def handle_comment(self, data: str) -> None:  # ruff:ignore[unused-method-argument]
+        def handle_comment(self, data: str) -> None:  # ruff:ignore[unused-method-argument]  # the callback signature is fixed by the protocol; this argument is unused
             self.positions.append(self.getpos())
 
     recorder = Recorder()
@@ -627,25 +958,6 @@ def test_garbage_collection_traversal() -> None:
         pytest.param(lambda: tokenize(123), TypeError, None, id="tokenize-non-str"),  # ty: ignore[invalid-argument-type]  # non-str on purpose
         pytest.param(lambda: Tokenizer().feed(b"<p>"), TypeError, None, id="feed-non-str"),  # ty: ignore[invalid-argument-type]  # non-str on purpose
         pytest.param(lambda: next(iter(tokenize("<p>"))).attr(123), TypeError, None, id="attr-non-str-name"),  # ty: ignore[invalid-argument-type]  # non-str on purpose
-        pytest.param(lambda: _html._tokenize_states(123, "Data state"), TypeError, None, id="states-non-str-text"),  # ty: ignore[invalid-argument-type]  # non-str on purpose
-        pytest.param(
-            lambda: _html._tokenize_states("x", "Bogus state", None),
-            ValueError,
-            "unknown initial state",
-            id="states-unknown-state",
-        ),
-        pytest.param(
-            lambda: _html._tokenize_states("x", "Data state", 5),  # ty: ignore[invalid-argument-type]  # non-str on purpose
-            TypeError,
-            "last_start_tag",
-            id="states-non-str-last-tag",
-        ),
-        pytest.param(
-            lambda: _html._tokenize_states("x", "Data state", None, 3),
-            ValueError,
-            "storage_kind",
-            id="states-bad-storage-kind",
-        ),
     ],
 )
 def test_api_rejects_bad_arguments(call: Callable[[], object], exc: type[Exception], match: str | None) -> None:
@@ -653,40 +965,22 @@ def test_api_rejects_bad_arguments(call: Callable[[], object], exc: type[Excepti
         call()
 
 
-@pytest.mark.parametrize(
-    ("args", "expected"),
-    [
-        pytest.param(("x", "Data state"), "x", id="default-last-tag"),
-        pytest.param(("x", "RCDATA state", ""), "x", id="empty-last-tag"),
-        pytest.param(("</xy>", "RCDATA state", "xő"), "</xy>", id="rcdata-end-tag-name-width-mismatch"),
-    ],
-)
-def test_tokenize_states_returns_characters(args: tuple[str, ...], expected: str) -> None:
-    tokens, _ = _html._tokenize_states(*args)  # ty: ignore[invalid-argument-type]  # variadic str args
-    assert tokens == [("Character", expected)]
-
-
 def test_tag_names_are_lowercased() -> None:
     assert [next(iter(tokenize(document))).tag for document in ("<DIV>", "<SpAn>")] == ["div", "span"]
 
 
-def test_streaming_tokenizer_reclaims_consumed_input() -> None:
+def test_streaming_tokenizer_reclaims_consumed_input(retained_bytes: RetainedBytes) -> None:
     # feed() compacts the consumed prefix, so a long-lived streaming tokenizer stays memory
     # bounded instead of growing its input buffer with every chunk (issue #80).
-    # PyPy ships no _tracemalloc, and its GC frees the buffer on its own schedule, so there is
-    # no peak to assert there; the compaction itself is C and covered by the CPython run.
-    tracemalloc = pytest.importorskip("tracemalloc")
     tokenizer = Tokenizer()
     for _ in range(200):  # warm up so one-time allocations settle out of the measurement
         list(tokenizer.feed("<p>hello world</p>"))
-    tracemalloc.start()
     for _ in range(10_000):
         list(tokenizer.feed("<p>hello world</p>"))
-    retained = tracemalloc.get_traced_memory()[0]
+    retained = retained_bytes(__file__)
     for _ in range(10_000):
         list(tokenizer.feed("<p>hello world</p>"))
-    growth = tracemalloc.get_traced_memory()[0] - retained
-    tracemalloc.stop()
+    growth = retained_bytes(__file__) - retained
     # without compaction the input buffer grows by about 180 KB in the second batch
     assert growth < 100_000, f"streaming feed retained {growth} more bytes"
 
@@ -738,14 +1032,22 @@ def test_dispatch_requires_every_handler() -> None:
         tokenizer.dispatch(object())
 
 
-@pytest.mark.parametrize("count", [0, 1, 10, 100], ids=["empty", "one", "ten", "hundred"])
+@pytest.mark.parametrize(
+    "count",
+    [
+        pytest.param(0, id="empty"),
+        pytest.param(1, id="one"),
+        pytest.param(10, id="ten"),
+        pytest.param(100, id="hundred"),
+    ],
+)
 def test_token_attrs_order(count: int) -> None:
     expected: Final = [(f"a{index}", str(index)) for index in range(count)]
     (token,) = tokenize(f"<p {' '.join(f'{name}={value}' for name, value in expected)}>")
     assert token.attrs == expected
 
 
-@pytest.mark.parametrize("document", ["<p>", "<p a=1 b=2>"], ids=["empty", "populated"])
+@pytest.mark.parametrize("document", [pytest.param("<p>", id="empty"), pytest.param("<p a=1 b=2>", id="populated")])
 def test_token_attrs_returns_fresh_list(document: str) -> None:
     (token,) = tokenize(document)
     expected: Final = token.attrs
@@ -755,13 +1057,9 @@ def test_token_attrs_returns_fresh_list(document: str) -> None:
     assert token.attrs == expected
 
 
-# Large enough that the old O(n^2) scan would take tens of seconds even on an
-# instrumented build, so a regression cannot slip under the wall-clock ceiling; the
-# linear path parses it in well under a second.
-_MANY = 60000
-# Headroom is ~30x over the linear cost and ~5x under the quadratic one, so ordinary
-# CI scheduling jitter cannot flip the result either way.
-_BUDGET_SECONDS = 6.0
+def test_many_distinct_attributes_parse_in_linear_time(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: partial(_attrs_of, "".join(f" a{i}" for i in range(n))), (2000, 8000))
+    assert len(_attrs_of("".join(f" a{index}" for index in range(8000)))) == 8000  # every distinct name is kept
 
 
 def _attrs_of(pairs: str) -> list[tuple[str, str]]:
@@ -770,21 +1068,13 @@ def _attrs_of(pairs: str) -> list[tuple[str, str]]:
     return tag.attrs
 
 
-def test_many_distinct_attributes_parse_in_linear_time() -> None:
-    pairs = "".join(f" a{index}" for index in range(_MANY))
-    start = time.perf_counter()
-    attrs = _attrs_of(pairs)
-    assert time.perf_counter() - start < _BUDGET_SECONDS
-    assert len(attrs) == _MANY  # every distinct name is kept, none dropped
-
-
 def test_many_distinct_attributes_keep_their_names_and_order() -> None:
     attrs = _attrs_of("".join(f" a{index}" for index in range(2000)))
     assert [name for name, _ in attrs] == [f"a{index}" for index in range(2000)]
 
 
 def test_many_duplicate_attributes_collapse_to_the_first() -> None:
-    assert _attrs_of(" x" * _MANY) == [("x", "")]  # duplicates dropped early, count never grows
+    assert _attrs_of(" x" * 60_000) == [("x", "")]  # duplicates dropped early, count never grows
 
 
 def test_interleaved_duplicates_keep_first_occurrence_order() -> None:
@@ -795,31 +1085,29 @@ def test_interleaved_duplicates_keep_first_occurrence_order() -> None:
 def test_hash_index_resets_between_consecutive_large_tags() -> None:
     # Two big tags back to back: the second must not see the first tag's names, so the
     # per-tag epoch reset and the grow that re-seats live entries both have to be right.
-    first = "<a" + "".join(f" p{index}" for index in range(1500)) + ">"
-    second = "<b" + "".join(f" p{index}" for index in range(1500)) + ">"
+    first = f"<a{''.join(f' p{index}' for index in range(1500))}>"
+    second = f"<b{''.join(f' p{index}' for index in range(1500))}>"
     counts = [len(token.attrs) for token in tokenize(first + second) if token.attrs is not None]
     assert counts == [1500, 1500]  # neither tag drops a name
-
-
-def _reference_shape(token: Token) -> tuple[object, ...]:
-    return (token.type, token.tag, token.data, token.source, token.attrs, token.self_closing)
-
-
-def _stream_char_by_char(document: str, *, resolve_references: bool, capture_source: bool) -> list[Token]:
-    tokenizer = Tokenizer(resolve_references=resolve_references, capture_source=capture_source)
-    streamed = [token for char in document for token in tokenizer.feed(char)]
-    streamed += list(tokenizer.close())
-    return streamed
-
-
-def _refs(tokens: Iterable[Token]) -> list[tuple[str | None, str | None]]:
-    return [(token.data, token.source) for token in tokens if token.type is TokenType.CHARACTER_REFERENCE]
 
 
 def test_default_resolves_references_into_text() -> None:
     head, tag = list(tokenize("a&amp;b<p>"))
     assert _reference_shape(head) == (TokenType.TEXT, None, "a&b", None, None, False)
     assert tag.type is TokenType.START_TAG
+
+
+def _reference_shape(token: Token) -> _ReferenceShape:
+    return _ReferenceShape(token.type, token.tag, token.data, token.source, token.attrs, token.self_closing)
+
+
+class _ReferenceShape(NamedTuple):
+    token_type: TokenType
+    tag: str | None
+    data: str | None
+    source: str | None
+    attrs: list[tuple[str, str]] | None
+    self_closing: bool
 
 
 def test_default_source_is_none() -> None:
@@ -841,8 +1129,7 @@ def test_default_source_is_none() -> None:
 def test_reference_becomes_its_own_token(document: str, data: str, source: str) -> None:
     (reference,) = list(tokenize(document, resolve_references=False))
     assert reference.type is TokenType.CHARACTER_REFERENCE
-    assert reference.data == data
-    assert reference.source == source
+    assert (reference.data, reference.source) == (data, source)
     assert reference.tag is None
     assert reference.attrs is None
     assert reference.self_closing is False
@@ -875,6 +1162,10 @@ def test_non_reference_ampersand_stays_text(document: str, text: str) -> None:
 
 def test_consecutive_references() -> None:
     assert _refs(tokenize("&amp;&lt;&gt;", resolve_references=False)) == [("&", "&amp;"), ("<", "&lt;"), (">", "&gt;")]
+
+
+def _refs(tokens: Iterable[Token]) -> list[tuple[str | None, str | None]]:
+    return [(token.data, token.source) for token in tokens if token.type is TokenType.CHARACTER_REFERENCE]
 
 
 def test_named_vs_numeric_is_readable_from_source() -> None:
@@ -921,8 +1212,7 @@ def test_reference_repr() -> None:
 )
 def test_capture_source_records_verbatim_markup(document: str, tag: str | None, source: str) -> None:
     (token,) = list(tokenize(document, capture_source=True))
-    assert token.tag == tag
-    assert token.source == source
+    assert (token.tag, token.source) == (tag, source)
 
 
 def test_capture_source_leaves_text_without_source() -> None:
@@ -936,8 +1226,7 @@ def test_capture_source_leaves_text_without_source() -> None:
 def test_capture_source_preserves_original_casing_and_whitespace() -> None:
     # the resolved tag name is lowercased, but the verbatim source keeps the original spelling
     (tag,) = list(tokenize("<DIV  Class = 'x' >", capture_source=True))
-    assert tag.tag == "div"
-    assert tag.source == "<DIV  Class = 'x' >"
+    assert (tag.tag, tag.source) == ("div", "<DIV  Class = 'x' >")
 
 
 def test_capture_source_and_split_references_combine() -> None:
@@ -967,6 +1256,13 @@ def test_split_streaming_matches_whole(document: str, width_prefix: str) -> None
     whole = list(tokenize(text, resolve_references=False))
     assert [_reference_shape(token) for token in streamed] == [_reference_shape(token) for token in whole]
     assert [(token.line, token.col) for token in streamed] == [(token.line, token.col) for token in whole]
+
+
+def _stream_char_by_char(document: str, *, resolve_references: bool, capture_source: bool) -> list[Token]:
+    tokenizer = Tokenizer(resolve_references=resolve_references, capture_source=capture_source)
+    streamed = [token for char in document for token in tokenizer.feed(char)]
+    streamed += list(tokenizer.close())
+    return streamed
 
 
 @pytest.mark.parametrize(
@@ -1050,85 +1346,15 @@ def test_split_reference_survives_a_queued_feed() -> None:
     assert [token.data for token in tokens if token.type is TokenType.TEXT] == ["x", "y"]
 
 
-_TOKENIZER_DIR: Final[Path] = Path(__file__).parents[1] / "html5lib-tests" / "tokenizer"
-
-# CI always checks out the submodule (actions/checkout submodules: true); this guard fires only locally
-if not _TOKENIZER_DIR.is_dir() or not any(_TOKENIZER_DIR.glob("*.test")):  # pragma: no cover
-    msg = "submodule tests/html5lib-tests not checked out; run: git submodule update --init tests/html5lib-tests"
-    raise RuntimeError(msg)
-
-_DOUBLE_ESCAPE = re.compile(r"\\u([0-9A-Fa-f]{4})")
-_TokenPart: TypeAlias = str | bool | dict[str, str] | None
-_ExpectedToken: TypeAlias = list[_TokenPart]
-_ParseError: TypeAlias = tuple[str, int, int]
-_TokenizerCase: TypeAlias = tuple[str, str, str | None, list[_ExpectedToken], list[_ParseError], str]
-_PI_TOKEN_OVERRIDES: Final[dict[str, list[_ExpectedToken]]] = {
-    "<?namespace>": [["ProcessingInstruction", "namespace", ""]],
-    "<?foo-->": [["ProcessingInstruction", "foo--", ""]],
-}
-
-
-def _decode_double(text: str) -> str:
-    return _DOUBLE_ESCAPE.sub(lambda match: chr(int(match.group(1), 16)), text)
-
-
-def _decode_token(token: _ExpectedToken) -> _ExpectedToken:
-    return [_decode_double(item) if isinstance(item, str) else item for item in token]
-
-
-def _living_pi_expectation(
-    text: str, state: str, expected: list[_ExpectedToken], errors: list[_ParseError]
-) -> tuple[list[_ExpectedToken], list[_ParseError]]:
-    if state != "Data state" or not text.startswith("<?"):
-        return expected, errors
-    if not (first := text[2:3]):
-        return [], [("eof-in-processing-instruction", 1, 3)]
-    if first.isascii() and (first.isalpha() or first == "_"):
-        if text.endswith(">"):
-            return _PI_TOKEN_OVERRIDES.get(text, expected), []
-        return [], [("eof-in-processing-instruction", 1, len(text) + 1)]
-    retained = [
-        error
-        for error in errors
-        if error[0] not in {"control-character-in-input-stream", "unexpected-question-mark-instead-of-tag-name"}
-    ]
-    preprocessing = [error for error in errors if error[0] == "control-character-in-input-stream"]
-    return expected, [*preprocessing, ("invalid-first-character-of-processing-instruction-target", 1, 3), *retained]
-
-
-def _load_cases() -> list[_TokenizerCase]:
-    cases: list[_TokenizerCase] = []
-    for path in sorted(_TOKENIZER_DIR.glob("*.test")):
-        document = json.loads(path.read_text(encoding="utf-8"))
-        for index, test in enumerate(document.get("tests", [])):
-            double_escaped = test.get("doubleEscaped", False)
-            text = _decode_double(test["input"]) if double_escaped else test["input"]
-            expected = [
-                _decode_token(token) if double_escaped else list(token)
-                for token in test["output"]
-                if token != "ParseError"  # ruff:ignore[hardcoded-password-string]  # a token-stream marker, not a password
-            ]
-            errors = [(error["code"], error["line"], error["col"]) for error in test.get("errors", [])]
-            last_start_tag = test.get("lastStartTag")
-            for state in test.get("initialStates", ["Data state"]):
-                expected, errors = _living_pi_expectation(text, state, expected, errors)
-                identifier = f"{path.stem}-{index}-{state.replace(' ', '_')}"
-                cases.append((text, state, last_start_tag, expected, errors, identifier))
-    return cases
-
-
-def _tokenizer_cases() -> list[ParameterSet]:
-    return [pytest.param(case, id=case[-1]) for case in _load_cases()]
-
-
-@pytest.mark.parametrize("case", _tokenizer_cases())
-def test_tokenizer_conformance(case: _TokenizerCase, storage_kind: int) -> None:
-    text: Final = case[0]
-    errors: Final = case[4]
-    result: Final = _html._tokenize_states(text, case[1], case[2], storage_kind)
-    check_positions: Final = all(ord(character) <= 0xFFFF for character in text)
-    assert (
-        [list(token) for token in result[0]],
-        [code for code, _, _ in result[1]],
-        [(code, line, col + 1) for code, line, col in result[1]] if check_positions else None,
-    ) == (case[3], [code for code, _, _ in errors], errors if check_positions else None)
+@pytest.mark.parametrize(
+    ("source", "data"),
+    [
+        pytest.param("<svg><![CDATA[a]]></svg>", "a", id="section"),
+        pytest.param("<svg>y<![CDATA[z]]>w</svg>", "yzw", id="text-around-section"),
+        pytest.param("<svg><![CDATA[a", "a", id="eof"),
+    ],
+)
+def test_tokenize_cdata_section_text_in_each_storage_width(width_prefix: str, source: str, data: str) -> None:
+    # the prefix sets the input's storage width, so each width's copy of the tokenizer reads the section
+    texts = [token.data for token in tokenize(width_prefix + source) if token.type is TokenType.TEXT]
+    assert texts == [text for text in (width_prefix, data) if text]

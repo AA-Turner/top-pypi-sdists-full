@@ -1,6 +1,9 @@
-import pytest
 import asyncio
-from aiostream import stream, pipe
+import types
+
+import pytest
+
+from aiostream import pipe, stream
 
 
 @pytest.mark.asyncio
@@ -14,6 +17,35 @@ async def test_just(assert_run):
 
     xs = stream.just(four())
     await assert_run(xs, [4])
+
+
+@pytest.mark.asyncio
+async def test_just_generator_coroutine(assert_run):
+    @types.coroutine
+    def value():
+        yield from asyncio.sleep(0).__await__()
+        return 4
+
+    await assert_run(stream.just(value()), [4])
+
+
+@pytest.mark.asyncio
+async def test_just_generator_coroutine_error(assert_run):
+    error = ValueError("coroutine failed")
+
+    @types.coroutine
+    def fail():
+        yield from asyncio.sleep(0).__await__()
+        raise error
+
+    await assert_run(stream.just(fail()), [], error)
+
+
+@pytest.mark.asyncio
+async def test_just_plain_generator(assert_run):
+    value = (item for item in range(3))
+    await assert_run(stream.just(value), [value])
+    assert list(value) == [0, 1, 2]
 
 
 @pytest.mark.asyncio

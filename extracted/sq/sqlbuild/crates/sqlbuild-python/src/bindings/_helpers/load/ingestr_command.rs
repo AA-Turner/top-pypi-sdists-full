@@ -1,5 +1,6 @@
 //! The ingestr command line for one declarative ingestr source, built from its runtime values.
 
+use sqlbuild_python_base::native_host::main::host_error::host_error;
 use std::collections::BTreeMap;
 
 use pyo3::prelude::{
@@ -16,10 +17,10 @@ use sqlbuild_core::loader_connection::models::LoaderConnection;
 use sqlbuild_host::entries::models::ThirdPartyHost;
 use sqlbuild_model_config::templates::models::TemplateOptions;
 
-use crate::bindings::_helpers::boundary::keyword_request::Request;
 use crate::bindings::_helpers::model_config::template_data::expanded_template_data;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::fields::field as native_field;
+use sqlbuild_python_base::boundary::models::Request;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
 
 const INGESTR_ERROR: ThirdPartyHost = ThirdPartyHost::IngestrIntegrationError;
 const INGESTR_SOURCE_CONFIG: ThirdPartyHost = ThirdPartyHost::IngestrSourceConfig;
@@ -38,9 +39,7 @@ const LIST_FIELDS: [&str; 2] = ["primary_key", "extra_args"];
 
 /// An `IngestrIntegrationError`, or the failure to construct one.
 fn ingestr_error(py: Python<'_>, message: String) -> PyErr {
-    host::entry(py, INGESTR_ERROR)
-        .and_then(|class| class.call1((message,)))
-        .map_or_else(|error| error, PyErr::from_value)
+    host_error(py, INGESTR_ERROR, &message)
 }
 
 /// The source's ingestr config, raising when the source declares no valid one.
@@ -48,14 +47,14 @@ fn ingestr_config<'py>(source_entry: &Bound<'py, PyAny>) -> PyResult<Bound<'py, 
     let py: Python<'py> = source_entry.py();
     let name: String = native_field(source_entry, "name")?.str()?.extract()?;
     let loader: Bound<'py, PyAny> = native_field(source_entry, "integration_loader")?;
-    if loader.is_none() || !native_field(&loader, "kind")?.eq(host::entry(py, INGESTR_KIND)?)? {
+    if loader.is_none() || !native_field(&loader, "kind")?.eq(host_entry(py, INGESTR_KIND)?)? {
         return Err(ingestr_error(
             py,
             format!("Source '{name}' does not define ingestr config"),
         ));
     }
     let config: Bound<'py, PyAny> = native_field(&loader, "config")?;
-    if !config.is_instance(&host::entry(py, INGESTR_SOURCE_CONFIG)?)? {
+    if !config.is_instance(&host_entry(py, INGESTR_SOURCE_CONFIG)?)? {
         return Err(ingestr_error(
             py,
             format!("Source '{name}' defines invalid ingestr config"),

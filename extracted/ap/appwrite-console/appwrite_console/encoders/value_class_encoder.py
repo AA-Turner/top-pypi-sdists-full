@@ -50,6 +50,7 @@ from ..enums.addon_key import AddonKey
 from ..enums.usage_range import UsageRange
 from ..enums.project_auth_method_id import ProjectAuthMethodId
 from ..enums.environment_resource import EnvironmentResource
+from ..enums.project_ldap_encryption import ProjectLDAPEncryption
 from ..enums.project_o_auth2_auth0_prompt import ProjectOAuth2Auth0Prompt
 from ..enums.project_o_auth2_discord_prompt import ProjectOAuth2DiscordPrompt
 from ..enums.project_o_auth2_git_hub_prompt import ProjectOAuth2GitHubPrompt
@@ -100,6 +101,7 @@ from ..enums.execution_resource_type import ExecutionResourceType
 from ..enums.execution_trigger import ExecutionTrigger
 from ..enums.execution_status import ExecutionStatus
 from ..enums.alert_status import AlertStatus
+from ..enums.alert_severity import AlertSeverity
 from ..enums.alert_metric import AlertMetric
 from ..enums.alert_comparator import AlertComparator
 from ..enums.monitor_type import MonitorType
@@ -280,6 +282,9 @@ class ValueClassEncoder(json.JSONEncoder):
         if isinstance(o, EnvironmentResource):
             return o.value
 
+        if isinstance(o, ProjectLDAPEncryption):
+            return o.value
+
         if isinstance(o, ProjectOAuth2Auth0Prompt):
             return o.value
 
@@ -428,6 +433,9 @@ class ValueClassEncoder(json.JSONEncoder):
             return o.value
 
         if isinstance(o, AlertStatus):
+            return o.value
+
+        if isinstance(o, AlertSeverity):
             return o.value
 
         if isinstance(o, AlertMetric):

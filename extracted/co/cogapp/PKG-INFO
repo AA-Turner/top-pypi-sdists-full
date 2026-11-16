@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cogapp
-Version: 3.6.0
+Version: 3.6.1
 Summary: Cog: A content generator for executing Python snippets in source files.
 Author-email: Ned Batchelder <ned@nedbatchelder.com>
 License-Expression: MIT
@@ -13,14 +13,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Code Generators
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.txt
@@ -45,7 +44,7 @@ Code repository and issue tracker are at
 
 To run the tests::
 
-    $ pip install -r requirements.pip
+    $ pip install -r dev-requirements.txt
     $ tox
 
 

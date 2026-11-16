@@ -4,25 +4,11 @@ import copy
 import json
 import math
 import os
-import re
 import tempfile
 import uuid
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from urllib.parse import urlparse, uses_netloc, uses_params, uses_relative
 
 import numpy as np
@@ -46,19 +32,19 @@ if TYPE_CHECKING:
     from .features import Popup
 
 
-TypeLine = Iterable[Sequence[float]]
-TypeMultiLine = Union[TypeLine, Iterable[TypeLine]]
+TypeLine: TypeAlias = Iterable[Sequence[float]]
+TypeMultiLine: TypeAlias = TypeLine | Iterable[TypeLine]
 
-TypeJsonValueNoNone = Union[str, float, bool, Sequence, dict]
-TypeJsonValue = Union[TypeJsonValueNoNone, None]
+TypeJsonValueNoNone: TypeAlias = str | float | bool | Sequence | dict
+TypeJsonValue: TypeAlias = TypeJsonValueNoNone | None
 
-TypePathOptions = Union[bool, str, float, None]
+TypePathOptions: TypeAlias = bool | str | float | None
 
-TypeBounds = Sequence[Sequence[float]]
-TypeBoundsReturn = List[List[Optional[float]]]
+TypeBounds: TypeAlias = Sequence[Sequence[float]]
+TypeBoundsReturn: TypeAlias = list[list[float | None]]
 
-TypeContainer = Union[Figure, Div, "Popup"]
-TypePosition = Literal["bottomright", "bottomleft", "topright", "topleft"]
+TypeContainer: TypeAlias = "Figure | Div | Popup"
+TypePosition: TypeAlias = Literal["bottomright", "bottomleft", "topright", "topleft"]
 
 
 _VALID_URLS = set(uses_relative + uses_netloc + uses_params)
@@ -66,7 +52,7 @@ _VALID_URLS.discard("")
 _VALID_URLS.add("data")
 
 
-def validate_location(location: Sequence[float]) -> List[float]:
+def validate_location(location: Sequence[float]) -> list[float]:
     """Validate a single lat/lon coordinate pair and convert to a list
 
     Validate that location:
@@ -80,6 +66,8 @@ def validate_location(location: Sequence[float]) -> List[float]:
         pd is not None and isinstance(location, pd.DataFrame)
     ):
         location = np.squeeze(location).tolist()
+    elif pd is not None and isinstance(location, pd.Series):
+        location = location.tolist()
     if not hasattr(location, "__len__"):
         raise TypeError(
             "Location should be a sized variable, "
@@ -126,19 +114,26 @@ def _validate_locations_basics(locations: TypeMultiLine) -> None:
         raise ValueError("Locations is empty.")
 
 
-def validate_locations(locations: TypeLine) -> List[List[float]]:
+def validate_locations(locations: TypeLine) -> list[list[float]]:
     """Validate an iterable with lat/lon coordinate pairs."""
     locations = if_pandas_df_convert_to_numpy(locations)
+    if isinstance(locations, Iterator):
+        locations = list(locations)
     _validate_locations_basics(locations)
     return [validate_location(coord_pair) for coord_pair in locations]
 
 
 def validate_multi_locations(
     locations: TypeMultiLine,
-) -> Union[List[List[float]], List[List[List[float]]]]:
+) -> list[list[float]] | list[list[list[float]]]:
     """Validate an iterable with possibly nested lists of coordinate pairs."""
     locations = if_pandas_df_convert_to_numpy(locations)
+    if isinstance(locations, Iterator):
+        locations = list(locations)
     _validate_locations_basics(locations)
+    # Keep the nesting check below from consuming a point from an inner iterator.
+    if isinstance(next(iter(locations)), Iterator):
+        locations = [list(line) for line in locations]
     try:
         float(next(iter(next(iter(next(iter(locations)))))))  # type: ignore
     except (TypeError, StopIteration):
@@ -163,7 +158,7 @@ def if_pandas_df_convert_to_numpy(obj: Any) -> Any:
 
 def image_to_url(
     image: Any,
-    colormap: Optional[Callable] = None,
+    colormap: Callable | None = None,
     origin: str = "upper",
 ) -> str:
     """
@@ -195,7 +190,7 @@ def image_to_url(
             img = f.read()
         b64encoded = base64.b64encode(img).decode("utf-8")
         url = f"data:image/{fileformat};base64,{b64encoded}"
-    elif "ndarray" in image.__class__.__name__:
+    elif not isinstance(image, str):
         img = write_png(image, origin=origin, colormap=colormap)
         b64encoded = base64.b64encode(img).decode("utf-8")
         url = f"data:image/png;base64,{b64encoded}"
@@ -215,9 +210,9 @@ def _is_url(url: str) -> bool:
 
 def mercator_transform(
     data: Any,
-    lat_bounds: Tuple[float, float],
+    lat_bounds: tuple[float, float],
     origin: str = "upper",
-    height_out: Optional[int] = None,
+    height_out: int | None = None,
 ) -> np.ndarray:
     """
     Transforms an image computed in (longitude,latitude) coordinates into
@@ -232,7 +227,7 @@ def mercator_transform(
     lat_bounds : length 2 tuple
         Minimal and maximal value of the latitude of the image.
         Bounds must be between -85.051128779806589 and 85.051128779806589
-        otherwise they will be clipped to that values.
+        otherwise the image will be clipped to that range.
 
     origin : ['upper' | 'lower'], optional, default 'upper'
         Place the [0,0] index of the array in the upper left or lower left
@@ -261,8 +256,9 @@ def mercator_transform(
     if origin == "upper":
         array = array[::-1, :, :]
 
-    lats = lat_min + np.linspace(0.5 / height, 1.0 - 0.5 / height, height) * (
-        lat_max - lat_min
+    # The input rows span the full lat_bounds; only the output is clipped.
+    lats = lat_bounds[0] + np.linspace(0.5 / height, 1.0 - 0.5 / height, height) * (
+        lat_bounds[1] - lat_bounds[0]
     )
     latslats = mercator(lat_min) + np.linspace(
         0.5 / height_out, 1.0 - 0.5 / height_out, height_out
@@ -273,13 +269,18 @@ def mercator_transform(
         for j in range(nblayers):
             out[:, i, j] = np.interp(latslats, mercator(lats), array[:, i, j])
 
+    # Keep integer images (e.g. uint8 RGBA) in their original dtype, otherwise
+    # write_png treats them as float data and rescales each channel.
+    if np.issubdtype(array.dtype, np.integer):
+        out = np.round(out).astype(array.dtype)
+
     # Eventually flip the image.
     if origin == "upper":
         out = out[::-1, :, :]
     return out
 
 
-def iter_coords(obj: Any) -> Iterator[Tuple[float, ...]]:
+def iter_coords(obj: Any) -> Iterator[tuple[float, ...]]:
     """
     Returns all the coordinate tuples from a geometry or feature.
 
@@ -287,19 +288,11 @@ def iter_coords(obj: Any) -> Iterator[Tuple[float, ...]]:
     if isinstance(obj, (tuple, list)):
         coords = obj
     elif "features" in obj:
-        coords = [
-            geom["geometry"]["coordinates"]
-            for geom in obj["features"]
-            if geom["geometry"]
-        ]
+        coords = obj["features"]
     elif "geometry" in obj:
-        coords = obj["geometry"]["coordinates"] if obj["geometry"] else []
-    elif (
-        "geometries" in obj
-        and obj["geometries"][0]
-        and "coordinates" in obj["geometries"][0]
-    ):
-        coords = obj["geometries"][0]["coordinates"]
+        coords = [obj["geometry"]] if obj["geometry"] else []
+    elif "geometries" in obj:
+        coords = obj["geometries"]
     else:
         coords = obj.get("coordinates", obj)
     for coord in coords:
@@ -313,13 +306,13 @@ def iter_coords(obj: Any) -> Iterator[Tuple[float, ...]]:
 def get_bounds(
     locations: Any,
     lonlat: bool = False,
-) -> List[List[Optional[float]]]:
+) -> list[list[float | None]]:
     """
     Computes the bounds of the object in the form
     [[lat_min, lon_min], [lat_max, lon_max]]
 
     """
-    bounds: List[List[Optional[float]]] = [[None, None], [None, None]]
+    bounds: list[list[float | None]] = [[None, None], [None, None]]
     for point in iter_coords(locations):
         bounds = [
             [
@@ -397,29 +390,29 @@ def deep_copy(item_original: Element) -> Element:
     return item
 
 
-def get_obj_in_upper_tree(element: Element, cls: Type) -> Element:
+def get_obj_in_upper_tree(element: Element, cls: type) -> Element:
     """Return the first object in the parent tree of class `cls`."""
     parent = element._parent
     if parent is None:
         raise ValueError(f"The top of the tree was reached without finding a {cls}")
     if not isinstance(parent, cls):
         return get_obj_in_upper_tree(parent, cls)
-    return parent
+    return parent  # type: ignore
 
 
-def parse_options(**kwargs: TypeJsonValue) -> Dict[str, TypeJsonValueNoNone]:
+def parse_options(**kwargs: TypeJsonValue) -> dict[str, TypeJsonValueNoNone]:
     """Return a dict with lower-camelcase keys and non-None values.."""
     return {camelize(key): value for key, value in kwargs.items() if value is not None}
 
 
-def remove_empty(**kwargs: TypeJsonValue) -> Dict[str, TypeJsonValueNoNone]:
+def remove_empty(**kwargs: TypeJsonValue) -> dict[str, TypeJsonValueNoNone]:
     """Return a dict without None values."""
     return {key: value for key, value in kwargs.items() if value is not None}
 
 
 def escape_backticks(text: str) -> str:
-    """Escape backticks so text can be used in a JS template."""
-    return re.sub(r"(?<!\\)`", r"\`", text)
+    """Escape backslashes and backticks so text can be used in a JS template."""
+    return text.replace("\\", "\\\\").replace("`", "\\`")
 
 
 def escape_double_quotes(text: str) -> str:
@@ -441,19 +434,69 @@ def get_and_assert_figure_root(obj: Element) -> Figure:
 
 
 class JsCode:
-    """Wrapper around Javascript code."""
+    """Wrapper around Javascript code.
 
-    def __init__(self, js_code: Union[str, "JsCode"]):
+    Parameters
+    ----------
+    js_code: str or JsCode
+        The Javascript code. It may contain ``%(name)s`` placeholders that are
+        filled in with the keyword arguments.
+    **params:
+        Values for the placeholders in `js_code`. A folium (or branca) element
+        is replaced by its Javascript variable name, a JsCode object by its
+        code, and any other value is formatted with the ``%`` operator.
+        The placeholders are filled in when the code is rendered.
+
+    When parameters are given, a literal ``%`` in the code must be written as
+    ``%%``. Without parameters the code is used as is.
+
+    Examples
+    --------
+    >>> m = folium.Map()
+    >>> marker = folium.Marker([45, -30]).add_to(m)
+    >>> handler = JsCode(
+    ...     '''
+    ...     function(e) {
+    ...         %(marker)s.openPopup();
+    ...     }
+    ... ''',
+    ...     marker=marker,
+    ... )
+    """
+
+    def __init__(self, js_code: "str | JsCode", **params: Any):
         if isinstance(js_code, JsCode):
-            self.js_code: str = js_code.js_code
+            self._template: str = js_code._template
+            self.params: dict[str, Any] = {**js_code.params, **params}
         else:
-            self.js_code = js_code
+            self._template = js_code
+            self.params = params
+
+    @property
+    def js_code(self) -> str:
+        if not self.params:
+            return self._template
+        return self._template % {
+            key: self._resolve(value) for key, value in self.params.items()
+        }
+
+    @js_code.setter
+    def js_code(self, value: str) -> None:
+        self._template = value
+
+    @staticmethod
+    def _resolve(value: Any) -> Any:
+        if isinstance(value, JsCode):
+            return value.js_code
+        if isinstance(value, Element):
+            return value.get_name()
+        return value
 
     def __str__(self):
         return self.js_code
 
 
-def parse_font_size(value: Union[str, int, float]) -> str:
+def parse_font_size(value: str | int | float) -> str:
     """Parse a font size value, if number set as px"""
     if isinstance(value, (int, float)):
         return f"{value}px"

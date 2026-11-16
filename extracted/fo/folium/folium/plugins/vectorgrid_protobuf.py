@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from folium.elements import JSCSSMixin
 from folium.map import Layer
 from folium.template import Template
@@ -103,8 +101,7 @@ class VectorGridProtobuf(JSCSSMixin, Layer):
     For more info, see: https://leaflet.github.io/Leaflet.VectorGrid/vectorgrid-api-docs.html#styling-vectorgrids.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
             {% macro script(this, kwargs) -%}
             var {{ this.get_name() }} = L.vectorGrid.protobuf(
                 '{{ this.url }}',
@@ -113,8 +110,7 @@ class VectorGridProtobuf(JSCSSMixin, Layer):
                 {%- endif %}
             );
             {%- endmacro %}
-            """
-    )
+            """)
 
     default_js = [
         (
@@ -126,8 +122,8 @@ class VectorGridProtobuf(JSCSSMixin, Layer):
     def __init__(
         self,
         url: str,
-        name: Optional[str] = None,
-        options: Union[str, dict, None] = None,
+        name: str | None = None,
+        options: str | dict | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,

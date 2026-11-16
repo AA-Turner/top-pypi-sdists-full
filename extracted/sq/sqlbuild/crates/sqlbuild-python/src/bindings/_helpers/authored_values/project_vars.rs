@@ -1,8 +1,8 @@
 //! Project variable values rendered as the text SQL and config interpolation inserts.
 
 use sqlbuild_host::entries::models::FacadeHost;
+use sqlbuild_python_base::native_host::main::host_error::host_error;
 
-use crate::bindings::_helpers::native_host::host;
 use pyo3::prelude::{
     Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
 };
@@ -16,10 +16,7 @@ const PREVIEW_ELLIPSIS: &str = "...";
 
 /// `SharedInputError(message)`.
 fn shared_input_error(py: Python<'_>, message: String) -> PyErr {
-    match host::entry(py, FacadeHost::SharedInputError).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    host_error(py, FacadeHost::SharedInputError, &message)
 }
 
 /// Compact, key-sorted JSON of `value`, cut to the preview limit.

@@ -1,0 +1,244 @@
+use std::collections::BTreeSet;
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
+use clap::Parser;
+use memchr::memmem;
+use regex::bytes::{Match, Regex};
+
+use crate::hook::Hook;
+use crate::hooks::{FileReadCache, HookOutput, parse_hook_args, run_blocking_file_checks};
+
+#[derive(Parser)]
+#[command(disable_help_subcommand = true)]
+#[command(disable_version_flag = true)]
+#[command(disable_help_flag = true)]
+pub(crate) struct Args {
+    /// Additional GitHub-style domain to check (repeatable).
+    #[arg(long = "additional-github-domain", value_name = "DOMAIN")]
+    additional_github_domains: Vec<String>,
+    #[arg(value_name = "FILENAMES")]
+    filenames: Vec<PathBuf>,
+}
+
+#[derive(Debug)]
+struct GithubNonPermalinkMatcher {
+    checks: Vec<GithubNonPermalinkCheck>,
+}
+
+#[derive(Debug)]
+struct GithubNonPermalinkCheck {
+    needle: Vec<u8>,
+    pattern: Regex,
+}
+
+impl GithubNonPermalinkMatcher {
+    fn new(additional_domains: Vec<String>) -> Self {
+        let mut domains = BTreeSet::from([String::from("github.com")]);
+        domains.extend(additional_domains);
+
+        let checks = domains
+            .into_iter()
+            .map(|domain| {
+                let needle = format!("https://{domain}/").into_bytes();
+                let domain = regex::escape(&domain);
+                let pattern = format!(r"https://{domain}/[^/ ]+/[^/ ]+/blob/([^/. ]+)/[^# ]+#L\d+");
+                GithubNonPermalinkCheck {
+                    needle,
+                    pattern: Regex::new(&pattern).expect("vcs permalink regex must be valid"),
+                }
+            })
+            .collect();
+
+        Self { checks }
+    }
+
+    fn find_non_permalink<'a>(&self, line: &'a [u8]) -> impl Iterator<Item = Match<'a>> {
+        let mut matches = self
+            .checks
+            .iter()
+            .filter(|check| memmem::find(line, &check.needle).is_some())
+            .flat_map(|check| {
+                check.pattern.captures_iter(line).filter_map(|captures| {
+                    let reference = captures.get(1)?;
+                    if is_probable_commit_hash(reference.as_bytes()) {
+                        None
+                    } else {
+                        captures.get(0)
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        matches.sort_unstable_by_key(Match::start);
+        matches.into_iter()
+    }
+}
+
+fn is_probable_commit_hash(reference: &[u8]) -> bool {
+    (4..=64).contains(&reference.len()) && reference.iter().all(u8::is_ascii_hexdigit)
+}
+
+/// Runs the `check-vcs-permalinks` hook.
+pub(crate) async fn run(
+    hook: &Hook,
+    filenames: &[&Path],
+    cache: &FileReadCache,
+) -> Result<HookOutput> {
+    let args: Args = parse_hook_args(hook)?;
+    let matcher = GithubNonPermalinkMatcher::new(args.additional_github_domains);
+
+    let cache = cache.clone();
+    run_blocking_file_checks(
+        hook.project().relative_path(),
+        &args.filenames,
+        filenames,
+        move |file_path, display_path| check_file(file_path, display_path, &matcher, &cache),
+    )
+    .await
+}
+
+fn check_file(
+    file_path: &Path,
+    display_path: &Path,
+    matcher: &GithubNonPermalinkMatcher,
+    cache: &FileReadCache,
+) -> Result<HookOutput> {
+    let file = cache.open(file_path)?;
+    let mut reader = BufReader::new(file);
+
+    let mut retval = 0;
+    let mut output = Vec::new();
+    let mut line = Vec::new();
+    let mut line_number = 0;
+
+    while reader.read_until(b'\n', &mut line)? != 0 {
+        line_number += 1;
+        for m in matcher.find_non_permalink(&line) {
+            retval = 1;
+            write!(output, "Non-permanent github link detected: ")?;
+            write!(output, "{}:{}:", display_path.display(), line_number)?;
+            output.write_all(m.as_bytes())?;
+            writeln!(output)?;
+        }
+        line.clear();
+    }
+
+    Ok(HookOutput::unchanged(retval, output))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+
+    fn matcher(domains: &[&str]) -> GithubNonPermalinkMatcher {
+        GithubNonPermalinkMatcher::new(domains.iter().map(ToString::to_string).collect())
+    }
+
+    #[test]
+    fn test_permalink_not_flagged() {
+        let matcher = matcher(&[]);
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.com/owner/repo/blob/abc123def456/file.py#L10")
+                .next()
+                .is_none()
+        );
+        assert!(
+            matcher
+                .find_non_permalink(
+                    b"https://github.com/owner/repo/blob/abcdef1234567890abcdef1234567890abcdef12/src/main.rs#L42",
+                )
+                .next()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_branch_link_flagged() {
+        let matcher = matcher(&[]);
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.com/owner/repo/blob/main/file.py#L10")
+                .next()
+                .is_some()
+        );
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.com/owner/repo/blob/master/src/lib.rs#L5")
+                .next()
+                .is_some()
+        );
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.com/owner/repo/blob/develop/README.md#L1")
+                .next()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_no_line_number_not_flagged() {
+        let matcher = matcher(&[]);
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.com/owner/repo/blob/main/file.py")
+                .next()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_additional_github_domain_flagged() {
+        let matcher = matcher(&["github.example.com"]);
+        assert!(
+            matcher
+                .find_non_permalink(b"https://github.example.com/owner/repo/blob/main/file.py#L10",)
+                .next()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_find_non_permalink_returns_all_url_matches_in_order() {
+        let matcher = matcher(&["github.example.com"]);
+        let line = b"See https://github.example.com/owner/repo/blob/main/file.py#L10 and https://github.com/owner/repo/blob/master/src/lib.rs#L5";
+
+        let urls = matcher
+            .find_non_permalink(line)
+            .map(|m| m.as_bytes())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            urls,
+            vec![
+                b"https://github.example.com/owner/repo/blob/main/file.py#L10".as_slice(),
+                b"https://github.com/owner/repo/blob/master/src/lib.rs#L5".as_slice(),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_check_file_with_additional_domain() -> Result<()> {
+        let dir = tempdir()?;
+        let file_path = dir.path().join("links.md");
+        fs_err::write(
+            &file_path,
+            b"https://github.example.com/owner/repo/blob/main/file.py#L10 and https://github.com/owner/repo/blob/master/src/lib.rs#L5\n",
+        )?;
+
+        let matcher = matcher(&["github.example.com"]);
+        let relative = PathBuf::from("links.md");
+        let result = check_file(&file_path, &relative, &matcher, &FileReadCache::default())?;
+
+        assert_eq!(result.exit_status, 1);
+        assert_eq!(
+            String::from_utf8(result.output)?,
+            "Non-permanent github link detected: links.md:1:https://github.example.com/owner/repo/blob/main/file.py#L10\nNon-permanent github link detected: links.md:1:https://github.com/owner/repo/blob/master/src/lib.rs#L5\n",
+        );
+
+        Ok(())
+    }
+}

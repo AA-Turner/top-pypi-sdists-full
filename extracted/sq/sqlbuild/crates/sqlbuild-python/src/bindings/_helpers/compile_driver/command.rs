@@ -15,10 +15,6 @@ use sqlbuild_rules::custom_host_pool::constants::{
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::bindings::_helpers::boundary::python_calls::{
-    Status, call_with, imported, keywords, within,
-};
-use crate::bindings::_helpers::build_progress::transient_status::status_reporter;
 use crate::bindings::_helpers::compile_command::models::CompileReuseAttempt;
 use crate::bindings::_helpers::compile_command::report::{
     format_compile_json_with_notice, format_compile_text,
@@ -30,21 +26,30 @@ use crate::bindings::_helpers::compile_command::reuse_recording::{
 use crate::bindings::_helpers::compile_command::target_writer::{
     remove_failed_compile, write_rule_failed_models,
 };
-use crate::bindings::_helpers::compile_context::input_reads::record_compile_input_reads;
 use crate::bindings::_helpers::compile_driver::analysis::analyze;
 use crate::bindings::_helpers::compile_driver::phases::{
     elapsed_ms, manifest_payload, monotonic, resolved_dag_path, sql_test_planning_diagnostics,
     target_dir, write_artifacts, write_dag_artifact,
 };
-use crate::bindings::_helpers::presentation_text::terminal::stdout_supports_color;
-use crate::bindings::_helpers::records::construct::{enum_member, new_record_with};
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::replaced;
-use crate::bindings::_helpers::records::ids::{NativeAttr, RecordId};
-use crate::bindings::_helpers::records::registry;
 use crate::bindings::_helpers::rules::results::format_skipped_type_proof_rules;
 use crate::bindings::_helpers::rules::rules_config::rules_config_of;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::main::within::within;
+use sqlbuild_python_base::boundary::models::Status;
+use sqlbuild_python_base::build_progress::main::transient_status::status_reporter::status_reporter;
+use sqlbuild_python_base::compile_context::main::input_reads::record_compile_input_reads::record_compile_input_reads;
+use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
+use sqlbuild_python_base::records::main::construct::enum_member::enum_member;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::replaced::replaced;
+use sqlbuild_python_base::records::main::registry::native_attr::native_attr;
+use sqlbuild_python_base::records::types::NativeAttr;
+use sqlbuild_python_base::records::types::RecordId;
 use sqlbuild_rules::rule_results::main::default_rules_notice::default_rules_notice;
+use sqlbuild_rules::rule_results::main::format_skipped_models::format_skipped_models;
 
 const BYPASS_OUTCOME: &str = "bypass";
 
@@ -273,8 +278,8 @@ pub(crate) fn compile_phases<'py>(
     let skip_write: bool = native_field(request, "profile_flags")?
         .getattr("skip_write")?
         .is_truthy()?;
-    let staging: bool =
-        !skip_write && crate::bindings::_helpers::compile_context::delta::injection().is_none();
+    let staging: bool = !skip_write
+        && sqlbuild_python_base::compile_context::main::delta::injection::injection().is_none();
     let (outcome, input_reads, artifact_writes): (
         CommandOutcome<'py>,
         Bound<'py, PyAny>,
@@ -285,7 +290,7 @@ pub(crate) fn compile_phases<'py>(
             |input_reads| {
                 let artifact_writes: Py<CompileArtifactWrites> = new_artifact_recorder(py)?;
                 let manager: Bound<'py, PyAny> = call_with(
-                    &registry::native(py, NativeAttr::PreparedCompileArtifacts)?,
+                    &native_attr(py, NativeAttr::PreparedCompileArtifacts)?,
                     &[
                         ("enabled", PyBool::new(py, staging).to_owned().into_any()),
                         (
@@ -420,9 +425,16 @@ fn compiled_with_status<'py>(
         }
     }
     close_status(status)?;
-    if let Some(skipped_note) = format_skipped_type_proof_rules(
-        native_field(&analysis, "skipped_type_proof_rules")?.extract()?,
-    ) {
+    let skipped_notes = [
+        format_skipped_type_proof_rules(
+            native_field(&analysis, "skipped_type_proof_rules")?.extract()?,
+        ),
+        format_skipped_models(
+            &native_field(&analysis, "skipped_models")?.extract::<Vec<_>>()?,
+            false,
+        ),
+    ];
+    for skipped_note in skipped_notes.into_iter().flatten() {
         output.call_method1("print_stderr_line", (format!("note: {skipped_note}"),))?;
     }
     let dag_artifact_path: Bound<'py, PyAny> =

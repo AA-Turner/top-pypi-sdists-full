@@ -1,3 +1,5 @@
+import sys
+
 import markupever
 import pytest
 
@@ -93,6 +95,89 @@ def test_parse_file_function(tmp_path):
     )
 
     markupever.parse_file(file, markupever.HtmlOptions())
+
+
+@pytest.mark.parametrize(
+    "content, options",
+    [
+        ("<p>text</p>" * 100_000, markupever.HtmlOptions()),
+        ("<root>" + "<a>text</a>" * 100_000 + "</root>", markupever.XmlOptions()),
+    ],
+    ids=["html", "xml"],
+)
+@pytest.mark.skipif(not getattr(sys, "_is_gil_enabled", lambda: True)(), reason="no GIL")
+def test_parse_releases_gil(content, options):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    def parse():
+        start = time.perf_counter()
+        markupever.parse(content, options)
+        return time.perf_counter() - start
+
+    longest_pause = 0.0
+    with ThreadPoolExecutor(1) as executor:
+        last = time.perf_counter()
+        future = executor.submit(parse)
+        while not future.done():
+            now = time.perf_counter()
+            longest_pause = max(longest_pause, now - last)
+            last = now
+        longest_pause = max(longest_pause, time.perf_counter() - last)
+
+    # This thread keeps running while the other one parses.
+    assert longest_pause < future.result() / 2
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        markupever.HtmlOptions(),
+        markupever.HtmlOptions(full_document=False, drop_doctype=True),
+        markupever.HtmlOptions(fragment_context="tbody"),
+        markupever.HtmlOptions(scripting_enabled=False),
+        markupever.XmlOptions(),
+    ],
+)
+@pytest.mark.parametrize(
+    "content",
+    [
+        (
+            "\ufeff<!DOCTYPE html><title>Café</title><noscript><b>1234</b></noscript>"
+            "<table><tr><td>a &amp; b<!-- c --></table><svg><template>x</template></svg>"
+        ),
+        b"<p>\xff invalid UTF-8</p>",
+    ],
+)
+def test_parse_matches_parser(options, content):
+    parser = markupever.Parser(options)
+    parser.process(content)
+    expected = parser.finish().into_dom().serialize()
+
+    assert markupever.parse(content, options).serialize() == expected
+
+
+def test_parse_invalid_arguments():
+    with pytest.raises(TypeError):
+        markupever.parse(1)
+
+    with pytest.raises(TypeError):
+        markupever.parse("", object())
+
+    with pytest.raises(ValueError):
+        markupever.parse("", "invalid")
+
+
+def test_parse_in_threads():
+    from concurrent.futures import ThreadPoolExecutor
+
+    content = "<ul>" + "<li>item &amp; more</li>" * 1_000 + "</ul>"
+    expected = markupever.parse(content).serialize()
+
+    with ThreadPoolExecutor(8) as executor:
+        results = list(executor.map(lambda _: markupever.parse(content).serialize(), range(64)))
+
+    assert results == [expected] * 64
 
 
 @pytest.mark.parametrize("kwargs", [{}, {"full_document": False}, {"fragment_context": "div"}])
@@ -203,3 +288,47 @@ def test_fragment_context_serialize():
     # Descendants of the fragment's nodes are serialized as usual.
     dom = markupever.parse("<p>a &lt; b</p>", markupever.HtmlOptions(fragment_context="div"))
     assert dom.serialize() == "<p>a &lt; b</p>"
+
+
+def _reachable_count(dom: markupever.dom.TreeDom) -> int:
+    count = 0
+    pending = [dom.root()]
+    while pending:
+        node = pending.pop()
+        count += 1
+        pending.extend(node.children())
+    return count
+
+
+def test_selectedcontent_clones_the_selected_option():
+    document = markupever.parse(
+        "<select><button><selectedcontent></selectedcontent></button><option>Hello</option></select>"
+    )
+    selected = document.select_one("selectedcontent")
+    option = document.select_one("option")
+
+    assert selected is not None
+    assert selected.text() == "Hello"
+    assert option.text() == "Hello"
+
+    replaced = markupever.parse(
+        "<select><button><selectedcontent></selectedcontent></button>"
+        "<option>A</option><option selected>B</option></select>"
+    )
+    assert replaced.select_one("selectedcontent").text() == "B"
+    assert [element.text() for element in replaced.select("option")] == ["A", "B"]
+
+
+def test_fragment_iteration_skips_parser_orphans():
+    dom = markupever.parse(" <p>hi ", markupever.HtmlOptions(full_document=False))
+    assert len(dom) == _reachable_count(dom)
+    assert len(dom) < 6
+
+    dom = markupever.parse(
+        "<tr><td>x",
+        markupever.HtmlOptions(fragment_context="tbody"),
+    )
+    assert len(dom) == _reachable_count(dom)
+    assert not any(
+        node.parent is None and not isinstance(node, markupever.dom.Document) for node in dom
+    )

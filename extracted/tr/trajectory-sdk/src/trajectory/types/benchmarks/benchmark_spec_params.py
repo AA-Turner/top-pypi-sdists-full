@@ -12,6 +12,7 @@ from trajectory.types.runtime_spec_param import RuntimeSpecParam
 class BenchmarkSpecParams(TypedDict, total=False):
   name: Required[str]
   description: str
+  benchmark_type: Literal["generative", "decision"]
   visibility: Literal["public", "private"]
   runtime: RuntimeSpecParam | None
   tasks: Required[Iterable[TaskSpecParam]]

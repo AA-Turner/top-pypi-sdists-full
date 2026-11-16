@@ -23,7 +23,6 @@ from sqlalchemy.orm import properties
 
 from neutron_lib._i18n import _
 from neutron_lib.api import attributes
-from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
 
 
@@ -113,6 +112,7 @@ def reraise_as_retryrequest(function):
                 if is_retriable(e):
                     ctx.reraise = False
                     raise db_exc.RetryRequest(e)
+        return None
     return _wrapped
 
 
@@ -132,6 +132,7 @@ def get_marker_obj(plugin, context, resource, limit, marker):
     """
     if limit and marker:
         return getattr(plugin, f'_get_{resource}')(context, marker)
+    return None
 
 
 def resource_fields(resource, fields):
@@ -156,14 +157,12 @@ def filter_non_model_columns(data, model):
     :returns: A new dict who's keys are columns in model or are association
         proxies of the model.
     """
+    if data is None:
+        return {}
     mapper = sqlalchemy.inspect(model)
     columns = {c.name for c in mapper.columns}
-    try:
-        _association_proxy = associationproxy.ASSOCIATION_PROXY
-    except AttributeError:
-        # SQLAlchemy 2.0
-        _association_proxy = (
-            associationproxy.AssociationProxyExtensionType.ASSOCIATION_PROXY)
+    _association_proxy = (
+        associationproxy.AssociationProxyExtensionType.ASSOCIATION_PROXY)
     columns.update(d.value_attr for d in mapper.all_orm_descriptors
                    if d.extension_type is _association_proxy)
     return {k: v for (k, v)
@@ -228,6 +227,8 @@ def context_if_transaction(context, transaction, writer=True):
     :returns: A context manager.
     """
     if transaction:
+        # pylint: disable-next=import-outside-toplevel
+        from neutron_lib.db import api as db_api
         return (db_api.CONTEXT_WRITER.using(context) if writer else
                 db_api.CONTEXT_READER.using(context))
     return _noop_context_manager()

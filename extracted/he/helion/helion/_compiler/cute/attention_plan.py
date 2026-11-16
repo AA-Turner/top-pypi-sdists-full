@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:
+    import sympy
     import torch.fx
 
 DENSE_SCORE_KIND = "dense"
@@ -227,6 +228,12 @@ class AttentionScorePlan:
     host_scalars: tuple[str, ...] = ()
     scale_arg: str | None = None
     scale_peeled: bool = True
+    # A runtime softmax scale on a dense body: the traced host SymFloat the
+    # kernel multiplies the fp32 scores by (``DeviceFunction.sympy_expr``
+    # lifts it as one kernel scalar); ``qk_scale_log2`` is then the
+    # compile-time factor that turns it into the exp2-domain scale (1 for an
+    # ``exp2`` body, ``log2(e)`` for ``exp``).  None for a literal scale.
+    runtime_scale: sympy.Expr | None = None
     # The flex envelope that is dense attention (``flex_match`` records it):
     # the trivial walk (one KV block covering the sequence, the tables never
     # read) with neither a mask region (torch's ``noop_mask``, a constant-true
@@ -242,6 +249,12 @@ class AttentionScorePlan:
     # trivial walk, the plan relies on FlexAttention's contract that a mask's
     # tables describe its ``mask_mod``.
     flex_dense: bool = False
+    # The flex envelope's optional per-row store of the running row max
+    # beside the LSE (FlexAttention's ``max_scores``): the factor that turns
+    # the log2-unit row max (``row_max * qk_scale_log2``) into the stored
+    # value (1.0 for the kernel's own base-2 ``m``, ``ln 2`` for natural
+    # units); ``None`` when the kernel stores no row max.
+    row_max_scale: float | None = None
 
     @property
     def is_flex(self) -> bool:

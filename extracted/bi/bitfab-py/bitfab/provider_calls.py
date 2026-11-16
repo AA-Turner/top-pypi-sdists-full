@@ -11,7 +11,14 @@ import threading
 import time
 import uuid
 import weakref
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Collection,
+    Iterator,
+    Mapping,
+)
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
@@ -939,6 +946,15 @@ _BY_MODULE: dict[str, tuple[ProviderCall, ...]] = {}
 for _call in PROVIDER_CALLS:
     _BY_MODULE[_call.module] = (*_BY_MODULE.get(_call.module, ()), _call)
 _METHODS = frozenset(call.method for call in PROVIDER_CALLS)
+INTEGRATION_NAMES = frozenset(call.provider for call in PROVIDER_CALLS)
+_patched_integrations: set[str] = set()
+
+
+def _module_has_patched_integration(module_name: str) -> bool:
+    return any(
+        call.provider in _patched_integrations
+        for call in _BY_MODULE.get(module_name, ())
+    )
 
 
 _ANTHROPIC_CACHE_KEYS = frozenset(
@@ -1073,6 +1089,7 @@ def _recorded_call(
         session is None
         or owner is None
         or call is None
+        or call.provider in getattr(owner, "_disabled_integrations", ())
         or ownership == NODE_OMITS_CALL
         or (_streams(call, kwargs) and call.stream_summary is None)
         or framework_records_call()
@@ -1155,6 +1172,8 @@ def patch_module(module: Any) -> None:
 
 def instrument_loaded_clients() -> None:
     for module_name in _BY_MODULE:
+        if not _module_has_patched_integration(module_name):
+            continue
         module = sys.modules.get(module_name)
         if module is None:
             continue
@@ -1187,8 +1206,10 @@ def resolve_call_target(fn: Any) -> Any:
     return patched.__get__(resource, cls)
 
 
-_finder = PatchingFinder(lambda fullname: fullname in _BY_MODULE, patch_module)
+_finder = PatchingFinder(_module_has_patched_integration, patch_module)
 
 
-def install_import_hook() -> None:
+def install_import_hook(integrations: Collection[str]) -> None:
+    with _lock:
+        _patched_integrations.update(integrations)
     _finder.install()

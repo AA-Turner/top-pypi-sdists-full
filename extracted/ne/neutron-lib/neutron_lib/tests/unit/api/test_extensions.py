@@ -28,16 +28,20 @@ class InheritFromExtensionDescriptor(extensions.ExtensionDescriptor):
     because in ExtensionDescriptor they are marked as @abc.abstractmethod.
     """
 
-    def get_name(self):
+    @classmethod
+    def get_name(cls):
         pass
 
-    def get_alias(self):
+    @classmethod
+    def get_alias(cls):
         pass
 
-    def get_description(self):
+    @classmethod
+    def get_description(cls):
         pass
 
-    def get_updated(self):
+    @classmethod
+    def get_updated(cls):
         pass
 
     def update_attributes_map_save(self, extended_attributes,
@@ -62,6 +66,11 @@ class InheritFromExtensionDescriptor(extensions.ExtensionDescriptor):
 
 
 class TestExtensionDescriptor(base.BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.extended_attributes = None
+        self.extension_attrs_map = None
 
     def _setup_attribute_maps(self):
         self.extended_attributes = {'resource_one': {'one': 'first'},

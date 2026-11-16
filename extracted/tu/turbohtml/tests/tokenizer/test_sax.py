@@ -1,18 +1,5 @@
-"""Behavioral tests for the DOM-less SAX API (turbohtml.saxparse).
-
-The event stream is checked two ways: against explicit expectations for the tricky
-tree-construction cases (implied tags, foster parenting, void and empty elements,
-processing instructions, the doctype identifier variants), and against a
-document-order walk of the tree turbohtml.parse builds for the same markup, which
-proves the SAX walk stays faithful to the constructed tree across a corpus of
-documents.
-"""
-
 from __future__ import annotations
 
-import gc
-import sys
-import weakref
 from types import GeneratorType
 from typing import Final, cast
 
@@ -23,7 +10,7 @@ from turbohtml import Doctype as DomDoctype
 from turbohtml import Element as DomElement
 from turbohtml import ProcessingInstruction as DomProcessingInstruction
 from turbohtml import Text as DomText
-from turbohtml import _html, parse
+from turbohtml import parse
 from turbohtml.saxparse import (
     Characters,
     Comment,
@@ -36,6 +23,13 @@ from turbohtml.saxparse import (
     iter_events,
     sax_parse,
 )
+
+
+def test_sax_parse_matches_iter_events() -> None:
+    recorder = _Recorder()
+    markup = "<!DOCTYPE html><p id=x>hi<b>b</b><!--c--></p>"
+    sax_parse(markup, recorder)
+    assert recorder.events == list(iter_events(markup))
 
 
 class _Recorder(SaxHandler):
@@ -61,11 +55,54 @@ class _Recorder(SaxHandler):
         self.events.append(ProcessingInstruction(target, data))
 
 
-def test_sax_parse_matches_iter_events() -> None:
-    markup = "<!DOCTYPE html><p id=x>hi<b>b</b><!--c--></p>"
+@pytest.mark.parametrize(
+    ("markup", "attrs"),
+    [
+        pytest.param("<ul><li><i data-k=v>a<li>b<li>c</ul>", (("data-k", "v"),), id="list-item"),
+        pytest.param("<i data-k=v lang=en>1<div>2<div>3</i>4", (("data-k", "v"), ("lang", "en")), id="adoption-agency"),
+    ],
+)
+def test_clones_of_one_start_tag_share_one_attribute_tuple(markup: str, attrs: tuple[tuple[str, str], ...]) -> None:
+    # a tuple of new strings per clone is value length x clones
+    for starts in _attributed_starts(markup):
+        assert [start.attrs for start in starts] == [attrs] * 3
+        assert starts[1].attrs is starts[2].attrs
+
+
+def _attributed_starts(markup: str) -> list[list[StartElement]]:
     recorder = _Recorder()
     sax_parse(markup, recorder)
-    assert recorder.events == list(iter_events(markup))
+    return [
+        [event for event in events if isinstance(event, StartElement) and event.attrs]
+        for events in (recorder.events, list(iter_events(markup)))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param(
+            "<ul><li><i title=one>a<li>b<li>c</i></ul><ul><li><i title=two>d<li>e<li>f</i></ul>",
+            [("i", (("title", "one"),))] * 3 + [("i", (("title", "two"),))] * 3,
+            id="same-name",
+        ),
+        pytest.param(
+            "<ul><li><i hidden>a<li>b<li>c</i></ul><ul><li><em hidden=until-found>d<li>e<li>f</em></ul>",
+            [("i", (("hidden", None),))] * 3 + [("em", (("hidden", "until-found"),))] * 3,
+            id="valueless",
+        ),
+        pytest.param(
+            "<ul><li>a<html lang=en><body class=c>",
+            [("html", (("lang", "en"),)), ("body", (("class", "c"),))],
+            id="implied-root",
+        ),
+    ],
+)
+def test_elements_without_a_start_tag_keep_their_own_attributes(
+    markup: str, expected: list[tuple[str, tuple[tuple[str, str | None], ...]]]
+) -> None:
+    for starts in _attributed_starts(markup):
+        assert [(start.tag, start.attrs) for start in starts] == expected
 
 
 def test_sax_parse_fires_every_event_and_order() -> None:
@@ -163,7 +200,7 @@ def test_processing_instruction_vs_comment() -> None:
     assert events == [ProcessingInstruction("php", "echo 1"), Comment("c")]
 
 
-_CORPUS = [
+_CORPUS: Final[list[pytest.ParameterSet]] = [
     pytest.param("<!DOCTYPE html><title>t</title><p>hi</p>", id="basic"),
     pytest.param("<a><b><i>x</i></b></a>y", id="nested-formatting"),
     pytest.param("<table><caption>c<tbody><tr><td>d</td></tr>", id="table"),
@@ -175,6 +212,11 @@ _CORPUS = [
     pytest.param("<svg><circle/></svg><math><mi>x</mi></math>", id="foreign"),
     pytest.param("<!-- lead --><!DOCTYPE html><p>x</p><!-- trail -->", id="document-comments"),
 ]
+
+
+@pytest.mark.parametrize("markup", _CORPUS)
+def test_events_match_dom_document_order(markup: str) -> None:
+    assert list(iter_events(markup)) == _dom_events(markup)
 
 
 def _dom_events(markup: str) -> list[SaxEvent]:
@@ -190,8 +232,7 @@ def _dom_events(markup: str) -> list[SaxEvent]:
                 events.append(EndElement(tags.pop()))
             continue
         if isinstance(node, DomElement):
-            attrs = cast("tuple[tuple[str, str | None], ...]", tuple(node.attrs.items()))
-            events.append(StartElement(node.tag, attrs))
+            events.append(StartElement(node.tag, cast("tuple[tuple[str, str | None], ...]", tuple(node.attrs.items()))))
             tags.append(node.tag)
             stack.append(iter(node.children))
         elif isinstance(node, DomText):
@@ -206,11 +247,6 @@ def _dom_events(markup: str) -> list[SaxEvent]:
     return events
 
 
-@pytest.mark.parametrize("markup", _CORPUS)
-def test_events_match_dom_document_order(markup: str) -> None:
-    assert list(iter_events(markup)) == _dom_events(markup)
-
-
 def test_bare_handler_is_a_noop_for_every_event() -> None:
     handler = SaxHandler()
     handler.start_element("p", (("a", "b"),))
@@ -220,38 +256,23 @@ def test_bare_handler_is_a_noop_for_every_event() -> None:
     handler.doctype("html", None, None)
     handler.processing_instruction("pi", "data")
     sax_parse("<!DOCTYPE html><p>x<!--c--><?pi?></p>", handler)
+    text_only: Final = _TextOnly()
+    sax_parse("<!DOCTYPE html><p>x<!--c--><?pi?></p>", text_only)
+    assert text_only.texts == ["x"]
+
+
+class _TextOnly(SaxHandler):
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def characters(self, data: str) -> None:
+        self.texts.append(data)
 
 
 def test_iter_events_is_lazy() -> None:
     events = iter_events("<p>x</p>")
     assert isinstance(events, GeneratorType)
     assert isinstance(next(events), StartElement)
-
-
-@pytest.mark.skipif(
-    sys.implementation.name == "pypy",
-    reason="cpyext never breaks a cycle that runs through both a C extension object and a Python one, "
-    "so this cycle leaks there; see docs/explanation/interpreters.rst",
-)
-def test_gc_reclaims_a_reference_cycle_through_the_source() -> None:
-    class _Cyclic(str):  # ruff:ignore[subclass-builtin]  # a real str subclass: _sax_events requires str, and the slots let it cycle
-        __slots__ = ("loop", "sentinel")
-        loop: object
-        sentinel: object
-
-    class _Sentinel:
-        back: object
-
-    source = _Cyclic("<p>x</p>")
-    events = _html._sax_events(source)
-    sentinel = _Sentinel()
-    source.loop = events  # events -> source -> events, so only the cyclic GC (via tp_traverse/tp_clear) can reclaim it
-    source.sentinel = sentinel
-    sentinel.back = source
-    marker = weakref.ref(sentinel)
-    del source, events, sentinel
-    gc.collect()
-    assert marker() is None
 
 
 def test_non_str_argument_raises_type_error() -> None:

@@ -1,8 +1,8 @@
-"""The pyquery-style fluent chaining query wrapper."""
-
 from __future__ import annotations
 
+import operator
 import sys
+from functools import partial
 from typing import TYPE_CHECKING, Final, cast
 
 import pytest
@@ -10,39 +10,29 @@ from bench.core import OPERATIONS
 from bench.operations import INPUTS
 
 import turbohtml
-from turbohtml import Element, parse
-from turbohtml._html import (
-    _query_add_class,
-    _query_attr,
-    _query_children,
-    _query_closest,
-    _query_has_class,
-    _query_parents,
-    _query_remove_class,
-    _query_siblings,
-    _query_text,
-    _query_toggle_class,
-    _query_unique,
-    _select_limited,
-)
-from turbohtml.build import E
+from turbohtml import Element, Node, _html, parse  # ruff:ignore[import-private-name]  # the native entry takes any list
+from turbohtml.clean import linkify_node
 from turbohtml.query import Query, SelectorSyntaxError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    from work_steps import WorkSteps
+
     from turbohtml import Document
 
 
-_DOC = "<ul id=list><li class=item>a</li><li class='item on'>b</li><li class=item>c</li></ul><p id=p>after</p>"
-
-
-def _tags(query: Query) -> list[str]:
-    return [element.tag for element in query]
+_DOC: Final[str] = (
+    "<ul id=list><li class=item>a</li><li class='item on'>b</li><li class=item>c</li></ul><p id=p>after</p>"
+)
 
 
 def test_construct_from_html_wraps_the_root() -> None:
     assert _tags(Query("<div></div>")) == ["html"]
+
+
+def _tags(query: Query) -> list[str]:
+    return [element.tag for element in query]
 
 
 def test_construct_from_document() -> None:
@@ -56,8 +46,7 @@ def test_construct_from_element() -> None:
 
 
 def test_construct_from_iterable_deduplicates() -> None:
-    doc = parse(_DOC)
-    items = doc.select("li")
+    items = parse(_DOC).select("li")
     # the same element passed twice collapses to one, in first-seen order
     assert len(Query([*items, items[0]])) == 3
 
@@ -81,8 +70,7 @@ def test_construct_deduplicates_a_node_adopted_during_iteration() -> None:
 
 def test_find_across_multiple_nodes_deduplicates() -> None:
     # an outer and an inner div both reach the same <a>, which must appear once
-    doc = parse("<div id=outer><div id=inner><a>x</a></div></div>")
-    divs = Query(doc.select("div"))
+    divs = Query(parse("<div id=outer><div id=inner><a>x</a></div></div>").select("div"))
     assert len(divs) == 2
     assert _tags(divs.find("a")) == ["a"]
 
@@ -322,6 +310,230 @@ def test_query_closest_invalid_selector(selector: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "reorder",
+    [
+        pytest.param(lambda nodes: nodes, id="document-order"),
+        pytest.param(operator.itemgetter(slice(None, None, -1)), id="reversed"),
+        pytest.param(lambda nodes: nodes[1::2] + nodes[::2], id="interleaved"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("selector", "count"),
+    [
+        pytest.param("book", 1, id="shared-match"),
+        pytest.param("missing", 0, id="no-match"),
+        pytest.param("part.mid", 1, id="match-inside-the-chain"),
+        pytest.param("part", 100, id="self-match"),
+        pytest.param("book part", 100, id="descendant"),
+        pytest.param(".mid part, book", 51, id="selector-list"),
+        pytest.param(":scope", 100, id="scope-per-element"),
+        pytest.param(":not(:scope)", 100, id="scope-excluded"),
+        pytest.param("part:not(:scope)", 99, id="scope-excluded-with-type"),
+        pytest.param("book:not(:scope)", 1, id="scope-excluded-far-match"),
+        pytest.param(":scope > part", 0, id="scope-child"),
+        pytest.param(":scope part", 0, id="scope-descendant"),
+        pytest.param(".mid :scope", 50, id="scope-below-a-match"),
+        pytest.param(":not(:scope) > :scope", 100, id="scope-and-not-scope"),
+        pytest.param("part:has(:scope)", 0, id="scope-inside-has"),
+        pytest.param("part:has(> :scope)", 0, id="scope-child-inside-has"),
+        pytest.param("part:not(:has(:scope)):not(:scope)", 99, id="scope-inside-negated-has"),
+        pytest.param(":is(:scope, .mid)", 100, id="scope-in-a-list"),
+        pytest.param(":where(.mid, book):not(:scope)", 2, id="scope-excluded-from-a-list"),
+        pytest.param(":nth-child(1 of :scope)", 100, id="scope-in-nth-of"),
+        pytest.param(":not(:is(:scope, part))", 1, id="scope-nested-negation"),
+    ],
+)
+def test_query_closest_deeply_nested_answers_as_each_element(
+    selector: str, count: int, reorder: Callable[[list[Element]], list[Element]]
+) -> None:
+    # a climb past 32 ancestors starts to share its answer with the climbs after it
+    document: Final = turbohtml.parse_xml(
+        f"<book>{'<part>' * 49}<part class='mid'>{'<part>' * 50}{'</part>' * 100}</book>"
+    )
+    sections: Final = reorder(document.select("part"))
+    nearest: Final = [section.closest(selector) for section in sections]
+    found: Final = list(Query(sections).closest(selector))
+    assert found == list(dict.fromkeys(node for node in nearest if node is not None))
+    assert len(found) == count
+
+
+def test_query_closest_deep_chain_shared_by_siblings() -> None:
+    document: Final = turbohtml.parse_xml(f"<book>{'<a>' * 80}<part/><part/><part/>{'</a>' * 80}</book>")
+    assert list(Query(document.select("part")).closest("book")) == document.select("book")
+    assert len(Query(document.select("part")).closest("missing")) == 0
+
+
+@pytest.mark.parametrize(
+    ("selector", "count"),
+    [
+        pytest.param(":scope", 61, id="scope"),
+        pytest.param(":not(:scope)", 61, id="scope-excluded"),
+        pytest.param(":scope > part", 1, id="scope-child"),
+        pytest.param("part:not(:scope)", 60, id="scope-excluded-with-type"),
+        pytest.param("part:has(:scope)", 0, id="scope-inside-has"),
+        pytest.param("part", 60, id="no-scope"),
+    ],
+)
+def test_query_closest_scope_from_nodes_that_are_not_elements(selector: str, count: int) -> None:
+    # above a node that is not an element :scope stands for the document element, unlike above an element
+    document: Final = turbohtml.parse_xml(f"<book>{'<part>t' * 60}{'</part>' * 60}</book>")
+    sections: Final = document.select("part")
+    nodes: Final = [node for section in sections for node in (section.children[0], section)][::-1]
+    nearest: Final = [node.closest(selector) for node in nodes]
+    found: Final = list(Query(cast("list[Element]", nodes)).closest(selector))
+    assert found == list(dict.fromkeys(node for node in nearest if node is not None))
+    assert len(found) == count
+
+
+def _tree(name: str, depth: int) -> list[Element]:
+    return turbohtml.parse_xml(f"<book id='{name}'>{'<part>' * depth}{'</part>' * depth}</book>").select("part")
+
+
+def test_query_closest_deep_trees_interleaved() -> None:
+    mixed: Final = [section for pair in zip(_tree("first", 40), _tree("second", 40), strict=True) for section in pair]
+    assert [node.attrs["id"] for node in Query(mixed).closest("book")] == ["first", "second"]
+
+
+@pytest.mark.parametrize(
+    ("pick", "selector"),
+    [
+        pytest.param(lambda a, b, c: [a[0], b[0], a[1], c[0], b[1], a[0], c[1]], "book", id="recurring-trees"),
+        pytest.param(lambda a, b, c: [b[0], a[0], b[1], a[1], c[0]], "book", id="later-tree-first"),
+        pytest.param(lambda a, b, c: [a[5], b[5], a[2], c[1], b[0], a[7]], "part", id="self-matches"),
+        pytest.param(lambda a, b, c: [a[9], b[9], a[0], c[3], a[9], b[2]], "part:not(:scope)", id="scope"),
+        pytest.param(lambda a, b, c: [c[1], a[0], c[0], b[0], a[1]], "missing", id="no-match"),
+        pytest.param(lambda a, b, c: [a[0], a[1], b[0], b[1], c[0]], ":scope", id="runs-in-order"),
+    ],
+)
+def test_query_closest_mixed_trees_keep_the_order_the_set_reaches_them(
+    pick: Callable[[list[Element], list[Element], list[Element]], list[Element]], selector: str
+) -> None:
+    nodes: Final = pick(_tree("a", 40), _tree("b", 10), _tree("c", 40))
+    nearest: Final = [node.closest(selector) for node in nodes]
+    assert list(Query(nodes).closest(selector)) == list(dict.fromkeys(node for node in nearest if node is not None))
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython", reason="requires immediate CPython reference-count finalization"
+)
+@pytest.mark.parametrize(
+    ("moved", "expected"),
+    [
+        pytest.param(1, ["first", "third", "second"], id="first-of-its-tree"),
+        pytest.param(3, ["first", "second", "third"], id="later-in-its-tree"),
+    ],
+)
+@pytest.mark.parametrize("selector", [pytest.param("book", id="plain"), pytest.param("book:not(:scope)", id="scope")])
+def test_query_closest_takes_a_node_that_moved_trees_during_the_call(
+    moved: int, expected: list[str], selector: str
+) -> None:
+    first: Final = _tree("first", 40)
+    second: Final = turbohtml.parse_xml("<book id='second'><part/><part/></book>").select("part")
+    destination: Final = turbohtml.parse_xml("<book id='third'/>").select_one("book")
+    assert destination is not None
+    nodes: Final = [first[0], second[0], first[1], second[1]]
+
+    class MovingSelector(str):  # ruff:ignore[subclass-builtin]  # native selectors require a real str
+        __slots__ = ()
+
+        def __del__(self) -> None:
+            destination.append(nodes[moved])
+
+    # the selector cache of the second tree evicts this one when the call compiles its selector there
+    second[0].select(MovingSelector("unmatched"))
+    for index in range(15):
+        second[0].select(f"unused{index}")
+    assert [node.attrs["id"] for node in Query(nodes).closest(selector)] == expected
+
+
+@pytest.mark.parametrize(
+    ("selector", "count"),
+    [
+        pytest.param("lead ~ part", 40, id="left-match"),
+        pytest.param("x ~ part", 0, id="no-left-match"),
+        pytest.param("lead ~ part:not(:scope)", 0, id="scope-excluded"),
+        pytest.param("lead ~ :scope", 40, id="scope-per-element"),
+    ],
+)
+def test_query_closest_sibling_combinator_over_a_long_run(selector: str, count: int) -> None:
+    # the elements of one tree share a sibling memo, which a walk past 32 siblings reads
+    sections: Final = turbohtml.parse_xml(f"<book><lead/>{'<part/>' * 40}</book>").select("part")
+    nearest: Final = [section.closest(selector) for section in sections]
+    found: Final = list(Query(sections).closest(selector))
+    assert found == [node for node in nearest if node is not None]
+    assert len(found) == count
+
+
+@pytest.mark.parametrize("selector", [pytest.param(".hit *", id="plain"), pytest.param(".hit :scope", id="scoped")])
+def test_query_closest_under_long_class_grows_linearly(selector: str, work_steps: WorkSteps) -> None:
+    # every climb asks the class value of the shared parent
+    work_steps.assert_linear(
+        lambda n: partial(Query(parse(f'<ol class="{"w " * n}">{"<li>" * n}'))("li").closest, selector), (250, 1000)
+    )
+    found: Final = Query(parse(f'<ol class="{"w " * 200}hit"><li><li></ol>'))("li").closest(selector)
+    assert [node.tag for node in found] == ["li", "li"]
+
+
+def test_query_closest_deeply_nested_grows_linearly(work_steps: WorkSteps) -> None:
+    # Counted steps rather than seconds: a wall-clock budget is flaky on shared runners.
+    work_steps.assert_linear(
+        lambda n: partial(
+            Query(turbohtml.parse_xml(f"<book>{'<part>' * n}{'</part>' * n}</book>"))("part").closest, "book"
+        ),
+        (500, 2000),
+    )
+
+
+@pytest.mark.parametrize(
+    ("build", "selector"),
+    [
+        pytest.param(lambda n: _tree("book", n), "book:not(:scope)", id="scope-far-match"),
+        pytest.param(lambda n: _tree("book", n), ":scope > missing", id="scope-no-match"),
+        pytest.param(
+            lambda n: [node for pair in zip(_tree("a", n // 2), _tree("b", n // 2), strict=True) for node in pair],
+            "book",
+            id="alternating-trees",
+        ),
+    ],
+)
+def test_query_closest_shapes_grow_linearly(
+    work_steps: WorkSteps, build: Callable[[int], list[Element]], selector: str
+) -> None:
+    work_steps.assert_linear(lambda n: partial(Query(build(n)).closest, selector), (500, 2000))
+
+
+def test_query_closest_of_an_empty_set() -> None:
+    assert _html.query_closest([], "p") == []
+
+
+def test_query_closest_keeps_an_answer_seen_again_after_another() -> None:
+    document: Final = turbohtml.parse('<main id="a"><p>x</p><p>y</p></main><main id="b"><p>z</p></main>')
+    first, second, third = document.find_all("p")
+    assert [node.attrs["id"] for node in Query([first, third, second]).closest("main")] == ["a", "b"]
+
+
+def test_query_closest_climbs_from_a_node_that_is_not_an_element() -> None:
+    document: Final = parse("<div class=box><p>a<!--b--></p></div>")
+    paragraph = document.find("p")
+    assert paragraph is not None
+    assert list(Query(cast("list[Element]", [paragraph, *paragraph.children])).closest("p")) == [paragraph]
+
+
+@pytest.mark.parametrize(
+    "nodes",
+    [
+        pytest.param(["p"], id="first-not-a-node"),
+        pytest.param([parse("<p>a</p>").find("p"), "p"], id="later-not-a-node"),
+        pytest.param([parse("<p>a</p>").find("p"), parse("<p>b</p>").find("p"), "p"], id="not-a-node-after-trees"),
+    ],
+)
+@pytest.mark.parametrize("selector", [pytest.param("p", id="plain"), pytest.param("p:not(:scope)", id="scope")])
+def test_query_closest_entry_rejects_a_non_node(nodes: list[Element | str | None], selector: str) -> None:
+    with pytest.raises(TypeError, match="turbohtml element"):
+        _html.query_closest(cast("list[Node]", nodes), selector)
+
+
+@pytest.mark.parametrize(
     ("indices", "expected"),
     [
         pytest.param([0, 1, 2], ["left", "right"], id="repeated-parent"),
@@ -388,60 +600,6 @@ def test_query_sibling_detached_root() -> None:
     assert list(Query([Element("p")]).siblings()) == []
 
 
-def test_unique_keeps_the_first_of_each_node() -> None:
-    document = turbohtml.parse("<p>a</p><p>b</p>")
-    first, second = document.find_all("p")
-    assert _query_unique([first, second, first]) == [first, second]
-
-
-def test_unique_reads_any_iterable() -> None:
-    document = turbohtml.parse("<p>a</p><p>b</p>")
-    assert len(_query_unique(iter(document.find_all("p")))) == 2
-
-
-@pytest.mark.parametrize(
-    "source",
-    [pytest.param(5, id="not-iterable"), pytest.param(["text"], id="not-an-element")],
-)
-def test_unique_rejects_what_is_not_a_set_of_elements(source: object) -> None:
-    with pytest.raises(TypeError):
-        _query_unique(source)  # ty: ignore[invalid-argument-type]  # the argument check is the point
-
-
-def test_unique_propagates_what_the_iterable_raises() -> None:
-    def refusing() -> object:
-        yield from ()
-        msg = "no more elements"
-        raise RuntimeError(msg)
-
-    with pytest.raises(RuntimeError, match="no more elements"):
-        _query_unique(refusing())  # ty: ignore[invalid-argument-type]  # the iterable raises, which is the point
-
-
-def test_siblings_skips_the_element_itself() -> None:
-    document = turbohtml.parse("<ul><li id=a>a</li><li id=b>b</li>text<li id=c>c</li></ul>")
-    first = document.select_one("#a")
-    assert first is not None
-    assert [node.attrs["id"] for node in _query_siblings([first])] == ["b", "c"]
-
-
-def test_siblings_of_a_detached_element_is_empty() -> None:
-    assert _query_siblings([E.div()]) == []
-
-
-def test_siblings_of_the_root_is_empty() -> None:
-    document = turbohtml.parse("<p>a</p>")
-    root = document.root
-    assert root is not None
-    assert _query_siblings([root]) == []
-
-
-def test_siblings_deduplicates_across_the_set() -> None:
-    document = turbohtml.parse("<ul><li id=a>a</li><li id=b>b</li></ul>")
-    both = document.find_all("li")
-    assert [node.attrs["id"] for node in _query_siblings(both)] == ["b", "a"]
-
-
 @pytest.mark.parametrize(
     ("indices", "expected"),
     [
@@ -458,87 +616,6 @@ def test_siblings_preserves_first_encounter_order(indices: list[int], expected: 
     assert list(Query([children[index] for index in indices]).siblings()) == [children[index] for index in expected]
 
 
-@pytest.mark.parametrize(
-    ("call", "args"),
-    [
-        pytest.param(_query_siblings, ("notalist",), id="siblings"),
-        pytest.param(_query_text, ("notalist",), id="text"),
-        pytest.param(_query_attr, ("notalist", "id"), id="attr"),
-        pytest.param(_query_has_class, ("notalist", "x"), id="has_class"),
-        pytest.param(_query_add_class, ("notalist", "x"), id="add_class"),
-        pytest.param(_query_remove_class, ("notalist", "x"), id="remove_class"),
-        pytest.param(_query_toggle_class, ("notalist", "x"), id="toggle_class"),
-    ],
-)
-def test_a_binding_rejects_a_non_list(call: object, args: tuple[object, ...]) -> None:
-    with pytest.raises(TypeError):
-        call(*args)  # ty: ignore[call-non-callable]  # the argument check is the point
-
-
-def test_siblings_rejects_a_non_element() -> None:
-    with pytest.raises(TypeError):
-        _query_siblings(["text"])  # ty: ignore[invalid-argument-type]  # the element check is the point
-
-
-def test_text_joins_the_set_with_a_space() -> None:
-    document = turbohtml.parse("<p>one</p><p>two</p>")
-    assert _query_text(document.find_all("p")) == "one two"
-
-
-def test_text_of_an_empty_set_is_empty() -> None:
-    assert not _query_text([])
-
-
-def test_attr_of_an_empty_set_is_none() -> None:
-    assert _query_attr([], "id") is None
-
-
-def test_attr_reads_a_plain_value() -> None:
-    document = turbohtml.parse("<p id=first>a</p>")
-    assert _query_attr(document.find_all("p"), "id") == "first"
-
-
-def test_attr_joins_a_tokenized_value() -> None:
-    document = turbohtml.parse("<p class='a b'>x</p>")
-    assert _query_attr(document.find_all("p"), "class") == "a b"
-
-
-def test_attr_of_an_absent_name_is_none() -> None:
-    document = turbohtml.parse("<p>x</p>")
-    assert _query_attr(document.find_all("p"), "title") is None
-
-
-def test_has_class_finds_it_on_any_element() -> None:
-    document = turbohtml.parse("<p>a</p><p class='x'>b</p>")
-    assert _query_has_class(document.find_all("p"), "x") is True
-
-
-def test_has_class_answers_false_when_absent() -> None:
-    document = turbohtml.parse("<p>a</p><p class='y'>b</p>")
-    assert _query_has_class(document.find_all("p"), "x") is False
-
-
-@pytest.mark.parametrize(
-    ("markup", "edit", "expected"),
-    [
-        pytest.param("<p>x</p>", _query_add_class, ["new"], id="add-to-an-element-with-no-class"),
-        pytest.param("<p class='a'>x</p>", _query_add_class, ["a", "new"], id="add-beside-an-existing-class"),
-        pytest.param("<p class='new'>x</p>", _query_add_class, ["new"], id="add-what-is-already-there"),
-        pytest.param("<p class='a new b'>x</p>", _query_remove_class, ["a", "b"], id="remove-keeps-the-others"),
-        pytest.param("<p class='a'>x</p>", _query_remove_class, ["a"], id="remove-what-is-absent"),
-        pytest.param("<p class='a'>x</p>", _query_toggle_class, ["a", "new"], id="toggle-on"),
-        pytest.param("<p class='a new'>x</p>", _query_toggle_class, ["a"], id="toggle-off"),
-    ],
-)
-def test_a_class_edit(markup: str, edit: object, expected: list[str]) -> None:
-    document = turbohtml.parse(markup)
-    elements = document.find_all("p")
-    edit(elements, "new")  # ty: ignore[call-non-callable]  # the parametrized binding
-    kept = document.select_one("p")
-    assert kept is not None
-    assert kept.attrs.get("class", []) == expected
-
-
 def test_the_query_facade_still_composes() -> None:
     query = Query("<ul><li class='a'>one</li><li>two</li></ul>")("li")
     assert query.text() == "one two"
@@ -547,85 +624,12 @@ def test_the_query_facade_still_composes() -> None:
     assert query.remove_class("a").attr("class") == "z"
 
 
-def test_parents_deduplicates_a_shared_parent_and_skips_the_root() -> None:
-    document = turbohtml.parse("<div><p>a</p><p>b</p></div>")
-    first, second = document.find_all("p")
-    html = document.find("html")
-    assert html is not None
-    assert _query_parents([first, second, html]) == [first.parent]
-
-
-def test_the_document_has_no_parent() -> None:
-    assert _query_parents([turbohtml.parse("<p>a</p>")]) == []
-
-
-def test_children_keeps_only_element_children_in_order() -> None:
-    document = turbohtml.parse("<div>x<p>a</p>y<span>b</span></div><section><i>c</i></section>")
-    div, section = document.find("div"), document.find("section")
-    assert div is not None
-    assert section is not None
-    assert [child.tag for child in _query_children([div, section])] == ["p", "span", "i"]
-
-
-def test_children_of_a_document_is_its_root() -> None:
-    document = turbohtml.parse("<p>a</p>")
-    assert [child.tag for child in _query_children([document])] == ["html"]
-
-
-def test_closest_deduplicates_a_shared_ancestor_and_drops_a_miss() -> None:
-    document = turbohtml.parse("<div class=box><p>a</p><p>b</p></div><p>c</p>")
-    paragraphs = document.find_all("p")
-    assert _query_closest(paragraphs, ".box") == [paragraphs[0].parent]
-
-
-def test_closest_rejects_a_bad_selector() -> None:
-    with pytest.raises(Exception, match="selector"):
-        _query_closest(turbohtml.parse("<p>a</p>").find_all("p"), "p[")
-
-
-@pytest.mark.parametrize(
-    ("limit", "expected"),
-    [
-        pytest.param(0, ["a", "b", "c"], id="zero-is-all"),
-        pytest.param(-1, ["a", "b", "c"], id="negative-is-all"),
-        pytest.param(2, ["a", "b"], id="two"),
-        pytest.param(5, ["a", "b", "c"], id="more-than-there-are"),
-    ],
-)
-def test_select_limited_stops_after_the_limit(limit: int, expected: list[str]) -> None:
-    document = turbohtml.parse("<p>a</p><div><p>b</p></div><p>c</p>")
-    assert [node.text for node in _select_limited(document, "p", limit)] == expected
-
-
-def test_select_limited_stops_early_on_an_indexed_tree() -> None:
-    document = turbohtml.parse("".join(f"<p>{index}</p>" for index in range(2000)))
-    assert [node.text for node in _select_limited(document, "p", 1)] == ["0"]
-
-
-@pytest.mark.parametrize(
-    ("entry", "args"),
-    [
-        pytest.param(_query_parents, (["p"],), id="parents-of-a-non-node"),
-        pytest.param(_query_children, (["p"],), id="children-of-a-non-node"),
-        pytest.param(_query_closest, (["p"], "p"), id="closest-of-a-non-node"),
-        pytest.param(_select_limited, ("p", "p", 0), id="select-from-a-non-node"),
-        pytest.param(_query_parents, ("p",), id="parents-of-a-non-list"),
-        pytest.param(_query_children, ("p",), id="children-of-a-non-list"),
-        pytest.param(_query_closest, ("p", "p"), id="closest-of-a-non-list"),
-        pytest.param(_select_limited, (turbohtml.parse(""), 5, 0), id="select-with-a-non-str-selector"),
-    ],
-)
-def test_the_entries_reject_a_non_node(entry: Callable[..., object], args: tuple[object, ...]) -> None:
-    with pytest.raises(TypeError):
-        entry(*args)
-
-
 @pytest.mark.parametrize("kind", [pytest.param("css", id="css"), pytest.param("xpath", id="xpath")])
 @pytest.mark.parametrize(
     "size", [pytest.param(1, id="single"), pytest.param(2, id="pair"), pytest.param(100, id="wide")]
 )
 def test_paths_after_sibling_removal(kind: str, size: int) -> None:
-    document: Final[Document] = parse("<ul>" + "<li>x</li><span>y</span>" * size + "</ul>")
+    document: Final[Document] = parse(f"<ul>{'<li>x</li><span>y</span>' * size}</ul>")
     nodes: Final[list[Element]] = document.select("li")
     before: Final[list[str]] = [_path(node, kind) for node in nodes]
     document.remove("li:first-of-type")
@@ -633,6 +637,16 @@ def test_paths_after_sibling_removal(kind: str, size: int) -> None:
         [_expected(kind, index, size) for index in range(1, size + 1)],
         [_expected(kind, index, size - 1) for index in range(1, size)],
     )
+
+
+def _path(node: Element, kind: str) -> str:
+    return node.css_path() if kind == "css" else node.xpath_path()
+
+
+def _expected(kind: str, index: int, size: int) -> str:
+    if kind == "css":
+        return f"html > body > ul > li{f':nth-of-type({index})' if size > 1 else ''}"
+    return f"/html/body/ul/li{f'[{index}]' if size > 1 else ''}"
 
 
 @pytest.mark.parametrize("kind", [pytest.param("css", id="css"), pytest.param("xpath", id="xpath")])
@@ -651,18 +665,22 @@ def test_paths_after_sibling_append(kind: str) -> None:
     [
         pytest.param(0, "new", "#new", id="replace-anchor"),
         pytest.param(1, "first", "html > body > p:nth-of-type(1)", id="duplicate-anchor"),
-        pytest.param(0, None, "html > body > p:nth-of-type(1)", id="delete-anchor"),
     ],
 )
-def test_css_path_after_id_change(target: int, value: str | None, expected: str) -> None:
+def test_css_path_after_id_change(target: int, value: str, expected: str) -> None:
     document: Final[Document] = parse('<p id="first">one</p><p id="second">two</p>')
     nodes: Final[list[Element]] = document.select("p")
     before: Final[str] = nodes[0].css_path()
-    if value is None:
-        del nodes[target].attrs["id"]
-    else:
-        nodes[target].attrs["id"] = value
+    nodes[target].attrs["id"] = value
     assert (before, nodes[0].css_path()) == ("#first", expected)
+
+
+def test_css_path_after_id_deletion() -> None:
+    document: Final[Document] = parse('<p id="first">one</p><p id="second">two</p>')
+    nodes: Final[list[Element]] = document.select("p")
+    before: Final[str] = nodes[0].css_path()
+    del nodes[0].attrs["id"]
+    assert (before, nodes[0].css_path()) == ("#first", "html > body > p:nth-of-type(1)")
 
 
 def test_css_path_of_detached_element_ignores_the_same_id_in_the_document() -> None:
@@ -676,6 +694,68 @@ def test_css_path_of_detached_element_ignores_the_same_id_in_the_document() -> N
 def test_path_for_last_sibling_before_any_other_path(kind: str) -> None:
     document: Final[Document] = parse("<ul><li>a</li><span>b</span>text<li>c</li><li>d</li></ul>")
     assert _path(document.select("li")[-1], kind) == _expected(kind, 3, 3)
+
+
+@pytest.mark.parametrize(
+    ("kind", "prefix", "steps"),
+    [
+        pytest.param(
+            "css",
+            "html > body > ul > ",
+            [
+                "x-a:nth-of-type(1)",
+                "li:nth-of-type(1)",
+                "x-b",
+                "x-a:nth-of-type(2)",
+                "li:nth-of-type(2)",
+                "x-c",
+                "li:nth-of-type(3)",
+            ],
+            id="css",
+        ),
+        pytest.param(
+            "xpath",
+            "/html/body/ul/",
+            ["x-a[1]", "li[1]", "x-b", "x-a[2]", "li[2]", "x-c", "li[3]"],
+            id="xpath",
+        ),
+    ],
+)
+@pytest.mark.parametrize("order", ["sorted", "reversed"])
+def test_paths_among_siblings_of_other_types(kind: str, prefix: str, steps: list[str], order: str) -> None:
+    document: Final[Document] = parse(
+        "<ul><x-a>1</x-a><li>2</li>text<x-b>3</x-b><x-a>4</x-a><li>5</li><x-c>6</x-c><li>7</li></ul>"
+    )
+    nodes: Final[list[Element]] = document.select("ul > *")
+    paths: Final[dict[Element, str]] = {node: _path(node, kind) for node in _reorder(nodes, order)}
+    assert [paths[node] for node in nodes] == [prefix + step for step in steps]
+
+
+def _reorder(nodes: list[Element], order: str) -> list[Element]:
+    if order == "reversed":
+        return nodes[::-1]
+    return nodes[::2] + nodes[1::2] if order == "shuffled" else nodes
+
+
+@pytest.mark.parametrize(
+    ("kind", "prefix"),
+    [pytest.param("css", "html > body > ", id="css"), pytest.param("xpath", "/html/body/", id="xpath")],
+)
+def test_paths_for_siblings_with_distinct_tag_names(kind: str, prefix: str) -> None:
+    names: Final[list[str]] = [f"x-{index}" for index in range(300)]
+    document: Final[Document] = parse("".join(f"<{name}></{name}>" for name in names))
+    assert [_path(node, kind) for node in document.select("body > *")] == [prefix + name for name in names]
+
+
+@pytest.mark.parametrize("kind", [pytest.param("css", id="css"), pytest.param("xpath", id="xpath")])
+def test_paths_for_distinct_siblings_stay_linear(kind: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: partial(_path_each_sibling, count, kind), (500, 2000))
+
+
+def _path_each_sibling(count: int, kind: str) -> None:
+    document: Final[Document] = parse("".join(f"<x-{index}></x-{index}>" for index in range(count)))
+    for node in document.select("body > *"):
+        _path(node, kind)
 
 
 def test_css_path_after_duplicate_id_removal() -> None:
@@ -693,33 +773,80 @@ def test_css_path_of_detached_element_with_id_absent_from_document() -> None:
     assert element.css_path() == "p"
 
 
-def _path(node: Element, kind: str) -> str:
-    return node.css_path() if kind == "css" else node.xpath_path()
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<p>one</p>", ["div", "div > p"], id="plain-child"),
+        pytest.param('<p id="one">one</p>', ["div", "#one"], id="own-id-child"),
+        pytest.param('<p id="top">one</p>', ["div", "#top"], id="child-repeats-root-id"),
+        pytest.param('<p id="top">one</p><i id="only">two</i>', ["div", "#top", "#only"], id="mixed-ids"),
+    ],
+)
+def test_css_path_of_detached_fragment_root_ignores_its_own_id(markup: str, expected: list[str]) -> None:
+    root: Final = turbohtml.parse_fragment(markup)
+    root.extract()
+    root.attrs["id"] = "top"
+    assert [node.css_path() for node in (root, *root.select("p, i"))] == expected
 
 
-def _expected(kind: str, index: int, size: int) -> str:
-    if kind == "css":
-        return "html > body > ul > li" + (f":nth-of-type({index})" if size > 1 else "")
-    return "/html/body/ul/li" + (f"[{index}]" if size > 1 else "")
+def test_css_path_of_detached_fragment_root_with_id_costs_no_more_than_without(work_steps: WorkSteps) -> None:
+    work_steps.assert_within(_detached_fragment_root("top").css_path, _detached_fragment_root(None).css_path, factor=2)
 
 
-@pytest.mark.parametrize("count", [4, 32, 512], ids=["small", "threshold", "large"])
-@pytest.mark.parametrize("order", ["sorted", "reversed", "shuffled"])
-@pytest.mark.parametrize("selector", ["i", ":scope > i"], ids=["descendant", "scoped"])
-def test_find_root_document_order(count: int, order: str, selector: str) -> None:
-    nodes = parse("<main>" + "".join(f'<div><i id="{index}"></i></div>' for index in range(count)) + "</main>").select(
-        "div"
+def _detached_fragment_root(root_id: str | None) -> Element:
+    root: Final = turbohtml.parse_fragment("".join(f'<p id="p{index}">{index}</p>' for index in range(1000)))
+    root.extract()
+    if root_id is not None:
+        root.attrs["id"] = root_id
+    return root
+
+
+def test_css_path_of_constructed_root_with_id_ignores_its_own_id() -> None:
+    root: Final = Element("div")
+    root.attrs["id"] = "top"
+    child: Final = Element("p")
+    root.append(child)
+    assert [root.css_path(), child.css_path()] == ["div", "div > p"]
+
+
+def test_css_path_of_subtree_extracted_from_detached_fragment_root_with_id() -> None:
+    root: Final = turbohtml.parse_fragment('<section><p id="one">one</p></section>')
+    root.extract()
+    root.attrs["id"] = "top"
+    section: Final = root.select("section")[0]
+    section.extract()
+    assert [section.css_path(), section.select("p")[0].css_path()] == ["section", "section > p"]
+
+
+def test_css_path_of_fragment_root_detached_by_replace_with_ignores_its_own_id() -> None:
+    root: Final = turbohtml.parse_fragment("<p>one</p>")
+    root.attrs["id"] = "top"
+    root.replace_with(Element("span"))
+    assert [root.css_path(), root.select("p")[0].css_path()] == ["div", "div > p"]
+
+
+@pytest.mark.parametrize(
+    "count", [pytest.param(4, id="small"), pytest.param(32, id="threshold"), pytest.param(512, id="large")]
+)
+@pytest.mark.parametrize(
+    "order",
+    [
+        pytest.param(lambda nodes: nodes, id="sorted"),
+        pytest.param(lambda nodes: list(reversed(nodes)), id="reversed"),
+        pytest.param(lambda nodes: nodes[::2] + nodes[1::2], id="shuffled"),
+    ],
+)
+@pytest.mark.parametrize("selector", [pytest.param("i", id="descendant"), pytest.param(":scope > i", id="scoped")])
+def test_find_root_document_order(count: int, order: Callable[[list[Element]], list[Element]], selector: str) -> None:
+    nodes = order(
+        parse(f"""<main>{"".join(f'<div><i id="{index}"></i></div>' for index in range(count))}</main>""").select("div")
     )
-    if order == "reversed":
-        nodes.reverse()
-    elif order == "shuffled":
-        nodes = nodes[::2] + nodes[1::2]
     assert [node.attrs["id"] for node in Query(nodes).find(selector)] == [str(index) for index in range(count)]
 
 
 def test_find_duplicate_roots_preserve_document_order() -> None:
     nodes: Final = parse(
-        "<main>" + "".join(f'<div><i id="{index}"></i></div>' for index in range(32)) + "</main>"
+        f"""<main>{"".join(f'<div><i id="{index}"></i></div>' for index in range(32))}</main>"""
     ).select("div")
     assert [node.attrs["id"] for node in Query([*reversed(nodes), *nodes]).find("i")] == [
         str(index) for index in range(32)
@@ -727,7 +854,7 @@ def test_find_duplicate_roots_preserve_document_order() -> None:
 
 
 def test_find_root_order_after_mutation() -> None:
-    document: Final = parse("<main>" + "".join(f'<div><i id="{index}"></i></div>' for index in range(32)) + "</main>")
+    document: Final = parse(f"""<main>{"".join(f'<div><i id="{index}"></i></div>' for index in range(32))}</main>""")
     nodes: Final = document.select("div")
     query: Final = Query(list(reversed(nodes)))
     before: Final = [node.attrs["id"] for node in query.find("i")]
@@ -738,15 +865,98 @@ def test_find_root_order_after_mutation() -> None:
     )
 
 
-@pytest.mark.parametrize("case_index", [0, 1, 2, 3], ids=["detached", "connected", "small", "documents"])
+@pytest.mark.parametrize(
+    "count", [pytest.param(4, id="small"), pytest.param(40, id="large"), pytest.param(400, id="deep")]
+)
+@pytest.mark.parametrize("order", ["sorted", "reversed", "shuffled"])
+def test_find_nested_list_items_reports_each_match_once(count: int, order: str) -> None:
+    nodes: Final = turbohtml.parse_xml(f"<ul>{'<li><ol>' * count}<b></b>{'</ol></li>' * count}</ul>").select("li")
+    assert _tags(Query(_reorder(nodes, order)).find("li, b")) == ["li"] * (count - 1) + ["b"]
+
+
+@pytest.mark.parametrize("order", ["sorted", "reversed", "shuffled"])
+def test_find_roots_covered_between_uncovered_ones_below_a_deep_chain(order: str) -> None:
+    # each outer <s> covers the <s> inside it and nothing after it, and all of them sit too deep to climb from each
+    branches: Final = "".join(f'<s><t id="{index}a"/><s><t id="{index}b"/></s></s>' for index in range(40))
+    document: Final = turbohtml.parse_xml(f"<r>{'<x>' * 80}{branches}{'</x>' * 80}<s><t id='last'/></s></r>")
+    found: Final = Query(_reorder(document.select("s"), order)).find("t")
+    assert [node.attrs["id"] for node in found] == [f"{index}{half}" for index in range(40) for half in "ab"] + ["last"]
+
+
+@pytest.mark.parametrize(
+    ("order", "first", "second"),
+    [("sorted", "left", "right"), ("reversed", "right", "left"), ("shuffled", "left", "right")],
+)
+def test_find_groups_deep_roots_by_the_tree_they_are_in(order: str, first: str, second: str) -> None:
+    chain: Final = "<x>" * 80 + "<s><t/></s>" * 40 + "</x>" * 80
+    left, right = turbohtml.parse_xml(f"<r><a>{chain}</a><b>{chain}</b></r>").select("r > *")
+    right.extract()
+    for name, tree in (("left", left), ("right", right)):
+        for index, node in enumerate(tree.select("t")):
+            node.attrs["id"] = f"{name}{index}"
+    roots: Final = [node for pair in zip(left.select("s"), right.select("s"), strict=True) for node in pair]
+    assert [node.attrs["id"] for node in Query(_reorder(roots, order)).find("t")] == [
+        f"{name}{index}" for name in (first, second) for index in range(40)
+    ]
+
+
+@pytest.mark.parametrize("order", ["sorted", "reversed", "shuffled"])
+def test_find_roots_under_parents_with_text_and_comments_keeps_order(order: str) -> None:
+    items: Final = "".join(f'<li>lead<!--c--><b></b><a><code id="{index}"></code></a></li>' for index in range(40))
+    nodes: Final = parse(f"<ul>{items}</ul>").select("a")
+    assert [node.attrs["id"] for node in Query(_reorder(nodes, order)).find("code")] == [
+        str(index) for index in range(40)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("markup", "roots", "target"),
+    [
+        pytest.param(lambda n: f"<ul>{'<li><ol>' * n}<b></b>{'</ol></li>' * n}</ul>", "li", "b", id="nested-items"),
+        pytest.param(
+            lambda n: f"<main>{'<section>' * n}{'<article><p></p></article>' * n}{'</section>' * n}</main>",
+            "article",
+            "p",
+            id="siblings-below-a-chain",
+        ),
+        pytest.param(
+            lambda n: f"<table><tbody>{'<tr><td><i></i></td></tr>' * n}</tbody></table>",
+            "td",
+            "i",
+            id="cells-of-one-body",
+        ),
+    ],
+)
+def test_find_many_roots_grow_linearly(
+    markup: Callable[[int], str], roots: str, target: str, work_steps: WorkSteps
+) -> None:
+    # Counted steps rather than seconds: a wall-clock budget is flaky on shared runners.
+    work_steps.assert_linear(lambda n: partial(Query(turbohtml.parse_xml(markup(n)))(roots).find, target), (500, 2000))
+
+
+@pytest.mark.parametrize(
+    "case_index",
+    [
+        pytest.param(0, id="detached"),
+        pytest.param(1, id="connected"),
+        pytest.param(2, id="small"),
+        pytest.param(3, id="documents"),
+    ],
+)
 def test_query_root_groups_shared_inputs(case_index: int) -> None:
     case: Final = cast("tuple[str, int]", INPUTS["query-root-groups"]()[case_index][1])
     operation: Final = cast("Callable[[tuple[str, int]], Query]", OPERATIONS["query-root-groups"][0])
     assert [node.text for node in operation(case)] == [str(index) for index in range(case[1])]
 
 
-@pytest.mark.parametrize("selector", ["p", "missing"], ids=["matches", "empty"])
-def test_query_root_groups_interleave_handles_and_nested_roots(selector: str) -> None:
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        pytest.param("p", ["a", "b", "c", "d", "e"], id="matches"),
+        pytest.param("missing", [], id="empty"),
+    ],
+)
+def test_query_root_groups_interleave_handles_and_nested_roots(selector: str, expected: list[str]) -> None:
     left, right = parse(
         "<main><section><p>a</p></section><section><p>b</p></section></main>"
         "<main><section><p>d</p></section><section><p>e</p></section></main>"
@@ -755,10 +965,12 @@ def test_query_root_groups_interleave_handles_and_nested_roots(selector: str) ->
     right.extract()
     middle: Final = parse("<main><p>c</p></main>").select("main")[0]
     roots: Final = [left.select("section")[1], middle, right.select("section")[1], left, right]
-    assert [node.text for node in Query(roots).find(selector)] == (["a", "b", "c", "d", "e"] if selector == "p" else [])
+    assert [node.text for node in Query(roots).find(selector)] == expected
 
 
-@pytest.mark.parametrize("empty_group", [0, 1, 2], ids=["first", "middle", "last"])
+@pytest.mark.parametrize(
+    "empty_group", [pytest.param(0, id="first"), pytest.param(1, id="middle"), pytest.param(2, id="last")]
+)
 def test_query_root_groups_preserve_order_around_empty_group(empty_group: int) -> None:
     first, last = parse("<main><p>a</p></main><main><p>c</p></main>").select("main")
     first.extract()
@@ -793,13 +1005,19 @@ def test_query_root_groups_refresh_after_cross_document_adoption() -> None:
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="requires immediate CPython reference-count finalization"
 )
-@pytest.mark.parametrize("adopt", [False, True], ids=["same-tree", "cross-document"])
-def test_query_root_groups_follow_selector_eviction_mutation(*, adopt: bool) -> None:
+@pytest.mark.parametrize(
+    ("destination_index", "expected"),
+    [
+        pytest.param(0, ["a", "c", "b"], id="same-tree"),
+        pytest.param(1, ["a", "b", "c"], id="cross-document"),
+    ],
+)
+def test_query_root_groups_follow_selector_eviction_mutation(destination_index: int, expected: list[str]) -> None:
     first, last = parse("<main><p>a</p></main><main><p>c</p></main>").select("main")
     middle: Final = parse("<main><p>b</p></main>").select("main")[0]
     first.extract()
     last.extract()
-    destination: Final = middle if adopt else first
+    destination: Final = (first, middle)[destination_index]
     extra: Final = [parse("<main><p>d</p></main>").select("main")[0] for _ in range(31)]
 
     class MovingSelector(str):  # ruff:ignore[subclass-builtin]  # native selectors require a real str
@@ -811,10 +1029,7 @@ def test_query_root_groups_follow_selector_eviction_mutation(*, adopt: bool) -> 
     first.select(MovingSelector("unmatched"))
     for index in range(15):
         first.select(f"unused{index}")
-    assert [node.text for node in Query([first, middle, last, *extra]).find("p")] == [
-        *(["a", "b", "c"] if adopt else ["a", "c", "b"]),
-        *(["d"] * 31),
-    ]
+    assert [node.text for node in Query([first, middle, last, *extra]).find("p")] == [*expected, *(["d"] * 31)]
 
 
 def test_query_root_groups_keep_later_documents_after_reordering() -> None:
@@ -847,22 +1062,28 @@ def test_query_root_groups_many_documents_reject_invalid_selector() -> None:
         Query(roots).find("[")
 
 
+@pytest.mark.oracle
+def test_pyquery_join_shared_benchmark_output() -> None:
+    pyquery: Final = pytest.importorskip("bench.competitors.pyquery", exc_type=ImportError)
+    case: Final = cast("tuple[int, bool]", INPUTS["query-parents"]()[0][1])
+    count, _ = case
+    assert [(node.tag, "".join(node.itertext())) for node in pyquery.OPERATIONS["query-parents"][0](case)] == [
+        ("main", "x" * count)
+    ]
+
+
 @pytest.mark.parametrize(
-    ("operation", "index"),
-    [
-        pytest.param("query-parents", 0, id="shared-parent"),
-        pytest.param("query-parents", 1, id="distinct-parents"),
-        pytest.param("query-closest", 1, id="distinct-ancestors"),
-    ],
+    "operation",
+    [pytest.param("query-parents", id="distinct-parents"), pytest.param("query-closest", id="distinct-ancestors")],
 )
 @pytest.mark.oracle
-def test_pyquery_join_benchmark_output(operation: str, index: int) -> None:
+def test_pyquery_join_distinct_benchmark_output(operation: str) -> None:
     pyquery: Final = pytest.importorskip("bench.competitors.pyquery", exc_type=ImportError)
-    case: Final = cast("tuple[int, bool]", INPUTS[operation]()[index][1])
-    count, shared = case
-    assert [(node.tag, "".join(node.itertext())) for node in pyquery.OPERATIONS[operation][0](case)] == (
-        [("main", "x" * count)] if shared else [("main", "x")] * count
-    )
+    case: Final = cast("tuple[int, bool]", INPUTS[operation]()[1][1])
+    count, _ = case
+    assert [(node.tag, "".join(node.itertext())) for node in pyquery.OPERATIONS[operation][0](case)] == [
+        ("main", "x")
+    ] * count
 
 
 @pytest.mark.oracle
@@ -870,3 +1091,16 @@ def test_pyquery_closest_benchmark_rejects_duplicate_results() -> None:
     pyquery: Final = pytest.importorskip("bench.competitors.pyquery", exc_type=ImportError)
     with pytest.raises(NotImplementedError, match="duplicate ancestors"):
         pyquery.OPERATIONS["query-closest"][0](INPUTS["query-closest"]()[0][1])
+
+
+def test_paths_and_index_follow_linkify_node() -> None:
+    document: Final[Document] = parse("<body><div><a href=q>k</a> http://e.com</div>")
+    assert [element.css_path() for element in document.find_all("a")] == ["html > body > div > a"]
+    linkify_node(document.select("div")[0])
+    first, second = document.find_all("a")  # the index lists the anchor linkify inserted
+    assert [first.css_path(), second.css_path()] == [
+        "html > body > div > a:nth-of-type(1)",
+        "html > body > div > a:nth-of-type(2)",
+    ]
+    assert [first.xpath_path(), second.xpath_path()] == ["/html/body/div/a[1]", "/html/body/div/a[2]"]
+    assert document.select(second.css_path()) == [second]

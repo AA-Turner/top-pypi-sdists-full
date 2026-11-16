@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: folium
-Version: 0.20.0
+Version: 1.0.0
 Summary: Make beautiful maps with Leaflet.js & Python
 Home-page: https://github.com/python-visualization/folium
 Author: Rob Story
@@ -8,8 +8,6 @@ Author-email: wrobstory@gmail.com
 License: MIT
 Keywords: data visualization
 Platform: any
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -17,7 +15,7 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: branca>=0.6.0
@@ -66,7 +64,7 @@ Dynamic: summary
 folium
 ======
 
-.. image:: https://github.com/python-visualization/folium/blob/main/docs/_static/folium_logo.png
+.. image:: https://raw.githubusercontent.com/python-visualization/folium/main/docs/_static/folium_logo.png
    :height: 100px
 
 

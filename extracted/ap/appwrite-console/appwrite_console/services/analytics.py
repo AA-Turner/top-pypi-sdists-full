@@ -201,7 +201,7 @@ class Analytics(Service):
         enabled : Optional[bool]
             Whether the property accepts events. Events sent to a disabled property are rejected as not found.
         allowed_origins : Optional[List[str]]
-            Allowed origins for tracking. Use ["*"] to allow all.
+            Allowed origins for tracking. Use ["*"] to allow all. On a property linked to a site, Appwrite manages this list: it is rewritten from the site's production domains whenever they change.
         identify_users : Optional[bool]
             Record the signed-in user's ID on events sent from a client session, so traffic can be broken down and counted by user.
         type : Optional[AnalyticsPropertyType]

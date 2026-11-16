@@ -31,6 +31,23 @@ class PaneApiCap:
 
 
 @dataclass(frozen=True)
+class PaneApiSize:
+    """One size of the preview box: its snake_case name, its value (px, or a ratio) and why."""
+
+    name: str
+    value: int | float
+    doc: str
+
+
+@dataclass(frozen=True)
+class PanePreviewFrame:
+    """A project's preview box on the canvas, and the viewBox shape that fits it."""
+
+    doc: str
+    sizes: tuple[PaneApiSize, ...]
+
+
+@dataclass(frozen=True)
 class PanePreviewPane:
     """A project's one automatic preview pane."""
 
@@ -65,12 +82,16 @@ class PaneApi:
     check_statuses: tuple[PaneApiName, ...]
     #: A state the render check draws the pane in.
     check_states: tuple[PaneApiName, ...]
+    #: What kind of error a check state saw.
+    check_error_kinds: tuple[PaneApiName, ...]
     #: A project's canvas preview choice (`project_previews`).
     preview_states: tuple[PaneApiName, ...]
     #: Who last wrote a pane or a preview choice, from the credential.
     writer_kinds: tuple[PaneApiName, ...]
     #: The `code` of a preview refusal.
     preview_error_codes: tuple[PaneApiName, ...]
+    #: The preview box's sizes and its viewBox aspect bounds.
+    preview_frame: PanePreviewFrame
     #: The one automatic preview pane (slug).
     preview_pane: PanePreviewPane
     caps: tuple[PaneApiCap, ...]
@@ -95,9 +116,14 @@ class PaneApi:
             reasons=read_names("reasons"),
             check_statuses=read_names("check_statuses"),
             check_states=read_names("check_states"),
+            check_error_kinds=read_names("check_error_kinds"),
             preview_states=read_names("preview_states"),
             writer_kinds=read_names("writer_kinds"),
             preview_error_codes=read_names("preview_error_codes"),
+            preview_frame=PanePreviewFrame(
+                doc=raw["preview_frame"]["doc"],
+                sizes=tuple(PaneApiSize(size["name"], size["value"], size["doc"]) for size in raw["preview_frame"]["sizes"]),
+            ),
             preview_pane=PanePreviewPane(
                 slug=raw["preview_pane"]["slug"],
                 doc=raw["preview_pane"]["doc"],

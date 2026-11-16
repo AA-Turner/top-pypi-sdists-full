@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: monosmith
+Version: 3.0.0
+Summary: The smith command: downloads and runs the smith your workspace pins (smith.toml [workspace] smith), checked against signed checksums.
+Author: Eduardo Russo
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/monosmith-app/monosmith#readme
+Project-URL: Repository, https://github.com/monosmith-app/monosmith
+Project-URL: Issues, https://github.com/monosmith-app/monosmith/issues
+Keywords: smith,monosmith,monorepo,launcher
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# monosmith
+
+The `smith` command for Python users: `pipx install monosmith`, or `uvx --from monosmith smith`.
+
+This package is a launcher, not smith itself (ADR 0101). It runs the smith your workspace pins
+(`smith = "<version>"` under `[workspace]` in smith.toml), the one `SMITH_VERSION` names, or the newest you
+have. The first time it needs a version, it downloads smith's release archive, checks it against the
+signed `checksums.txt`, and keeps it in `~/.smith/versions` (`SMITH_HOME` moves it). Behind a firewall,
+`SMITH_DOWNLOAD_URL` points it at a mirror of the release archives.
+
+See the [installation guide](https://github.com/monosmith-app/monosmith/blob/main/docs/getting-started/installing.md).

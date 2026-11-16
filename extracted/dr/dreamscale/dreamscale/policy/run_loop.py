@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
+import weakref
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass
 from functools import partial
 from itertools import count
@@ -188,6 +190,14 @@ async def run_policy_loop(
             planner.should_replan(remaining - step) for step in history.observe_steps
         ):
             push = getattr(policy, "push_history", None) or history.push
+            # Async, with no request in flight: the next request goes out on the first tick
+            # whose remaining rows are at the threshold (fixed until an answer arrives), so its
+            # step is already known; a server that plans ahead takes it (DSL-436).
+            ask_in = (_next_request_in(planner, remaining, consumed=False)
+                      if pending is None and getattr(history, "pushes_ahead_in_steps", False)
+                      and _send_ready_in(policy) <= 0.0 else None)
+            if ask_in is not None and _takes_next_request(push):
+                push = partial(push, next_request_in=ask_in)
             await _maybe_await(push(await _call_user_callback(
                 observe,
                 RunContext(
@@ -1277,6 +1287,44 @@ class StaleFirstChunkError(errors.DreamscaleError, ValueError):
 
 # Consecutive fully stale chunks before the first dispatch that raise StaleFirstChunkError.
 STALE_FIRST_CHUNKS_BEFORE_RAISE = 3
+def _next_request_in(planner: Any, remaining: int, *, consumed: bool) -> int | None:
+    """Ticks from this one until an async loop's next request, or None when it isn't fixed
+    ahead (sync asks when its rows run out, which the server already knows; eager refill asks
+    whenever nothing is in flight; a request already due that hasn't gone out is being held
+    back, so when it goes isn't known). ``remaining``: the rows left on this tick;
+    ``consumed``: the loop decides after this tick's row is consumed (``next_action``: it may
+    ask on this very tick), else (``run``: it observes only on a tick it didn't ask)."""
+    if getattr(planner, "chunked", True) or getattr(planner, "eager_refill", False):
+        return None
+    threshold = getattr(planner, "threshold_steps", None)
+    if threshold is None:
+        return None
+    ticks = int(remaining) - (1 if consumed else 0) - int(threshold)
+    return ticks if ticks >= (0 if consumed else 1) else None
+
+
+def _takes_next_request(push: Any) -> bool:
+    """Whether ``push`` (a policy's ``push_history``) names ``next_request_in``: a policy of
+    its own, or a test's, keeps the one-argument form and never gets it."""
+    function = getattr(push, "__func__", push)
+    try:
+        known = _TAKES_NEXT_REQUEST.get(function)
+    except TypeError:  # unhashable
+        known = None
+    if known is not None:
+        return known
+    try:
+        takes = "next_request_in" in inspect.signature(push).parameters
+    except (TypeError, ValueError):
+        takes = False
+    with suppress(TypeError):
+        _TAKES_NEXT_REQUEST[function] = takes
+    return takes
+
+
+_TAKES_NEXT_REQUEST: weakref.WeakKeyDictionary[Any, bool] = weakref.WeakKeyDictionary()
+
+
 # Consecutive answers past the contract's async_max_stale_rows that raise AsyncDelayError.
 STALE_CHUNKS_BEFORE_RAISE = 3
 
@@ -1476,7 +1524,8 @@ class AsyncActionController:
                 try:
                     self._latest_observation = history.window(observation)
                 finally:
-                    await self._push_history(history, observation)
+                    # Its request starts now, not on a planned tick: nothing to announce.
+                    await self._push_history(history, observation, announce=False)
             await self._maybe_calibrate(instruction=instruction, timeout_s=timeout_s)
             await self._finish_ready_request()
             if self._pending is None:
@@ -2029,12 +2078,26 @@ class AsyncActionController:
             )
         return self._hold_latch
 
-    async def _push_history(self, history: Any, observation: Any) -> None:
+    async def _push_history(self, history: Any, observation: Any, *,
+                            announce: bool = True) -> None:
         """Keep this step's observation; an episode the server keeps (EpisodeTicks) also
-        sends its tick frames ahead, as the managed run loop does."""
+        sends its tick frames ahead, as the managed run loop does. Async, with no request in
+        flight, the frames also say when the next request goes out (DSL-436): it starts on
+        the tick whose consumed row leaves the remaining rows at the threshold."""
         push = getattr(self._policy, "push_history", None)
         if getattr(history, "pushes_ahead_in_steps", False) and push is not None:
-            await _maybe_await(push(observation))
+            # Not while the send floor holds a request back, nor for the request that waits for
+            # the robot to start moving (its tick depends on the motion): either may go later.
+            waits_for_motion = bool(self._startup_delay_s) and self._requests_started == 1
+            ask_in = (_next_request_in(self._planner, self._action_queue.actions_remaining(),
+                                       consumed=True)
+                      if announce and self._pending is None and not self._instruction_switched
+                      and not waits_for_motion and _send_ready_in(self._policy) <= 0.0
+                      else None)
+            if ask_in is not None and _takes_next_request(push):
+                await _maybe_await(push(observation, next_request_in=ask_in))
+            else:
+                await _maybe_await(push(observation))
         else:
             history.push(observation)
 

@@ -46,8 +46,11 @@ def _not_on_a_policy(key: str) -> None:
     from sequence_base.contract.settings import MOVED_TO_ROBOT
 
     if key in MOVED_TO_ROBOT:
-        how = "record.retention_days=<days>" if key.endswith("retention_days") else "record=on"
-        raise InvalidRequest(f"{key} is set on each robot now, as its Record: `seq robot set <robot> {how}`")
+        if key.endswith("retention_days"):
+            from seq.robot_cli import RETENTION_GONE
+
+            raise InvalidRequest(RETENTION_GONE)
+        raise InvalidRequest(f"{key} is set on each robot now, as its Record: `seq robot set <robot> record=on`")
 
 
 def policy_set(name: str, changes: dict, *, base_url: str | None = None, echo: Echo = None) -> dict:

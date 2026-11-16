@@ -1,5 +1,6 @@
 //! Custom-rule API decisions: finding positions, harness option TOML and project-tree paths.
 
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use std::path::{Path, PathBuf};
 
 use pyo3::exceptions::PyAttributeError;
@@ -16,21 +17,19 @@ use sqlbuild_rules::project_tree::main::project_path_escapes::project_path_escap
 use sqlbuild_rules::project_tree::main::project_tree_entries::project_tree_entries;
 use sqlbuild_rules::project_tree::models::ProjectTreeEntry;
 
-use crate::bindings::_helpers::boundary::python_calls::imported;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::construct::new_record;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::records::main::construct::error_class::error_class;
+use sqlbuild_python_base::records::main::construct::new_record::new_record;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_base::records::types::RecordId;
 
 const BUILTINS_MODULE: &str = "builtins";
 const DEFAULT_POSITION: i64 = 1;
 
 /// `RuleUsageError(message)`.
 fn usage_error(py: Python<'_>, message: String) -> PyErr {
-    match error_class(py, ErrorId::RuleUsage).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::RuleUsage, &message)
 }
 
 /// `RuleUsageError(prefix + str(value))`, keeping the value's text exactly as Python spells it.

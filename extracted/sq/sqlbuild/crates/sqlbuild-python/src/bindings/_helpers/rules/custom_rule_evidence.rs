@@ -1,5 +1,7 @@
 //! Custom-rule import closures, implementation fingerprints and statically found test cases.
 
+use sqlbuild_python_base::positional_record;
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use std::path::{Path, PathBuf};
 
 use pyo3::prelude::{
@@ -16,10 +18,9 @@ use sqlbuild_pysource::rule_evidence::models::{
     DisallowedImport, RuleTestEvidence, UnparsedSource,
 };
 
-use crate::bindings::_helpers::boundary::python_calls::imported;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::ErrorId;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
 
 const PATHLIB_MODULE: &str = "pathlib";
 const INSPECT_MODULE: &str = "inspect";
@@ -150,10 +151,7 @@ fn custom_rule_test_evidence<'py>(
 
 /// The native `error_id` exception raised with `message`.
 fn rules_error(py: Python<'_>, error_id: ErrorId, message: String) -> PyErr {
-    match error_class(py, error_id).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, error_id, &message)
 }
 
 /// Whether custom-rule code may import one absolute module name.

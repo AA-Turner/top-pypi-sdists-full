@@ -1,12 +1,9 @@
 
 [package]
 name = "django-rusty-templates"
-version = "2026.11.3"
+version = "2026.11.5"
 edition.workspace = true
 readme = "README.md"
-
-[package.metadata.cargo-shear]
-ignored = ["cargo-llvm-cov"]
 
 [workspace]
 members = ["dtl-lexer", "dtl-core"]
@@ -91,19 +88,31 @@ num-bigint.workspace = true
 num-traits = "0.2.19"
 pyo3 = { version = "0.29.0", features = ["num-bigint"] }
 rand = "0.10"
+rustc-hash = "2"
 sugar_path = "3.0.0"
 thiserror.workspace = true
 unicode-normalization = "0.1.24"
+
+# Reports the stack left on this thread, to stop runaway template recursion.
+# Its assembly doesn't build with the s390x manylinux toolchain; there the
+# render depth count alone applies.
+[target.'cfg(not(target_arch = "s390x"))'.dependencies]
+stacker = "0.1"
 
 [build-dependencies]
 # Sets `Py_GIL_DISABLED` for free-threaded builds.
 pyo3-build-config = "0.29.0"
 
 [dev-dependencies]
-cargo-llvm-cov = "0.9.0"
-
 proptest = "1.10.0"
 temp-env = "0.3.6"
+
+# Rendering crosses crate and module boundaries on every node, so link-time
+# optimisation is worth 5-20% of render time. Unwinding stays on: a panic must
+# become a Python exception. Thin LTO measured the same as fat.
+[profile.release]
+lto = "thin"
+codegen-units = 1
 
 [profile.wasm]
 inherits = "release"

@@ -5,10 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from trajectory._models import BaseModel
+from trajectory.types.benchmark_type import BenchmarkType
 
 
 class BenchmarkListItem(BaseModel):
   bench_id: str
+
+  benchmark_type: BenchmarkType = "generative"
 
   agent_id: str | None = None
 

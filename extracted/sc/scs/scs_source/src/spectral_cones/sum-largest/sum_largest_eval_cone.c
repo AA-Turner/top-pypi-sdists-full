@@ -69,11 +69,11 @@ scs_int SCS(proj_sum_largest_evals)(scs_float *tX, scs_int n, scs_int k,
   blas_int one_int = 1;
   scs_float sqrt2 = SQRTF(2.0);
   scs_float sqrt2_inv = 1.0 / sqrt2;
-  scs_float *Xs = c->Xs;
-  scs_float *e = c->e;
-  scs_float *Z = c->Z;
-  scs_float *work = c->work;
-  blas_int lwork = c->lwork;
+  scs_float *Xs = c->psd_tw->Xs;
+  scs_float *e = c->psd_tw->e;
+  scs_float *Z = c->psd_tw->Z;
+  scs_float *work = c->psd_tw->work;
+  blas_int lwork = c->psd_tw->lwork;
   blas_int info = 0;
   scs_int status;
   char transN;
@@ -96,11 +96,13 @@ scs_int SCS(proj_sum_largest_evals)(scs_float *tX, scs_int n, scs_int k,
    * order (smallest eigenvalue first)
    */
   BLAS(syev)("Vectors", "Lower", &nb, Xs, &nb, e, work, &lwork, &info);
+  /* info < 0: bad argument. info > 0: no convergence, so 'e' and 'Xs' hold
+   * partial results. Either way the eigendecomposition below it is built on
+   * is meaningless, so fail rather than return a bogus projection. */
   if (info != 0) {
-    scs_printf("WARN: LAPACK syev error, info = %i\n", (int)info);
-    if (info < 0) {
-      return info;
-    }
+    scs_printf("FATAL: LAPACK syev error in sum-of-largest cone, info = %li\n",
+               (long)info);
+    return -1;
   }
 
   /*

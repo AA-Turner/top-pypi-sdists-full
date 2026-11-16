@@ -45,7 +45,8 @@ pub mod django_rusty_templates {
 
     static IMPORT_STRING: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
-    static MARK_SAFE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    static SAFE_STRING: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    static WEAKREF: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
     /// Experimental JSON-only runtime sharing its parser/renderer with browser Wasm.
     #[pyclass]
@@ -353,7 +354,7 @@ pub mod django_rusty_templates {
             let loader = native_loader.extract::<PyRef<'_, Self>>()?;
             let template = if let Ok(native) = renderer.extract::<PyRef<'_, Template>>() {
                 let mut template = native.clone();
-                template.loader_path = loader.path[self.path.len()..].to_vec();
+                template.set_loader_path(loader.path[self.path.len()..].to_vec());
                 template
             } else {
                 Template {
@@ -363,6 +364,8 @@ pub mod django_rusty_templates {
                     has_inheritance: false,
                     has_python_callbacks: false,
                     interop_fragment: false,
+                    api: Api::Engine,
+                    owner_handle: OwnerHandle::default(),
                     engine: self.engine.clone(),
                     template_name: Some(renderer.getattr("name")?.extract()?),
                     loader_path: loader.path[self.path.len()..].to_vec(),
@@ -397,7 +400,7 @@ pub mod django_rusty_templates {
             };
             let mut path = self.path.clone();
             path.extend(&template.loader_path);
-            template.loader_path = path;
+            template.set_loader_path(path);
             Ok(template)
         }
 
@@ -571,6 +574,62 @@ pub mod django_rusty_templates {
         Ok(libs)
     }
 
+    /// The compilers named by the `isolated_tags` engine option, a mapping
+    /// from a library's load name (or a `builtins` module path) to the names
+    /// of its tags. Every name must exist, so a typo or a renamed tag can't
+    /// silently fall back to Django's parser.
+    fn isolated_compilers<'a>(
+        isolated_tags: &Bound<'_, PyAny>,
+        libraries: &HashMap<String, Py<PyAny>>,
+        builtins: impl Iterator<Item = (&'a String, &'a Py<PyAny>)> + Clone,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let py = isolated_tags.py();
+        let mut compilers = Vec::new();
+        for item in isolated_tags
+            .call_method0(intern!(py, "items"))?
+            .try_iter()?
+        {
+            let (library_name, tag_names): (String, Bound<'_, PyAny>) = item?.extract()?;
+            let library = libraries.get(&library_name).or_else(|| {
+                builtins
+                    .clone()
+                    .find_map(|(path, library)| (*path == library_name).then_some(library))
+            });
+            let Some(library) = library else {
+                return Err(ImproperlyConfigured::new_err(format!(
+                    "isolated_tags names the template library '{library_name}', which isn't \
+                     one of this engine's libraries or builtins."
+                )));
+            };
+            if tag_names.is_instance_of::<PyString>() {
+                return Err(ImproperlyConfigured::new_err(format!(
+                    "isolated_tags['{library_name}'] must be a list of tag names, not a string."
+                )));
+            }
+            let tags = library.bind(py).getattr(intern!(py, "tags"))?;
+            for tag_name in tag_names.try_iter()? {
+                let tag_name: String = tag_name?.extract()?;
+                let Some(compiler) = tags.get_item(&tag_name).ok() else {
+                    return Err(ImproperlyConfigured::new_err(format!(
+                        "isolated_tags names the tag '{tag_name}', which the template library \
+                         '{library_name}' doesn't register."
+                    )));
+                };
+                if compiler
+                    .getattr("rusty_requires_full_parser")
+                    .is_ok_and(|value| value.is_truthy().unwrap_or(true))
+                {
+                    return Err(ImproperlyConfigured::new_err(format!(
+                        "The '{tag_name}' tag in '{library_name}' sets \
+                         rusty_requires_full_parser, so isolated_tags can't opt it in."
+                    )));
+                }
+                compilers.push(compiler.unbind());
+            }
+        }
+        Ok(compilers)
+    }
+
     /// Helper function to unpack a loader tuple configuration.
     /// See <https://docs.djangoproject.com/en/stable/ref/templates/api/#django.template.Engine>
     fn unpack<'py>(loader: &Bound<'py, PyAny>) -> PyResult<(String, Bound<'py, PyAny>)> {
@@ -692,14 +751,13 @@ pub mod django_rusty_templates {
 
     #[derive(Debug)]
     pub struct Engine {
-        #[allow(dead_code)]
         dirs: Mutex<Vec<PathBuf>>,
         app_dirs: bool,
         context_processors: Vec<String>,
         debug: AtomicBool,
         template_loaders: Mutex<Vec<Loader>>,
         string_if_invalid: String,
-        #[allow(dead_code)]
+        #[expect(dead_code, reason = "file_charset decoding is not wired up yet")]
         encoding: &'static Encoding,
         pub file_charset: String,
         configuration: Option<Py<PyDict>>,
@@ -711,6 +769,9 @@ pub mod django_rusty_templates {
         pub allow_multiline_tags: bool,
         loaded_context_processors: Vec<Py<PyAny>>,
         pub libraries: HashMap<String, Py<PyAny>>,
+        /// Compilers the `isolated_tags` option opts in, as if each set
+        /// `rusty_isolated_compiler`.
+        pub isolated_compilers: Vec<Py<PyAny>>,
     }
 
     impl Trace for Engine {
@@ -719,6 +780,7 @@ pub mod django_rusty_templates {
             self.template_builtins.trace(visit)?;
             self.loaded_context_processors.trace(visit)?;
             self.libraries.trace(visit)?;
+            self.isolated_compilers.trace(visit)?;
             // GC can run during a Python callback while this lock is held.
             // Omit the busy cache for this collection instead of deadlocking.
             if let Ok(loaders) = self.template_loaders.try_lock() {
@@ -833,6 +895,7 @@ pub mod django_rusty_templates {
                 django_series: (5, 2),
                 allow_multiline_tags: true,
                 loaded_context_processors: Vec::new(),
+                isolated_compilers: Vec::new(),
                 libraries: HashMap::new(),
             }
         }
@@ -881,6 +944,8 @@ pub mod django_rusty_templates {
                 has_inheritance: false,
                 has_python_callbacks: false,
                 interop_fragment: false,
+                api: Api::Engine,
+                owner_handle: OwnerHandle::default(),
                 engine,
             });
         }
@@ -955,7 +1020,11 @@ pub mod django_rusty_templates {
             match get_template(engine.clone(), py, Cow::Owned(template_name)) {
                 Ok(template) => return Ok(template),
                 Err(e) if e.is_instance_of::<TemplateDoesNotExist>(py) => {
-                    not_found.push(e.value(py).to_string());
+                    // Django lists each failed name once.
+                    let name = e.value(py).to_string();
+                    if !not_found.contains(&name) {
+                        not_found.push(name);
+                    }
                 }
                 Err(e) => return Err(e),
             }
@@ -986,7 +1055,7 @@ pub mod django_rusty_templates {
         }
 
         #[new]
-        #[pyo3(signature = (dirs=None, app_dirs=false, context_processors=None, debug=false, loaders=None, string_if_invalid=String::new(), file_charset="utf-8".to_string(), libraries=None, builtins=None, autoescape=true, allow_multiline_tags=None))]
+        #[pyo3(signature = (dirs=None, app_dirs=false, context_processors=None, debug=false, loaders=None, string_if_invalid=String::new(), file_charset="utf-8".to_string(), libraries=None, builtins=None, autoescape=true, allow_multiline_tags=None, isolated_tags=None))]
         #[expect(
             clippy::too_many_lines,
             reason = "normalises every argument of Django's Engine.__init__"
@@ -1002,9 +1071,10 @@ pub mod django_rusty_templates {
             string_if_invalid: String,
             file_charset: String,
             libraries: Option<Bound<'_, PyAny>>,
-            #[allow(unused_variables)] builtins: Option<Bound<'_, PyAny>>,
+            builtins: Option<Bound<'_, PyAny>>,
             autoescape: bool,
             allow_multiline_tags: Option<Bound<'_, PyAny>>,
+            isolated_tags: Option<Bound<'_, PyAny>>,
         ) -> PyResult<Self> {
             let configuration = PyDict::new(py);
             configuration.set_item(
@@ -1109,6 +1179,14 @@ pub mod django_rusty_templates {
                         .map(Bound::unbind)
                 })
                 .collect::<PyResult<Vec<_>>>()?;
+            let isolated_compilers = match isolated_tags {
+                None => Vec::new(),
+                Some(isolated_tags) => isolated_compilers(
+                    &isolated_tags,
+                    &libraries,
+                    builtins.iter().zip(&template_builtins),
+                )?,
+            };
             let version = py.import("django")?.getattr("VERSION")?;
             let django_series = (
                 version.get_item(0)?.extract()?,
@@ -1147,6 +1225,7 @@ pub mod django_rusty_templates {
                 autoescape,
                 loaded_context_processors,
                 libraries,
+                isolated_compilers,
             };
             Ok(Self {
                 engine: Gc::new(engine),
@@ -1176,6 +1255,35 @@ pub mod django_rusty_templates {
                 .get_template_native(py, Some(template_name))?
                 .into_pyobject(py)
                 .map(Bound::into_any)
+        }
+
+        /// `get_template` for the `RustyTemplates` backend: a native
+        /// template comes back as a backend template, which renders a dict.
+        fn _backend_get_template<'py>(
+            slf: Bound<'py, Self>,
+            template_name: Bound<'py, PyAny>,
+        ) -> PyResult<Bound<'py, PyAny>> {
+            let py = slf.py();
+            if slf.getattr("__dict__")?.contains("find_template")?
+                || slf.borrow().engine.django_series >= (6, 0)
+            {
+                // This template may be the loader cache's own object.
+                let template = Self::get_template(slf, Some(template_name))?;
+                return match template.extract::<PyRef<'_, Template>>() {
+                    Ok(native) => native._for_backend().into_pyobject(py).map(Bound::into_any),
+                    Err(_) => Ok(template),
+                };
+            }
+            let mut template = slf.borrow().get_template_native(py, Some(template_name))?;
+            template.api = Api::Backend;
+            template.into_pyobject(py).map(Bound::into_any)
+        }
+
+        /// `from_string` for the `RustyTemplates` backend.
+        fn _backend_from_string(&self, template_code: Bound<'_, PyString>) -> PyResult<Template> {
+            let mut template = self.from_string(template_code)?;
+            template.api = Api::Backend;
+            Ok(template)
         }
 
         #[pyo3(signature = (template_name))]
@@ -1248,8 +1356,14 @@ pub mod django_rusty_templates {
                 }
                 return Ok(template);
             }
+            // Django iterates whatever it's given, so a string is tried one
+            // character at a time.
+            let names = names
+                .try_iter()?
+                .map(|name| name?.extract())
+                .collect::<PyResult<Vec<String>>>()?;
             slf.borrow()
-                .select_template_native(py, names.extract()?)?
+                .select_template_native(py, names)?
                 .into_pyobject(py)
                 .map(Bound::into_any)
         }
@@ -1377,6 +1491,7 @@ pub mod django_rusty_templates {
             let has_python_callbacks =
                 parser.compiler_parser.is_some() || !parser.python_nodes.is_empty();
             Ok(Template {
+                api: Api::Engine,
                 template: Arc::from(source),
                 filename,
                 template_name,
@@ -1388,6 +1503,7 @@ pub mod django_rusty_templates {
                 has_inheritance: false,
                 has_python_callbacks,
                 interop_fragment: true,
+                owner_handle: OwnerHandle::default(),
             })
         }
 
@@ -1706,38 +1822,121 @@ pub mod django_rusty_templates {
 
     /// Views of a template's nodes that are built on first use. Clones of a
     /// template share them; a template with different nodes needs fresh ones.
-    #[derive(Debug, Clone)]
-    struct TemplateCaches {
-        inspection_nodes: Gc<InspectionNodes>,
-        django_renderer: Gc<InspectionNodes>,
-        fallback_blocks: Gc<InspectionNodes>,
-        native_blocks: Gc<OnceLock<HashMap<String, Gc<Vec<TokenTree>>>>>,
-        native_partials: Gc<OnceLock<HashMap<String, PartialDefinition>>>,
-        partial_data: Gc<InspectionNodes>,
+    ///
+    /// They live in one GC container, not one each: every template pays for
+    /// the containers whether or not it ever fills them, and every clone of a
+    /// template takes a reference to each.
+    #[derive(Debug)]
+    struct NodeCaches {
+        inspection_nodes: InspectionNodes,
+        django_renderer: InspectionNodes,
+        fallback_blocks: InspectionNodes,
+        native_blocks: OnceLock<HashMap<String, Gc<Vec<TokenTree>>>>,
+        partial_data: InspectionNodes,
     }
 
-    impl Default for TemplateCaches {
-        fn default() -> Self {
+    impl NodeCaches {
+        fn new(partial_data: InspectionNodes) -> Self {
             Self {
-                inspection_nodes: Gc::new(InspectionNodes(GcOnceLock::new())),
-                django_renderer: Gc::new(InspectionNodes(GcOnceLock::new())),
-                fallback_blocks: Gc::new(InspectionNodes(GcOnceLock::new())),
-                native_blocks: Gc::new(OnceLock::new()),
-                native_partials: Gc::new(OnceLock::new()),
-                partial_data: Gc::new(InspectionNodes(GcOnceLock::new())),
+                inspection_nodes: InspectionNodes(GcOnceLock::new()),
+                django_renderer: InspectionNodes(GcOnceLock::new()),
+                fallback_blocks: InspectionNodes(GcOnceLock::new()),
+                native_blocks: OnceLock::new(),
+                partial_data,
             }
         }
     }
 
-    impl Trace for TemplateCaches {
+    impl Trace for NodeCaches {
         fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
             self.inspection_nodes.trace(visit)?;
             self.django_renderer.trace(visit)?;
             self.fallback_blocks.trace(visit)?;
             self.native_blocks.trace(visit)?;
-            self.native_partials.trace(visit)?;
             self.partial_data.trace(visit)
         }
+    }
+
+    #[derive(Debug, Clone)]
+    struct TemplateCaches {
+        nodes: Gc<NodeCaches>,
+        /// Kept apart because a block's detached body shares its owner's
+        /// partial definitions but none of the other views.
+        native_partials: Gc<OnceLock<HashMap<String, PartialDefinition>>>,
+    }
+
+    impl TemplateCaches {
+        fn new(partial_data: InspectionNodes) -> Self {
+            Self {
+                nodes: Gc::new(NodeCaches::new(partial_data)),
+                native_partials: Gc::new(OnceLock::new()),
+            }
+        }
+    }
+
+    impl Default for TemplateCaches {
+        fn default() -> Self {
+            Self::new(InspectionNodes(GcOnceLock::new()))
+        }
+    }
+
+    impl std::ops::Deref for TemplateCaches {
+        type Target = NodeCaches;
+
+        fn deref(&self) -> &NodeCaches {
+            &self.nodes
+        }
+    }
+
+    impl Trace for TemplateCaches {
+        fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+            self.nodes.trace(visit)?;
+            self.native_partials.trace(visit)
+        }
+    }
+
+    /// The GC handle a top-level render gives nodes as their owning template.
+    ///
+    /// Building one copies the template into a new GC container, which cost
+    /// a clone, an allocation and a deallocation on every render. It is now
+    /// built once and shared by later clones, such as each `get_template` from
+    /// a cached loader. The template inside the handle has an empty handle of
+    /// its own, so no template refers to itself.
+    struct OwnerHandle(GcOnceLock<Gc<Template>>);
+
+    impl Default for OwnerHandle {
+        fn default() -> Self {
+            Self(GcOnceLock::new())
+        }
+    }
+
+    impl Clone for OwnerHandle {
+        fn clone(&self) -> Self {
+            self.0.get().map_or_else(Self::default, |handle| {
+                Self(GcOnceLock::with_value(handle.clone()))
+            })
+        }
+    }
+
+    impl std::fmt::Debug for OwnerHandle {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("OwnerHandle")
+        }
+    }
+
+    impl Trace for OwnerHandle {
+        fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+            self.0.trace(visit)
+        }
+    }
+
+    /// Which of Django's two template APIs a `Template` serves.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Api {
+        /// `Engine.get_template`: renders a `Context`.
+        Engine,
+        /// The `RustyTemplates` backend: renders a dict.
+        Backend,
     }
 
     #[derive(Debug, Clone)]
@@ -1757,6 +1956,10 @@ pub mod django_rusty_templates {
         /// fragment's span for the interop node to map onto the full template,
         /// instead of debug data for the fragment's own source.
         interop_fragment: bool,
+        /// Handed out by the `RustyTemplates` backend, whose templates take
+        /// a dict, as Django's backend templates do.
+        api: Api,
+        owner_handle: OwnerHandle,
     }
 
     impl Trace for Template {
@@ -1764,7 +1967,8 @@ pub mod django_rusty_templates {
             self.engine.trace(visit)?;
             self.nodes.trace(visit)?;
             self.caches.trace(visit)?;
-            self.python_renderer.trace(visit)
+            self.python_renderer.trace(visit)?;
+            self.owner_handle.trace(visit)
         }
     }
 
@@ -1900,7 +2104,7 @@ pub mod django_rusty_templates {
                     ));
                 }
             };
-            let partial_data = Gc::new(InspectionNodes(GcOnceLock::new()));
+            let partial_data = InspectionNodes(GcOnceLock::new());
             if let Some(compiler) = &parser.compiler_parser {
                 partial_data.0.get_or_try_init(py, || {
                     compiler.bind(py).getattr("extra_data").map(Bound::unbind)
@@ -1913,14 +2117,13 @@ pub mod django_rusty_templates {
                 filename,
                 template_name,
                 loader_path: Vec::new(),
-                caches: TemplateCaches {
-                    partial_data,
-                    ..TemplateCaches::default()
-                },
+                caches: TemplateCaches::new(partial_data),
                 python_renderer,
                 has_inheritance: Self::nodes_have_inheritance(&nodes),
                 has_python_callbacks,
                 interop_fragment: false,
+                api: Api::Engine,
+                owner_handle: OwnerHandle::default(),
                 nodes: Gc::new(nodes),
                 engine,
             })
@@ -1982,6 +2185,7 @@ pub mod django_rusty_templates {
             context: &mut Context,
             render: impl FnOnce(&mut Context) -> Result<T, PyRenderError>,
         ) -> Result<T, PyRenderError> {
+            let previous_stack = context.render_stack.enter()?;
             let previous_blocks = std::mem::take(&mut context.inheritance_blocks);
             let previous_history = std::mem::take(&mut context.inheritance_history);
             let previous_root = context.root_template.clone();
@@ -1996,23 +2200,48 @@ pub mod django_rusty_templates {
                             .getattr("begin_render")?
                             .call1((live.bind(py), Py::new(py, self.clone())?))
                     })
-                    .transpose()?
+                    .transpose()
             } else {
-                None
+                Ok(None)
             };
-            let result = render(context);
-            if let Some(scope) = callback_scope {
-                let cleanup = scope.call_method0("close");
-                if result.is_ok() {
-                    cleanup?;
+            // A failure to open or close the callback scope is reported only
+            // after the state taken above is back in place.
+            let result = match callback_scope {
+                Ok(scope) => {
+                    let result = render(context);
+                    match scope.map(|scope| scope.call_method0("close")) {
+                        Some(Err(error)) if result.is_ok() => Err(error.into()),
+                        _ => result,
+                    }
                 }
-            }
+                Err(error) => Err(error.into()),
+            };
             context.inheritance_blocks = previous_blocks;
             context.inheritance_history = previous_history;
             context.root_template = previous_root;
             context.cycle_indices = previous_cycles;
             context.instrument_render = previous_instrument;
+            context.render_stack.leave(previous_stack);
             result
+        }
+
+        /// A different loader path is a different template to its renders.
+        pub(crate) fn set_loader_path(&mut self, path: Vec<usize>) {
+            self.loader_path = path;
+            self.owner_handle = OwnerHandle::default();
+        }
+
+        /// This template as a GC handle, built on first use.
+        pub(crate) fn owner_handle(&self, py: Python<'_>) -> &Gc<Self> {
+            let handle = self.owner_handle.0.get_or_try_init(py, || {
+                Ok::<_, std::convert::Infallible>(Gc::new(Self {
+                    owner_handle: OwnerHandle::default(),
+                    ..self.clone()
+                }))
+            });
+            match handle {
+                Ok(handle) => handle,
+            }
         }
 
         pub(crate) fn is_native(&self) -> bool {
@@ -2022,14 +2251,14 @@ pub mod django_rusty_templates {
         pub(crate) fn extends_parent(&self) -> bool {
             self.nodes
                 .iter()
-                .any(|node| matches!(node, TokenTree::Tag(Tag::Extends { .. })))
+                .any(|node| matches!(node.as_tag(), Some(Tag::Extends { .. })))
         }
 
         pub(crate) fn native_partials(&self) -> &HashMap<String, PartialDefinition> {
             self.caches.native_partials.get_or_init(|| {
                 fn collect(nodes: &[TokenTree], partials: &mut HashMap<String, PartialDefinition>) {
                     for node in nodes {
-                        if let TokenTree::Tag(Tag::PartialDef { definition, .. }) = node {
+                        if let Some(Tag::PartialDef { definition, .. }) = node.as_tag() {
                             partials.insert(definition.name.clone(), definition.clone());
                         }
                         for children in node.child_nodes() {
@@ -2047,7 +2276,7 @@ pub mod django_rusty_templates {
             self.caches.native_blocks.get_or_init(|| {
                 fn collect(nodes: &[TokenTree], blocks: &mut HashMap<String, Gc<Vec<TokenTree>>>) {
                     for node in nodes {
-                        if let TokenTree::Tag(Tag::Block { name, nodes }) = node {
+                        if let Some(Tag::Block { name, nodes }) = node.as_tag() {
                             blocks.insert(name.clone(), nodes.clone());
                         }
                         for children in node.child_nodes() {
@@ -2070,6 +2299,8 @@ pub mod django_rusty_templates {
                 has_python_callbacks: self.has_python_callbacks
                     && Self::nodes_have_callbacks(&nodes),
                 interop_fragment: self.interop_fragment,
+                api: self.api,
+                owner_handle: OwnerHandle::default(),
                 nodes,
                 caches: TemplateCaches {
                     native_partials: self.caches.native_partials.clone(),
@@ -2085,7 +2316,7 @@ pub mod django_rusty_templates {
 
         fn nodes_have_callbacks(nodes: &[TokenTree]) -> bool {
             nodes.iter().any(|node| {
-                matches!(node, TokenTree::Tag(Tag::PythonNode(_)))
+                matches!(node.as_tag(), Some(Tag::PythonNode(_)))
                     || node
                         .child_nodes()
                         .iter()
@@ -2096,10 +2327,8 @@ pub mod django_rusty_templates {
         fn nodes_have_inheritance(nodes: &[TokenTree]) -> bool {
             fn contains(nodes: &[TokenTree]) -> bool {
                 nodes.iter().any(|node| {
-                    matches!(
-                        node,
-                        TokenTree::Tag(Tag::Block { .. } | Tag::Extends { .. })
-                    ) || node.child_nodes().iter().any(|nodes| contains(nodes))
+                    matches!(node.as_tag(), Some(Tag::Block { .. } | Tag::Extends { .. }))
+                        || node.child_nodes().iter().any(|nodes| contains(nodes))
                 })
             }
             contains(nodes)
@@ -2117,7 +2346,7 @@ pub mod django_rusty_templates {
                         blocks: &Bound<'_, PyDict>,
                     ) -> PyResult<()> {
                         for node in nodes {
-                            if let TokenTree::Tag(Tag::Block { name, nodes }) = node {
+                            if let Some(Tag::Block { name, nodes }) = node.as_tag() {
                                 let body = owner.block_template(nodes.clone());
                                 let block = py
                                     .import("django_rusty_templates.inheritance")?
@@ -2233,9 +2462,15 @@ pub mod django_rusty_templates {
                 } else {
                     Some(live.call_method0("flatten")?.extract()?)
                 };
+                // A Context made here is reachable from Python only through
+                // what it hands to callbacks, which raises this count.
+                if !direct_input {
+                    context.live_refs = crate::render::live::outside_references(&live)?;
+                }
                 context.formatting_context = Some(live.unbind());
                 let result =
                     self.render_body_with_owner_into(py, &self.nodes, context, output, owner);
+                context.live_refs = None;
                 let live = context
                     .formatting_context
                     .take()
@@ -2301,7 +2536,10 @@ pub mod django_rusty_templates {
                 std::mem::replace(&mut context.python_blocks, python_blocks);
             // Includes and blocks already own GC-visible template handles.
             // Reuse them instead of allocating and cloning complete templates.
-            let owner = owner.cloned().unwrap_or_else(|| Gc::new(self.clone()));
+            let owner = match owner {
+                Some(owner) => owner.clone(),
+                None => self.owner_handle(py).clone(),
+            };
             if context.root_template.is_none() {
                 context.root_template = Some(owner.clone());
             }
@@ -2461,6 +2699,30 @@ pub mod django_rusty_templates {
             self.trace(&visit)
         }
 
+        /// This template as the `RustyTemplates` backend hands it out.
+        fn _for_backend(&self) -> Self {
+            Self {
+                api: Api::Backend,
+                ..self.clone()
+            }
+        }
+
+        /// The engine-level template inside a backend template, as on
+        /// Django's backend `Template`. `{% include %}` unwraps one with it,
+        /// and it takes a `Context`.
+        #[getter]
+        fn template(&self) -> PyResult<Self> {
+            if self.api == Api::Engine {
+                return Err(PyAttributeError::new_err(
+                    "'Template' object has no attribute 'template'",
+                ));
+            }
+            Ok(Self {
+                api: Api::Engine,
+                ..self.clone()
+            })
+        }
+
         #[getter]
         fn _is_native(&self) -> bool {
             self.python_renderer.is_none()
@@ -2470,7 +2732,7 @@ pub mod django_rusty_templates {
         fn _has_extends(&self) -> bool {
             self.nodes
                 .iter()
-                .any(|node| matches!(node, TokenTree::Tag(Tag::Extends { .. })))
+                .any(|node| matches!(node.as_tag(), Some(Tag::Extends { .. })))
         }
 
         #[getter]
@@ -2695,10 +2957,53 @@ pub mod django_rusty_templates {
             request: Option<Bound<'py, PyAny>>,
         ) -> PyResult<Bound<'py, PyAny>> {
             let rendered = self.py_render(py, context, request)?;
-            MARK_SAFE
-                .import(py, "django.utils.safestring", "mark_safe")?
+            // `mark_safe` of a plain `str` is `SafeString(str)`. Building it
+            // directly skips a Python-level call on every render.
+            SAFE_STRING
+                .import(py, "django.utils.safestring", "SafeString")?
                 .call1((rendered,))
         }
+    }
+
+    /// The caller's dict inside `Context(dict)`, when the context is still in
+    /// that shape: exactly `Context`, holding Django's built-in names and the
+    /// caller's dict, which `Context.__init__` stores without copying. Reading
+    /// it lazily skips `flatten()`, which copied every key on every render.
+    /// `None` for anything else, such as a pushed context or changed
+    /// built-ins, which is flattened as before.
+    fn plain_context_dict<'py>(
+        py: Python<'py>,
+        context: &Bound<'py, PyAny>,
+        context_class: &Bound<'py, PyAny>,
+    ) -> PyResult<Option<Bound<'py, PyDict>>> {
+        if !context.get_type().is(context_class) {
+            return Ok(None);
+        }
+        let Ok(dicts) = context
+            .getattr(intern!(py, "dicts"))?
+            .cast_into_exact::<PyList>()
+        else {
+            return Ok(None);
+        };
+        if dicts.len() != 2 {
+            return Ok(None);
+        }
+        let (Ok(builtins), Ok(dict)) = (
+            dicts.get_item(0)?.cast_into_exact::<PyDict>(),
+            dicts.get_item(1)?.cast_into_exact::<PyDict>(),
+        ) else {
+            return Ok(None);
+        };
+        let is_builtin = |name: &Bound<'py, PyString>, expected: &Bound<'py, PyAny>| {
+            builtins
+                .get_item(name)
+                .map(|value| value.is_some_and(|value| value.is(expected)))
+        };
+        let standard = builtins.len() == 3
+            && is_builtin(intern!(py, "True"), PyBool::new(py, true).as_any())?
+            && is_builtin(intern!(py, "False"), PyBool::new(py, false).as_any())?
+            && is_builtin(intern!(py, "None"), &py.None().into_bound(py))?;
+        Ok(standard.then_some(dict))
     }
 
     impl Template {
@@ -2712,6 +3017,17 @@ pub mod django_rusty_templates {
             context: Option<Bound<'_, PyAny>>,
             request: Option<Bound<'_, PyAny>>,
         ) -> PyResult<String> {
+            if self.api == Api::Backend
+                && let Some(context) = &context
+                && !context.is_none()
+                && !context.is_instance_of::<PyDict>()
+            {
+                // As `django.template.context.make_context` reports it.
+                return Err(PyTypeError::new_err(format!(
+                    "context must be a dict rather than {}.",
+                    context.get_type().name()?
+                )));
+            }
             if let Some(renderer) = &self.python_renderer {
                 renderer
                     .bind(py)
@@ -2737,7 +3053,14 @@ pub mod django_rusty_templates {
                     .context
                     .lock_py_attached(py)
                     .expect("Mutex should not be poisoned");
-                return self._render(py, &mut context);
+                // A tag rendering another template with its context starts a
+                // new render: Django pushes a fresh render context, so the
+                // caller's block table and extends history stay out of it.
+                return self
+                    .with_render_scope(py, &mut context, |context| {
+                        self.render_chain(py, context).map(Cow::into_owned)
+                    })
+                    .map_err(|error| self.render_error(error));
             }
             let context_class = DJANGO_CONTEXT.import(py, "django.template.context", "Context")?;
             let is_django_context = context
@@ -2747,15 +3070,22 @@ pub mod django_rusty_templates {
                 .unwrap_or(false);
             let request = match request {
                 Some(request) => Some(request),
+                // `getattr_opt` skips building an `AttributeError` for the
+                // usual plain `Context`, which has neither attribute.
                 None if is_django_context => context
                     .as_ref()
-                    .and_then(|context| context.getattr("request").ok()),
+                    .and_then(|context| context.getattr_opt(intern!(py, "request")).ok().flatten()),
                 None => None,
             };
             let processor_index = if is_django_context {
                 context
                     .as_ref()
-                    .and_then(|context| context.getattr("_processors_index").ok())
+                    .and_then(|context| {
+                        context
+                            .getattr_opt(intern!(py, "_processors_index"))
+                            .ok()
+                            .flatten()
+                    })
                     .map(|index| index.extract::<usize>())
                     .transpose()?
             } else {
@@ -2772,7 +3102,15 @@ pub mod django_rusty_templates {
             // their existing path, and scoped tags on the native scope bridge.
             // Dense templates benefit from native lookup per variable; reserve
             // this path for at least eight bindings per rendering node.
+            // A plain `Context(dict)` is read lazily below, which beats both.
+            let plain_input = match &context {
+                Some(input) if is_django_context && !already_bound => {
+                    plain_context_dict(py, input, context_class)?.is_some()
+                }
+                _ => false,
+            };
             let flat_live_context = !already_bound
+                && !plain_input
                 && processor_index.is_none()
                 && request.is_none()
                 && self
@@ -2893,6 +3231,9 @@ pub mod django_rusty_templates {
                                 base_context.extend(dict?.extract::<HashMap<String, Py<PyAny>>>()?);
                             }
                         }
+                    } else if let Some(dict) = plain_context_dict(py, context, context_class)? {
+                        // Read the caller's dict lazily, as for a dict input.
+                        source = Some(dict);
                     } else {
                         base_context.extend(context.call_method0("flatten")?.extract::<HashMap<
                             String,
@@ -2904,8 +3245,10 @@ pub mod django_rusty_templates {
                     base_context.extend(processor_values);
                     // A dict is read lazily, so names the template never uses
                     // cost nothing. Like Django, other key types are ignored.
+                    // Django reads the caller's dict live as well, so no copy
+                    // is taken: one would cost time in proportion to its size.
                     if let Ok(dict) = context.cast::<PyDict>() {
-                        source = Some(dict.copy()?);
+                        source = Some(dict.clone());
                     } else {
                         base_context.extend(context.extract::<HashMap<String, Py<PyAny>>>()?);
                     }
@@ -2926,8 +3269,8 @@ pub mod django_rusty_templates {
                     input.setattr("template_name", self.template_name.as_deref())?;
                 }
                 rendering_context.callback_input = Some(Gc::new(
-                    py.import("weakref")?
-                        .getattr("ref")?
+                    WEAKREF
+                        .import(py, "weakref", "ref")?
                         .call1((input,))?
                         .unbind(),
                 ));
@@ -3122,6 +3465,7 @@ user = User(["Lily"])
                 None,
                 false,
                 None,
+                None,
             )
             .unwrap();
             let template_string = PyString::new(py, "Hello {{ user }}!");
@@ -3166,6 +3510,7 @@ user = User(["Lily"])
                 ),
                 None,
                 false,
+                None,
                 None,
             )
             .unwrap();
@@ -3221,6 +3566,7 @@ user = User(["Lily"])
                 None,
                 false,
                 None,
+                None,
             )
             .unwrap();
 
@@ -3274,6 +3620,7 @@ user = User(["Lily"])
                 None,
                 None,
                 false,
+                None,
                 None,
             )
             .unwrap_err();

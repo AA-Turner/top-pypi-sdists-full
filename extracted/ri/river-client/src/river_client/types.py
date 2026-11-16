@@ -222,7 +222,11 @@ class Sample:
 
     ``prompt_token_ids`` / ``top_logprobs`` / ``prompt_top_logprobs`` are
     ``None`` when the server did not provide them or the feature was not
-    requested.
+    requested. ``prompt_token_ids`` comes back with ``return_prompt_token_ids``
+    or ``return_prompt_logprobs``; routing samples
+    (``return_expert_routing``) of token-form prompts without images also
+    report their submitted IDs. Routing alone does not echo text or image
+    prompts' IDs.
 
     ``expert_routing`` is populated when ``return_expert_routing=True``
     was passed on the request.

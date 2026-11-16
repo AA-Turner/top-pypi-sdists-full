@@ -15,8 +15,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from probe.generated.samples import CaptureField, TurnsSource
-from probe.sdk.run.samples.rollout import build_turns
+from probe.generated.samples import MESSAGE_FIELDS, CaptureField, TurnsSource
+from probe.integrations.miles.samples.messages import MESSAGES, MESSAGES_KEY
+from probe.integrations.miles.samples.tokenizer import get_decode
+from probe.sdk.run.samples import to_failure_reason, to_sampling_settings
+from probe.sdk.run.samples.rollout import build_decoded_turns, build_turns
+
+from ...task_label import TASK_ID_FIELD, get_task_label
 
 #: The generation phases a weight-version span stands for (`types.py:24-42`: `prefill_spans`, `spans`).
 PREFILL, DECODE = "prefill", "decode"
@@ -29,9 +34,12 @@ ERROR_REASONS = frozenset(
 )
 #: The step a train sample's group began under, stamped by its live try (`../live/`): its group and fully async step.
 SCHEDULED_STEP_KEY = "probe_scheduled_step"
-#: Where Miles keeps a sample's messages as sent, only with `--save-debug-trajectory-data`: multi_turn's trajectory
-#: (`generate_hub/multi_turn.py:74,92`) and a session's last record (`session/samples/merge.py:99-103`).
-MESSAGES_KEY = "messages"
+#: How the sample was sampled (`SamplingSettings`), stamped by its live try (`../live/`) or the Harbor agent function.
+SAMPLING_KEY = "probe_sampling"
+#: The checker's reason a Harbor trial failed (`verifier/reason.txt`), stamped by the Harbor agent function.
+FAILURE_REASON_KEY = "probe_failure_reason"
+#: The Harbor trial's explaining exception (`<Type>: <message>`), stamped by the Harbor agent function.
+EXCEPTION_KEY = "probe_exception"
 #: The generate functions that keep messages (`arguments.py:500`: single_turn is Miles' default, and keeps none).
 SINGLE_TURN = "miles.rollout.generate_hub.single_turn.generate"
 MULTI_TURN = "miles.rollout.generate_hub.multi_turn.generate"
@@ -51,6 +59,19 @@ TEXT_REPLIES = ("Miles' multi_turn keeps each reply as text: its tool calls stay
 CHILD_PROCESS = "agent functions run in a child process Probe has no context in, so a tool's files cannot reach its sample"
 IN_GENERATE = ("Miles runs tools inside its generate function (multi_turn's execute_tool_calls, an inline agent "
                "function), where Probe opens no rollout context: a tool's files cannot reach its sample")
+#: Why a Miles run's samples hold no GPU readings, when Probe knows up front (`gpu_readings`; DESIGN.md "GPU").
+GPU_LEGACY = ("MILES_USE_LEGACY_ROLLOUT_V1=1 runs Miles' legacy rollout, whose model calls go out without Probe's "
+              "wraps, so no GPU readings come back with them")
+GPU_LIVE_OFF = ("PROBE_MILES_LIVE=0 turns off Probe's rollout wraps, which carry each model call's GPU readings back "
+                "to its sample")
+GPU_EXTERNAL = ("this run's engines were not launched by the run (external engine addresses, a custom engine "
+                "provider, or a deploy that does not deploy its own engines), so Probe is not inside them to read "
+                "their GPUs")
+GPU_BYPASS = ("this run's generate function ({path}) sends its model calls without Miles' post or session server, so "
+              "no GPU readings come back with them")
+#: Deploy components that start their own engines (`DeployComponent.deploys_own_inference_engines`,
+#: `utils/workers/types.py:29-30`).
+ENGINE_DEPLOYS = frozenset({"all", "inference"})
 _MISSING = object()
 
 
@@ -67,6 +88,8 @@ class MappingConfig:
     #: `{"metric name": "dotted Sample path"}`: extra per-sample numbers (`--probe-sample-metrics`).
     metric_paths: Mapping[str, str] = field(default_factory=dict)
     run_id: str | None = None
+    #: The tokenizer's checkpoint (`--hf-checkpoint`): decoded turns for samples that kept no messages (D4).
+    checkpoint: str | None = None
 
     @classmethod
     def from_args(cls, args: Any, *, metric_paths: Mapping[str, str] | None = None, run_id: str | None = None):
@@ -80,6 +103,7 @@ class MappingConfig:
             teacher_step=step if isinstance(step, int) and not isinstance(step, bool) and step >= 0 else None,
             metric_paths={str(k): str(v) for k, v in paths.items() if isinstance(k, str) and k and v},
             run_id=run_id,
+            checkpoint=_get_text(getattr(args, "hf_checkpoint", None)),
         )
 
 
@@ -141,12 +165,13 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
         part["group_key"] = group_key
     _add_lineage(part, sample)
     _add_response(part, sample)
-    part.update(build_turn_fields(metadata))
+    part.update(build_turn_fields(sample, metadata, config))
     _add_result(part, sample, metadata, config)
     part["generated_by"] = build_generations(sample)
     part["scored_by"] = build_scorers(sample, config)
     part["metrics"] = read_sample_metrics(sample, metadata, config.metric_paths)
     _add_engine_facts(part, sample, metadata)
+    part["sampling"] = to_sampling_settings(metadata.get(SAMPLING_KEY))
     part["extras"] = _build_extras(sample, metadata)
     if drop_reason:
         part["drop_reason"] = drop_reason
@@ -163,22 +188,81 @@ def build_generator_part(sample: Any, *, key: str, split: str, step: int, config
     return {name: value for name, value in part.items() if value not in (None, [], {})}
 
 
-def build_turn_fields(metadata: Mapping) -> dict:
-    """The messages Miles kept on the sample (`MESSAGES_KEY`) as turns as sent: a session's replies hold their tool
-    calls (id, name, arguments) and `reasoning_content`, each result its `tool_call_id`; nothing when it kept none."""
+def build_turn_fields(sample: Any, metadata: Mapping, config: MappingConfig | None = None) -> dict:
+    """The sample's turns (D4): the messages Miles kept (`MESSAGES_KEY`, else the dump wrap's stash, `messages.py`)
+    as sent: a session's replies hold their tool calls and `reasoning_content`, each result its `tool_call_id`. With
+    none, a Harbor trial's sample gets no generator turns (its Harbor part brings them as sent); any other is rebuilt
+    from its tokens and loss mask through the run's tokenizer (`decoded`, a single reply included)."""
     messages = metadata.get(MESSAGES_KEY)
-    turns = build_turns(messages) if isinstance(messages, list) else []
-    return {"turns": turns, "turns_source": TurnsSource.AS_SENT} if turns else {}
+    if not isinstance(messages, list):
+        messages = MESSAGES.get(sample)
+    if isinstance(messages, list):
+        turns = build_turns(messages)
+        return {"turns": turns, "turns_source": TurnsSource.AS_SENT} if turns else {}
+    if get_harbor_key(sample) or config is None:
+        return {}
+    turns = _build_decoded(sample, get_decode(config.checkpoint))
+    return {"turns": turns, "turns_source": TurnsSource.DECODED} if turns else {}
 
 
-def get_unsupported(args: Any) -> dict[CaptureField, str]:
+def _build_decoded(sample: Any, decode: Any) -> list[dict]:
+    """The sample's prompt and response tokens (`tokens`, its last `response_length` the response) read through the
+    chat template, the response split by `loss_mask` (Miles' is over the response only)."""
+    tokens = getattr(sample, "tokens", None)
+    length = getattr(sample, "response_length", None)
+    if decode is None or tokens is None or not isinstance(length, int) or length <= 0:
+        return []
+    ids = [int(token) for token in to_list(tokens)]
+    if len(ids) < length:
+        return []
+    mask = getattr(sample, "loss_mask", None)
+    mask = to_list(mask) if mask is not None else None
+    return build_decoded_turns(ids[len(ids) - length:], mask, decode, prompt_ids=ids[:len(ids) - length])
+
+
+def is_engine_external(args: Any) -> bool:
+    """Miles' own rule for engines this run did not launch (`arguments.py:620-626`): external engine addresses or a
+    custom engine provider (`args.rollout_external`), or a deploy component that does not deploy its own engines."""
+    external = getattr(args, "rollout_external", None)
+    if external is None:
+        external = (getattr(args, "rollout_external_engine_addrs", None) is not None
+                    or getattr(args, "custom_inference_engine_provider_path", None) is not None)  # fmt: skip
+    component = getattr(args, "deploy_component", None)
+    component = getattr(component, "value", component)
+    return bool(external) or (isinstance(component, str) and component not in ENGINE_DEPLOYS)
+
+
+def get_gpu_gap(args: Any, generate_kinds: frozenset[str] = frozenset()) -> str | None:
+    """Why no sample of this run can hold GPU readings, or None when they can. ``generate_kinds``: how this process's
+    generate functions send model calls (`LiveRollouts.get_generate_kinds`)."""
+    from probe.integrations.miles.live import is_live_on
+
+    if os.environ.get("MILES_USE_LEGACY_ROLLOUT_V1", "0").strip() not in ("", "0"):
+        return GPU_LEGACY
+    if not is_live_on():
+        return GPU_LIVE_OFF
+    if is_engine_external(args):
+        return GPU_EXTERNAL
+    if generate_kinds and not generate_kinds & {"generate", "agent"}:
+        return GPU_BYPASS.format(path=get_generate_path(args))
+    return None
+
+
+def get_unsupported(args: Any, generate_kinds: frozenset[str] = frozenset()) -> dict[CaptureField, str]:
+    """`get_message_gaps` plus `gpu_readings` when no sample can hold readings (`get_gpu_gap`)."""
+    unsupported = get_message_gaps(args)
+    gap = get_gpu_gap(args, generate_kinds)
+    return {**unsupported, CaptureField.GPU_READINGS: gap} if gap else unsupported
+
+
+def get_message_gaps(args: Any) -> dict[CaptureField, str]:
     """The capture fields this run's Miles cannot give a sample, with why, from the generate function in use: only
     multi_turn and agentic_tool_call keep messages, and only with `--save-debug-trajectory-data` (`--dump-details`
     sets it, `arguments.py:1374`); multi_turn keeps text replies; files never reach a sample (an agent function's
     own process by default, `--custom-agent-function-mode subproc`; else inside the generate function)."""
     path = get_generate_path(args)
     if path == SINGLE_TURN:
-        return dict.fromkeys(CaptureField, ONE_REPLY)
+        return dict.fromkeys(MESSAGE_FIELDS, ONE_REPLY)
     is_child = read_generate_flag(args, "custom_agent_function_path") is not None and read_generate_flag(
         args, "custom_agent_function_mode", "subproc") != "inline"
     unsupported = {CaptureField.ENVIRONMENT_FILES: CHILD_PROCESS if is_child else IN_GENERATE}
@@ -211,15 +295,15 @@ def read_generate_flag(args: Any, name: str, default: Any = None) -> Any:
 
 def build_task(sample: Any, metadata: Mapping) -> dict:
     """The task fields: `metadata["task_id"]`, else a hash of the prompt, as the key;
-    `metadata["scenario"]` as the scenario; the prompt and Miles' `label`."""
+    `metadata["scenario"]` as the scenario; the prompt, Miles' `label` and the setup agent's name and description."""
     prompt = getattr(sample, "prompt", "")
     text = prompt if isinstance(prompt, str) else json.dumps(prompt, sort_keys=True, default=str)
-    task_id = metadata.get("task_id")
+    task_id = metadata.get(TASK_ID_FIELD)
     if isinstance(task_id, (str, int)) and not isinstance(task_id, bool) and str(task_id):
         task_key = str(task_id)
     else:
         task_key = "prompt:" + hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()[:16]
-    task: dict[str, Any] = {"task_key": task_key[:512], "prompt": text or None}
+    task: dict[str, Any] = {"task_key": task_key[:512], "prompt": text or None, **get_task_label(metadata)}
     scenario = read_scenario(metadata.get("scenario"))
     if scenario:
         task["scenario"] = scenario
@@ -414,21 +498,37 @@ def _add_response(part: dict, sample: Any) -> None:
 
 
 def _add_result(part: dict, sample: Any, metadata: Mapping, config: MappingConfig) -> None:
-    """Reward, parts and the error facts the server derives `result` from: ABORTED is an engine abort,
-    FAILED names its own reason or `unknown`; a finished sample nothing graded is a reward-function error."""
+    """Reward, parts and the error facts the server derives `result` from: ABORTED is an engine abort;
+    any other status takes the reason its agent function named (`metadata["error_reason"]`, since an agent
+    function cannot set the status), else FAILED is `unknown` and a finished sample nothing graded is a
+    reward-function error. A valid reward still decides `result`; the reason says what broke around it. With no
+    reason, a Harbor trial's exception (`EXCEPTION_KEY`) is the message alone: the server reads a length
+    finish's type from it (a context overflow), and `result` stays the grade's."""
     reward, parts = read_reward(sample, config.reward_key)
     part["reward"], part["reward_parts"] = reward, parts
+    if reward is not None:  # the reason rides with the grade it explains; an ungraded attempt sends none
+        part["failure_reason"] = to_failure_reason(metadata.get(FAILURE_REASON_KEY))
     status = get_status(sample)
     reason = ERROR_OF_STATUS.get(status)
-    named = metadata.get("error_reason")
-    if reason == "unknown" and isinstance(named, str) and named in ERROR_REASONS:
-        reason = named
+    if reason in (None, "unknown"):
+        reason = read_named_error(metadata) or reason
     if reason is None and reward is None and status in ("completed", "truncated"):
         reason = "reward_fn"
     if reason is not None:
         part["error_reason"] = reason
-        message = _get_text(metadata.get("error")) or _get_text(metadata.get("exception"))
-        part["error_message"] = message or f"Miles sample status {status or 'unknown'}"
+        part["error_message"] = read_error_message(metadata) or f"Miles sample status {status or 'unknown'}"
+    elif exception := _get_text(metadata.get(EXCEPTION_KEY)):
+        part["error_message"] = exception
+
+
+def read_named_error(metadata: Mapping) -> str | None:
+    """The error reason an agent function named in `metadata["error_reason"]`, when it is one of `ERROR_REASONS`."""
+    named = metadata.get("error_reason")
+    return named if isinstance(named, str) and named in ERROR_REASONS else None
+
+
+def read_error_message(metadata: Mapping) -> str | None:
+    return _get_text(metadata.get("error")) or _get_text(metadata.get("exception"))
 
 
 def _add_engine_facts(part: dict, sample: Any, metadata: Mapping) -> None:

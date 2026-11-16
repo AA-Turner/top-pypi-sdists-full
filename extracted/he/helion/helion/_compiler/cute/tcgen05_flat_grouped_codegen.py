@@ -16,6 +16,7 @@ from typing import cast
 
 from ... import exc
 from ._ast_pass_utils import _bound_names
+from .state import cute_env_state
 from .tcgen05_flat_grouped_config import CONFIG_KEYS
 from .tcgen05_flat_grouped_config import PREFIX_SCAN_KEY
 from .tcgen05_flat_grouped_config import RESIDENT_CTAS_KEY
@@ -331,6 +332,15 @@ def _compose_flat_grouped_host(
         f"{proof.b_argument}.transpose(1, 2), {proof.bias_argument}, {output}.view(({m}, {n})), "
         f"{workspace}, block={thread_block!r})\n"
     ).body
+    native_launch = replacement[-1]
+    assert isinstance(native_launch, ast.Expr) and isinstance(
+        native_launch.value, ast.Call
+    )
+    original_launch = launches[0].value
+    assert isinstance(original_launch, ast.Call)
+    native_launch.value.keywords.extend(
+        keyword for keyword in original_launch.keywords if keyword.arg != "block"
+    )
     position = host.body.index(launches[0])
     host.body[position : position + 1] = replacement
     loads = ast.parse(
@@ -346,5 +356,5 @@ def _compose_flat_grouped_host(
         f"{func.name}._helion_cute_kernels = ({native},)\n"
         f"{func.name}._helion_cute_native_grouped_plan = {identity!r}\n"
     ).body
-    env.cute_resolved_wrapper_plans = plans
+    cute_env_state(env).resolved_wrapper_plans = plans
     return module

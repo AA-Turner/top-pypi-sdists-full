@@ -12,6 +12,7 @@ from typing import Any
 from probe.generated.samples.points import Dtype, LossRole, UpdateLevel
 from probe.sdk.run.samples.points import UpdateLog, UpdatePlace, get_lowest_dtype, keep_finite
 
+from ..samples.harbor_keys import HARBOR_KEYS
 from ..samples.mapping import join_train_key
 
 
@@ -152,7 +153,8 @@ class OpenUpdate:
         """The step, ordinal and keys, known once the update ends; a micro-batch's loss as its rows rebuild it."""
         place = self.log.place
         place.step, place.update, place.updates_in_step = end.step, end.update, end.updates_in_step
-        self.log.keys = [join_train_key(end.step, index, digest) for index, digest in self.identities]
+        self.log.keys = [HARBOR_KEYS.fetch_key(end.step, index, join_train_key(end.step, index, digest))
+                         for index, digest in self.identities]
         if self.facts.is_per_token and self.facts.is_megatron:  # gradients are divided by the all-reduced count
             for micro_batch in self.log.micro_batches.values():
                 loss = micro_batch.reported_loss

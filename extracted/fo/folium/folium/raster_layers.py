@@ -3,7 +3,8 @@ Wraps leaflet TileLayer, WmsTileLayer (TileLayer.WMS), ImageOverlay, and VideoOv
 
 """
 
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import xyzservices
 
@@ -79,8 +80,7 @@ class TileLayer(Layer):
         object.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.tileLayer(
                 {{ this.tiles|tojson }},
@@ -88,18 +88,17 @@ class TileLayer(Layer):
 
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
-        tiles: Union[str, xyzservices.TileProvider] = "OpenStreetMap",
-        min_zoom: Optional[int] = None,
-        max_zoom: Optional[int] = None,
-        max_native_zoom: Optional[int] = None,
-        attr: Optional[str] = None,
+        tiles: str | xyzservices.TileProvider = "OpenStreetMap",
+        min_zoom: int | None = None,
+        max_zoom: int | None = None,
+        max_native_zoom: int | None = None,
+        attr: str | None = None,
         detect_retina: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = False,
         control: bool = True,
         show: bool = True,
@@ -189,19 +188,17 @@ class WmsTileLayer(Layer):
         for setting extra tileLayer.wms parameters or as extra parameters in
         the WMS request.
 
-    See https://leafletjs.com/reference.html#tilelayer-wms
+    See https://leafletjs.com/reference-1.9.4.html#tilelayer-wms
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.tileLayer.wms(
                 {{ this.url|tojson }},
                 {{ this.options|tojson }}
             );
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     def __init__(
         self,
@@ -212,7 +209,7 @@ class WmsTileLayer(Layer):
         transparent: bool = False,
         version: str = "1.1.1",
         attr: str = "",
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
@@ -280,13 +277,12 @@ class ImageOverlay(Layer):
     show: bool, default True
         Whether the layer will be shown on opening.
 
-    See https://leafletjs.com/reference.html#imageoverlay for more
+    See https://leafletjs.com/reference-1.9.4.html#imageoverlay for more
     options.
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro header(this, kwargs) %}
             {% if this.pixelated %}
                 <style>
@@ -310,18 +306,17 @@ class ImageOverlay(Layer):
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
         image: Any,
         bounds: TypeBounds,
         origin: str = "upper",
-        colormap: Optional[Callable] = None,
+        colormap: Callable | None = None,
         mercator_project: bool = False,
         pixelated: bool = True,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,
@@ -371,12 +366,11 @@ class VideoOverlay(Layer):
         Whether the layer will be shown on opening.
     **kwargs:
         Other valid (possibly inherited) options. See:
-        https://leafletjs.com/reference.html#videooverlay
+        https://leafletjs.com/reference-1.9.4.html#videooverlay
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.videoOverlay(
                 {{ this.video_url|tojson }},
@@ -384,8 +378,7 @@ class VideoOverlay(Layer):
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
@@ -393,7 +386,7 @@ class VideoOverlay(Layer):
         bounds: TypeBounds,
         autoplay: bool = True,
         loop: bool = True,
-        name: Optional[str] = None,
+        name: str | None = None,
         overlay: bool = True,
         control: bool = True,
         show: bool = True,

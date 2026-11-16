@@ -12,14 +12,10 @@ use sqlbuild_core::cli_text::models::CliStyle;
 use sqlbuild_host::entries::models::ExecutorHost;
 use sqlbuild_host::models::BuildStatus;
 
-use crate::bindings::_helpers::boundary::python_calls::{call_with, keywords};
 use crate::bindings::_helpers::build_command::execution::{
     Outcome, Preparation, write_run_context,
 };
 use crate::bindings::_helpers::build_command::invocation::BuildContext;
-use crate::bindings::_helpers::build_command::support::{
-    boolean, emit, joined, none, text, utc_now,
-};
 use crate::bindings::_helpers::build_progress::footer::format_build_footer_with;
 use crate::bindings::_helpers::build_progress::result_text::build_result_text;
 use crate::bindings::_helpers::check::check_results::check_result_text;
@@ -31,15 +27,23 @@ use crate::bindings::_helpers::cost_report::degradation::{
     finalize_build_cost as finalize_cost, render_build_cost,
 };
 use crate::bindings::_helpers::cost_report::functions::cost_output_payload;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::result_output::documents::format_build_execution_json;
 use crate::bindings::_helpers::result_output::documents::format_build_execution_json_with;
 use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use sqlbuild_core::build_progress::models::PythonNodeText;
 use sqlbuild_core::check_command::models::{CheckResultText, CheckStatus};
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::build_command::main::boolean::boolean;
+use sqlbuild_python_base::build_command::main::emit::emit;
+use sqlbuild_python_base::build_command::main::joined::joined;
+use sqlbuild_python_base::build_command::main::none::none;
+use sqlbuild_python_base::build_command::main::text::text;
+use sqlbuild_python_base::build_command::main::utc_now::utc_now;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::RecordId;
 
 const SUCCESS_STATUS: &str = "success";
 const CHECK_KIND: &str = "check";
@@ -107,7 +111,7 @@ pub(crate) fn finalize_build_cost<'py>(
 }
 
 fn cost_status<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyAny>> {
-    host::entry(py, ExecutorHost::CostStatus)?.getattr(name)
+    host_entry(py, ExecutorHost::CostStatus)?.getattr(name)
 }
 
 /// Record a pending cost state before execution starts.
@@ -242,10 +246,10 @@ fn finalize_no_work(context: &BuildContext<'_>, pipeline: &Bound<'_, PyAny>) -> 
         },
     )?;
     let result: Bound<'_, PyAny> = call_with(
-        &host::entry(py, ExecutorHost::BuildExecutionResult)?,
+        &host_entry(py, ExecutorHost::BuildExecutionResult)?,
         &[(
             "status",
-            host::entry(py, ExecutorHost::BuildStatus)?.getattr("SUCCESS")?,
+            host_entry(py, ExecutorHost::BuildStatus)?.getattr("SUCCESS")?,
         )],
     )?;
     let payload: Bound<'_, PyAny> = format_build_execution_json(

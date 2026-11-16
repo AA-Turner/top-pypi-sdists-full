@@ -20,7 +20,12 @@
    sibling scopes reuse slots), then the shortest names go to the slots whose bindings
    are referenced most -- the frequency ordering esbuild/terser/swc use. */
 
+#include "core/work_steps.h"
 #include "js/internal.h"
+
+#ifndef JM_STANDALONE
+#include "core/hash.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -63,6 +68,7 @@ typedef struct {
     int32_t cap; /* a power of two */
     int32_t count;
     int failed;
+    int keyed; /* 1 once the slots moved to th_name_hash (htab_walked_far) */
 } htab;
 
 static uint32_t name_hash(const Py_UCS4 *name, Py_ssize_t len) {
@@ -73,6 +79,21 @@ static uint32_t name_hash(const Py_UCS4 *name, Py_ssize_t len) {
     return hash;
 }
 
+/* The source picks its identifiers, and FNV-1a lets it pick ones that share a home. Inside the extension a table whose
+   walk passes TH_FAST_RUN_LIMIT slots moves to th_name_hash under the per-process key (core/hash.h); the standalone
+   engine has no interpreter to draw a key from and never moves. */
+#ifdef JM_STANDALONE
+#define TH_FAST_RUN_LIMIT INT32_MAX
+#define name_hash_keyed name_hash
+#else
+static uint32_t name_hash_keyed(const Py_UCS4 *name, Py_ssize_t len) {
+    return th_name_hash(name, len * (Py_ssize_t)sizeof(Py_UCS4));
+}
+#endif
+
+/* Move the slots into cap of them under the table's hash. The walk starts at an empty slot, so a run that wraps past
+   the end of the array is re-seated in its own order: no name of a doubled table lands further from its home than it
+   sat before, and the bound htab_slot keeps on how far a name sits holds on. */
 static void htab_resize(htab *table, int32_t cap) {
     hslot *slots = jm_calloc((size_t)cap, sizeof(hslot));
     if (slots == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation-failure path */
@@ -80,10 +101,18 @@ static void htab_resize(htab *table, int32_t cap) {
         return;            /* GCOVR_EXCL_LINE */
     }
     uint32_t mask = (uint32_t)cap - 1;
-    for (int32_t index = 0; index < table->cap; index++) {
+    int32_t start = 0;
+    while (start < table->cap && table->slots[start].name != NULL) {
+        start++;
+    }
+    for (int32_t step = 0; step < table->cap; step++) {
+        int32_t index = (start + step) & (table->cap - 1);
         if (table->slots[index].name != NULL) {
-            uint32_t probe = name_hash(table->slots[index].name, table->slots[index].len) & mask;
+            const Py_UCS4 *name = table->slots[index].name;
+            Py_ssize_t len = table->slots[index].len;
+            uint32_t probe = (table->keyed ? name_hash_keyed(name, len) : name_hash(name, len)) & mask;
             while (slots[probe].name != NULL) {
+                TH_WORK_STEP();
                 probe = (probe + 1) & mask;
             }
             slots[probe] = table->slots[index];
@@ -94,22 +123,11 @@ static void htab_resize(htab *table, int32_t cap) {
     table->cap = cap;
 }
 
-/* Find the slot for name; with create, claim an empty slot (value -1) and grow the
-   table when it passes a 3/4 load. Returns NULL only when create is 0 and absent, or
-   on allocation failure. */
-static hslot *htab_slot(htab *table, const Py_UCS4 *name, Py_ssize_t len, int create) {
-    if (create && (table->cap == 0 || (table->count + 1) * 4 >= table->cap * 3)) {
-        htab_resize(table, table->cap ? table->cap * 2 : 64);
-        if (table->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            return NULL;     /* GCOVR_EXCL_LINE */
-        }
-    }
-    if (table->cap == 0) {
-        return NULL; /* an empty read-only table */
-    }
+/* htab_slot for a table on th_name_hash, where walks need no bound. Out of line, with the moves below, so the FNV-1a
+   loop that callers inline stays as small as it was before tables could move. */
+static TH_NOINLINE hslot *htab_slot_keyed(htab *table, const Py_UCS4 *name, Py_ssize_t len, int create) {
     uint32_t mask = (uint32_t)table->cap - 1;
-    uint32_t probe = name_hash(name, len) & mask;
-    for (;;) {
+    for (uint32_t probe = name_hash_keyed(name, len) & mask;; probe = (probe + 1) & mask) {
         hslot *slot = &table->slots[probe];
         if (slot->name == NULL) {
             if (!create) {
@@ -124,6 +142,68 @@ static hslot *htab_slot(htab *table, const Py_UCS4 *name, Py_ssize_t len, int cr
         if (name_eq(slot->name, slot->len, name, len)) {
             return slot;
         }
+        TH_WORK_STEP();
+    }
+}
+
+/* A walk on FNV-1a ended at the empty slot probe. No name is seated more than TH_FAST_RUN_LIMIT slots from its home, so
+   a hit walks no further, but a miss walks to the end of the run its home falls in, and the source can line up homes
+   into one long run without seating any name far. So when the TH_FAST_RUN_LIMIT + 1 slots before probe are all filled
+   (testing the farthest first settles most calls with one load), move the table to th_name_hash for the rest of its
+   life and return 1. The test stops at the limit, so it is no counted work step. */
+static TH_NOINLINE int htab_walked_far(htab *table, uint32_t probe) {
+    uint32_t mask = (uint32_t)table->cap - 1;
+    for (uint32_t back = (uint32_t)TH_FAST_RUN_LIMIT + 1; back > 0; back--) {
+        if (table->slots[(probe - back) & mask].name == NULL) {
+            return 0;
+        }
+    }
+    table->keyed = 1;
+    htab_resize(table, table->cap);
+    return 1;
+}
+
+/* Find the slot for name; with create, claim an empty slot (value -1) and grow the
+   table when it passes a 3/4 load. Returns NULL only when create is 0 and absent, or
+   on allocation failure. */
+static inline hslot *htab_slot(htab *table, const Py_UCS4 *name, Py_ssize_t len, int create) {
+    if (create && (table->cap == 0 || (table->count + 1) * 4 >= table->cap * 3)) {
+        htab_resize(table, table->cap ? table->cap * 2 : 64);
+        if (table->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            return NULL;     /* GCOVR_EXCL_LINE */
+        }
+    }
+    if (table->cap == 0) {
+        return NULL; /* an empty read-only table */
+    }
+    if (table->keyed) {
+        return htab_slot_keyed(table, name, len, create);
+    }
+    uint32_t mask = (uint32_t)table->cap - 1;
+    uint32_t probe = name_hash(name, len) & mask;
+    for (;;) {
+        hslot *slot = &table->slots[probe];
+        if (slot->name == NULL) {
+            /* a table of no more names than the limit holds no run that long */
+            if (table->count > TH_FAST_RUN_LIMIT && htab_walked_far(table, probe)) {
+                if (table->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+                    return NULL;     /* GCOVR_EXCL_LINE */
+                }
+                return htab_slot_keyed(table, name, len, create);
+            }
+            if (!create) {
+                return NULL;
+            }
+            slot->name = name;
+            slot->len = len;
+            slot->val = -1;
+            table->count++;
+            return slot;
+        }
+        if (name_eq(slot->name, slot->len, name, len)) {
+            return slot;
+        }
+        TH_WORK_STEP();
         probe = (probe + 1) & mask;
     }
 }
@@ -211,6 +291,11 @@ typedef struct {
     int32_t args_scope;  /* scope of the innermost enclosing non-arrow function, whose `arguments` a
                             free `arguments` read names (-1 at the top level) */
     int32_t catch_depth; /* enclosing catch bodies: only a var inside one can name a catch parameter */
+    int32_t stmt;        /* the innermost enclosing expression, return or throw statement (-1 outside one) */
+    int track_stmt;      /* a regex literal was parsed, so reads record their statement (see walk) */
+    int32_t fn_scope;    /* the scope walk_function last opened */
+    int32_t depth;       /* walk calls on the stack: how deep the node being analyzed sits */
+    int32_t deepest;     /* the largest depth reached under the function being analyzed */
     int poisoned;        /* a with / eval was seen: stop renaming entirely */
     int failed;
 } M;
@@ -277,11 +362,17 @@ static void declare(M *mangler, int32_t scope, const Py_UCS4 *name, Py_ssize_t l
     if (slot->val >= 0 && mangler->prog->syms[slot->val].scope == scope) {
         return; /* a re-declaration (var x; var x) reuses the same-scope symbol */
     }
+    int32_t outer = slot->val;
     int32_t sym = jm_sym_new(mangler->prog, name, len, scope, decl);
     if (sym < 0) {           /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         mangler->failed = 1; /* GCOVR_EXCL_LINE */
         return;              /* GCOVR_EXCL_LINE */
     }
+    /* past a block or catch binding, inherit the function-scope binding that one shadows */
+    if (outer >= 0 && mangler->prog->scopes[mangler->prog->syms[outer].scope].kind != 1) {
+        outer = mangler->prog->syms[outer].shadowed_var;
+    }
+    mangler->prog->syms[sym].shadowed_var = outer;
     push(mangler, &mangler->visible, name, len, sym);
 }
 
@@ -319,15 +410,14 @@ static void declare_pattern(M *mangler, int32_t idx, int32_t scope, uint8_t decl
     }
 }
 
-/* Hoist every `var` (and var-style for-loop binding) in the subtree to fn_scope,
-   without descending into nested function bodies (which start their own var scope). */
+/* Hoist every `var` (and var-style for-loop binding) in the statement list at idx to fn_scope. A var
+   declaration is a statement (or a for head), and an expression holds statements only inside a function or
+   class body, which starts its own var scope, so the descent follows statement positions alone and skips
+   every expression. */
 static void hoist_vars(M *mangler, int32_t idx, int32_t fn_scope) {
     while (idx >= 0) {
         jm_node *node = &mangler->prog->nodes[idx];
         switch (node->kind) {
-        case JN_FUNC:
-        case JN_ARROW:
-            break; /* a nested function has its own var scope */
         case JN_VAR:
             if (node->decl == 0) {
                 for (int32_t declarator = node->a; declarator >= 0;
@@ -336,19 +426,36 @@ static void hoist_vars(M *mangler, int32_t idx, int32_t fn_scope) {
                 }
             }
             break;
-        case JN_FORIN:
-        case JN_FOROF:
-            if (mangler->prog->nodes[node->a].kind == JN_VAR && mangler->prog->nodes[node->a].decl == 0) {
-                hoist_vars(mangler, node->a, fn_scope);
-            }
-            hoist_vars(mangler, node->c, fn_scope);
-            break;
-        default:
-            /* descend into every child to find vars through blocks, if, for, ... */
+        case JN_BLOCK:
+        case JN_DOWHILE:
+        case JN_LABEL:
             hoist_vars(mangler, node->a, fn_scope);
+            break;
+        case JN_IF:
             hoist_vars(mangler, node->b, fn_scope);
             hoist_vars(mangler, node->c, fn_scope);
+            break;
+        case JN_FOR:
+            hoist_vars(mangler, node->a, fn_scope);
             hoist_vars(mangler, node->d, fn_scope);
+            break;
+        case JN_FORIN:
+        case JN_FOROF:
+            hoist_vars(mangler, node->a, fn_scope);
+            hoist_vars(mangler, node->c, fn_scope);
+            break;
+        case JN_WHILE:
+        case JN_WITH:
+        case JN_SWITCH:
+        case JN_CASE:
+            hoist_vars(mangler, node->b, fn_scope);
+            break;
+        case JN_TRY:
+            hoist_vars(mangler, node->a, fn_scope);
+            hoist_vars(mangler, node->c, fn_scope);
+            hoist_vars(mangler, node->d, fn_scope);
+            break;
+        default:
             break;
         }
         idx = node->next;
@@ -399,22 +506,32 @@ static void hoist_block(M *mangler, int32_t first, int32_t scope) {
     }
 }
 
-static void walk(M *mangler, int32_t idx, int32_t scope, int bind);
+static void walk_node(M *mangler, int32_t idx, int32_t scope, int bind);
+static void walk_stmt(M *mangler, int32_t idx, int32_t scope);
+
+/* Analyze the subtree at idx, keeping count of how deep the walk stands: the single-use function inline reads the
+   depth of a read and the height of a declaration to know how tall the tree would be with the one under the other. */
+static TH_FORCEINLINE void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
+    if (idx < 0) {
+        return;
+    }
+    if (++mangler->depth > mangler->deepest) {
+        mangler->deepest = mangler->depth;
+    }
+    walk_node(mangler, idx, scope, bind);
+    mangler->depth--;
+}
 
 /* A `var` in a catch block may name the catch parameter (Annex B.3.4): it binds the enclosing function's var while
    its initializer assigns the parameter, so the statement declares one binding and writes another. Pin both: they
-   keep the one spelling the statement gives them, and no pass drops a statement the var needs. */
+   keep the one spelling the statement gives them, and no pass drops a statement the var needs. The var is the
+   function-scope binding the parameter shadows, recorded when the parameter was declared: searching the function's
+   bindings for it here would cost a pass over all of them for every declarator. */
 static void pin_catch_redeclaration(jm_program *prog, int32_t param) {
     prog->syms[param].pinned = 1;
-    int32_t scope = prog->syms[param].scope;
-    while (prog->scopes[scope].kind != 1) {
-        scope = prog->scopes[scope].parent;
-    }
-    for (int32_t sym = prog->scopes[scope].first_sym; sym >= 0; sym = prog->syms[sym].scope_next) {
-        if (name_eq(prog->syms[sym].name, prog->syms[sym].name_len, prog->syms[param].name,
-                    prog->syms[param].name_len)) {
-            prog->syms[sym].pinned = 1;
-        }
+    int32_t var = prog->syms[param].shadowed_var;
+    if (var >= 0) { /* GCOVR_EXCL_BR_LINE: hoisting declared the var first unless an allocation failed */
+        prog->syms[var].pinned = 1;
     }
 }
 
@@ -451,23 +568,32 @@ static void pin_catch_redeclarations(jm_program *prog, int32_t idx) {
 
 /* A sloppy function with a simple parameter list maps `arguments[i]` onto its i-th parameter
    (§10.4.4), so reading `arguments` reads every parameter and writing through it writes them. Count
-   both on each parameter, so no pass drops an assignment to one as a dead store. */
-static void alias_parameters(M *mangler) {
+   both on each parameter, once per read, so no pass drops an assignment to one as a dead store. Finding the
+   parameters is a pass over the function's bindings, so the callers batch the reads instead of making a pass for
+   each one. */
+static void alias_parameters(M *mangler, int32_t reads) {
     for (int32_t sym = mangler->prog->scopes[mangler->args_scope].first_sym; sym >= 0;
          sym = mangler->prog->syms[sym].scope_next) {
         if (mangler->prog->syms[sym].decl == 3) {
-            mangler->prog->syms[sym].refs++;
-            mangler->prog->syms[sym].writes++;
+            mangler->prog->syms[sym].refs += reads;
+            mangler->prog->syms[sym].writes += reads;
             mangler->prog->syms[sym].ref_scope = -1;
         }
     }
 }
 
 /* Walk a chain of siblings. */
-static void walk_chain(M *mangler, int32_t first, int32_t scope, int bind) {
-    for (int32_t idx = first; idx >= 0; idx = mangler->prog->nodes[idx].next) {
-        walk(mangler, idx, scope, bind);
+static TH_FORCEINLINE void walk_chain(M *mangler, int32_t first, int32_t scope, int bind) {
+    if (first < 0) {
+        return;
     }
+    if (++mangler->depth > mangler->deepest) { /* siblings share a depth: charge it once for the chain */
+        mangler->deepest = mangler->depth;
+    }
+    for (int32_t idx = first; idx >= 0; idx = mangler->prog->nodes[idx].next) {
+        walk_node(mangler, idx, scope, bind);
+    }
+    mangler->depth--;
 }
 
 /* Walk the statements from first in a new block scope, declaring its block-level bindings first. */
@@ -502,6 +628,7 @@ static void walk_function(M *mangler, int32_t idx, int32_t parent) {
     }
     int32_t mark = mangler->undo_count;
     int32_t outer_args = mangler->args_scope;
+    int32_t own_scope = scope;
     if (node->kind == JN_FUNC) { /* an arrow has no arguments object of its own (§10.2.11) */
         mangler->args_scope = scope;
     }
@@ -520,6 +647,7 @@ static void walk_function(M *mangler, int32_t idx, int32_t parent) {
         walk_chain(mangler, node->a, scope, 1);
         walk(mangler, body, scope, 0);
         mangler->args_scope = outer_args;
+        mangler->fn_scope = own_scope;
         undo_to(mangler, mark);
         return;
     }
@@ -530,7 +658,12 @@ static void walk_function(M *mangler, int32_t idx, int32_t parent) {
     hoist_vars(mangler, body_stmts, scope);
     hoist_block(mangler, body_stmts, scope);
     walk_chain(mangler, body_stmts, scope, 0);
+    /* one pass counts every `arguments` read after the first; an arrow's belong to the enclosing function */
+    if (mangler->args_scope == scope && mangler->prog->scopes[scope].args_reads > 1) {
+        alias_parameters(mangler, mangler->prog->scopes[scope].args_reads - 1);
+    }
     mangler->args_scope = outer_args;
+    mangler->fn_scope = own_scope;
     undo_to(mangler, mark);
 }
 
@@ -538,10 +671,8 @@ static void walk_function(M *mangler, int32_t idx, int32_t parent) {
    declaration target (already declared, only resolved here), 2 an assignment/update/for-in write
    target. The read/write split lets the inline and dead-binding passes tell a value's reads from its
    reassignments. */
-static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
-    if (idx < 0) {
-        return;
-    }
+static void walk_node(M *mangler, int32_t idx, int32_t scope, int bind) {
+    TH_WORK_STEP();
     jm_node *node = &mangler->prog->nodes[idx];
     switch (node->kind) {
     case JN_NUM:
@@ -559,6 +690,10 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
             if (bind == 0) { /* a read reference */
                 mangler->prog->syms[sym].refs++;
                 mangler->prog->syms[sym].ref_node = idx;
+                if (mangler->track_stmt) {
+                    mangler->prog->syms[sym].ref_stmt = mangler->stmt;
+                }
+                mangler->prog->syms[sym].ref_depth = mangler->depth;
                 if (mangler->prog->syms[sym].refs == 1) {
                     mangler->prog->syms[sym].ref_scope = scope;
                 } else if (mangler->prog->syms[sym].ref_scope != scope) {
@@ -572,7 +707,11 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
             } /* bind == 1: a declaration target, neither read nor write */
         } else {
             if (mangler->args_scope >= 0 && word_is(node->str, node->str_len, "arguments")) {
-                alias_parameters(mangler);
+                /* count the first read at once, so that what follows sees the parameters as read, and leave
+                   the others for walk_function to count in one pass */
+                if (mangler->prog->scopes[mangler->args_scope].args_reads++ == 0) {
+                    alias_parameters(mangler, 1);
+                }
             }
             hslot *slot = htab_slot(&mangler->frees, node->str, node->str_len, 1); /* a global / free name */
             if (slot != NULL) { /* GCOVR_EXCL_BR_LINE: the false branch is an allocation failure */
@@ -582,9 +721,31 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
         return;
     }
     case JN_FUNC:
-    case JN_ARROW:
+    case JN_ARROW: {
+        int32_t outer = mangler->deepest;
+        mangler->deepest = mangler->depth;
         walk_function(mangler, idx, scope);
+        node = &mangler->prog->nodes[idx];
+        if (node->kind == JN_FUNC && !(node->flags & JN_F_EXPR) && node->sym >= 0 &&
+            mangler->prog->syms[node->sym].decl_node == idx) {
+            jm_sym *sym = &mangler->prog->syms[node->sym];
+            sym->fn_depth = mangler->depth;
+            sym->fn_height = mangler->deepest - mangler->depth;
+            sym->fn_scope = mangler->fn_scope;
+        }
+        if (outer > mangler->deepest) {
+            mangler->deepest = outer;
+        }
         return;
+    }
+    case JN_EXPR_STMT:
+    case JN_RETURN:
+    case JN_THROW:
+        if (mangler->track_stmt) { /* the kinds single_shot_stmt accepts, recorded as the ref_stmt of their reads */
+            walk_stmt(mangler, idx, scope);
+            return;
+        }
+        break;
     case JN_BLOCK:
         walk_block(mangler, node->a, scope);
         return;
@@ -661,7 +822,10 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
     case JN_VAR:
         for (int32_t declarator = node->a, previous = -1; declarator >= 0;
              previous = declarator, declarator = mangler->prog->nodes[declarator].next) {
-            walk(mangler, mangler->prog->nodes[declarator].a, scope, 1);
+            /* a destructuring declaration assigns each name it binds, as an assignment target does; without the write
+               a propagated value would rewrite the pattern's `{ x }` key */
+            int32_t bound = mangler->prog->nodes[declarator].a;
+            walk(mangler, bound, scope, mangler->prog->nodes[bound].kind == JN_IDENT ? 1 : 2);
             walk(mangler, mangler->prog->nodes[declarator].b, scope, 0);
             /* Single-declaration transforms cannot account for another declaration target. */
             if (mangler->prog->nodes[mangler->prog->nodes[declarator].a].kind == JN_IDENT) {
@@ -699,7 +863,8 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
         if (node->flags & JN_F_SHORTHAND) {
             walk(mangler, node->a, scope, bind); /* { x } references (or binds) x */
             int32_t self = mangler->prog->nodes[node->a].sym;
-            if (self >= 0) {
+            /* only a read: expanding a `{ x }` that binds or assigns x would link the inlined value under it too */
+            if (self >= 0 && bind == 0) {
                 mangler->prog->syms[self].ref_prop = idx;
             }
         }
@@ -864,6 +1029,15 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
     walk(mangler, node->d, scope, bind);
 }
 
+/* A read below records this statement as its ref_stmt, so whether a binding's one read sits in the statement after
+   its declaration is a comparison rather than a search of that statement per binding. */
+static void walk_stmt(M *mangler, int32_t idx, int32_t scope) {
+    int32_t outer = mangler->stmt;
+    mangler->stmt = idx;
+    walk(mangler, mangler->prog->nodes[idx].a, scope, 0);
+    mangler->stmt = outer;
+}
+
 /* Whether name is a reserved word or a name that must not be reused: a free name, or
    a kept binding's name (reserved globally so a mangled binding never shadows one).
    The free table holds both, so this is O(1). */
@@ -1013,7 +1187,7 @@ static int single_shot_stmt(jm_program *prog, int32_t stmt) {
 }
 
 /* A literal whose copy is the same immutable value at every read: a number, a string, or a folded
-   boolean/undefined. A regex is excluded: each evaluation creates a fresh object (13.2.7.5 in the
+   boolean/undefined. A regex is excluded: each evaluation creates a fresh object (13.2.7.3 in the
    evaluation of a RegularExpressionLiteral), so a read inside a loop or closure would mint new
    state (lastIndex, identity) where the binding shared one object. */
 static int is_value_literal(jm_program *prog, int32_t idx) {
@@ -1187,6 +1361,10 @@ static void collapse_walk(jm_program *prog, int32_t idx, int *changed) {
     }
     jm_node *node = &prog->nodes[idx];
     switch (node->kind) {
+    case JN_IDENT:
+    case JN_NUM:
+    case JN_STRING:
+        return; /* the commonest leaves skip the four empty child calls */
     case JN_BLOCK:
         collapse_chain(prog, node->a, changed);
         return;
@@ -1329,34 +1507,6 @@ static int drop_unused(jm_program *prog, int32_t global) {
     return changed;
 }
 
-static int chain_contains(jm_program *prog, int32_t first, int32_t target);
-
-/* Whether target sits anywhere inside the subtree rooted at idx (its own siblings excluded);
-   callers pass real nodes, chain_contains skips the absent links. */
-static int subtree_contains(jm_program *prog, int32_t idx, int32_t target) {
-    if (idx == target) {
-        return 1;
-    }
-    const jm_node *node = &prog->nodes[idx];
-    /* d is only ever populated on JN_FOR (loop body) and JN_TRY (finally block); the sole caller
-       (read_sees_initialized) only reaches here once target's scope has been confirmed to match the
-       declaration's own scope, but a for-loop body and a try's finally are themselves a deeper scope,
-       so a target actually inside one would already have failed that check -- chain_contains(d) can
-       only ever return false here. */
-    return chain_contains(prog, node->a, target) || chain_contains(prog, node->b, target) ||
-           chain_contains(prog, node->c, target) || /* GCOVR_EXCL_BR_LINE: true outcome is unreachable */
-           chain_contains(prog, node->d, target);
-}
-
-static int chain_contains(jm_program *prog, int32_t first, int32_t target) {
-    for (int32_t idx = first; idx >= 0; idx = prog->nodes[idx].next) {
-        if (subtree_contains(prog, idx, target)) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 /* The last element of a comma sequence -- the operand whose value the sequence yields (13.16). */
 static int32_t seq_value(jm_program *prog, int32_t seq) {
     int32_t elem = prog->nodes[seq].a;
@@ -1389,12 +1539,12 @@ static int expand_shorthand_ref(jm_program *prog, int32_t sym) {
 /* Whether the binding's declaration dominates its one read with a value that survives the move:
    a value let/const must have no read before initialization. Cross-scope reads require the first
    initializer in the function, before a caller could run. A regex may ride only into the very next
-   single-shot statement (a fresh object per evaluation, 13.2.7.5, so the read must run at most
+   single-shot statement (a fresh object per evaluation, 13.2.7.3, so the read must run at most
    once per pass over the declaration and outside any nested function), and a value var must sit
    in its function body's first statement -- nothing executes before it except the initializers of
    the declarators left of its own, so a read there keeps the binding. */
-static int read_sees_initialized(jm_program *prog, int32_t sym, int32_t stmt, int32_t declr, int32_t init,
-                                 int32_t ref) {
+static int read_sees_initialized(jm_program *prog, int32_t sym, int32_t stmt, int32_t declr, int32_t init) {
+    TH_WORK_STEP();
     if (prog->syms[sym].decl >= 1 && is_value_literal(prog, init)) {
         return prog->syms[sym].min_ref >= declr &&
                (prog->syms[sym].ref_scope == prog->syms[sym].scope ||
@@ -1402,7 +1552,7 @@ static int read_sees_initialized(jm_program *prog, int32_t sym, int32_t stmt, in
     }
     if (prog->nodes[init].kind == JN_REGEX && prog->syms[sym].ref_scope == prog->syms[sym].scope &&
         prog->nodes[stmt].next >= 0 && single_shot_stmt(prog, prog->nodes[stmt].next) &&
-        subtree_contains(prog, prog->nodes[stmt].next, ref)) {
+        prog->syms[sym].ref_stmt == prog->nodes[stmt].next) {
         return 1;
     }
     if (prog->syms[sym].decl != 0 || !is_value_literal(prog, init) ||
@@ -1411,6 +1561,31 @@ static int read_sees_initialized(jm_program *prog, int32_t sym, int32_t stmt, in
         return 0;
     }
     return !prog->syms[sym].read_before_init;
+}
+
+/* Whether moving the function declaration of sym under its one read keeps the tree within prog->rewrite_limit, and
+   if so, the bookkeeping for the move. The body lands as deep as the read sits plus its own height, so a chain of
+   nested declarations, each read under a tall expression, would otherwise stack those expressions: the parser meters
+   each on its own, the inlined tree is as tall as their sum, and every later walk recurses once per level. The
+   depths come from this pass's analysis, so moves made earlier in the pass are added in: an enclosing function that
+   was inlined took the read down with it (sunk), and one inlined inside the body made the body taller (grown).
+   inline_single_use only passes a declaration whose one read sits in the declaration's own scope: the analysis
+   walked the declaration, so its scope is recorded, and the read sits inside a statement of that list, below it. */
+static int function_inline_fits(jm_program *prog, int32_t sym) {
+    int32_t sink = prog->syms[sym].ref_depth - prog->syms[sym].fn_depth;
+    int32_t own = prog->syms[sym].fn_scope;
+    int32_t bottom = prog->syms[sym].ref_depth + prog->syms[sym].fn_height + prog->scopes[own].grown;
+    for (int32_t scope = prog->syms[sym].scope; scope >= 0; scope = prog->scopes[scope].parent) {
+        bottom += prog->scopes[scope].sunk;
+    }
+    if (bottom > prog->rewrite_limit) {
+        return 0;
+    }
+    prog->scopes[own].sunk = sink;
+    for (int32_t scope = prog->syms[sym].scope; scope >= 0; scope = prog->scopes[scope].parent) {
+        prog->scopes[scope].grown += sink;
+    }
+    return 1;
 }
 
 /* Inline a single-declarator binding that is read exactly once into that one read and drop the
@@ -1447,6 +1622,9 @@ static int inline_single_use(jm_program *prog, int32_t global) {
             if (prog->syms[sym].ref_scope != prog->syms[sym].scope || prog->nodes[ref].sym != sym) {
                 continue; /* a read that moved this pass waits for the next pass to resolve its new node */
             }
+            if (!function_inline_fits(prog, sym)) {
+                continue; /* the declaration stays where the tree is still short enough to walk */
+            }
             if (!expand_shorthand_ref(prog, sym)) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
                 continue;                           /* GCOVR_EXCL_LINE */
             }
@@ -1467,7 +1645,7 @@ static int inline_single_use(jm_program *prog, int32_t global) {
             continue; /* a bare `var x;` declares no value to propagate */
         }
         int lone = prog->nodes[stmt].a == declr && prog->nodes[declr].next < 0;
-        if (!read_sees_initialized(prog, sym, stmt, declr, init, ref)) {
+        if (!read_sees_initialized(prog, sym, stmt, declr, init)) {
             if (!lone) {
                 continue; /* moving an impure initializer past its sibling declarators would reorder them */
             }
@@ -1650,6 +1828,8 @@ static int32_t analyze(M *mangler, jm_program *prog) {
     }
     mangler->global = global;
     mangler->args_scope = -1;
+    mangler->stmt = -1;
+    mangler->track_stmt = prog->has_regex;
     int32_t stmts = prog->nodes[prog->root].a;
     hoist_vars(mangler, stmts, global);
     hoist_block(mangler, stmts, global);

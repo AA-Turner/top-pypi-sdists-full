@@ -5,6 +5,7 @@ import json
 import re
 import weakref
 from dataclasses import dataclass, replace
+from functools import partial
 from html import escape
 from pathlib import Path
 from types import MappingProxyType
@@ -13,19 +14,21 @@ from typing import TYPE_CHECKING, Final, assert_type, cast
 import pytest
 from bench.operations import INPUTS
 
-from turbohtml import Comment, Document, Element, parse, parse_fragment, parse_xml
-from turbohtml._html import _sanitize, _sanitize_policy
+from turbohtml import Comment, Document, DocumentFragment, Element, parse, parse_fragment, parse_xml
 from turbohtml.build import E
 from turbohtml.clean import (
     DEFAULT_ATTRIBUTES,
     DEFAULT_CSS_PROPERTIES,
     DEFAULT_SCHEMES,
     DEFAULT_TAGS,
+    CSSMinify,
+    Minify,
     OnDisallowed,
     Policy,
     Removed,
     Sanitizer,
     Transform,
+    minify,
     sanitize,
     sanitize_node,
     sanitize_report,
@@ -36,43 +39,32 @@ from turbohtml.migration.bleach import clean
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
+    from work_steps import WorkSteps
 
-def _style_policy(
-    *,
-    css_properties: frozenset[str] = DEFAULT_CSS_PROPERTIES,
-    attribute_filter: Callable[[str, str, str], str | None] | None = None,
-) -> Policy:
-    """A policy that allows <p style="...">, for exercising CSS scrubbing."""
-    return Policy(
-        tags=frozenset({"p"}),
-        attributes={"p": frozenset({"style"})},
-        css_properties=css_properties,
-        attribute_filter=attribute_filter,
-    )
+    from turbohtml import Node
 
 
 # frame and frameset are absent: the parser drops them outside a frameset document, so a fragment never contains one.
 # style is absent too: unlike the others, allowlisting it keeps the element with its CSS scrubbed (see the style-body
 # tests), rather than neutralizing it.
-_UNSAFE_TAGS = [
+_UNSAFE_TAGS: Final[list[str]] = [
     "script", "iframe", "embed", "object", "noscript",
     "noembed", "noframes", "base", "basefont", "title", "xmp", "template",
 ]  # fmt: skip
+
+
 # (tag, markup that yields it) -- col and area need a table/map context to parse as an element.
-_VOID_CASES = [
+_VOID_CASES: Final[list[tuple[str, str]]] = [
     ("area", "<map><area></map>"), ("base", "<base>"), ("basefont", "<basefont>"), ("br", "<br>"),
     ("col", "<table><col></table>"), ("embed", "<embed>"), ("hr", "<hr>"), ("img", "<img>"),
     ("input", "<input>"), ("keygen", "<keygen>"), ("link", "<link>"), ("meta", "<meta>"),
     ("param", "<param>"), ("source", "<source>"), ("track", "<track>"), ("wbr", "<wbr>"),
 ]  # fmt: skip
-_URL_ATTRS = [
+
+
+_URL_ATTRS: Final[list[str]] = [
     "href", "src", "cite", "data", "ping", "action", "poster", "longdesc", "formaction", "background", "xlink:href",
 ]  # fmt: skip
-
-
-def _allow_all(tags: set[str], attrs: set[str]) -> Policy:
-    """A permissive policy for exercising attribute and URL handling on otherwise-disallowed elements."""
-    return Policy(tags=frozenset(tags), attributes={"*": frozenset(attrs)}, url_schemes=DEFAULT_SCHEMES)
 
 
 def test_default_escapes_unknown_tags() -> None:
@@ -84,14 +76,13 @@ def test_default_keeps_allowlisted() -> None:
 
 
 def test_deep_input_is_sanitized_without_using_the_c_stack() -> None:
-    markup = "<div>" * 1_200 + "bottom" + "</div>" * 1_200
-    output = sanitize(markup, Policy(tags=frozenset({"div"})))
+    output = sanitize(f"{'<div>' * 1_200}bottom{'</div>' * 1_200}", Policy(tags=frozenset({"div"})))
     assert (output.count("<div>"), "bottom" in output) == (1_200, True)
 
 
 def test_deep_unwrap_preserves_kept_ancestors() -> None:
-    source: Final = "<div>" * 40 + "<summary>x</summary>" + "</div>" * 40
-    expected: Final = "<div>" * 40 + "&lt;summary&gt;x&lt;/summary&gt;" + "</div>" * 40
+    source: Final = f"{'<div>' * 40}<summary>x</summary>{'</div>' * 40}"
+    expected: Final = f"{'<div>' * 40}&lt;summary&gt;x&lt;/summary&gt;{'</div>' * 40}"
     assert sanitize(source, Policy(tags=frozenset({"div"}))) == expected
 
 
@@ -101,13 +92,27 @@ def test_deep_table_unwrap_keeps_nested_content_in_order() -> None:
         node = E.div(node)
     root: Final = E.div(E.table(E.tbody(E.tr(E.td(node)))))
     expected: Final = (
-        "<div>&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;"
-        + "<div>" * 40
-        + "<span>x</span>"
-        + "</div>" * 40
-        + "&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;</div>"
+        f"<div>&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;{'<div>' * 40}<span>x</span>{'</div>' * 40}"
+        "&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;</div>"
     )
     assert sanitize_node(root, Policy(tags=frozenset({"div", "tr", "td", "span"}))).html == expected
+
+
+def test_nested_unwrap_reaches_link_after_empty_escape() -> None:
+    # the node entry point has to reparse to its own output at this depth, as the string entry point does
+    source: Final = f"{'<q><em>' * 18}<nobr><object><s><nobr><dt><ol><li>x</nobr></s>"
+    policy: Final = Policy(tags=frozenset({"q", "em", "nobr", "object", "s", "dt", "ol", "li"}))
+    once: Final = sanitize(source, policy)
+    assert (parse_fragment(once).inner_html, sanitize_node(parse_fragment(source), policy).inner_html) == (once, once)
+
+
+def test_deep_unwrap_in_table_context_settles_in_place() -> None:
+    # the unwrapped row sits in a table context, which fosters its children, so its settle stays in place this deep
+    source: Final = f"{'<div>' * 40}<table><tr><td>x"
+    policy: Final = Policy(tags=frozenset({"table", "td"}))
+    once: Final = sanitize(source, policy)
+    reparsed = sanitize_node(parse_fragment(once), policy).inner_html
+    assert (reparsed, sanitize_node(parse_fragment(source), policy).inner_html) == (once, once)
 
 
 @pytest.mark.parametrize(
@@ -118,9 +123,61 @@ def test_deep_table_unwrap_keeps_nested_content_in_order() -> None:
     ],
 )
 def test_deep_disallowed_input_completes_postorder_actions(mode: OnDisallowed, expected_open_count: int) -> None:
-    markup = "<x>" * 1_200 + "bottom" + "</x>" * 1_200
-    output = sanitize(markup, Policy(on_disallowed_tag=mode))
+    output = sanitize(f"{'<x>' * 1_200}bottom{'</x>' * 1_200}", Policy(on_disallowed_tag=mode))
     assert (output.count("&lt;x&gt;"), "bottom" in output) == (expected_open_count, True)
+
+
+_UNWRAP_LIMIT: Final[int] = 3 * 512
+
+
+def test_disallowed_elements_nested_to_the_limit_are_sanitized() -> None:
+    document: Final = parse_xml("<x>" * _UNWRAP_LIMIT + "</x>" * _UNWRAP_LIMIT)
+    assert sanitize(document).count("&lt;x&gt;") == _UNWRAP_LIMIT
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(sanitize, id="sanitize"),
+        pytest.param(sanitize_report, id="sanitize-report"),
+        pytest.param(sanitize_node, id="sanitize-node"),
+        pytest.param(sanitize_report_node, id="sanitize-report-node"),
+    ],
+)
+@pytest.mark.parametrize(
+    "policy",
+    [
+        pytest.param(Policy(), id="escape"),
+        pytest.param(Policy(on_disallowed_tag=OnDisallowed.STRIP), id="strip"),
+        pytest.param(Policy(xml=True), id="plain-walk"),
+    ],
+)
+def test_disallowed_elements_nested_past_the_limit_are_refused(
+    call: Callable[[Document, Policy], object], policy: Policy
+) -> None:
+    # each escaped or stripped element lifts its content a level, so a longer chain costs the square of its length
+    document: Final = parse_xml("<b><x>" * (_UNWRAP_LIMIT + 1) + "</x></b>" * (_UNWRAP_LIMIT + 1))
+    with pytest.raises(RecursionError, match=f"sanitize does not support more than {_UNWRAP_LIMIT} nested"):
+        call(document, policy)
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected"),
+    [
+        pytest.param(Policy(), f"{'<b>' * 4_000}t{'</b>' * 4_000}", id="kept"),
+        pytest.param(Policy(tags=frozenset(), on_disallowed_tag=OnDisallowed.REMOVE), "", id="removed"),
+    ],
+)
+def test_deep_elements_that_move_nothing_are_not_limited(policy: Policy, expected: str) -> None:
+    document: Final = parse_xml(f"{'<b>' * 4_000}t{'</b>' * 4_000}")
+    assert sanitize(document, replace(policy, xml=True)) == expected
+
+
+@pytest.mark.parametrize("parser", [pytest.param(parse, id="document"), pytest.param(parse_fragment, id="fragment")])
+def test_deepest_parsed_tree_is_under_the_unwrap_limit(parser: Callable[[str], Document | Element]) -> None:
+    # nested template contents double the tree builder's depth cap, the deepest tree it builds
+    tree: Final = parser(f"{'<template>' * 1_000}bottom")
+    assert sanitize(tree) == "&lt;template&gt;"
 
 
 def test_disallowed_attribute_dropped() -> None:
@@ -132,11 +189,15 @@ def test_valueless_attribute_kept_when_allowed() -> None:
     assert sanitize("<input disabled>", policy) == '<input disabled="">'
 
 
+def _allow_all(tags: set[str], attrs: set[str]) -> Policy:
+    # A permissive policy for exercising attribute and URL handling on otherwise-disallowed elements.
+    return Policy(tags=frozenset(tags), attributes={"*": frozenset(attrs)}, url_schemes=DEFAULT_SCHEMES)
+
+
 @pytest.mark.parametrize("tag", _UNSAFE_TAGS)
 def test_unsafe_tag_never_survives_even_if_allowed(tag: str) -> None:
     # explicitly allow the unsafe tag; the baseline must still neutralize it
-    policy = Policy(tags=DEFAULT_TAGS | {tag})
-    out = sanitize(f"<{tag}>x</{tag}>", policy)
+    out = sanitize(f"<{tag}>x</{tag}>", Policy(tags=DEFAULT_TAGS | {tag}))
     assert f"<{tag}>" not in out
     assert f"&lt;{tag}&gt;" in out
 
@@ -199,23 +260,23 @@ def test_escape_node_end_tags_follow_its_markup(node: Element | Document, expect
     [
         pytest.param(
             "<table><tr><td>1</td></tr></table>",
-            "<table><tbody><tr><td>1</td></tr></tbody></table>",
+            "<table><tr><td>1</td></tr></table>",
             id="implied-tbody",
         ),
         pytest.param(
             "<table><td>1</td></table>",
-            "<table><tbody><tr><td>1</td></tr></tbody></table>",
+            "<table><tr><td>1</td></tr></table>",
             id="implied-tbody-allowed-implied-tr",
         ),
-        pytest.param("<table><col></table>", "<table><colgroup><col></colgroup></table>", id="implied-colgroup"),
+        pytest.param("<table><col></table>", "<table><col></table>", id="implied-colgroup"),
         pytest.param(
             "<table><tbody><tr><td>1</td></tr></tbody></table>",
-            "&lt;tbody&gt;&lt;/tbody&gt;<table><tbody><tr><td>1</td></tr></tbody></table>",
+            "&lt;tbody&gt;&lt;/tbody&gt;<table><tr><td>1</td></tr></table>",
             id="source-tbody",
         ),
         pytest.param(
             "<table><tr><td>1</td></tr></tbody></table>",
-            "&lt;/tbody&gt;<table><tbody><tr><td>1</td></tr></tbody></table>",
+            "&lt;/tbody&gt;<table><tr><td>1</td></tr></table>",
             id="implied-tbody-source-end-tag",
         ),
         pytest.param("a</p>b", "a&lt;/p&gt;b", id="stray-p-end-tag"),
@@ -223,9 +284,9 @@ def test_escape_node_end_tags_follow_its_markup(node: Element | Document, expect
     ],
 )
 def test_escape_reproduces_only_source_start_tags(html: str, expected: str) -> None:
-    # a disallowed tbody is escaped only where the source wrote it (and a disallowed tbody's escaped text, being flow
-    # content in a table, foster-parents out before it), while the parse-stability balancer re-creates the tbody/tr/
-    # colgroup a browser implies on re-parse, so the kept table round-trips; a stray </p> or </br> stays escaped text
+    # a disallowed tbody is escaped only where the source wrote it, and its escaped text, being flow content in a table,
+    # foster-parents out before the table; an implied tbody/tr/colgroup the policy omits is never written, since a
+    # browser supplies it on re-parse, so kept rows and cells stay in place; a stray </p> or </br> stays escaped text
     assert sanitize(html, Policy(tags=frozenset({"table", "tr", "td", "col"}))) == expected
 
 
@@ -246,11 +307,162 @@ def test_escape_document_skeleton_synthesized_at_eof_is_silent() -> None:
     assert not sanitize_node(parse(""), Policy.strict()).serialize()
 
 
-def test_escape_renamed_implied_element_is_re_implied_for_stability() -> None:
-    # the transform renames the parser's implied tbody to a disallowed section, which is dropped, but the balancer
-    # re-implies the tbody a browser needs, so the kept table still round-trips rather than losing its row group
-    policy = Policy(tags=frozenset({"table", "tr", "td"}), transform_tags={"tbody": "section"})
-    assert sanitize("<table><tr><td>1</td></tr></table>", policy) == "<table><tbody><tr><td>1</td></tr></tbody></table>"
+def test_sanitized_document_answers_whole_document_readers() -> None:
+    # structured_data snapshots the document from the node the tree records as its document, which the sanitized copy
+    # left unset
+    policy = Policy(
+        tags=frozenset({"html", "head", "body", "p", "b", "i"}),
+        attributes={"*": frozenset({"itemscope", "itemref", "itemprop", "id"})},
+    )
+    document = sanitize_node(
+        parse('<p itemscope itemref="amount"><b itemprop="label">Gadget</b></p><i id="amount" itemprop="total">9</i>'),
+        policy,
+    )
+    assert isinstance(document, Document)
+    assert document.microdata()[0].properties == {"label": ["Gadget"], "total": ["9"]}
+    assert document.structured_data().microdata == document.microdata()
+
+
+@pytest.mark.parametrize(
+    "disposition",
+    [
+        pytest.param(OnDisallowed.ESCAPE, id="escape"),
+        pytest.param(OnDisallowed.STRIP, id="strip"),
+        pytest.param(OnDisallowed.REMOVE, id="remove"),
+    ],
+)
+def test_renamed_implied_element_is_unwrapped_in_every_mode(disposition: OnDisallowed) -> None:
+    # the transform renames the parser's implied tbody to a disallowed section, which is unwrapped like any omitted
+    # wrapper in every mode: its rows stay in the table and no tag for it is written
+    policy = Policy(
+        tags=frozenset({"table", "tr", "td"}), transform_tags={"tbody": "section"}, on_disallowed_tag=disposition
+    )
+    assert sanitize("<table><tr><td>1</td></tr></table>", policy) == "<table><tr><td>1</td></tr></table>"
+
+
+_OMITTED_WRAPPER_CASES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(
+        "<table><td>x",
+        Policy(tags=frozenset({"table", "td"})),
+        "<table><td>x</td></table>",
+        id="cell-without-row",
+    ),
+    pytest.param(
+        "<table><tr><td>x",
+        Policy(tags=frozenset({"table", "td"})),
+        "&lt;tr&gt;<table><td>x</td></table>",
+        id="escaped-row-leaves-cell",
+    ),
+    pytest.param(
+        "<table><tfoot><tr><td>x</td></tr></tfoot></table>",
+        Policy(tags=frozenset({"table", "td"})),
+        "&lt;tfoot&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tfoot&gt;<table><td>x</td></table>",
+        id="escaped-foot-leaves-cell",
+    ),
+    pytest.param(
+        "<table><caption>c</caption><td>x",
+        Policy(tags=frozenset({"table", "td"})),
+        "&lt;caption&gt;c&lt;/caption&gt;<table><td>x</td></table>",
+        id="escaped-caption-leaves-cell",
+    ),
+    pytest.param(
+        "<table><td><table><td>inner",
+        Policy(tags=frozenset({"table", "td"})),
+        "<table><td><table><td>inner</td></table></td></table>",
+        id="nested-tables",
+    ),
+    pytest.param(
+        "<table><td>x",
+        Policy(tags=frozenset({"table", "tr", "td"})),
+        "<table><tr><td>x</td></tr></table>",
+        id="tbody-omitted-keeps-row",
+    ),
+    pytest.param(
+        "<table><td>x",
+        Policy(tags=frozenset({"table", "tbody", "td"})),
+        "<table><tbody><td>x</td></tbody></table>",
+        id="tr-omitted-keeps-group",
+    ),
+    pytest.param(
+        "<table><col><td>x",
+        Policy(tags=frozenset({"table", "col", "td"})),
+        "<table><col><td>x</td></table>",
+        id="colgroup-omitted-keeps-col",
+    ),
+    pytest.param(
+        "<table><thead><tr><td>x</td></tr></thead></table>",
+        Policy(tags=frozenset({"table", "thead", "td"})),
+        "&lt;tr&gt;&lt;/tr&gt;<table><thead><td>x</td></thead></table>",
+        id="escaped-row-under-thead",
+    ),
+    pytest.param(
+        "<table><tr><td>x</td></tr></table>",
+        Policy(tags=frozenset({"table", "td"}), on_disallowed_tag=OnDisallowed.STRIP),
+        "<table><td>x</td></table>",
+        id="strip-keeps-cell",
+    ),
+    pytest.param(
+        "<table><td>x</td></table>",
+        Policy(tags=frozenset({"table", "td"}), on_disallowed_tag=OnDisallowed.REMOVE),
+        "<table><td>x</td></table>",
+        id="remove-keeps-cell",
+    ),
+    pytest.param(
+        "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        Policy(tags=frozenset({"table", "tbody", "tr", "td"})),
+        "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        id="allowed-structure-unchanged",
+    ),
+    pytest.param(
+        "<select><option>a<option>b",
+        Policy(tags=frozenset({"select", "option"})),
+        "<select><option>a</option><option>b</option></select>",
+        id="select-unchanged",
+    ),
+    pytest.param(
+        "<table><td>x</td></tr></table>",
+        Policy(tags=frozenset({"table", "td"}), on_disallowed_tag=OnDisallowed.REMOVE),
+        "<table><td>x</td></table>",
+        id="remove-stray-row-end",
+    ),
+    pytest.param(
+        "<table><tr><td>x</td></tr></tbody></table>",
+        Policy(tags=frozenset({"table", "tr", "td"}), on_disallowed_tag=OnDisallowed.REMOVE),
+        "<table><tr><td>x</td></tr></table>",
+        id="remove-row-group-end",
+    ),
+    pytest.param(
+        "<table><col></colgroup></table>",
+        Policy(tags=frozenset({"table", "col"}), on_disallowed_tag=OnDisallowed.REMOVE),
+        "<table><col></table>",
+        id="remove-colgroup-end",
+    ),
+    pytest.param(
+        "<table><tr><td>1</td></tr></table>",
+        Policy(tags=frozenset({"table", "tr", "td"})),
+        "<table><tr><td>1</td></tr></table>",
+        id="row-without-group-kept",
+    ),
+]
+
+
+@pytest.mark.parametrize(("html", "policy", "expected"), _OMITTED_WRAPPER_CASES)
+def test_omitted_implied_wrapper_is_not_written(html: str, policy: Policy, expected: str) -> None:
+    # an implied tbody/tr/colgroup the policy omits is never written and removes no content, so the output names only
+    # allowed tags, and sanitizing it again, from a string or from a parsed node, returns it unchanged
+    once = sanitize(html, policy)
+    assert once == expected
+    assert sanitize(once, policy) == once
+    assert sanitize_node(parse_fragment(html), policy).inner_html == expected
+    assert sanitize_node(parse_fragment(once), policy).inner_html == once
+
+
+def test_omitted_implied_wrapper_on_a_built_tree_is_not_written() -> None:
+    # a built table has no parser-implied tbody, so the balancer wraps its cell and the wrapper is unwrapped afterwards
+    policy = Policy(tags=frozenset({"table", "td"}))
+    once = sanitize_node(E.table(E.td("x")), policy).html
+    assert once == "<table><td>x</td></table>"
+    assert sanitize_node(parse_fragment(once), policy).inner_html == once
 
 
 @pytest.mark.parametrize(
@@ -265,7 +477,14 @@ def test_dispositions(disposition: OnDisallowed, expected: str) -> None:
     assert sanitize("<div><b>x</b></div>", Policy(on_disallowed_tag=disposition)) == expected
 
 
-@pytest.mark.parametrize("disposition", [OnDisallowed.ESCAPE, OnDisallowed.STRIP, OnDisallowed.REMOVE])
+@pytest.mark.parametrize(
+    "disposition",
+    [
+        pytest.param(OnDisallowed.ESCAPE, id="escape"),
+        pytest.param(OnDisallowed.STRIP, id="strip"),
+        pytest.param(OnDisallowed.REMOVE, id="remove"),
+    ],
+)
 def test_foreign_content_never_unwrapped(disposition: OnDisallowed) -> None:
     # an SVG <a> shares the name of an allowed HTML <a> but must not be treated as one
     out = sanitize("<svg><a href='http://x'>t</a></svg>", Policy(on_disallowed_tag=disposition))
@@ -281,6 +500,13 @@ def test_allowlisted_foreign_subtree_keeps_html_integration_child() -> None:
     policy = Policy(tags=frozenset({"svg", "foreignObject", "p"}))
     out = sanitize("<svg><foreignObject><p>hi</p></foreignObject></svg>", policy)
     assert out == "<svg><foreignObject><p>hi</p></foreignObject></svg>"
+
+
+def test_allowlisted_foreign_object_is_not_forged_by_non_ascii_name() -> None:
+    # the name matches foreignObject only after truncation, so it is no integration point and must not be emitted as one
+    policy = Policy(tags=frozenset({"svg", "foreignObject", "p"}))
+    out = sanitize("<svg><forťignobject><p>x</p></forťignobject></svg>", policy)
+    assert out == "<svg>&lt;forťignobject&gt;</svg><p>x</p>"
 
 
 def test_allowlisted_foreign_script_is_still_escaped() -> None:
@@ -408,6 +634,54 @@ def test_set_attributes_preserves_foreign_attribute_case() -> None:
     assert sanitize("<svg></svg>", policy) == '<svg viewBox="0 0 10 10"></svg>'
 
 
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        pytest.param('REL="x" title="t"', 'title="t" rel="noopener"', id="variant-without-exact-dropped"),
+        pytest.param('rel="a" REL="b"', 'rel="noopener" REL="b"', id="variant-after-exact-kept"),
+        pytest.param('REL="b" rel="a"', 'rel="noopener"', id="variant-before-exact-dropped"),
+        pytest.param('REL="b" rel="a" Rel="c"', 'rel="noopener" Rel="c"', id="variants-around-exact"),
+        pytest.param('data-id="1" REL="x"', 'data-id="1" rel="noopener"', id="non-letter-names-kept"),
+    ],
+)
+def test_set_attributes_drops_case_variants_ahead_of_the_exact_name(attributes: str, expected: str) -> None:
+    # an XML element keeps its names' case, so REL is a variant of the forced rel; only the variants written before
+    # the exact rel are dropped, as a scan for each forced name drops them
+    policy = Policy(
+        tags=frozenset({"r", "a"}),
+        attributes={"a": frozenset({"data-id", "rel", "REL", "Rel", "title"})},
+        set_attributes={"a": {"rel": "noopener"}},
+    )
+    root = parse_xml(f"<r><a {attributes}/></r>").root
+    assert root is not None
+    assert sanitize_node(root, policy).html == f"<r><a {expected}></a></r>"
+
+
+def test_set_attributes_forcing_many_names_is_linear(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: partial(sanitize, "<a>t</a>", _forcing_policy(count)), (2000, 8000))
+
+
+def _forcing_policy(count: int) -> Policy:
+    return Policy(tags=frozenset({"a"}), set_attributes={"a": {f"data-{index}": "1" for index in range(count)}})
+
+
+def test_set_attributes_over_many_case_variants_is_linear(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(_variants_under_forced_names, (2000, 8000))
+
+
+def _variants_under_forced_names(count: int) -> Callable[[], object]:
+    names = [f"DATA-{index}" for index in range(count)]
+    policy = Policy(
+        tags=frozenset({"r", "a"}),
+        attributes={"a": frozenset(names)},
+        set_attributes={"a": {f"data-{index}": "1" for index in range(count)}},
+    )
+    attributes = " ".join(f'{name}="1"' for name in names)
+    root = parse_xml(f"<r><a {attributes}/></r>").root
+    assert root is not None
+    return partial(sanitize_node, root, policy)
+
+
 def test_set_attributes_pass_through_media_host_check() -> None:
     policy = Policy(
         tags=frozenset({"p", "video"}),
@@ -464,7 +738,14 @@ def test_remove_with_content_leaves_other_disallowed_tags_to_the_mode() -> None:
     assert "&lt;unknown&gt;" in sanitize("<b>ok</b><unknown>x</unknown>", policy)
 
 
-@pytest.mark.parametrize("mode", [OnDisallowed.ESCAPE, OnDisallowed.STRIP, OnDisallowed.REMOVE])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(OnDisallowed.ESCAPE, id="escape"),
+        pytest.param(OnDisallowed.STRIP, id="strip"),
+        pytest.param(OnDisallowed.REMOVE, id="remove"),
+    ],
+)
 def test_remove_with_content_overrides_every_disposition(mode: OnDisallowed) -> None:
     # content removal happens before the escape/strip/remove dispatch, so it wins in every mode
     policy = Policy(tags=frozenset({"b"}), on_disallowed_tag=mode, remove_with_content=frozenset({"script"}))
@@ -479,10 +760,40 @@ def test_style_dropped_when_not_allowed() -> None:
 
 
 @pytest.mark.parametrize(
+    "style",
+    [
+        pytest.param("position: fixed", id="drop-disallowed"),
+        pytest.param("no-colon-declaration", id="declaration-without-colon"),
+        pytest.param("", id="empty-value"),
+        pytest.param("position: fixed; z-index: 9", id="all-dropped-removes-attribute"),
+        pytest.param("é: red", id="non-ascii-property-name"),
+        pytest.param("color: <!--url(q';z-index:1; width: 1px", id="cdo-then-unclosed-bad-url"),
+        pytest.param("color: U+7furl(q'); width: 1px", id="unicode-range-then-bad-url"),
+    ],
+)
+def test_style_scrubbing_drops_the_attribute(style: str) -> None:
+    out = sanitize(f'<p style="{style}">x</p>', _style_policy())
+    assert "style=" not in out
+
+
+def _style_policy(
+    *,
+    css_properties: frozenset[str] = DEFAULT_CSS_PROPERTIES,
+    attribute_filter: Callable[[str, str, str], str | None] | None = None,
+) -> Policy:
+    # A policy that allows <p style="...">, for exercising CSS scrubbing.
+    return Policy(
+        tags=frozenset({"p"}),
+        attributes={"p": frozenset({"style"})},
+        css_properties=css_properties,
+        attribute_filter=attribute_filter,
+    )
+
+
+@pytest.mark.parametrize(
     ("style", "expected"),
     [
         pytest.param("color: red", 'style="color: red"', id="keep-allowed"),
-        pytest.param("position: fixed", None, id="drop-disallowed"),
         pytest.param("COLOR: red", 'style="COLOR: red"', id="uppercase-name"),
         pytest.param("color: red; width: 5px", 'style="color: red; width: 5px"', id="two-kept-joined"),
         pytest.param("color: red; position: fixed", 'style="color: red"', id="keep-one-drop-one"),
@@ -495,17 +806,15 @@ def test_style_dropped_when_not_allowed() -> None:
         pytest.param("color: red)", 'style="color: red)"', id="stray-close-paren"),
         pytest.param("color:", 'style="color:"', id="empty-value"),
         pytest.param("color: a:b", 'style="color: a:b"', id="value-has-second-colon"),
-        pytest.param("no-colon-declaration", None, id="declaration-without-colon"),
         pytest.param(": red; color: blue", 'style="color: blue"', id="empty-property-name"),
-        pytest.param("", None, id="empty-value"),
         pytest.param(";;; color: red ;;;", 'style="color: red"', id="extra-semicolons"),
-        pytest.param("position: fixed; z-index: 9", None, id="all-dropped-removes-attribute"),
-        pytest.param(("a" * 70) + ": red; color: blue", 'style="color: blue"', id="property-name-too-long"),
-        pytest.param("é: red", None, id="non-ascii-property-name"),
+        pytest.param(f"{'a' * 70}: red; color: blue", 'style="color: blue"', id="property-name-too-long"),
         # outside a string a CSS escape joins the next code point to an identifier, so it opens no string and ends no
         # declaration; the declarations a browser applies after it are scrubbed like any other
         pytest.param("color:red\\';position:fixed", 'style="color:red\\\'"', id="escaped-single-quote"),
         pytest.param("color:red\\;position:fixed", 'style="color:red\\;position:fixed"', id="escaped-semicolon"),
+        pytest.param("color:blue\\ ; width:1px", 'style="color:blue\\ ; width:1px"', id="escaped-trailing-space"),
+        pytest.param("color:blue\\\\ ; width:1px", 'style="color:blue\\\\; width:1px"', id="escaped-backslash-trimmed"),
         # a newline ends a string as a bad string, which invalidates its declaration and leaves the separators after it
         # live, so the declarations a browser applies there are scrubbed like any other
         pytest.param("color: red; font-family: 'x&#10;; position: fixed", 'style="color: red"', id="bad-string-lf"),
@@ -518,7 +827,7 @@ def test_style_dropped_when_not_allowed() -> None:
         ),
         pytest.param(
             "font-family: 'x\\&#13;&#10;; y'; color: red",
-            "font-family: 'x\\\r\n; y'; color: red",
+            "font-family: 'x\\&#13;\n; y'; color: red",
             id="string-crlf-continuation",
         ),
         pytest.param(
@@ -547,14 +856,74 @@ def test_style_dropped_when_not_allowed() -> None:
             'style="cursor: urls(/*);color:red;*/); width: 1px"',
             id="longer-name-is-function",
         ),
+        # `<!--` is one token, so the name after it starts afresh and a `url(` there is a url token
+        pytest.param("font-family: <!--url(javascript:q); width: 1px", 'style="width: 1px"', id="cdo-then-url-scheme"),
+        pytest.param("color: <!--a; width: <!-", 'style="color: &lt;!--a; width: &lt;!-"', id="cdo-then-name"),
+        pytest.param("color: \\\\<!--url(javascript:q); width: 1px", 'style="width: 1px"', id="escaped-backslash-cdo"),
+        pytest.param("color: <!--u+eurl(q');top:0;r:'); width: 1px", 'style="width: 1px"', id="cdo-then-unicode-range"),
+        pytest.param("color: <!--expression(q); width: 1px", 'style="width: 1px"', id="cdo-then-expression"),
+        pytest.param(
+            "--a(1); width: a!--b(2) var(--c) -e(3) d+1 u+",
+            'style="width: a!--b(2) var(--c) -e(3) d+1 u+"',
+            id="dashed-names-without-cdo",
+        ),
+        # an escaped `<` joins the name before it, so the `<!--` after it is no CDO
+        pytest.param(
+            "color: a\\<!--url(q/*); width: '*/);top:0;r:'",
+            'style="color: a\\&lt;!--url(q/*); width: \'*/)"',
+            id="escaped-less-than-is-no-cdo",
+        ),
+        # a hash or an at-keyword takes the whole name, so the `(` after it opens a block whose comments count
+        pytest.param(
+            "color: #url(q/*); width: '*/);top:0;r:'",
+            'style="color: #url(q/*); width: \'*/)"',
+            id="hash-named-url-is-no-url",
+        ),
+        pytest.param(
+            "color: @url(q/*); width: '*/);top:0;r:'",
+            'style="color: @url(q/*); width: \'*/)"',
+            id="at-keyword-named-url-is-no-url",
+        ),
+        pytest.param(
+            "color: #u\\72l(q/*); width: '*/);top:0;r:'",
+            'style="color: #u\\72l(q/*); width: \'*/)"',
+            id="hash-escaped-name-is-no-url",
+        ),
+        # a legacy unicode-range token is dropped with its declaration, since tokenizers disagree on where it ends
+        pytest.param("color: u+?url(javascript:x); width: 1px", 'style="width: 1px"', id="unicode-range-wildcard"),
+        pytest.param("color: U+26; width: 1px", 'style="width: 1px"', id="unicode-range-drops-declaration"),
+        pytest.param("color: au+e; width: U+g", 'style="color: au+e; width: U+g"', id="not-a-unicode-range"),
+        pytest.param(
+            "color: #U+26; width: @u+1", 'style="color: #U+26; width: @u+1"', id="sign-name-is-no-unicode-range"
+        ),
+        # a url token's body holds no comment, so a `/*` in it hides nothing after the token
+        pytest.param(
+            "cursor: url(q/*) url(javascript:r) /* */; width: 1px", 'style="width: 1px"', id="url-body-comment"
+        ),
+        pytest.param(
+            "cursor: url(q/*) url(javascript:r); width: 1px", 'style="width: 1px"', id="url-body-open-comment"
+        ),
+        pytest.param(
+            "cursor: url(q/*) url(s) /* */; width: 1px",
+            'style="cursor: url(q/*) url(s) /* */; width: 1px"',
+            id="url-body-comment-safe-urls",
+        ),
+        # a sign no name follows is a delimiter, so the `url(` after it is a url token
+        pytest.param("cursor: # url(q/*); position: fixed; */)", 'style="cursor: # url(q/*)"', id="lone-hash-then-url"),
+        pytest.param("color: red; width: 1px @", 'style="color: red; width: 1px @"', id="lone-at-sign-at-end"),
     ],
 )
-def test_style_scrubbing(style: str, expected: str | None) -> None:
+def test_style_scrubbing_keeps_the_declarations(style: str, expected: str) -> None:
     out = sanitize(f'<p style="{style}">x</p>', _style_policy())
-    if expected is None:
-        assert "style=" not in out
-    else:
-        assert expected in out
+    assert expected in out
+
+
+def test_style_block_tail_stays_dead_when_minified() -> None:
+    # the scrubber keeps `color:navy{}top:0` as one color declaration, which no browser applies; the CSS minifier reads
+    # the value the same way, so minifying what the scrubber kept sets no top declaration free
+    kept: Final = sanitize('<p style="color:navy{}top:0;width:1px">x</p>', _style_policy())
+    assert kept == '<p style="color:navy{}top:0; width:1px">x</p>'
+    assert minify(kept, Minify(minify_css=CSSMinify())) == "<p style=color:navy{};width:1px>x"
 
 
 def test_style_escaped_double_quote_opens_no_string() -> None:
@@ -656,7 +1025,7 @@ def test_style_double_quoted_css_string() -> None:
         pytest.param("cursor: url('https://example.com/\fpath')", False, id="form-feed-in-quoted-url"),
     ],
 )
-def test_style_value_rejects_expression_and_bad_url_scheme(style: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_style_value_rejects_expression_and_bad_url_scheme(style: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     # a kept property still has its value scrubbed: expression() and url(disallowed-scheme) drop the whole declaration
     out = sanitize(f'<p style="{style}">x</p>', _style_policy())
     assert ("style=" in out) is kept
@@ -773,7 +1142,22 @@ def test_style_double_quoted_url_scheme_is_stripped() -> None:
     assert "style=" not in sanitize("""<p style='color: url("javascript:x")'>y</p>""", _style_policy())
 
 
-_COLOR_ALIGN = {"color": [r"^#[0-9a-f]{3,6}$", r"^rgb\("], "text-align": [r"^left$|^right$|^center$"]}
+@pytest.mark.parametrize(
+    "style",
+    [
+        pytest.param("color: red", id="value-fails-every-pattern"),
+        pytest.param("width: 5px", id="property-not-listed-dropped"),
+        pytest.param("color:", id="empty-value-no-pattern-matches"),
+    ],
+)
+def test_allowed_styles_drops_the_attribute(style: str) -> None:
+    out = sanitize(
+        f'<p style="{style}">x</p>',
+        _allowed_styles_policy({
+            "*": {"color": [r"^#[0-9a-f]{3,6}$", r"^rgb\("], "text-align": [r"^left$|^right$|^center$"]}
+        }),
+    )
+    assert "style=" not in out
 
 
 def _allowed_styles_policy(
@@ -781,7 +1165,7 @@ def _allowed_styles_policy(
     *,
     css_properties: frozenset[str] = frozenset({"color", "text-align", "width"}),
 ) -> Policy:
-    """A <p style> / <span style> policy carrying a per-property value allowlist for exercising allowed_styles."""
+    # A <p style> / <span style> policy carrying a per-property value allowlist for exercising allowed_styles.
     return Policy(
         tags=frozenset({"p", "span"}),
         attributes={"*": frozenset({"style"})},
@@ -794,20 +1178,19 @@ def _allowed_styles_policy(
     ("style", "expected"),
     [
         pytest.param("color: #fff", 'style="color: #fff"', id="value-matches-pattern"),
-        pytest.param("color: red", None, id="value-fails-every-pattern"),
         pytest.param("text-align: center", 'style="text-align: center"', id="second-property-matches"),
-        pytest.param("width: 5px", None, id="property-not-listed-dropped"),
         pytest.param("color: #fff; width: 5px", 'style="color: #fff"', id="listed-kept-unlisted-dropped"),
         pytest.param("color: rgb(1,2,3)", 'style="color: rgb(1,2,3)"', id="second-pattern-of-a-property"),
-        pytest.param("color:", None, id="empty-value-no-pattern-matches"),
     ],
 )
-def test_allowed_styles_narrows_by_value(style: str, expected: str | None) -> None:
-    out = sanitize(f'<p style="{style}">x</p>', _allowed_styles_policy({"*": _COLOR_ALIGN}))
-    if expected is None:
-        assert "style=" not in out
-    else:
-        assert expected in out
+def test_allowed_styles_keeps_the_declarations(style: str, expected: str) -> None:
+    out = sanitize(
+        f'<p style="{style}">x</p>',
+        _allowed_styles_policy({
+            "*": {"color": [r"^#[0-9a-f]{3,6}$", r"^rgb\("], "text-align": [r"^left$|^right$|^center$"]}
+        }),
+    )
+    assert expected in out
 
 
 def test_allowed_styles_wildcard_applies_to_every_tag() -> None:
@@ -836,8 +1219,11 @@ def test_allowed_styles_merges_tag_and_wildcard() -> None:
     assert "style=" not in sanitize('<p style="color: green">x</p>', policy)
 
 
+_TEST_ALLOWED_STYLES_ACCEPTS_PRECOMPILED_PATTERNS_PATTERN: Final[re.Pattern[str]] = re.compile(r"^teal$")
+
+
 def test_allowed_styles_accepts_precompiled_patterns() -> None:
-    policy = _allowed_styles_policy({"*": {"color": [re.compile(r"^teal$")]}})
+    policy = _allowed_styles_policy({"*": {"color": [_TEST_ALLOWED_STYLES_ACCEPTS_PRECOMPILED_PATTERNS_PATTERN]}})
     assert sanitize('<p style="color: teal">x</p>', policy) == '<p style="color: teal">x</p>'
 
 
@@ -870,11 +1256,6 @@ def test_allowed_styles_empty_is_a_noop() -> None:
     # the default empty mapping leaves css_properties as the only style filter
     policy = _allowed_styles_policy({})
     assert sanitize('<p style="color: red; width: 5px">x</p>', policy) == '<p style="color: red; width: 5px">x</p>'
-
-
-def _style_element_policy(*, css_properties: frozenset[str] = DEFAULT_CSS_PROPERTIES) -> Policy:
-    """A policy that allowlists the <style> element, so its stylesheet body is scrubbed rather than dropped."""
-    return Policy(tags=frozenset({"style"}), attributes={}, css_properties=css_properties)
 
 
 @pytest.mark.parametrize(
@@ -916,11 +1297,26 @@ def _style_element_policy(*, css_properties: frozenset[str] = DEFAULT_CSS_PROPER
         pytest.param("p{cursor:url(x'y);color:red}", "p{color:red;}", id="bad-url-dropped"),
         pytest.param("p{color:red;cursor:url(x", "p{color:red;}", id="unterminated-url-dropped"),
         pytest.param("p{color:red;cursor:url(x'", "p{color:red;}", id="unterminated-bad-url-dropped"),
+        pytest.param("p{color:<!--url(q');top:0;r:'}", "p{}", id="cdo-then-bad-url"),
+        pytest.param("p{color:U+7furl(q);width:1px}", "p{width:1px;}", id="unicode-range-drops-declaration"),
+        pytest.param("u+a{color:red}p{color:red}", "p{color:red;}", id="unicode-range-in-prelude-drops-rule"),
+        pytest.param("<!--u+a{color:red}p{color:red}", "p{color:red;}", id="cdo-then-unicode-range-prelude"),
+        pytest.param("p{color:<!--u+e;width:1px}", "p{width:1px;}", id="cdo-then-unicode-range"),
+        pytest.param(
+            "p{color:#url(q/*);width:'*/);top:0}",
+            "p{color:#url(q/*);width:'*/);}",
+            id="hash-named-url-is-no-url",
+        ),
     ],
 )
 def test_style_element_body_scrubbed(css: str, expected_body: str) -> None:
     # an allowlisted <style> keeps its element and structure; each declaration is vetted like a style attribute
     assert sanitize(f"<style>{css}</style>", _style_element_policy()) == f"<style>{expected_body}</style>"
+
+
+def _style_element_policy(*, css_properties: frozenset[str] = DEFAULT_CSS_PROPERTIES) -> Policy:
+    # A policy that allowlists the <style> element, so its stylesheet body is scrubbed rather than dropped.
+    return Policy(tags=frozenset({"style"}), attributes={}, css_properties=css_properties)
 
 
 @pytest.mark.parametrize(
@@ -947,7 +1343,7 @@ def test_allowed_styles_does_not_narrow_style_element_body() -> None:
     assert sanitize("<style>p{color:red}</style>", policy) == "<style>p{color:red;}</style>"
 
 
-@pytest.mark.parametrize("css", ["", "  "], ids=["no-text-child", "whitespace-only"])
+@pytest.mark.parametrize("css", [pytest.param("", id="no-text-child"), pytest.param("  ", id="whitespace-only")])
 def test_style_element_kept_when_body_empty(css: str) -> None:
     # keeping the element is the point: an empty body leaves <style></style> standing, never escaped or dropped
     assert sanitize(f"<style>{css}</style>", _style_element_policy()) == "<style></style>"
@@ -1040,6 +1436,27 @@ def test_style_element_unterminated_token_is_a_fixpoint(css: str, expected_body:
     assert (once, sanitize(once, policy)) == (f"<style>{expected_body}</style>", once)
 
 
+@pytest.mark.parametrize(
+    ("css", "expected_body"),
+    [
+        pytest.param("h2{'\n{color:';width:1px;x:'}", "h2{'\n{color:';width:1px;x:';}}", id="bad-string-ends-prelude"),
+        pytest.param("p['x\n] \t{color:red}", "p['x\n] \t{color:red;}", id="bad-string-inside-prelude"),
+        pytest.param("p{div,\\ {}}", "p{div,\\ {}}", id="escaped-space-ends-prelude"),
+        pytest.param("p{a\\\n{color:red}}", "p{a\\\n{color:red;}}", id="lone-backslash-ends-prelude"),
+        pytest.param("\\ {color:red}", "\\ {color:red;}", id="escaped-space-is-prelude"),
+        pytest.param("h1{span\\\\ {color:red}}", "h1{span\\\\{color:red;}}", id="escaped-backslash-ends-prelude"),
+        pytest.param("p{color:blue\\ }", "p{color:blue\\ ;}", id="escaped-space-ends-declaration"),
+        pytest.param("p{color:green\\\\ }", "p{color:green\\\\;}", id="escaped-backslash-ends-declaration"),
+    ],
+)
+def test_style_element_trim_keeps_token_whitespace(css: str, expected_body: str) -> None:
+    # trimming a prelude or a declaration never removes a whitespace that is part of a token: the newline that ends a
+    # bad string keeps its quote from opening a string over the block, and a whitespace after a backslash keeps that
+    # backslash from escaping the `{` or `;` written next. Either would turn text judged inert into live declarations
+    once = sanitize(f"<style>{css}</style>", _style_element_policy())
+    assert (once, sanitize(once, _style_element_policy())) == (f"<style>{expected_body}</style>", once)
+
+
 def test_style_element_empty_property_set_drops_all_css() -> None:
     # an empty css_properties set means no declaration is allowlisted, so every rule scrubs to an empty block
     assert (
@@ -1075,6 +1492,143 @@ def test_style_element_removed_with_content_when_named() -> None:
     # naming style in remove_with_content still drops the whole element, even though the tag is otherwise unsafe-exempt
     policy = Policy(tags=frozenset({"b"}), remove_with_content=frozenset({"style"}))
     assert sanitize("<b>ok</b><style>p{color:red}</style>", policy) == "<b>ok</b>"
+
+
+@pytest.mark.parametrize("target", ["textarea", "svg", "math"])
+@pytest.mark.parametrize("wrapper", [pytest.param("{}", id="child"), pytest.param("<b>{}</b>", id="nested")])
+def test_style_element_inside_renamed_container_is_not_kept(target: str, wrapper: str) -> None:
+    # the rename runs on the parsed tree, so the <style> is already an element below it; a reparse reads a textarea's
+    # content as RCDATA and an HTML svg or math as foreign content, neither of which holds a raw-text <style>
+    policy = Policy(tags=frozenset({target, "b", "style"}), transform_tags={"note": target})
+    style = f'<style>a{{content:"</{target}><i>x</i>"}}</style>'
+    expected = f"<{target}>{wrapper.format(escape(style, quote=False))}</{target}>"
+    assert sanitize(f"<note>{wrapper.format(style)}</note>", policy) == expected
+
+
+def test_style_element_inside_adopted_xml_textarea_is_not_kept() -> None:
+    # an XML element moved into an HTML tree takes its HTML atom, so the <style> below the textarea would be raw text
+    host = parse_fragment("")
+    root = parse_xml('<textarea><style>a{content:"&lt;/textarea&gt;&lt;i&gt;x&lt;/i&gt;"}</style>t</textarea>').root
+    assert root is not None
+    host.append(root)
+    policy = Policy(tags=frozenset({"textarea", "style"}), on_disallowed_tag=OnDisallowed.REMOVE)
+    assert sanitize_node(host, policy).inner_html == "<textarea>t</textarea>"
+
+
+def test_style_element_inside_textarea_root_is_not_kept() -> None:
+    # the root passed to sanitize_node is not judged itself, but a reparse still reads its content as RCDATA
+    root = E.textarea(E.style('a{content:"</textarea><i>x</i>"}'), "t")
+    policy = Policy(tags=frozenset({"style"}), on_disallowed_tag=OnDisallowed.REMOVE)
+    assert sanitize_node(root, policy).html == "<textarea>t</textarea>"
+
+
+def test_style_element_inside_escaped_container_is_kept() -> None:
+    # an escaped textarea is text, which opens no element on reparse, so the <style> and the comment are read in place
+    policy = Policy(tags=frozenset({"style"}), transform_tags={"note": "textarea"}, strip_comments=False)
+    html = "<note><!--c--><style>a{color:red;}</style></note>"
+    assert sanitize(html, policy) == "&lt;textarea&gt;<!--c--><style>a{color:red;}</style>&lt;/textarea&gt;"
+
+
+def test_style_element_at_parsed_integration_point_is_kept() -> None:
+    # a parsed svg is in the SVG namespace, and its foreignObject puts the <style> back in HTML, where it is raw text
+    policy = Policy(tags=frozenset({"svg", "foreignObject", "style"}))
+    html = "<svg><foreignObject><style>a{color:red;}</style></foreignObject></svg>"
+    assert sanitize(html, policy) == html
+    svg = parse_fragment(html).select_one("svg")
+    assert svg is not None
+    assert sanitize_node(svg, policy).html == html
+
+
+_STYLE_IN_SELECT: Final[str] = "<style></select><br></style>"
+_STYLE_IN_SELECT_TAGS: Final[frozenset[str]] = frozenset({
+    "select",
+    "option",
+    "div",
+    "marquee",
+    "button",
+    "svg",
+    "desc",
+    "style",
+})
+_STYLE_IN_SELECT_POLICY: Final[Policy] = Policy(tags=_STYLE_IN_SELECT_TAGS)
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        pytest.param("{}", id="child"),
+        pytest.param("<option>{}</option>", id="option"),
+        pytest.param("<div>{}</div>", id="flow"),
+        pytest.param("<marquee>{}</marquee>", id="scoping"),
+        pytest.param("<button>{}</button>", id="button"),
+        pytest.param("<svg><desc>{}</desc></svg>", id="integration-point"),
+    ],
+)
+def test_style_element_inside_select_is_not_kept(wrapper: str) -> None:
+    # a parser with the "in select" insertion mode ignores the <style> start tag there, at any depth, and reads the
+    # body as markup, so the element falls back to the unsafe-tag baseline and its body comes out as escaped text
+    html = f"<select>{wrapper.format(_STYLE_IN_SELECT)}</select>"
+    expected = f"<select>{wrapper.format('&lt;style&gt;&lt;/select&gt;&lt;br&gt;&lt;/style&gt;')}</select>"
+    assert sanitize(html, _STYLE_IN_SELECT_POLICY) == expected
+    assert sanitize_node(parse_fragment(html), _STYLE_IN_SELECT_POLICY).inner_html == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        pytest.param(OnDisallowed.STRIP, "<select>&lt;/select&gt;&lt;br&gt;</select>", id="strip"),
+        pytest.param(OnDisallowed.REMOVE, "<select></select>", id="remove"),
+    ],
+)
+def test_style_element_inside_select_follows_on_disallowed_tag(mode: OnDisallowed, expected: str) -> None:
+    policy = Policy(tags=_STYLE_IN_SELECT_TAGS, on_disallowed_tag=mode)
+    assert sanitize(f"<select>{_STYLE_IN_SELECT}</select>", policy) == expected
+
+
+def test_style_element_inside_select_is_reported() -> None:
+    _, removed = sanitize_report("<select><style>p{color:red}</style></select>", Policy(tags=_STYLE_IN_SELECT_TAGS))
+    assert removed == [Removed("style", None)]
+
+
+def test_style_element_inside_select_root_is_not_kept() -> None:
+    # the select a subtree call starts at stays around the result, so it counts although the policy never judged it
+    select = E.select(E.option(E.style("</select><br>")))
+    policy = Policy(tags=frozenset({"option", "style"}), on_disallowed_tag=OnDisallowed.REMOVE)
+    assert sanitize_node(select, policy).inner_html == "<option></option>"
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        pytest.param("<select><option>a</option></select><style>p{color:red;}</style>", id="sibling"),
+        pytest.param("<div><select><div><b>a</b></div></select><style>p{color:red;}</style></div>", id="nested"),
+    ],
+)
+def test_style_element_after_select_is_kept(html: str) -> None:
+    # only the select's own content is read in that mode: its end tag leaves it, so a later <style> is raw text again
+    policy = Policy(tags=_STYLE_IN_SELECT_TAGS | {"b"})
+    assert (sanitize(html, policy), sanitize_node(parse_fragment(html), policy).inner_html) == (html, html)
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected"),
+    [
+        pytest.param(
+            Policy(tags=frozenset({"option", "style"}), on_disallowed_tag=OnDisallowed.ESCAPE),
+            "&lt;select&gt;<option><style>p{color:red;}</style></option>&lt;/select&gt;",
+            id="escape",
+        ),
+        pytest.param(
+            Policy(tags=frozenset({"option", "style"}), on_disallowed_tag=OnDisallowed.STRIP),
+            "<option><style>p{color:red;}</style></option>",
+            id="strip",
+        ),
+    ],
+)
+def test_style_element_inside_dropped_select_is_kept(policy: Policy, expected: str) -> None:
+    # a select the policy escapes or strips is not an element of the output, so nothing puts a parser in that mode
+    html = "<select><option><style>p{color:red}</style></option></select>"
+    assert (sanitize(html, policy), sanitize_node(parse_fragment(html), policy).inner_html) == (expected, expected)
 
 
 @pytest.mark.parametrize(
@@ -1122,9 +1676,20 @@ def test_every_url_attribute_is_scheme_checked(attr: str) -> None:
         pytest.param("javascript:alert(1) 1x", False, id="first-candidate-script"),
         pytest.param("a.jpg 1x, javascript:alert(1) 2x", False, id="later-candidate-script"),
         pytest.param("https://ok/a.jpg 1x, vbscript:msgbox(1) 2x", False, id="later-candidate-vbscript"),
+        pytest.param("a.jpg (x,y) 1x, b.jpg 2x", True, id="parenthesised-descriptor"),
+        pytest.param("hero.jpg (w,h),vbscript:msgbox(2) 1x", False, id="script-after-parenthesised-descriptor"),
+        pytest.param("hero.jpg x),vbscript:msgbox(2) 1x", False, id="script-after-stray-close-paren"),
+        pytest.param("hero.jpg (w,vbscript:msgbox 1x", True, id="unclosed-parens-are-one-descriptor"),
+        pytest.param("hero.jpg 1w 2w, vbscript:msgbox(3) 1x", False, id="script-after-invalid-candidate"),
+        pytest.param("vbscript:msgbox(3) 1w 2w", True, id="invalid-candidate-script-not-loaded"),
+        pytest.param("hero.jpg 2h, vbscript:msgbox(3) 1x", False, id="script-after-height-without-width"),
+        pytest.param("hero.jpg 1x 2x, https://ok/a.jpg 1x", True, id="allowed-after-invalid-candidate"),
+        pytest.param("vbscript:msgbox(3) 0w", True, id="zero-width-script-not-loaded"),
+        pytest.param("vbscript:msgbox(3) 0x", False, id="zero-density-script-loaded"),
+        pytest.param("hero.jpg 2x 1x , vbscript:msgbox(3) 1x", False, id="script-after-two-densities"),
     ],
 )
-def test_srcset_candidate_schemes_are_checked(attr: str, value: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_srcset_candidate_schemes_are_checked(attr: str, value: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     # a srcset is a comma-separated list of "URL descriptor" candidates; every candidate's scheme is
     # checked and the whole attribute is dropped if any candidate carries a disallowed scheme.
     out = sanitize(f'<img {attr}="{value}">', _allow_all({"img"}, {attr}))
@@ -1144,37 +1709,47 @@ def test_srcset_data_url_comma_is_not_a_candidate_separator() -> None:
 
 
 @pytest.mark.parametrize(
-    ("content", "kept"),
+    "content",
     [
-        pytest.param("0;url=javascript:alert(1)", False, id="script-url"),
-        pytest.param("0; URL = 'javascript:alert(1)'", False, id="quoted-uppercase-prefix"),
-        pytest.param("0,javascript:alert(1)", False, id="comma-bare-url"),
-        pytest.param("0 javascript:alert(1)", False, id="space-bare-url"),
-        pytest.param(".5;url=data:text/html,x", False, id="fractional-time-data-url"),
-        pytest.param("0;url:alert(1)", False, id="url-word-without-equals-is-the-url"),
-        pytest.param("0 ;url=javascript:alert(1)", False, id="space-before-separator"),
-        pytest.param("0;url=&quot;javascript:alert(1)&quot;", False, id="double-quoted-url"),
-        pytest.param("0;url='javascript:alert(1)", False, id="unterminated-quote"),
-        pytest.param("0;url=https://example.org/", True, id="allowed-scheme"),
-        pytest.param("0;url=/local", True, id="relative"),
-        pytest.param("5", True, id="time-only"),
-        pytest.param("5 ", True, id="time-trailing-space"),
-        pytest.param("", True, id="empty"),
-        pytest.param("0;url", True, id="url-word-alone"),
-        pytest.param("0;u", True, id="short-u"),
-        pytest.param("0;urx=javascript:x", True, id="u-prefix-not-url"),
-        pytest.param("0;uxl=javascript:x", True, id="u-then-not-r"),
-        pytest.param("0;url=", True, id="empty-url"),
-        pytest.param("0;url=''", True, id="empty-quoted-url"),
-        pytest.param("0;url='java'script:x", True, id="quote-ends-url"),
-        pytest.param("x;url=javascript:x", True, id="no-time-no-refresh"),
-        pytest.param("0x;url=javascript:x", True, id="bad-separator-no-refresh"),
+        pytest.param("0;url=javascript:alert(1)", id="script-url"),
+        pytest.param("0; URL = 'javascript:alert(1)'", id="quoted-uppercase-prefix"),
+        pytest.param("0,javascript:alert(1)", id="comma-bare-url"),
+        pytest.param("0 javascript:alert(1)", id="space-bare-url"),
+        pytest.param(".5;url=data:text/html,x", id="fractional-time-data-url"),
+        pytest.param("0;url:alert(1)", id="url-word-without-equals-is-the-url"),
+        pytest.param("0 ;url=javascript:alert(1)", id="space-before-separator"),
+        pytest.param("0;url=&quot;javascript:alert(1)&quot;", id="double-quoted-url"),
+        pytest.param("0;url='javascript:alert(1)", id="unterminated-quote"),
     ],
 )
-def test_meta_refresh_url_is_scheme_checked(content: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_meta_refresh_drops_the_url(content: str) -> None:
+    out = sanitize(f'<meta http-equiv="Refresh" content="{content}">', _allow_all({"meta"}, {"http-equiv", "content"}))
+    assert out == '<meta http-equiv="Refresh">'
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("0;url=https://example.org/", id="allowed-scheme"),
+        pytest.param("0;url=/local", id="relative"),
+        pytest.param("5", id="time-only"),
+        pytest.param("5 ", id="time-trailing-space"),
+        pytest.param("", id="empty"),
+        pytest.param("0;url", id="url-word-alone"),
+        pytest.param("0;u", id="short-u"),
+        pytest.param("0;urx=javascript:x", id="u-prefix-not-url"),
+        pytest.param("0;uxl=javascript:x", id="u-then-not-r"),
+        pytest.param("0;url=", id="empty-url"),
+        pytest.param("0;url=''", id="empty-quoted-url"),
+        pytest.param("0;url='java'script:x", id="quote-ends-url"),
+        pytest.param("x;url=javascript:x", id="no-time-no-refresh"),
+        pytest.param("0x;url=javascript:x", id="bad-separator-no-refresh"),
+    ],
+)
+def test_meta_refresh_keeps_the_url(content: str) -> None:
     html = f'<meta http-equiv="Refresh" content="{content}">'
     out = sanitize(html, _allow_all({"meta"}, {"http-equiv", "content"}))
-    assert out == (html if kept else '<meta http-equiv="Refresh">')
+    assert out == html
 
 
 @pytest.mark.parametrize(
@@ -1246,8 +1821,14 @@ def test_unusual_scheme_characters_are_treated_as_relative(url: str) -> None:
 
 @pytest.mark.parametrize(
     "char",
-    [chr(0x00AD), chr(0x200B), chr(0x200C), chr(0x200D), chr(0x2060), chr(0xFEFF)],
-    ids=["soft-hyphen", "zwsp", "zwnj", "zwj", "word-joiner", "bom"],
+    [
+        pytest.param(chr(0x00AD), id="soft-hyphen"),
+        pytest.param(chr(0x200B), id="zwsp"),
+        pytest.param(chr(0x200C), id="zwnj"),
+        pytest.param(chr(0x200D), id="zwj"),
+        pytest.param(chr(0x2060), id="word-joiner"),
+        pytest.param(chr(0xFEFF), id="bom"),
+    ],
 )
 def test_zero_width_characters_cannot_obfuscate_a_scheme(char: str) -> None:
     # soft hyphen, zero-width, and BOM characters are stripped before the scheme is read, like browsers ignore them
@@ -1262,7 +1843,7 @@ def test_relative_url_dropped_when_disallowed() -> None:
 # A code point the WHATWG scheme state stops on (anything but an ASCII scheme character or a removed tab/LF/CR) ends the
 # scheme, so the value is a relative URL -- a browser resolves it same-origin, not as the allowlisted scheme spelled
 # around the character. Dropping such a code point to read a scheme would bypass allow_relative_urls=False.
-_SCHEME_SPLITTERS = [
+_SCHEME_SPLITTERS: Final[list[pytest.ParameterSet]] = [
     pytest.param("\u00a0", id="nbsp"),
     pytest.param("\u00ad", id="soft-hyphen"),
     pytest.param("\u200b", id="zero-width-space"),
@@ -1344,7 +1925,9 @@ def test_wildcard_tag_attributes() -> None:
 
 def test_attribute_filter_rewrites_value() -> None:
     policy = _allow_all({"a"}, {"href"})
-    policy = Policy(tags=policy.tags, attributes=policy.attributes, attribute_filter=lambda _t, _n, v: v.upper())
+    policy = Policy(
+        tags=policy.tags, attributes=policy.attributes, attribute_filter=lambda _t, _n, value: value.upper()
+    )
     assert sanitize('<a href="http://x">y</a>', policy) == '<a href="HTTP://X">y</a>'
 
 
@@ -1438,20 +2021,26 @@ def test_attribute_filter_replacement_passes_through_final_rewrites() -> None:
 
 def test_attribute_filter_drops_with_none() -> None:
     policy = Policy(tags=frozenset({"a"}), attributes={"a": frozenset({"href", "title"})},
-                    attribute_filter=lambda _t, n, v: None if n == "title" else v)  # fmt: skip
+                    attribute_filter=lambda _t, name, value: None if name == "title" else value)  # fmt: skip
     assert sanitize('<a href="http://x" title="t">y</a>', policy) == '<a href="http://x">y</a>'
 
 
 def test_attribute_filter_keeps_unchanged_value() -> None:
-    policy = Policy(tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, attribute_filter=lambda _t, _n, v: v)
+    policy = Policy(
+        tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, attribute_filter=lambda _t, _n, value: value
+    )
     assert sanitize('<a href="http://x">y</a>', policy) == '<a href="http://x">y</a>'
 
 
 def test_attribute_filter_must_return_str_or_none() -> None:
-    def bad_filter(_t: str, _n: str, _v: str) -> str | None:
-        return 42  # ty: ignore[invalid-return-type]  # a deliberately wrong return type, to exercise the runtime check
+    def bad_filter(_t: str, _n: str, _v: str) -> str | int | None:
+        return 42
 
-    policy = Policy(tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, attribute_filter=bad_filter)
+    policy = Policy(
+        tags=frozenset({"a"}),
+        attributes={"a": frozenset({"href"})},
+        attribute_filter=bad_filter,  # ty: ignore[invalid-argument-type]  # returns an int on purpose, to exercise the runtime check
+    )
     with pytest.raises(TypeError):
         sanitize('<a href="http://x">y</a>', policy)
 
@@ -1480,6 +2069,26 @@ def test_add_link_rel_scans_other_attributes_for_href() -> None:
     assert sanitize('<a name="n" title="t">y</a>', Policy.relaxed()) == '<a name="n" title="t">y</a>'
 
 
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        pytest.param('rel="x" REL="y"', '<a rel="noopener" REL="y" href="http://x"></a>', id="exact-before-variant"),
+        pytest.param('REL="y" rel="x"', '<a rel="noopener" href="http://x"></a>', id="variant-before-exact"),
+    ],
+)
+def test_add_link_rel_replaces_exact_rel_ahead_of_case_variants(attributes: str, expected: str) -> None:
+    # the HTML reparse keeps the first rel, so the forced value must land on the exact name whatever case variants sit
+    # around it in a parse_xml element
+    policy = Policy(
+        tags=frozenset({"r", "a"}),
+        attributes={"a": frozenset({"href", "rel", "REL"})},
+        add_link_rel=frozenset({"noopener"}),
+    )
+    root = parse_xml(f'<r><a {attributes} href="http://x"/></r>').root
+    assert root is not None
+    assert sanitize_node(root, policy).html == f"<r>{expected}</r>"
+
+
 def test_short_and_o_prefixed_attributes_are_not_event_handlers() -> None:
     policy = _allow_all({"x"}, {"*"})
     # a (one byte: too short to be on*), ox (starts with o but not on), title (does not start with o)
@@ -1492,6 +2101,99 @@ def test_comments_stripped_by_default() -> None:
 
 def test_comments_kept_when_requested() -> None:
     assert sanitize("a<!-- c -->b", Policy(strip_comments=False)) == "a<!-- c -->b"
+
+
+@pytest.mark.parametrize("wrapper", [pytest.param("{}", id="child"), pytest.param("<b>{}</b>", id="nested")])
+def test_comment_inside_renamed_textarea_is_dropped(wrapper: str) -> None:
+    # a kept comment is written verbatim, and a reparse reads one below a textarea as RCDATA its text can end
+    policy = Policy(tags=frozenset({"textarea", "b", "svg"}), transform_tags={"note": "textarea"}, strip_comments=False)
+    html = f"<svg><!--s--></svg><note>{wrapper.format('<!--</textarea><i>x</i>-->')}</note>"
+    assert sanitize(html, policy) == f"<svg><!--s--></svg><textarea>{wrapper.format('')}</textarea>"
+
+
+def test_comment_inside_built_textarea_is_dropped() -> None:
+    root = E.div(Comment("a"), E.textarea(Comment("</textarea><i>x</i>"), "t"))
+    policy = Policy(tags=frozenset({"div", "textarea"}), strip_comments=False)
+    assert sanitize_node(root, policy).html == "<div><!--a--><textarea>t</textarea></div>"
+
+
+def test_comment_inside_textarea_root_is_dropped() -> None:
+    root = E.textarea(Comment("</textarea><i>x</i>"), "t", E.b(Comment("c")))
+    policy = Policy(tags=frozenset({"b"}), strip_comments=False)
+    assert sanitize_node(root, policy).html == "<textarea>t<b></b></textarea>"
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        pytest.param("<svg><!--c--><circle></circle></svg>", id="svg"),
+        pytest.param("<math><!--c--><mi>x</mi></math>", id="math"),
+    ],
+)
+def test_comment_leading_a_foreign_element_under_a_removed_div_is_kept(html: str) -> None:
+    # a built tree takes the balancing walk, where the removed inner div is a barrier that settles the b and the
+    # foreign element below it
+    policy = Policy(
+        tags=frozenset({"b", "svg", "math", "circle", "mi"}),
+        on_disallowed_tag=OnDisallowed.STRIP,
+        strip_comments=False,
+    )
+    root = E.div(E.div(E.b(*parse_fragment(html).children)))
+    assert sanitize_node(root, policy).inner_html == f"<b>{html}</b>"
+
+
+_FOREIGN_TEXTAREA: Final[str] = "<svg><textarea>t<!--</textarea><br>--></textarea><!--s--></svg>"
+
+
+def test_comment_inside_foreign_textarea_inside_select_is_dropped() -> None:
+    # the "in select" insertion mode ignores the <svg> start tag and leaves the select at <textarea>, so the SVG
+    # element the parser built here is an HTML textarea to a parser that predates customizable select
+    policy = Policy(tags=frozenset({"select", "svg", "textarea"}), strip_comments=False)
+    assert sanitize(f"<select>{_FOREIGN_TEXTAREA}</select>", policy) == (
+        "<select><svg><textarea>t</textarea><!--s--></svg></select>"
+    )
+
+
+def test_comment_inside_foreign_textarea_root_is_dropped() -> None:
+    # serialized on its own, the SVG element named textarea is an HTML one to whatever parses the result
+    root = parse_fragment(_FOREIGN_TEXTAREA).select_one("textarea")
+    assert root is not None
+    assert sanitize_node(root, Policy(strip_comments=False)).html == "<textarea>t</textarea>"
+
+
+_FOREIGN_SELECT_STYLE: Final[str] = (
+    "<svg><select><foreignObject><style>p{color:red}</style></foreignObject></select></svg>"
+)
+_FOREIGN_SELECT_STYLE_POLICY: Final[Policy] = Policy(tags=frozenset({"svg", "select", "foreignObject", "style"}))
+
+
+@pytest.mark.parametrize(
+    ("root", "expected"),
+    [
+        pytest.param(
+            "svg",
+            "<select><foreignObject>&lt;style&gt;p{color:red}&lt;/style&gt;</foreignObject></select>",
+            id="svg",
+        ),
+        pytest.param(
+            "select",
+            "<foreignObject>&lt;style&gt;p{color:red}&lt;/style&gt;</foreignObject>",
+            id="select",
+        ),
+    ],
+)
+def test_style_element_inside_foreign_select_root_is_not_kept(root: str, expected: str) -> None:
+    # a subtree serialized out of its SVG context reads a select below it as an HTML one, so the style under it is
+    # escaped whichever element of the subtree the call starts at
+    node = parse_fragment(_FOREIGN_SELECT_STYLE).select_one(root)
+    assert node is not None
+    assert sanitize_node(node, _FOREIGN_SELECT_STYLE_POLICY).inner_html == expected
+
+
+def test_style_element_inside_foreign_select_is_not_kept() -> None:
+    assert sanitize(_FOREIGN_SELECT_STYLE, _FOREIGN_SELECT_STYLE_POLICY) == (
+        "<svg><select><foreignObject>&lt;style&gt;p{color:red}&lt;/style&gt;</foreignObject></select></svg>"
+    )
 
 
 def test_policy_basic_is_the_default_allowlist() -> None:
@@ -1582,15 +2284,6 @@ def test_strip_propagates_a_child_filter_error() -> None:
         sanitize('<div><a href="http://x">y</a></div>', policy)
 
 
-def test_sanitize_rejects_wrong_arguments() -> None:
-    from turbohtml._html import (  # ruff:ignore[import-outside-top-level]  # exercising the C argument parsing directly
-        _sanitize,
-    )
-
-    with pytest.raises(TypeError):
-        _sanitize()  # ty: ignore[missing-argument]  # too few arguments
-
-
 def test_module_constants_match_bleach_defaults() -> None:
     assert (
         frozenset({
@@ -1617,16 +2310,16 @@ def test_module_constants_match_bleach_defaults() -> None:
     assert frozenset({"http", "https", "mailto"}) == DEFAULT_SCHEMES
 
 
-def _prefix_policy(prefixes: frozenset[str]) -> Policy:
-    """Allow <a href> plus any attribute matching one of the given name prefixes."""
-    return Policy(tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, attribute_prefixes=prefixes)
-
-
 def test_attribute_prefix_allows_matching_family() -> None:
     out = sanitize(
         '<a href="http://x" data-id="1" data-role="nav" class="c">y</a>', _prefix_policy(frozenset({"data-"}))
     )
     assert out == '<a href="http://x" data-id="1" data-role="nav">y</a>'
+
+
+def _prefix_policy(prefixes: frozenset[str]) -> Policy:
+    # Allow <a href> plus any attribute matching one of the given name prefixes.
+    return Policy(tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, attribute_prefixes=prefixes)
 
 
 def test_attribute_prefix_multiple_prefixes_each_allow() -> None:
@@ -1707,7 +2400,7 @@ def test_attribute_prefix_surrogate_raises(
     policy: Final = Policy(
         tags=frozenset({"a"}), attributes=attributes, attribute_prefixes=cast("frozenset[str]", prefixes)
     )
-    html: Final = "<a " + " ".join(f'data-{index}="1"' for index in range(count)) + ">x</a>"
+    html: Final = f"""<a {" ".join(f'data-{index}="1"' for index in range(count))}>x</a>"""
     with pytest.raises(UnicodeEncodeError, match="surrogates not allowed"):
         sanitize(html, policy)
 
@@ -1723,22 +2416,22 @@ def test_attribute_prefix_non_string_raises_typeerror() -> None:
         sanitize("<a>y</a>", policy)
 
 
+@pytest.mark.parametrize(
+    ("value", "kept"),
+    [pytest.param("_blank", True, id="allowed"), pytest.param("_top", False, id="disallowed")],
+)
+def test_attribute_value_allowlist_restricts_target(value: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
+    out = sanitize(f'<a href="http://x" target="{value}">y</a>', _value_policy())
+    assert (f'target="{value}"' in out) is kept
+
+
 def _value_policy() -> Policy:
-    """Allow <a href target> and <b>, restricting <a target> to two literal values."""
+    # Allow <a href target> and <b>, restricting <a target> to two literal values.
     return Policy(
         tags=frozenset({"a", "b"}),
         attributes={"a": frozenset({"href", "target"}), "b": frozenset({"target"})},
         attribute_values={"a": {"target": frozenset({"_blank", "_self"})}},
     )
-
-
-@pytest.mark.parametrize(
-    ("value", "kept"),
-    [pytest.param("_blank", True, id="allowed"), pytest.param("_top", False, id="disallowed")],
-)
-def test_attribute_value_allowlist_restricts_target(value: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
-    out = sanitize(f'<a href="http://x" target="{value}">y</a>', _value_policy())
-    assert (f'target="{value}"' in out) is kept
 
 
 def test_attribute_value_allowlist_leaves_unrestricted_attribute() -> None:
@@ -1763,19 +2456,19 @@ def test_attribute_value_allowlist_only_narrows_never_allows() -> None:
     assert sanitize('<a href="http://x" target="_blank">y</a>', policy) == '<a href="http://x">y</a>'
 
 
+@pytest.mark.parametrize("tag", ["video", "audio", "source", "track"])
+def test_media_host_allowlist_keeps_allowed_host(tag: str) -> None:
+    policy = _media_policy(frozenset({"youtube.com"}))
+    assert f'<{tag} src="https://youtube.com/e/x">' in sanitize(f'<{tag} src="https://youtube.com/e/x">', policy)
+
+
 def _media_policy(hosts: frozenset[str], *, extra_attrs: frozenset[str] = frozenset()) -> Policy:
-    """Allow the embedded-media elements plus <img>, gating their src by host allowlist."""
+    # Allow the embedded-media elements plus <img>, gating their src by host allowlist.
     return Policy(
         tags=frozenset({"video", "audio", "source", "track", "img"}),
         attributes={"*": frozenset({"src"}) | extra_attrs},
         media_hosts=hosts,
     )
-
-
-@pytest.mark.parametrize("tag", ["video", "audio", "source", "track"])
-def test_media_host_allowlist_keeps_allowed_host(tag: str) -> None:
-    policy = _media_policy(frozenset({"youtube.com"}))
-    assert f'<{tag} src="https://youtube.com/e/x">' in sanitize(f'<{tag} src="https://youtube.com/e/x">', policy)
 
 
 @pytest.mark.parametrize(
@@ -1797,7 +2490,7 @@ def test_media_host_allowlist_keeps_allowed_host(tag: str) -> None:
         pytest.param("https:/x", False, id="allowed-scheme-one-slash"),
     ],
 )
-def test_media_host_allowlist_gates_src(src: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_media_host_allowlist_gates_src(src: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     out = sanitize(f'<video src="{src}">', _media_policy(frozenset({"youtube.com"})))
     assert ("src=" in out) is kept
 
@@ -1809,7 +2502,7 @@ def test_media_host_allowlist_matches_host_case_insensitively() -> None:
 
 
 def test_media_host_allowlist_rejects_overlong_host() -> None:
-    host = "a" * 300 + ".com"
+    host = f"{'a' * 300}.com"
     assert "src=" not in sanitize(f'<video src="https://{host}/x">', _media_policy(frozenset({"youtube.com"})))
 
 
@@ -1853,12 +2546,70 @@ def test_media_host_default_policy_leaves_src_unrestricted() -> None:
         pytest.param("https://user@[dead::beef]/x", False, id="ipv6-with-userinfo-blocked"),
     ],
 )
-def test_media_host_allowlist_host_confusion(src: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_media_host_allowlist_host_confusion(src: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     # host-confusion parity: userinfo tricks resolve to the real host (the last '@' wins), a suffixed or
     # whitespace-obfuscated host never masquerades as the listed one, and an IPv6 literal is always rejected
-    policy = _media_policy(frozenset({"youtube.com", "youtube.com."}))
-    out = sanitize(f'<video src="{src}">', policy)
+    out = sanitize(f'<video src="{src}">', _media_policy(frozenset({"youtube.com", "youtube.com."})))
     assert ("src=" in out) is kept
+
+
+@pytest.mark.parametrize(
+    ("src", "kept"),
+    [
+        pytest.param(" //attacker.test/://videos.test/x", False, id="leading-space-protocol-relative"),
+        pytest.param("\x01//attacker.test/://videos.test/x", False, id="leading-control-protocol-relative"),
+        pytest.param("/\t/attacker.test/://videos.test/x", False, id="tab-between-slashes"),
+        pytest.param("\\\t\\attacker.test/://videos.test/x", False, id="tab-between-backslashes"),
+        pytest.param("https:\t//attacker.test/://videos.test/x", False, id="tab-after-scheme"),
+        pytest.param("https:/\t/attacker.test/x://videos.test/x", False, id="tab-between-scheme-slashes"),
+        pytest.param("http:attacker.test/://videos.test/x", False, id="special-scheme-no-slashes"),
+        pytest.param("https://attacker.test/://videos.test/x", False, id="decoy-in-path"),
+        pytest.param("https://attacker.test?u=https://videos.test/x", False, id="decoy-in-query"),
+        pytest.param("//attacker.test#https://videos.test/x", False, id="decoy-in-fragment"),
+        pytest.param("/x://videos.test/x", False, id="rooted-relative-decoy"),
+        pytest.param("x/y://videos.test/x", False, id="relative-path-decoy"),
+        pytest.param("1https://videos.test/x", False, id="digit-led-relative-decoy"),
+        pytest.param(" https://videos.test/x", True, id="leading-space-allowed-host"),
+        pytest.param("\n//videos.test/x", True, id="leading-newline-protocol-relative-allowed-host"),
+        pytest.param("ht\ntps://videos.test/x", True, id="newline-in-scheme-allowed-host"),
+        pytest.param("https://videos.test/://attacker.test/x", True, id="allowed-host-foreign-decoy"),
+        pytest.param(" ", False, id="whitespace-only"),
+        pytest.param("\t\n", False, id="controls-only"),
+    ],
+)
+def test_media_host_allowlist_reads_authority_where_browser_does(src: str, *, kept: bool) -> None:
+    # a browser opens the authority only after the scheme or at the start, so a later "://" is path, query, or fragment
+    assert ("src=" in sanitize(f'<video src="{src}">', _media_policy(frozenset({"videos.test"})))) is kept
+
+
+@pytest.mark.parametrize(
+    ("src", "kept"),
+    [
+        pytest.param("foo://videos.test/x", True, id="non-special-allowed-host"),
+        pytest.param("foo://attacker.test\\@videos.test/x", True, id="non-special-backslash-userinfo-allowed-host"),
+        pytest.param("foo://videos.test\\@attacker.test/x", False, id="non-special-backslash-userinfo-decoy"),
+        pytest.param("foo://videos.test\\x", False, id="non-special-backslash-in-host"),
+        pytest.param("foo:\\\\videos.test/x", False, id="non-special-backslashes-open-no-authority"),
+        pytest.param("f\too://videos.test\\@attacker.test/x", False, id="non-special-tab-in-scheme"),
+        pytest.param("https://videos.test\\@attacker.test/x", True, id="special-backslash-ends-authority"),
+        pytest.param("ht\ntps://videos.test\\@attacker.test/x", True, id="special-newline-in-scheme"),
+        pytest.param(
+            "custom+scheme://videos.test\\@attacker.test/x", False, id="non-special-long-scheme-userinfo-decoy"
+        ),
+        pytest.param("\\\\videos.test/x", True, id="relative-backslash-allowed-host"),
+        pytest.param("\\\\attacker.test/x", False, id="relative-backslash-decoy"),
+    ],
+)
+def test_media_host_allowlist_backslash_follows_scheme(src: str, *, kept: bool) -> None:
+    # a browser reads '\' as '/' only under a special scheme (a value without one is relative to a special base);
+    # under any other scheme it is part of the host
+    policy = Policy(
+        tags=frozenset({"video"}),
+        attributes={"*": frozenset({"src"})},
+        url_schemes=frozenset({"http", "https", "foo", "custom+scheme"}),
+        media_hosts=frozenset({"videos.test"}),
+    )
+    assert ("src=" in sanitize(f'<video src="{src}">', policy)) is kept
 
 
 def test_media_host_ipv6_literal_rejected_even_when_listed() -> None:
@@ -1926,12 +2677,15 @@ def policy() -> Policy:
 
 
 @pytest.mark.parametrize("count", [0, 31, 32, 1_024])
-@pytest.mark.parametrize("prefix", ["bad-", "data-"], ids=["rejected", "allowed"])
-def test_attribute_compaction_count(policy: Policy, count: int, prefix: str) -> None:
-    attributes: Final = "".join(f' {prefix}{index}="x"' for index in range(count))
-    assert Sanitizer(policy).sanitize(f"<a{attributes}>x</a>") == (
-        f"<a{attributes}>x</a>" if prefix == "data-" else "<a>x</a>"
-    )
+def test_attribute_compaction_rejected_count(policy: Policy, count: int) -> None:
+    attributes: Final = "".join(f' bad-{index}="x"' for index in range(count))
+    assert Sanitizer(policy).sanitize(f"<a{attributes}>x</a>") == "<a>x</a>"
+
+
+@pytest.mark.parametrize("count", [0, 31, 32, 1_024])
+def test_attribute_compaction_allowed_count(policy: Policy, count: int) -> None:
+    attributes: Final = "".join(f' data-{index}="x"' for index in range(count))
+    assert Sanitizer(policy).sanitize(f"<a{attributes}>x</a>") == f"<a{attributes}>x</a>"
 
 
 @pytest.mark.parametrize(
@@ -1962,6 +2716,86 @@ def test_attribute_compaction_report_order(policy: Policy) -> None:
     )
 
 
+def test_attribute_compaction_report_interleaves(policy: Policy) -> None:
+    pairs: Final = [f' bad-{index}="x" data-{index}="x"' for index in range(32)]
+    rest: Final = ' onclick="x" title="t" last="x"'
+    html: Final = "".join(('<a first="x"', *pairs[:16], ' href="javascript:x"', *pairs[16:], rest, ">x</a>"))
+    bad: Final = [f"bad-{index}" for index in range(32)]
+    kept: Final = "".join(f' data-{index}="x"' for index in range(32))
+    assert Sanitizer(policy).sanitize_report(html) == (
+        f'<a{kept} title="t">x</a>',
+        [Removed("a", name) for name in ("first", *bad[:16], "href", *bad[16:], "onclick", "last")],
+    )
+
+
+@pytest.mark.parametrize(
+    "callbacks",
+    [
+        pytest.param(Policy(), id="report"),
+        pytest.param(Policy(attribute_filter=lambda _tag, _name, value: value), id="attribute-filter"),
+        pytest.param(Policy(custom_element_check=lambda tag: tag == "x-card"), id="custom-element-check"),
+    ],
+)
+def test_attribute_compaction_report_matches_sanitize(policy: Policy, callbacks: Policy) -> None:
+    attribute_filter, custom_element_check = callbacks.attribute_filter, callbacks.custom_element_check
+    sanitizer: Final = Sanitizer(
+        replace(policy, attribute_filter=attribute_filter, custom_element_check=custom_element_check)
+    )
+    attributes: Final = "".join(f' bad-{index}="x"' for index in range(4_096))
+    html: Final = f'<a{attributes} href="/safe">x</a>'
+    out, removed = sanitizer.sanitize_report(html)
+    assert (out, sanitizer.sanitize(html)) == ('<a href="/safe">x</a>', '<a href="/safe">x</a>')
+    assert removed == [Removed("a", f"bad-{index}") for index in range(4_096)]
+
+
+def test_attribute_compaction_custom_check_drops(policy: Policy) -> None:
+    parts: Final = [f' bad-{index}="x"' for index in range(32)]
+    parts[7] = ' bad-7="x" is="x"'
+    attributes: Final = "".join(parts)
+    sanitizer: Final = Sanitizer(
+        replace(
+            policy,
+            custom_element_check=lambda tag: tag == "x-card",
+            custom_attribute_check=lambda _tag, name: name == "bad-7",
+        )
+    )
+    assert sanitizer.sanitize_report(f"<x-card{attributes}>x</x-card>") == (
+        '<x-card bad-7="x">x</x-card>',
+        [Removed("x-card", name) for name in (*(f"bad-{index}" for index in range(7)), "is")]
+        + [Removed("x-card", f"bad-{index}") for index in range(8, 32)],
+    )
+
+
+def test_attribute_compaction_custom_check_raises(policy: Policy) -> None:
+    def boom(_tag: str, name: str) -> bool:
+        raise ValueError(name)
+
+    attributes: Final = "".join(f' bad-{index}="x"' for index in range(32))
+    sanitizer: Final = Sanitizer(
+        replace(policy, custom_element_check=lambda tag: tag == "x-card", custom_attribute_check=boom)
+    )
+    with pytest.raises(ValueError, match="bad-0"):
+        sanitizer.sanitize(f"<x-card{attributes}>x</x-card>")
+
+
+@pytest.mark.parametrize(
+    "callbacks",
+    [
+        pytest.param(Policy(), id="report"),
+        pytest.param(Policy(attribute_filter=lambda _tag, _name, value: value), id="attribute-filter"),
+    ],
+)
+def test_attribute_compaction_report_is_linear(policy: Policy, callbacks: Policy, work_steps: WorkSteps) -> None:
+    sanitizer: Final = Sanitizer(replace(policy, attribute_filter=callbacks.attribute_filter))
+
+    def markup(count: int) -> str:
+        attributes: Final = "".join(f' bad-{index:x}="x"' for index in range(count))
+        return f'<a{attributes} href="/safe">x</a>'
+
+    work_steps.assert_linear(lambda n: partial(sanitizer.sanitize_report, markup(n)), (500, 2000))
+    assert sanitizer.sanitize_report(markup(500))[0] == '<a href="/safe">x</a>'
+
+
 def test_attribute_compaction_filter_order(policy: Policy) -> None:
     names: Final[list[str]] = []
 
@@ -1974,14 +2808,22 @@ def test_attribute_compaction_filter_order(policy: Policy) -> None:
     assert names == [f"data-{index}" for index in range(32)]
 
 
-@pytest.mark.parametrize("prefix", ["bad-", "data-"], ids=["custom-attributes", "custom-element"])
-def test_attribute_compaction_custom_checks(policy: Policy, prefix: str) -> None:
+@pytest.mark.parametrize(
+    ("prefix", "custom_attribute_check"),
+    [
+        pytest.param("bad-", lambda _tag, name: name.startswith("bad-"), id="custom-attributes"),
+        pytest.param("data-", None, id="custom-element"),
+    ],
+)
+def test_attribute_compaction_custom_checks(
+    policy: Policy, prefix: str, custom_attribute_check: Callable[[str, str], bool] | None
+) -> None:
     attributes: Final = "".join(f' {prefix}{index}="x"' for index in range(32))
     sanitizer: Final = Sanitizer(
         replace(
             policy,
             custom_element_check=lambda tag: tag == "x-card",
-            custom_attribute_check=(lambda _tag, name: name.startswith("bad-")) if prefix == "bad-" else None,
+            custom_attribute_check=custom_attribute_check,
         )
     )
     assert sanitizer.sanitize(f"<x-card{attributes}>x</x-card>") == f"<x-card{attributes}>x</x-card>"
@@ -2009,7 +2851,7 @@ def test_attribute_compaction_value_rewrites(policy: Policy, attribute: str, exp
 
 
 def test_attribute_compaction_copies_source(policy: Policy) -> None:
-    html: Final = "<a" + "".join(f' bad-{index}="x"' for index in range(32)) + ' href="/safe">x</a>'
+    html: Final = f"""<a{"".join(f' bad-{index}="x"' for index in range(32))} href="/safe">x</a>"""
     source: Final = parse_fragment(html)
     sanitized: Final = Sanitizer(policy).sanitize_node(source)
     assert (source.inner_html, sanitized.inner_html) == (html, '<a href="/safe">x</a>')
@@ -2019,13 +2861,16 @@ def test_attribute_compaction_copies_source(policy: Policy) -> None:
     ("case", "expected"),
     [
         pytest.param(0, "<p>x</p>", id="rejected"),
-        pytest.param(1, "<p" + "".join(f' data-{index}="x"' for index in range(1_024)) + ">x</p>", id="allowed"),
+        pytest.param(1, f"""<p{"".join(f' data-{index}="x"' for index in range(1_024))}>x</p>""", id="allowed"),
         pytest.param(2, '<p data-a="x" data-b="x" data-c="x" data-d="x">x</p>', id="tiny"),
     ],
 )
 def test_sanitize_attribute_benchmark(case: int, expected: str) -> None:
     sanitizer: Final = Sanitizer(Policy(tags=frozenset({"p"}), attribute_prefixes=frozenset({"data-"})))
     assert sanitizer.sanitize(cast("str", INPUTS["sanitize-attributes"]()[case][1])) == expected
+
+
+_TEST_CUSTOM_ELEMENT_PREDICATE_PATTERN: Final[re.Pattern[str]] = re.compile(r"^x-a$")
 
 
 @pytest.mark.parametrize(
@@ -2045,7 +2890,7 @@ def test_sanitize_attribute_benchmark(case: int, expected: str) -> None:
         ),
         pytest.param(
             "<x-a>a</x-a><x-b>b</x-b>",
-            lambda tag: bool(re.search(r"^x-a$", tag)),
+            lambda tag: bool(_TEST_CUSTOM_ELEMENT_PREDICATE_PATTERN.search(tag)),
             "<x-a>a</x-a>&lt;x-b&gt;b&lt;/x-b&gt;",
             id="regex-search-drives-the-predicate",
         ),
@@ -2070,13 +2915,8 @@ def test_sanitize_attribute_benchmark(case: int, expected: str) -> None:
     ],
 )
 def test_custom_element_predicate(html: str, check: Callable[[str], bool], expected: str) -> None:
-    """An unlisted basic custom element is kept when the matcher admits its name, and escaped otherwise."""
+    # An unlisted basic custom element is kept when the matcher admits its name, and escaped otherwise.
     assert sanitize(html, Policy(tags=frozenset(), custom_element_check=check)) == expected
-
-
-def _admit_all() -> Policy:
-    """A policy whose only allowance is a matcher that keeps every custom-element name it is asked about."""
-    return Policy(tags=frozenset(), custom_element_check=lambda _tag: True)
 
 
 @pytest.mark.parametrize(
@@ -2088,9 +2928,14 @@ def _admit_all() -> Policy:
     ],
 )
 def test_custom_element_name_accepts_name_characters(tag: str) -> None:
-    """The grammar admits ``[.\\w]`` characters between and after dashes, so each of these is a custom element."""
+    # The grammar admits ``[.\\w]`` characters between and after dashes, so each of these is a custom element.
     html = f"<{tag}>x</{tag}>"
     assert sanitize(html, _admit_all()) == html
+
+
+def _admit_all() -> Policy:
+    # A policy whose only allowance is a matcher that keeps every custom-element name it is asked about.
+    return Policy(tags=frozenset(), custom_element_check=lambda _tag: True)
 
 
 @pytest.mark.parametrize(
@@ -2102,13 +2947,13 @@ def test_custom_element_name_accepts_name_characters(tag: str) -> None:
     ],
 )
 def test_custom_element_name_rejects_malformed_names(tag: str) -> None:
-    """A non-name character, a doubled dash, or a trailing dash disqualifies a name, so the matcher never sees it."""
+    # A non-name character, a doubled dash, or a trailing dash disqualifies a name, so the matcher never sees it.
     html = f"<{tag}>x</{tag}>"
     assert sanitize(html, _admit_all()) != html
 
 
 def test_custom_attribute_check_keeps_matching_and_drops_others() -> None:
-    """On a kept custom element, only attributes the attribute matcher admits survive; the rest are stripped."""
+    # On a kept custom element, only attributes the attribute matcher admits survive; the rest are stripped.
     policy = Policy(
         tags=frozenset(),
         custom_element_check=lambda _tag: True,
@@ -2118,7 +2963,7 @@ def test_custom_attribute_check_keeps_matching_and_drops_others() -> None:
 
 
 def test_custom_attribute_check_default_keeps_only_allowlisted() -> None:
-    """Without an attribute matcher, a kept custom element keeps only the attributes ``attributes`` allowlists."""
+    # Without an attribute matcher, a kept custom element keeps only the attributes ``attributes`` allowlists.
     policy = Policy(
         tags=frozenset(),
         attributes={"my-el": frozenset({"title"})},
@@ -2128,7 +2973,7 @@ def test_custom_attribute_check_default_keeps_only_allowlisted() -> None:
 
 
 def test_custom_attribute_check_applies_to_an_allowlisted_custom_element() -> None:
-    """A custom element admitted by ``tags`` still routes its unlisted attributes through the attribute matcher."""
+    # A custom element admitted by ``tags`` still routes its unlisted attributes through the attribute matcher.
     policy = Policy(
         tags=frozenset({"my-el"}),
         custom_element_check=lambda _tag: True,
@@ -2146,7 +2991,7 @@ def test_custom_attribute_check_applies_to_an_allowlisted_custom_element() -> No
     ],
 )
 def test_allow_customized_builtins(html: str, expected: str) -> None:
-    """With ``allow_customized_builtins``, an ``is`` attribute survives only when its value names a custom element."""
+    # With ``allow_customized_builtins``, an ``is`` attribute survives only when its value names a custom element.
     policy = Policy(
         tags=frozenset({"button"}),
         custom_element_check=lambda tag: tag == "my-button",
@@ -2156,14 +3001,14 @@ def test_allow_customized_builtins(html: str, expected: str) -> None:
 
 
 def test_is_attribute_is_dropped_without_allow_customized_builtins() -> None:
-    """The ``is`` attribute is not special unless ``allow_customized_builtins`` is on, so it is stripped by default."""
+    # The ``is`` attribute is not special unless ``allow_customized_builtins`` is on, so it is stripped by default.
     policy = Policy(tags=frozenset({"button"}), custom_element_check=lambda _tag: True)
     assert sanitize('<button is="my-button">x</button>', policy) == "<button>x</button>"
 
 
 def test_the_is_rule_only_touches_a_valued_is_on_a_configured_policy() -> None:
-    """Only a two-character ``is`` with a value is special: every other unlisted attribute drops as usual, and the
-    rule stays inert without a custom-element matcher to test the value against."""
+    # Only a two-character ``is`` with a value is special: every other unlisted attribute drops as usual, and the
+    # rule stays inert without a custom-element matcher to test the value against.
     configured = Policy(
         tags=frozenset({"button"}),
         custom_element_check=lambda tag: tag == "my-button",
@@ -2191,7 +3036,7 @@ def test_the_is_rule_only_touches_a_valued_is_on_a_configured_policy() -> None:
     ],
 )
 def test_baseline_holds_on_custom_elements(html: str, expected: str) -> None:
-    """The non-configurable safety baseline still scrubs a kept custom element and its subtree."""
+    # The non-configurable safety baseline still scrubs a kept custom element and its subtree.
     policy = Policy(
         tags=frozenset({"a"}),
         attributes={"a": frozenset({"href"})},
@@ -2203,14 +3048,16 @@ def test_baseline_holds_on_custom_elements(html: str, expected: str) -> None:
 
 
 def test_a_custom_matcher_never_keeps_an_unsafe_tag() -> None:
-    """An unsafe raw-text tag is escaped regardless of the custom-element matcher, since it never reaches it."""
+    # An unsafe raw-text tag is escaped regardless of the custom-element matcher, since it never reaches it.
     policy = Policy(tags=frozenset(), custom_element_check=lambda _tag: True)
     assert sanitize("<my-script>x</my-script>", policy) == "<my-script>x</my-script>"
     assert "&lt;script&gt;" in sanitize("<script>x</script>", policy)
 
 
-_PROFILE_HTML = "<b>h</b><svg><circle></circle></svg><math><mi>m</mi></math>"
-_PROFILE_TAGS = frozenset({"b", "svg", "circle", "math", "mi"})
+_PROFILE_HTML: Final[str] = "<b>h</b><svg><circle></circle></svg><math><mi>m</mi></math>"
+
+
+_PROFILE_TAGS: Final[frozenset[str]] = frozenset({"b", "svg", "circle", "math", "mi"})
 
 
 @pytest.mark.parametrize(
@@ -2228,21 +3075,21 @@ _PROFILE_TAGS = frozenset({"b", "svg", "circle", "math", "mi"})
     ],
 )
 def test_content_profiles(policy: Policy, keeps: str, drops: str) -> None:
-    """Each namespace gate keeps its own content and drops the disabled namespace even when its tags are allowlisted."""
+    # Each namespace gate keeps its own content and drops the disabled namespace even when its tags are allowlisted.
     result = sanitize(_PROFILE_HTML, policy)
     assert keeps in result
     assert drops not in result
 
 
 def test_all_profiles_on_by_default_keep_every_namespace() -> None:
-    """The default gates keep HTML, SVG, and MathML together, so an allowlist governs each namespace as before."""
+    # The default gates keep HTML, SVG, and MathML together, so an allowlist governs each namespace as before.
     result = sanitize(_PROFILE_HTML, Policy(tags=_PROFILE_TAGS))
     assert "<circle>" in result
     assert "<mi>" in result
 
 
 def test_a_disabled_namespace_ignores_a_matching_custom_element() -> None:
-    """A foreign element never reaches the custom-element matcher, and a disabled HTML namespace short-circuits it."""
+    # A foreign element never reaches the custom-element matcher, and a disabled HTML namespace short-circuits it.
     svg = Policy(tags=frozenset({"svg", "circle"}), custom_element_check=lambda _tag: True)
     assert sanitize("<svg><circle></circle></svg>", svg) == "<svg><circle></circle></svg>"
     no_html = Policy(tags=frozenset(), allow_html=False, custom_element_check=lambda _tag: True)
@@ -2250,8 +3097,7 @@ def test_a_disabled_namespace_ignores_a_matching_custom_element() -> None:
 
 
 def test_a_raising_element_matcher_propagates() -> None:
-    """An exception from the custom-element matcher surfaces to the caller rather than being swallowed."""
-
+    # An exception from the custom-element matcher surfaces to the caller rather than being swallowed.
     def boom(_tag: str) -> bool:
         msg = "element"
         raise ValueError(msg)
@@ -2261,8 +3107,7 @@ def test_a_raising_element_matcher_propagates() -> None:
 
 
 def test_a_raising_attribute_matcher_propagates() -> None:
-    """An exception from the attribute matcher surfaces to the caller."""
-
+    # An exception from the attribute matcher surfaces to the caller.
     def boom(_tag: str, _name: str) -> bool:
         msg = "attribute"
         raise ValueError(msg)
@@ -2277,8 +3122,7 @@ def test_a_raising_attribute_matcher_propagates() -> None:
 
 
 def test_a_raising_is_matcher_propagates() -> None:
-    """An exception from the matcher while checking an ``is`` value surfaces to the caller."""
-
+    # An exception from the matcher while checking an ``is`` value surfaces to the caller.
     def boom(_tag: str) -> bool:
         msg = "is-value"
         raise ValueError(msg)
@@ -2289,16 +3133,22 @@ def test_a_raising_is_matcher_propagates() -> None:
         sanitize('<button is="custom-name">x</button>', policy)
 
 
-_ALLOW = {
+_ALLOW: Final[dict[str, frozenset[str]]] = {
     "a": frozenset({"id", "href", "hx"}),
     "form": frozenset({"name"}),
     "input": frozenset({"name", "id"}),
     "img": frozenset({"name", "src"}),
     "p": frozenset({"id", "class"}),
 }
-_TAGS = frozenset({"a", "form", "input", "img", "p"})
-_ON = Policy(tags=_TAGS, attributes=_ALLOW, isolate_named_props=True)
-_OFF = Policy(tags=_TAGS, attributes=_ALLOW)
+
+
+_TAGS: Final[frozenset[str]] = frozenset({"a", "form", "input", "img", "p"})
+
+
+_ON: Final[Policy] = Policy(tags=_TAGS, attributes=_ALLOW, isolate_named_props=True)
+
+
+_OFF: Final[Policy] = Policy(tags=_TAGS, attributes=_ALLOW)
 
 
 @pytest.mark.parametrize(
@@ -2373,45 +3223,20 @@ def test_isolate_named_props_keeps_safety_baseline() -> None:
 
 
 # The set of tags the reachability check reasons over, allowed together so only the namespace relationship can drop one.
-_FOREIGN_TAGS = frozenset({"svg", "math", "foreignObject", "annotation-xml", "mtext", "circle", "p", "b", "i"})
-_FOREIGN_POLICY = Policy(tags=_FOREIGN_TAGS, attributes={"annotation-xml": frozenset({"encoding"})})
+_FOREIGN_TAGS: Final[frozenset[str]] = frozenset({
+    "svg",
+    "math",
+    "foreignObject",
+    "annotation-xml",
+    "mtext",
+    "circle",
+    "p",
+    "b",
+    "i",
+})
 
 
-def _find(root: Element, tag: str, namespace: str | None = None) -> Element:
-    """Return the first element named ``tag`` (optionally in ``namespace``) in document order."""
-    queue: list[Element] = list(getattr(root, "children", ()))
-    while queue:
-        node = queue.pop(0)
-        if isinstance(node, Element) and node.tag == tag and (namespace is None or node.namespace.value == namespace):
-            return node
-        queue[0:0] = list(getattr(node, "children", ()))
-    msg = f"no {tag!r} element found"
-    raise AssertionError(msg)
-
-
-def _sanitize_tree(root: Element, tags: frozenset[str]) -> str:
-    # named to keep the boolean positional arguments off the FBT003 lint, not to document them
-    allow_relative = strip_comments = True
-    allow_fragments = strip_templates = isolate_named_props = allow_customized_builtins = bleach_url_policy = False
-    xml = False
-    allow_html = allow_svg = allow_mathml = True
-    empty: frozenset[str] = frozenset()
-    schemes = frozenset({"http", "https", "mailto"})
-    original = root.inner_html
-    sanitized = _sanitize(
-        root, tags, {}, schemes, allow_relative, allow_fragments, OnDisallowed.REMOVE.value, strip_comments,
-        None, None, {}, empty,
-        empty, empty, {}, empty, strip_templates, None, {}, {}, isolate_named_props, None, None,
-        allow_customized_builtins, allow_html, allow_svg, allow_mathml, None, bleach_url_policy, xml,
-    )  # fmt: skip
-    assert root.inner_html == original
-    return sanitized.inner_html
-
-
-def test_find_helper_reports_a_missing_element() -> None:
-    """The navigation helper fails loudly rather than returning None when a case names a tag that is not present."""
-    with pytest.raises(AssertionError, match="no 'span' element"):
-        _find(parse_fragment("<div></div>"), "span")
+_FOREIGN_POLICY: Final[Policy] = Policy(tags=_FOREIGN_TAGS, attributes={"annotation-xml": frozenset({"encoding"})})
 
 
 @pytest.mark.parametrize(
@@ -2440,55 +3265,68 @@ def test_find_helper_reports_a_missing_element() -> None:
     ],
 )
 def test_namespace_reachable_foreign_content_untouched(html: str, policy: Policy) -> None:
-    """Every namespace transition the parser produces is reachable, so the check leaves valid foreign content as-is."""
+    # Every namespace transition the parser produces is reachable, so the check leaves valid foreign content as-is.
     assert sanitize(html, policy) == parse_fragment(html).inner_html
 
 
-# Each case parses valid markup, then moves a real foreign/HTML node under a parent the parser would never give it,
-# producing a namespace-confused node the reachability check must drop. move is (source, source-namespace, target):
-# source-namespace disambiguates a name that exists in more than one namespace. marker is the node's start tag, absent
-# once it is dropped and present while correctly nested.
-_CONFUSION_CASES = [
-    pytest.param(
-        "<div></div><svg><circle></circle></svg>", ("circle", "svg", "div"), {"div", "svg", "circle"}, "<circle",
-        id="svg-element-reparented-under-html",
-    ),
-    pytest.param(
-        "<math><mrow></mrow></math><svg></svg>", ("svg", "svg", "mrow"), {"math", "mrow", "svg"}, "<svg",
-        id="svg-under-non-integration-mathml",
-    ),
-    pytest.param(
-        "<div></div><math><mrow></mrow></math>", ("mrow", "math", "div"), {"div", "math", "mrow"}, "<mrow",
-        id="mathml-element-reparented-under-html",
-    ),
-    pytest.param(
-        "<math></math><svg><g></g></svg>", ("math", "math", "g"), {"math", "svg", "g"}, "<math",
-        id="math-under-non-integration-svg",
-    ),
-    pytest.param(
-        "<svg><g></g></svg><p></p>", ("p", "html", "g"), {"svg", "g", "p"}, "<p",
-        id="html-under-non-integration-svg",
-    ),
-    pytest.param(
-        "<math><mrow></mrow></math><p></p>", ("p", "html", "mrow"), {"math", "mrow", "p"}, "<p",
-        id="html-under-non-integration-mathml",
-    ),
-]  # fmt: skip
+_ENCODING_POLICY: Final[Policy] = Policy(
+    tags=frozenset({"math", "annotation-xml", "b", "i"}), attributes={"annotation-xml": frozenset({"encoding"})}
+)
 
 
-@pytest.mark.parametrize(("html", "move", "tags", "marker"), _CONFUSION_CASES)
-def test_namespace_confusion_is_dropped(
-    html: str, move: tuple[str, str, str], tags: frozenset[str], marker: str
-) -> None:
-    """A node reparented into an unreachable namespace is dropped, while the same node correctly nested is kept."""
-    assert marker in _sanitize_tree(parse_fragment(html), tags)  # correctly nested: the policy keeps it
-    source, source_ns, target = move
-    root = parse_fragment(html)
-    _find(root, target).append(_find(root, source, source_ns))
-    assert marker not in _sanitize_tree(root, tags)  # confused by the move: the reachability check drops it
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        pytest.param(
+            '<math><annotation-xml encoding="text/html"><b>x</b><i>y</i></annotation-xml></math>',
+            '<math><annotation-xml encoding="text/html"><b>x</b><i>y</i></annotation-xml></math>',
+            id="text-html",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="application/xhtml+xml"><b>x</b><i>y</i></annotation-xml></math>',
+            '<math><annotation-xml encoding="application/xhtml+xml"><b>x</b><i>y</i></annotation-xml></math>',
+            id="application-xhtml-xml",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="TEXT/HTML"><b>x</b><i>y</i></annotation-xml></math>',
+            '<math><annotation-xml encoding="TEXT/HTML"><b>x</b><i>y</i></annotation-xml></math>',
+            id="text-html-case-folded",
+        ),
+        pytest.param(
+            "<math><annotation-xml><b>x</b><i>y</i></annotation-xml></math>",
+            "<math><annotation-xml></annotation-xml></math><b>x</b><i>y</i>",
+            id="no-encoding",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="text/xml"><b>x</b><i>y</i></annotation-xml></math>',
+            '<math><annotation-xml encoding="text/xml"></annotation-xml></math><b>x</b><i>y</i>',
+            id="other-encoding",
+        ),
+    ],
+)
+def test_annotation_xml_encoding_selects_integration_point(html: str, expected: str) -> None:
+    assert sanitize(html, _ENCODING_POLICY) == expected
 
 
-_ANNOTATION_TAGS: Final = frozenset({"math", "annotation-xml", "style", "b"})
+@pytest.mark.parametrize(
+    "encoding",
+    [
+        pytest.param(' ENCODING="Text/HTML"', id="text-html"),
+        pytest.param(' Encoding="Application/XHTML+XML"', id="application-xhtml-xml"),
+    ],
+)
+def test_annotation_xml_integration_check_is_linear_in_children(encoding: str, work_steps: WorkSteps) -> None:
+    policy: Final = replace(_ENCODING_POLICY, attribute_prefixes=frozenset({"data-"}))
+
+    def markup(count: int) -> str:
+        attributes = " ".join(f"data-{index:x}" for index in range(count))
+        return f"<math><annotation-xml {attributes}{encoding}>{'tx<b>n</b>' * count}"
+
+    work_steps.assert_linear(lambda n: partial(sanitize, markup(n), policy), (500, 2000))
+    assert work_steps(partial(sanitize, markup(500), policy)) >= 500
+
+
+_ANNOTATION_TAGS: Final[frozenset[str]] = frozenset({"math", "annotation-xml", "style", "b"})
 
 
 @pytest.mark.parametrize(
@@ -2520,14 +3358,8 @@ _ANNOTATION_TAGS: Final = frozenset({"math", "annotation-xml", "style", "b"})
     ],
 )
 def test_annotation_xml_integration_follows_kept_encoding(html: str, policy: Policy, expected: str) -> None:
-    """annotation-xml keeps HTML children only while its serialized encoding makes it an integration point."""
+    # annotation-xml keeps HTML children only while its serialized encoding makes it an integration point.
     assert sanitize(html, policy) == expected
-
-
-def test_annotation_xml_bare_encoding_is_not_integration_point() -> None:
-    root = parse_fragment("<math><annotation-xml encoding></annotation-xml></math><b>hi</b>")
-    _find(root, "annotation-xml").append(_find(root, "b"))
-    assert _sanitize_tree(root, _ANNOTATION_TAGS) == "<math><annotation-xml></annotation-xml></math>"
 
 
 @pytest.mark.parametrize(
@@ -2552,7 +3384,7 @@ def test_annotation_xml_bare_encoding_is_not_integration_point() -> None:
     ],
 )
 def test_html_mglyph_under_mathml_text_point_is_unreachable(html: str, expected: str) -> None:
-    """A text integration point parses mglyph/malignmark as MathML, so an HTML-namespace one there is not kept."""
+    # A text integration point parses mglyph/malignmark as MathML, so an HTML-namespace one there is not kept.
     policy = Policy(tags=frozenset({"math", "mi", "mtext", "mglyph", "malignmark", "style", "b"}))
     assert sanitize(html, policy) == expected
 
@@ -2593,7 +3425,7 @@ def test_html_mglyph_under_mathml_text_point_is_unreachable(html: str, expected:
     ],
 )
 def test_escape_rechecks_children_hoisted_into_foreign_parent(html: str, tags: set[str], expected: str) -> None:
-    """Escaping an integration point escapes the HTML children it would otherwise leave directly under SVG/MathML."""
+    # Escaping an integration point escapes the HTML children it would otherwise leave directly under SVG/MathML.
     assert sanitize(html, Policy(tags=frozenset(tags))) == expected
 
 
@@ -2607,12 +3439,11 @@ def test_escape_reports_hoisted_children_it_escapes() -> None:
     assert removed == [Removed("desc"), Removed("b")]
 
 
-_POST = "<p onclick='x'>Hi <b>there</b> <script>evil()</script></p>"
+_POST: Final[str] = "<p onclick='x'>Hi <b>there</b> <script>evil()</script></p>"
 
 
 def test_node_form_returns_a_sanitized_copy_of_the_same_kind() -> None:
-    root = parse_fragment(_POST)
-    clean = assert_type(sanitize_node(root, Policy.relaxed()), Element)
+    clean = assert_type(sanitize_node(parse_fragment(_POST), Policy.relaxed()), Element)
     assert isinstance(clean, Element)
     assert clean.inner_html == sanitize(_POST, Policy.relaxed())
 
@@ -2652,15 +3483,6 @@ def test_the_copy_inherits_the_xml_flag() -> None:
     assert clean.inner_xml == "<b/>x"
 
 
-def _xml_case_policy(*tags: str, isolate_named_props: bool = False) -> Policy:
-    return Policy(
-        tags=frozenset({"div", *tags}),
-        attributes=MappingProxyType({"*": frozenset({"*"})}),
-        css_properties=frozenset({"color"}),
-        isolate_named_props=isolate_named_props,
-    )
-
-
 @pytest.mark.parametrize(
     ("xml", "expected"),
     [
@@ -2680,6 +3502,15 @@ def _xml_case_policy(*tags: str, isolate_named_props: bool = False) -> Policy:
 def test_sanitize_xml_attribute_checks_ignore_case(xml: str, expected: str) -> None:
     # the HTML parser lowercases these names when it reads the output back, so the baseline must match them any case
     assert sanitize(parse_xml(xml), _xml_case_policy()) == expected
+
+
+def _xml_case_policy(*tags: str, isolate_named_props: bool = False) -> Policy:
+    return Policy(
+        tags=frozenset({"div", *tags}),
+        attributes=MappingProxyType({"*": frozenset({"*"})}),
+        css_properties=frozenset({"color"}),
+        isolate_named_props=isolate_named_props,
+    )
 
 
 def test_sanitize_xml_isolates_upper_case_id() -> None:
@@ -2721,6 +3552,20 @@ def test_sanitize_xml_svg_animation_is_judged_as_reparsed(xml: str, expected: st
 def test_sanitize_xml_scrubs_allowed_upper_case_style_element() -> None:
     xml = "<div><STYLE>p{color:red;position:fixed}</STYLE></div>"
     assert sanitize(parse_xml(xml), _xml_case_policy("STYLE")) == "<div><STYLE>p{color:red;}</STYLE></div>"
+
+
+@pytest.mark.parametrize("tag", ["TextArea", "SVG", "Math"])
+def test_sanitize_xml_style_element_inside_reparsed_container_is_not_kept(tag: str) -> None:
+    # the HTML parser reads these names back as a textarea and as the foreign roots, whatever their case
+    xml = f"<div><{tag}><STYLE>p{{color:red}}</STYLE></{tag}></div>"
+    expected = f"<div><{tag}>&lt;STYLE&gt;p{{color:red}}&lt;/STYLE&gt;</{tag}></div>"
+    assert sanitize(parse_xml(xml), _xml_case_policy(tag, "STYLE")) == expected
+
+
+def test_sanitize_xml_style_element_inside_select_is_not_kept() -> None:
+    xml = "<div><SELECT><STYLE>p{color:red}</STYLE></SELECT></div>"
+    expected = "<div><SELECT>&lt;STYLE&gt;p{color:red}&lt;/STYLE&gt;</SELECT></div>"
+    assert sanitize(parse_xml(xml), _xml_case_policy("SELECT", "STYLE")) == expected
 
 
 @pytest.mark.parametrize(
@@ -2817,6 +3662,34 @@ def test_the_string_forms_accept_a_node() -> None:
     assert sanitize_report(root, Policy.relaxed()) == sanitize_report(_POST, Policy.relaxed())
 
 
+@pytest.mark.parametrize(
+    "tag",
+    [pytest.param(tag, id=tag) for tag in ("xmp", "style", "script", "iframe", "noembed", "noframes", "plaintext")],
+)
+def test_the_string_forms_escape_the_text_of_a_raw_text_node(tag: str) -> None:
+    # the string leaves the node out, so text the node held verbatim as a raw-text element must not come back as markup
+    node = parse(f"<{tag} id=u><b class=c>one</b> two").select_one("#u")
+    assert node is not None
+    assert node.inner_html == "<b class=c>one</b> two"
+    escaped = "&lt;b class=c&gt;one&lt;/b&gt; two"
+    assert sanitize(node) == escaped
+    assert sanitize(node, Policy.strict()) == escaped
+    assert sanitize(node, Policy.relaxed()) == escaped
+    assert sanitize_report(node) == (escaped, [])
+
+
+def test_the_string_forms_keep_escaped_elements_escaped_under_a_raw_text_node() -> None:
+    # a built raw-text element can hold elements; one the policy escapes becomes text that has to stay escaped
+    node = E.style(E.hr({"title": "t"}), E.em("yo"))
+    assert sanitize(node) == '&lt;hr title="t"&gt;<em>yo</em>'
+
+
+def test_the_tree_form_keeps_a_raw_text_node_around_its_text() -> None:
+    node = parse("<xmp id=u><i>yo</i></xmp>").select_one("#u")
+    assert node is not None
+    assert sanitize_node(node).html == '<xmp id="u"><i>yo</i></xmp>'
+
+
 def test_the_report_form_pairs_the_copy_with_the_drops() -> None:
     clean, removed = assert_type(
         sanitize_report_node(parse_fragment(_POST), Policy.relaxed()), tuple[Element, list[Removed]]
@@ -2835,100 +3708,51 @@ def test_a_reusable_sanitizer_offers_both_node_forms() -> None:
     )
 
 
-@pytest.mark.parametrize("entry", [sanitize_node, sanitize_report_node], ids=["sanitize_node", "sanitize_report_node"])
-def test_the_node_forms_refuse_a_str(entry: object) -> None:
-    with pytest.raises(TypeError, match="pass a str to sanitize instead"):
-        entry(_POST)  # ty: ignore[call-non-callable]  # the argument check is the point
-
-
-@pytest.mark.parametrize("entry", [sanitize, sanitize_node], ids=["sanitize", "sanitize_node"])
-def test_a_foreign_object_is_rejected(entry: object) -> None:
-    with pytest.raises(TypeError):
-        entry(42)  # ty: ignore[call-non-callable]  # the argument check is the point
-
-
-_EMPTY = ({}, frozenset(), {}, {}, {}, {}, Transform)
-
-
-_Compiled = tuple[
-    dict[str, frozenset[str]],
-    str | None,
-    dict[str, dict[str, str]],
-    dict[str, dict[str, frozenset[str]]],
-    dict[str, dict[str, tuple[re.Pattern[str], ...]]],
-    dict[str, tuple[str, dict[str, str]]],
-]
-
-
-def _compile(**fields: object) -> _Compiled:
-    """Compile a policy built from the given fields, returning the six compiled forms."""
-    policy = Policy(**fields)  # ty: ignore[invalid-argument-type]  # each test passes a valid field
-    return _sanitize_policy(
-        policy.attributes,
-        policy.add_link_rel,
-        policy.set_attributes,
-        policy.attribute_values,
-        policy.allowed_styles,
-        policy.transform_tags,
-        Transform,
-    )
-
-
-def test_the_rel_value_is_sorted_and_space_joined() -> None:
-    assert _compile(add_link_rel=frozenset({"noreferrer", "noopener"}))[1] == "noopener noreferrer"
-
-
-def test_no_rel_tokens_is_none() -> None:
-    assert _compile(add_link_rel=frozenset())[1] is None
-
-
-def test_the_attributes_are_copied_into_a_dict() -> None:
-    copied = _compile(attributes={"a": frozenset({"href"})})[0]
-    assert copied == {"a": frozenset({"href"})}
-    assert isinstance(copied, dict)
-
-
-def test_value_sets_are_frozen_per_attribute() -> None:
-    assert _compile(attribute_values={"a": {"rel": ["nofollow", "ugc"]}})[3] == {
-        "a": {"rel": frozenset({"nofollow", "ugc"})}
-    }
-
-
-def test_set_attributes_are_copied_per_tag() -> None:
-    assert _compile(set_attributes={"a": {"target": "_blank"}})[2] == {"a": {"target": "_blank"}}
-
-
-def test_style_properties_are_lowercased_and_patterns_compiled() -> None:
-    styles = _compile(allowed_styles={"*": {"Color": ["^red$"]}})[4]
-    assert list(styles["*"]) == ["color"]
-    (pattern,) = styles["*"]["color"]
-    assert pattern.pattern == "^red$"
-
-
-def test_a_precompiled_pattern_is_kept_as_it_is() -> None:
-    ready = re.compile(r"^blue$")
-    assert _compile(allowed_styles={"p": {"color": [ready]}})[4]["p"]["color"] == (ready,)
-
-
-def test_a_bad_pattern_raises_the_regex_error() -> None:
-    with pytest.raises(re.error):
-        _compile(allowed_styles={"p": {"color": ["("]}})
+def test_the_node_form_gets_a_fragment_context_the_markup_could_not_touch() -> None:
+    # sanitize_node keeps the node it is given without judging it, so an <html> start tag in the untrusted markup must
+    # not have put its attributes on the context element parse_fragment returns
+    root = parse_fragment("<html hidden title=x>Nice <b>post</b>!")
+    assert sanitize_node(root).html == "<div>Nice <b>post</b>!</div>"
 
 
 @pytest.mark.parametrize(
-    ("target", "expected"),
+    "entry",
     [
-        pytest.param("em", ("em", {}), id="a-bare-rename"),
-        pytest.param(Transform("div", {"class": "c"}), ("div", {"class": "c"}), id="a-transform-with-attributes"),
+        pytest.param(sanitize_node, id="sanitize_node"),
+        pytest.param(lambda node, policy: sanitize_report_node(node, policy)[0], id="sanitize_report_node"),
     ],
 )
-def test_transform_rules_normalize(target: str | Transform, expected: tuple[str, dict[str, str]]) -> None:
-    assert _compile(transform_tags={"i": target})[5] == {"i": expected}
+def test_the_node_forms_return_a_shadow_root_as_a_plain_fragment(entry: Callable[[Node, Policy], Node]) -> None:
+    # the sanitized copy has no host in its own tree, so it comes back as the fragment a shadow root is without one
+    host = parse('<div><template shadowrootmode="open"><b onclick="x()">1</b><i>2</i></template></div>').find("div")
+    assert host is not None
+    assert host.shadow_root is not None
+    clean = entry(host.shadow_root, Policy.relaxed())
+    assert type(clean) is DocumentFragment
+    clean.append(clean.children[0])
+    assert clean.html == "<i>2</i><b>1</b>"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [pytest.param(sanitize_node, id="sanitize_node"), pytest.param(sanitize_report_node, id="sanitize_report_node")],
+)
+def test_the_node_forms_refuse_a_str(entry: Callable[[Node], object]) -> None:
+    with pytest.raises(TypeError, match="pass a str to sanitize instead"):
+        entry(_POST)  # ty: ignore[invalid-argument-type]  # the argument check is the point
+
+
+@pytest.mark.parametrize(
+    "entry", [pytest.param(sanitize, id="sanitize"), pytest.param(sanitize_node, id="sanitize_node")]
+)
+def test_a_foreign_object_is_rejected(entry: Callable[[str | Node], object]) -> None:
+    with pytest.raises(TypeError):
+        entry(42)  # ty: ignore[invalid-argument-type]  # the argument check is the point
 
 
 def test_a_transform_target_must_be_a_str_or_transform() -> None:
     with pytest.raises(TypeError, match="transform_tags\\['i'\\] must be a str or Transform, got int"):
-        Sanitizer(Policy(transform_tags={"i": 5}))  # ty: ignore[invalid-argument-type]  # the check is the point
+        Sanitizer(Policy(transform_tags={"i": 5}))  # ty: ignore[invalid-argument-type]  # tests the public guard
 
 
 @pytest.mark.parametrize(
@@ -2939,76 +3763,12 @@ def test_a_transform_target_tag_must_be_non_empty(target: str | Transform) -> No
         Sanitizer(Policy(transform_tags={"i": target}))
 
 
-def test_the_compiler_rejects_a_non_mapping() -> None:
-    with pytest.raises(TypeError):
-        _sanitize_policy(5, *_EMPTY[1:])  # ty: ignore[invalid-argument-type]  # the argument check is the point
-
-
-def test_the_compiler_rejects_a_non_mapping_nest() -> None:
-    with pytest.raises(AttributeError, match="items"):
-        _sanitize_policy({}, frozenset(), {"a": 5}, {}, {}, {}, Transform)  # ty: ignore[invalid-argument-type]
-
-
-def test_the_compiler_rejects_a_non_mapping_table() -> None:
-    with pytest.raises(AttributeError, match="items"):
-        _sanitize_policy({}, frozenset(), 5, {}, {}, {}, Transform)  # ty: ignore[invalid-argument-type]
-
-
-def test_the_compiler_rejects_a_non_iterable_rel() -> None:
-    with pytest.raises(TypeError):
-        _sanitize_policy({}, 5, {}, {}, {}, {}, Transform)  # ty: ignore[invalid-argument-type]
-
-
-def test_rel_tokens_of_mixed_types_cannot_be_sorted() -> None:
-    with pytest.raises(TypeError):
-        _sanitize_policy({}, {"a", 1}, {}, {}, {}, {}, Transform)  # ty: ignore[invalid-argument-type]
-
-
-def test_a_style_pattern_list_must_be_iterable() -> None:
-    with pytest.raises(TypeError):
-        _compile(allowed_styles={"p": {"color": 5}})
-
-
-def test_a_style_property_must_be_a_str() -> None:
-    with pytest.raises(AttributeError, match="lower"):
-        _compile(allowed_styles={"p": {5: []}})
-
-
-def test_a_transform_table_must_be_a_mapping() -> None:
-    with pytest.raises(AttributeError, match="items"):
-        _sanitize_policy({}, frozenset(), {}, {}, {}, 5, Transform)  # ty: ignore[invalid-argument-type]
-
-
-class _TagOnly:
-    """A transform-like object carrying a tag but no attributes, the way a caller's own record might."""
-
-    tag = "em"
-
-
-class _Bare:
-    """A transform-like object carrying neither field."""
-
-
-@pytest.mark.parametrize(
-    ("target", "missing"),
-    [pytest.param(_TagOnly(), "attributes", id="no-attributes"), pytest.param(_Bare(), "tag", id="no-tag")],
-)
-def test_a_transform_type_must_carry_both_fields(target: object, missing: str) -> None:
-    with pytest.raises(AttributeError, match=missing):
-        _sanitize_policy({}, frozenset(), {}, {}, {}, {"i": target}, type(target))  # ty: ignore[invalid-argument-type]
-
-
 def test_a_transform_tag_that_is_not_a_str_is_rejected() -> None:
     with pytest.raises(ValueError, match="target tag must be a non-empty string"):
-        Sanitizer(Policy(transform_tags={"i": Transform(5)}))  # ty: ignore[invalid-argument-type]
+        Sanitizer(Policy(transform_tags={"i": Transform(5)}))  # ty: ignore[invalid-argument-type]  # tests the public guard
 
 
-def test_the_compiler_rejects_too_few_arguments() -> None:
-    with pytest.raises(TypeError):
-        _sanitize_policy({}, frozenset())  # ty: ignore[missing-argument]  # the arity check is the point
-
-
-XSS_CORPUS = [
+_XSS_CORPUS: Final[list[pytest.ParameterSet]] = [
     pytest.param("<script>alert(1)</script>", id="script"),
     pytest.param("<scr<script>ipt>alert(1)</scr</script>ipt>", id="nested-script"),
     pytest.param("<img src=x onerror=alert(1)>", id="img-onerror"),
@@ -3053,7 +3813,8 @@ XSS_CORPUS = [
     pytest.param("<li><math><mtext><li>", id="li-math-mtext-nesting"),
 ]
 
-_MODES = [
+
+_MODES: Final[list[pytest.ParameterSet]] = [
     pytest.param(Policy(), id="escape"),
     pytest.param(Policy(on_disallowed_tag=OnDisallowed.STRIP), id="strip"),
     pytest.param(Policy(on_disallowed_tag=OnDisallowed.REMOVE), id="remove"),
@@ -3062,14 +3823,89 @@ _MODES = [
 ]
 
 
-@pytest.mark.parametrize("payload", XSS_CORPUS)
+@pytest.mark.parametrize("payload", _XSS_CORPUS)
 @pytest.mark.parametrize("policy", _MODES)
 def test_no_live_danger(payload: str, policy: Policy) -> None:
     danger = _live_danger(sanitize(payload, policy))
     assert danger == [], f"live XSS survived: {danger}"
 
 
-@pytest.mark.parametrize("payload", XSS_CORPUS)
+def _live_danger(html: str) -> list[str]:
+    # Reparse sanitized HTML and list every executable construct that survived; an empty list means inert.
+    survived: list[str] = []
+    stack = list(parse_fragment(html).children)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, Element):
+            if (element_hit := _dangerous_element(node)) is not None:
+                survived.append(element_hit)
+            survived.extend(
+                hit
+                for name, raw in node.attrs.items()
+                if (hit := _dangerous_attribute(name, _attr_value(raw))) is not None
+            )
+            stack.extend(node.children)
+    return survived
+
+
+def _dangerous_element(node: Element) -> str | None:
+    namespace = node.namespace.value
+    if namespace == "svg" and node.tag in frozenset({
+        "animate",
+        "animateColor",
+        "animateMotion",
+        "animateTransform",
+        "set",
+    }):
+        return _svg_animation_danger(node)
+    if node.tag == "script" and namespace in {"html", "svg"}:
+        return "<script>"
+    if node.tag == "style" and namespace in {"html", "svg"}:
+        return "style-body" if any(token in _style_body(node) for token in _DOMPURIFY_CSS_DANGER) else None
+    if node.tag not in _DOMPURIFY_DANGER_TAGS or namespace != "html":
+        return None
+    return f"<{node.tag}>"
+
+
+def _svg_animation_danger(node: Element) -> str | None:
+    attrs = {name.lower(): _attr_value(value) for name, value in node.attrs.items()}
+    target = attrs.get("attributename", "")
+    if target.startswith("on"):
+        return f"<{node.tag}>->{target}"
+    if target in _DOMPURIFY_URL_ATTRS:
+        for name in ("from", "to", "values"):
+            if any(_bad_scheme(value) for value in attrs.get(name, "").split(";")):
+                return f"<{node.tag}>->{target}"
+    return None
+
+
+def _bad_scheme(value: str) -> bool:
+    # Whether a URL value resolves to a script-capable scheme once the control/whitespace obfuscation is stripped.
+    return "".join(char for char in value if ord(char) > 0x20).startswith(("javascript:", "data:", "vbscript:"))
+
+
+def _style_body(element: Element) -> str:
+    # The lowercased text content of a ``<style>`` element (rawtext, so its children are text nodes).
+    return "".join(getattr(child, "data", "") for child in element.children).lower()
+
+
+def _dangerous_attribute(name: str, value: str) -> str | None:
+    # A label for an executable attribute: an ``on*`` handler, dangerous CSS on ``style``, or a scriptable URL.
+    if name.startswith("on"):
+        return f"@{name}"
+    if name == "style":
+        return "@style" if any(token in value for token in _DOMPURIFY_CSS_DANGER) else None
+    return f"{name}={value[:32]}" if name in _DOMPURIFY_URL_ATTRS and _bad_scheme(value) else None
+
+
+def _attr_value(raw: str | list[str] | None) -> str:
+    # The lowercased attribute value, joining a duplicate-attribute list and reading a boolean attr as empty.
+    if raw is None:
+        return ""
+    return (" ".join(raw) if isinstance(raw, list) else raw).lower()
+
+
+@pytest.mark.parametrize("payload", _XSS_CORPUS)
 @pytest.mark.parametrize("policy", _MODES)
 def test_round_trip_invariant(payload: str, policy: Policy) -> None:
     once = sanitize(payload, policy)
@@ -3080,7 +3916,7 @@ def test_round_trip_invariant(payload: str, policy: Policy) -> None:
 # cannot rebuild a different, live tree from it (the F-1 mXSS surface). Each case pins the exact output string and the
 # re-parse invariant, and names the tree-construction rule family it exercises. The script-bypass PoC is the headline:
 # two forms the form-element pointer would collapse on re-parse, re-exposing a MathML breakout into a live <img>.
-_PARSE_STABLE_CASES = [
+_PARSE_STABLE_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         "<li><header><li>", Policy(tags=frozenset({"li"})), "<li>&lt;header&gt;&lt;li&gt;</li>", id="li-auto-close"
     ),
@@ -3124,12 +3960,6 @@ _PARSE_STABLE_CASES = [
         id="table-text-foster-parented",
     ),
     pytest.param(
-        "<table><tr><td>1</td></tr></table>",
-        Policy(tags=frozenset({"table", "tr", "td"})),
-        "<table><tbody><tr><td>1</td></tr></tbody></table>",
-        id="table-implied-tbody",
-    ),
-    pytest.param(
         "<table><tr><td>x",
         Policy(tags=frozenset({"td"}), on_disallowed_tag=OnDisallowed.STRIP),
         "&lt;td&gt;x",
@@ -3161,6 +3991,74 @@ def test_sanitize_nested_option_under_kept_container_matches_string_path(contain
         expected,
         expected,
     )
+
+
+_NESTED_OPTION_CASES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(
+        "<option><table><optgroup><option>x<option>y",
+        Policy(tags=frozenset({"option", "optgroup", "table"})),
+        "<option>&lt;optgroup&gt;&lt;option&gt;x&lt;option&gt;y<table></table></option>",
+        id="option-run-behind-escaped-optgroup",
+    ),
+    pytest.param(
+        "<option><table><optgroup><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup", "table"})),
+        "<option>&lt;optgroup&gt;&lt;optgroup&gt;&lt;option&gt;x<table></table></option>",
+        id="optgroup-chain-behind-escaped-optgroup",
+    ),
+    pytest.param(
+        "<option><table><optgroup><option><select>",
+        Policy(tags=frozenset({"option", "optgroup", "table", "select"})),
+        "<option>&lt;optgroup&gt;&lt;option&gt;<select></select><table></table></option>",
+        id="option-with-select-behind-escaped-optgroup",
+    ),
+    pytest.param(
+        "<option><td><table><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup", "table", "td"})),
+        "<option>&lt;optgroup&gt;&lt;option&gt;x<table></table></option>",
+        id="option-behind-escaped-optgroup-in-cell-context",
+    ),
+    pytest.param(
+        "<option><table><optgroup><option><td>x",
+        Policy(tags=frozenset({"option", "optgroup", "table", "td", "tr", "tbody"})),
+        "<option>&lt;optgroup&gt;&lt;option&gt;<table><tbody><tr><td>x</td></tr></tbody></table></option>",
+        id="cell-under-nested-option",
+    ),
+    pytest.param(
+        "<optgroup><option><table><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup", "table"})),
+        "<optgroup><option>&lt;optgroup&gt;&lt;option&gt;x<table></table></option></optgroup>",
+        id="option-behind-escaped-optgroup-in-optgroup",
+    ),
+    pytest.param(
+        "<option><table><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup"}), on_disallowed_tag=OnDisallowed.STRIP),
+        "<option>&lt;optgroup&gt;&lt;option&gt;x</option>",
+        id="option-behind-stripped-table",
+    ),
+    pytest.param(
+        "<option><table><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup"}), on_disallowed_tag=OnDisallowed.REMOVE),
+        "<option>&lt;optgroup&gt;&lt;option&gt;x</option>",
+        id="option-behind-removed-table",
+    ),
+    pytest.param(
+        "<option><table><optgroup><option>x",
+        Policy(tags=frozenset({"option", "optgroup", "select"})),
+        "<option>&lt;optgroup&gt;&lt;option&gt;x&lt;table&gt;</option>",
+        id="option-behind-escaped-optgroup-table-escaped",
+    ),
+]
+
+
+@pytest.mark.parametrize(("payload", "policy", "expected"), _NESTED_OPTION_CASES)
+def test_nested_option_output_is_parse_stable(payload: str, policy: Policy, expected: str) -> None:
+    assert (
+        sanitize(payload, policy),
+        sanitize_node(parse_fragment(payload), policy).inner_html,
+        sanitize(expected, policy),
+        parse_fragment(expected).inner_html,
+    ) == (expected,) * 4
 
 
 @pytest.mark.parametrize(("payload", "policy", "expected"), _PARSE_STABLE_CASES)
@@ -3195,7 +4093,7 @@ def test_form_pointer_breakout_poc_is_inert() -> None:
 # exposes (a flow or foreign element stranded in a table context, a block or list item or form that closes an open p, a
 # nested select, a table part under a foreign ancestor, an adoption-agency marker). The property checked is the
 # guarantee, not a pinned string: re-parsing the output rebuilds its own tree, and nothing executable survives.
-_PARSE_STABLE_RULES = [
+_PARSE_STABLE_RULES: Final[list[pytest.ParameterSet]] = [
     pytest.param("<h3><object><h4>x", frozenset({"h3", "h4"}), id="heading-h3-h4"),
     pytest.param("<h5><object><h6>x", frozenset({"h5", "h6"}), id="heading-h5-h6"),
     pytest.param("<dt><object><dt>x", frozenset({"dt"}), id="dt-closes-dt"),
@@ -3210,7 +4108,6 @@ _PARSE_STABLE_RULES = [
     pytest.param("<table><thead>x", frozenset({"table"}), id="text-in-thead"),
     pytest.param("<table><tfoot>y", frozenset({"table"}), id="text-in-tfoot"),
     pytest.param("<table><tbody>z", frozenset({"table"}), id="text-in-tbody"),
-    pytest.param("<table><tr>q", frozenset({"table", "tr"}), id="text-in-row"),
     pytest.param("<table> </table>", frozenset({"table"}), id="whitespace-in-table-kept"),
     pytest.param("<table><style>x</style>", frozenset({"table", "style"}), id="style-kept-in-table"),
     pytest.param("<table><form>q", frozenset({"table", "form"}), id="form-kept-in-table"),
@@ -3230,14 +4127,18 @@ _PARSE_STABLE_RULES = [
     pytest.param("<math><mi><li>x", frozenset({"math", "mi", "li"}), id="li-under-foreign"),
     pytest.param("<applet><a>x", frozenset({"applet", "a"}), id="link-under-applet-marker"),
     pytest.param("<marquee><a>x", frozenset({"marquee", "a"}), id="link-under-marquee-marker"),
-    pytest.param("<table><td><a>x", frozenset({"table", "td", "a"}), id="link-under-cell-marker"),
-    pytest.param("<table><th><a>x", frozenset({"table", "th", "a"}), id="link-under-header-cell-marker"),
     pytest.param("<table><caption><a>x", frozenset({"table", "caption", "a"}), id="link-under-caption-marker"),
     # escaping a barrier also exposes the hoisted content's own descendants, not just its top level, to a new scan
     pytest.param("<li><header><b><li>x", frozenset({"li", "b"}), id="li-behind-unwrapped-barrier"),
     pytest.param("<dd><header><b><dt>x", frozenset({"dd", "dt", "b"}), id="dt-behind-unwrapped-barrier"),
     pytest.param("<p><button><b><div>x", frozenset({"p", "b", "div"}), id="block-behind-unwrapped-button"),
     pytest.param("<a><object><b><a>x", frozenset({"a", "b"}), id="link-behind-unwrapped-marker"),
+    # the nested link follows an emptied item, so the later scan has to step past that item
+    pytest.param(
+        "<nobr><object><s><nobr><dd><ul><li>x</nobr></s>",
+        frozenset({"dd", "li", "nobr", "object", "s", "ul"}),
+        id="nobr-behind-empty-escape",
+    ),
     pytest.param("<nobr><object><b><nobr>x", frozenset({"nobr", "b"}), id="nobr-behind-unwrapped-marker"),
     pytest.param("<button><select><i><button>x", frozenset({"button"}), id="button-in-button"),
     pytest.param("<optgroup><optgroup>", frozenset({"optgroup"}), id="nested-optgroup-reopens"),
@@ -3268,6 +4169,60 @@ _PARSE_STABLE_RULES = [
 ]
 
 
+_OMITTED_WRAPPER_RULES: Final[list[pytest.ParameterSet]] = [
+    pytest.param("<table><tr>q", frozenset({"table", "tr"}), id="text-in-row"),
+    pytest.param("<table><td><a>x", frozenset({"table", "td", "a"}), id="link-under-cell-marker"),
+    pytest.param("<table><th><a>x", frozenset({"table", "th", "a"}), id="link-under-header-cell-marker"),
+]
+_OMITTED_WRAPPER_TREES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(
+        lambda: E.div(E.table(E.th("c"))),
+        frozenset({"div", "table", "th"}),
+        "<div><table><th>c</th></table></div>",
+        id="header-cell-wraps",
+    ),
+    pytest.param(
+        lambda: E.div(E.table(E.tr(E.div("d")))),
+        frozenset({"table", "tr", "div"}),
+        "<div>&lt;div&gt;d&lt;/div&gt;<table><tr></tr></table></div>",
+        id="flow-direct-in-row",
+    ),
+    pytest.param(
+        lambda: E.div(E.span(E.table(E.td("x")))),
+        frozenset({"div", "table", "td"}),
+        "<div>&lt;span&gt;<table><td>x</td></table>&lt;/span&gt;</div>",
+        id="table-under-an-escaped-inline",
+    ),
+    pytest.param(
+        lambda: E.div(E.table(E.tr(E.td(_svg_child_named("g"))))),
+        frozenset({"div", "table", "tr", "td", "svg", "g"}),
+        "<div><table><tr><td><svg><g></g></svg></td></tr></table></div>",
+        id="foreign-content-in-a-cell",
+    ),
+]
+
+
+@pytest.mark.parametrize(("payload", "tags"), _OMITTED_WRAPPER_RULES)
+def test_omitted_wrapper_rule_is_idempotent(payload: str, tags: frozenset[str]) -> None:
+    # the serialized output is not a fixpoint here: a browser re-creates the tbody or tr the policy omits, so sanitizing
+    # the output, from a string or from a parsed node, must return it unchanged
+    policy = Policy(tags=tags)
+    once = sanitize(payload, policy)
+    assert sanitize(once, policy) == once, f"not idempotent: {once!r}"
+    node_once = sanitize_node(parse_fragment(payload), policy).inner_html
+    assert sanitize_node(parse_fragment(node_once), policy).inner_html == node_once, f"not idempotent: {node_once!r}"
+    assert _live_danger(once) == []
+
+
+@pytest.mark.parametrize(("build", "tags", "expected"), _OMITTED_WRAPPER_TREES)
+def test_omitted_wrapper_tree_is_idempotent(build: Callable[[], Element], tags: frozenset[str], expected: str) -> None:
+    policy = Policy(tags=tags)
+    once = sanitize_node(build(), policy).html
+    assert once == expected
+    assert sanitize_node(parse_fragment(once), policy).inner_html == once
+    assert _live_danger(once) == []
+
+
 @pytest.mark.parametrize(("payload", "tags"), _PARSE_STABLE_RULES)
 def test_parse_stable_rule_corpus(payload: str, tags: frozenset[str]) -> None:
     once = sanitize(payload, Policy(tags=tags))
@@ -3285,13 +4240,12 @@ def test_parse_stable_rule_corpus_via_node(payload: str, tags: frozenset[str]) -
 
 
 def _svg_in_table() -> Element:
-    """A table holding an SVG element directly: the parser fosters that at parse time, but a built tree keeps it."""
-    svg = next(child for child in parse_fragment("<svg></svg>").children if isinstance(child, Element))
-    return E.div(E.table(svg))
+    # A table holding an SVG element directly: the parser fosters that at parse time, but a built tree keeps it.
+    return E.div(E.table(next(child for child in parse_fragment("<svg></svg>").children if isinstance(child, Element))))
 
 
 def _cell_under_math_text_point() -> Element:
-    """A td inside a MathML text integration point: the td is reachable HTML there, but its ancestor is foreign."""
+    # A td inside a MathML text integration point: the td is reachable HTML there, but its ancestor is foreign.
     math = next(
         child for child in parse_fragment("<math><mtext></mtext></math>").children if isinstance(child, Element)
     )
@@ -3301,13 +4255,11 @@ def _cell_under_math_text_point() -> Element:
     return E.div(math)
 
 
-_BUILT_TREE_CASES = [
+_BUILT_TREE_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(E.div(E.li(E.div(E.li("x")))), frozenset({"li", "div"}), id="li-through-div"),
     pytest.param(E.div(E.li(E.address(E.li("x")))), frozenset({"li", "address"}), id="li-through-address"),
     pytest.param(E.div(E.li(E.p(E.li("x")))), frozenset({"li", "p"}), id="li-through-p"),
-    pytest.param(E.div(E.table(E.th("c"))), frozenset({"table", "th"}), id="header-cell-wraps"),
     pytest.param(E.div(E.table(E.div("k"))), frozenset({"table", "div"}), id="flow-direct-in-table"),
-    pytest.param(E.div(E.table(E.tr(E.div("d")))), frozenset({"table", "tr", "div"}), id="flow-direct-in-row"),
     pytest.param(E.div(E.table(E.tbody("z"))), frozenset({"table", "tbody"}), id="text-in-tbody"),
     pytest.param(E.div(E.select(E.div(E.select("x")))), frozenset({"select", "div"}), id="select-nested-through-div"),
     pytest.param(_svg_in_table(), frozenset({"div", "table", "svg"}), id="foreign-in-table"),
@@ -3351,7 +4303,7 @@ def test_parse_stable_built_trees(tree: Element, tags: frozenset[str]) -> None:
 
 
 def _math_text_point(*children: Element) -> Element:
-    """A math element whose mi text integration point holds the given HTML children."""
+    # A math element whose mi text integration point holds the given HTML children.
     math = cast("Element", parse_fragment("<math><mi></mi></math>").children[0])
     text_point = math.find("mi")
     assert text_point is not None
@@ -3361,7 +4313,7 @@ def _math_text_point(*children: Element) -> Element:
 
 
 def _foreign_object(*children: Element) -> Element:
-    """An svg element whose foreignObject integration point holds the given HTML children."""
+    # An svg element whose foreignObject integration point holds the given HTML children.
     svg = cast("Element", parse_fragment("<svg><foreignObject></foreignObject></svg>").children[0])
     point = cast("Element", svg.children[0])
     for child in children:
@@ -3370,13 +4322,22 @@ def _foreign_object(*children: Element) -> Element:
 
 
 def _svg_child_named(name: str) -> Element:
-    """An svg element holding one SVG child renamed to `name`, which the parser would never build."""
+    # An svg element holding one SVG child renamed to `name`, which the parser would never build.
     svg = cast("Element", parse_fragment("<svg><g></g></svg>").children[0])
     cast("Element", svg.children[0]).tag = name
     return svg
 
 
-_BALANCED_WALK_CASES: Final = [
+def _escaped_form_in_math() -> Element:
+    # A form escaped inside a math text point, its mglyph child left behind in MathML.
+    return E.form(_math_text_point(E.form(Element("mglyph"))))
+
+
+def _option_past_item() -> Element:
+    return E.div(E.select(E.li(E.span(E.div(E.li(E.option("x")))))))
+
+
+_BALANCED_WALK_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         lambda: E.div(E.li(E.span(E.li("x"), E.li("y")))),
         frozenset({"div", "li"}),
@@ -3402,16 +4363,10 @@ _BALANCED_WALK_CASES: Final = [
         id="item-scan-passes-an-address",
     ),
     pytest.param(
-        lambda: E.div(E.select(E.li(E.span(E.div(E.li(E.option("x"))))))),
+        _option_past_item,
         frozenset({"div", "select", "li", "option"}),
         "<div><select><li>&lt;span&gt;<div>&lt;li&gt;<option>x</option>&lt;/li&gt;</div>&lt;/span&gt;</li></select></div>",
         id="option-judged-past-a-recorded-item",
-    ),
-    pytest.param(
-        lambda: E.div(E.span(E.table(E.td("x")))),
-        frozenset({"div", "table", "td"}),
-        "<div>&lt;span&gt;<table><tbody><tr><td>x</td></tr></tbody></table>&lt;/span&gt;</div>",
-        id="table-under-an-escaped-inline",
     ),
     pytest.param(
         lambda: E.div(E.span(E.h1(E.em(E.h2("x"))))),
@@ -3438,7 +4393,7 @@ _BALANCED_WALK_CASES: Final = [
         id="barrier-after-a-sibling-under-an-escaped-item",
     ),
     pytest.param(
-        lambda: E.div(E.form(_math_text_point(E.form(Element("mglyph"))))),
+        lambda: E.div(_escaped_form_in_math()),
         frozenset({"div", "form", "math", "mi", "mglyph"}),
         "<div><form><math><mi>&lt;form&gt;&lt;mglyph&gt;&lt;/mglyph&gt;&lt;/form&gt;</mi></math></form></div>",
         id="escaped-form-leaves-its-child-in-mathml",
@@ -3449,12 +4404,6 @@ _BALANCED_WALK_CASES: Final = [
         "<div><form><math><mi>&lt;form&gt;&lt;section&gt;&lt;mglyph&gt;&lt;/mglyph&gt;&lt;/section&gt;&lt;/form&gt;</mi></math>"
         "</form></div>",
         id="hoisted-child-of-an-escaped-form-in-mathml",
-    ),
-    pytest.param(
-        lambda: E.div(E.table(E.tr(E.td(cast("Element", parse_fragment("<svg><g></g></svg>").children[0]))))),
-        frozenset({"div", "table", "tr", "td", "svg", "g"}),
-        "<div><table><tbody><tr><td><svg><g></g></svg></td></tr></tbody></table></div>",
-        id="foreign-content-in-a-cell",
     ),
     pytest.param(
         lambda: E.form(E.div("x")),
@@ -3480,7 +4429,7 @@ def test_node_balanced_walk(build: Callable[[], Element], tags: frozenset[str], 
     assert parse_fragment(once).inner_html == once
 
 
-_SETTLE_SCAN_CASES: Final = [
+_SETTLE_SCAN_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         lambda: E.div(E.b(E.section(E.li("x")))),
         frozenset({"div", "li", "b"}),
@@ -3543,7 +4492,7 @@ _SETTLE_SCAN_CASES: Final = [
         id="cell-orphaned-by-foreign-content",
     ),
     pytest.param(
-        lambda: E.table(E.tr(E.td(E.form(_math_text_point(E.form(Element("mglyph"))))))),
+        lambda: E.table(E.tr(E.td(_escaped_form_in_math()))),
         frozenset({"table", "tbody", "tr", "td", "form", "math", "mi", "mglyph"}),
         "<table><tbody><tr><td><form><math><mi>&lt;form&gt;&lt;mglyph&gt;&lt;/mglyph&gt;&lt;/form&gt;</mi></math></form>"
         "</td></tr></tbody></table>",
@@ -3599,39 +4548,37 @@ def test_node_pass_keeps_valid_table_structure(group: str) -> None:
     assert sanitize_node(parse_fragment(html), policy).inner_html == html
 
 
-_ESCAPED_TABLE_ORDER_CASES: Final = [
+_ESCAPED_TABLE_ORDER_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         "<table><tbody><tr><td>x</td></tr></tbody></table>",
         frozenset({"table", "td"}),
-        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><tbody><tr><td>x</td></tr></tbody></table>",
+        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><td>x</td></table>",
         id="row-group",
     ),
     pytest.param(
         "<table><thead><tr><th>h</th></tr></thead><tfoot><tr><td>f</td></tr></tfoot></table>",
         frozenset({"table", "td", "th"}),
         "&lt;thead&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tfoot&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tfoot&gt;"
-        "<table><tbody><tr><th>h</th></tr></tbody><tbody><tr><td>f</td></tr></tbody></table>",
+        "<table><th>h</th><td>f</td></table>",
         id="head-and-foot",
     ),
     pytest.param(
         "<table><colgroup><col></colgroup><tbody><tr><td>x</td></tr></tbody></table>",
         frozenset({"table", "td", "col"}),
-        "&lt;colgroup&gt;&lt;/colgroup&gt;&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;"
-        "<table><colgroup><col></colgroup><tbody><tr><td>x</td></tr></tbody></table>",
+        "&lt;colgroup&gt;&lt;/colgroup&gt;&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><col><td>x</td></table>",
         id="column-group",
     ),
     pytest.param(
         "<table><tbody><tr><td>a</td></tr><tr><td>b</td></tr></tbody></table>",
         frozenset({"table", "td"}),
-        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;"
-        "<table><tbody><tr><td>a</td></tr><tr><td>b</td></tr></tbody></table>",
+        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><td>a</td><td>b</td></table>",
         id="two-rows",
     ),
     pytest.param(
         "<table><tbody><tr><td><table><tbody><tr><td>y</td></tr></tbody></table></td></tr></tbody></table>",
         frozenset({"table", "td"}),
-        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><tbody><tr><td>&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;"
-        "<table><tbody><tr><td>y</td></tr></tbody></table></td></tr></tbody></table>",
+        "&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;<table><td>&lt;tbody&gt;&lt;tr&gt;&lt;/tr&gt;&lt;/tbody&gt;"
+        "<table><td>y</td></table></td></table>",
         id="nested-table",
     ),
     pytest.param(
@@ -3650,15 +4597,15 @@ def test_escaped_table_parts_keep_document_order(source: str, tags: frozenset[st
     assert (sanitize(source, policy), sanitize_node(parse_fragment(source), policy).inner_html) == (expected, expected)
 
 
-_TABLE_CONTENT_CASES: Final = [
+_TABLE_CONTENT_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param(
         lambda: E.div(E.table(E.tbody(E.td("a"), Comment("c"), E.td("b")))),
-        "<div><table><tbody><tr><td>a</td><!--c--><td>b</td></tr></tbody></table></div>",
-        id="comment-between-cells-keeps-one-row",
+        "<div><table><tbody><td>a</td><!--c--><td>b</td></tbody></table></div>",
+        id="comment-between-cells-stays-in-one-group",
     ),
     pytest.param(
         lambda: E.div(E.table(E.col(), "x", E.col())),
-        "<div>x<table><colgroup><col></colgroup><colgroup><col></colgroup></table></div>",
+        "<div>x<table><col><col></table></div>",
         id="text-between-columns-closes-the-group",
     ),
 ]
@@ -3674,7 +4621,7 @@ def test_node_table_root_keeps_escaped_parts_inside() -> None:
     # a table passed in as the root has no sibling slot to foster before, so the escaped tags stay inside it
     policy = Policy(tags=frozenset({"table", "td"}))
     assert sanitize_node(E.table(E.tbody(E.tr(E.td("x")))), policy).html == (
-        "<table>&lt;tbody&gt;&lt;tr&gt;<tbody><tr><td>x</td></tr></tbody>&lt;/tr&gt;&lt;/tbody&gt;</table>"
+        "<table>&lt;tbody&gt;&lt;tr&gt;<td>x</td>&lt;/tr&gt;&lt;/tbody&gt;</table>"
     )
 
 
@@ -3706,18 +4653,18 @@ def test_strip_of_a_barrier_balances_the_hoisted_descendants() -> None:
 
 
 def test_whitespace_hoisted_into_a_table_stays_in_the_table() -> None:
-    # stripping the row group hoists its row and whitespace into the table: the row is re-wrapped in an implied tbody
-    # and the whitespace stays, since a browser keeps whitespace in table text where it is
+    # stripping the row group hoists its row and whitespace into the table: the omitted tbody is not written, and the
+    # whitespace stays, since a browser keeps whitespace in table text where it is
     policy = Policy(tags=frozenset({"table", "tr", "td"}), on_disallowed_tag=OnDisallowed.STRIP)
     once = sanitize("<table><tbody><tr><td>x</td></tr> </tbody></table>", policy)
-    assert once == "<table><tbody><tr><td>x</td></tr></tbody> </table>"
+    assert once == "<table><tr><td>x</td></tr> </table>"
 
 
 def test_comment_hoisted_into_a_table_stays_in_the_table() -> None:
     # a comment is legal table content, so the hoist into the table leaves it in place rather than fostering it out
     policy = Policy(tags=frozenset({"table", "tr", "td"}), on_disallowed_tag=OnDisallowed.STRIP, strip_comments=False)
     once = sanitize("<table><tbody><!--c--><tr><td>x</td></tr></tbody></table>", policy)
-    assert once == "<table><!--c--><tbody><tr><td>x</td></tr></tbody></table>"
+    assert once == "<table><!--c--><tr><td>x</td></tr></table>"
 
 
 def test_xml_output_keeps_a_nesting_only_html_reparsing_changes() -> None:
@@ -3725,7 +4672,7 @@ def test_xml_output_keeps_a_nesting_only_html_reparsing_changes() -> None:
     assert sanitize("<h1><b><h2>x", Policy(tags=frozenset({"h1", "h2"}), xml=True)) == "<h1>&lt;b&gt;<h2>x</h2></h1>"
 
 
-_IMPLIED_END_CASES = [
+_IMPLIED_END_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param("select", "dd", "option", True, id="option-closes-dd"),
     pytest.param("select", "dt", "option", True, id="option-closes-dt"),
     pytest.param("select", "li", "option", True, id="option-closes-li"),
@@ -3847,7 +4794,7 @@ def test_oracle_detects_a_dangerous_url() -> None:
 # Scheme-evasion parity: routing the sanitizer's scheme scan onto the shared grammar predicates keeps the exact
 # allow/block decision. Every obfuscated dangerous scheme stays blocked; the benign counterparts stay allowed (a
 # regression there would be over-blocking, not a hole, but the allowlist is only useful if normal URLs survive).
-_SCHEME_PARITY = [
+_SCHEME_PARITY: Final[list[pytest.ParameterSet]] = [
     pytest.param("javascript:alert(1)", False, id="javascript"),
     pytest.param("JaVaScRiPt:alert(1)", False, id="javascript-mixed-case"),
     pytest.param("DATA:text/html,x", False, id="data-upper"),
@@ -3891,7 +4838,7 @@ _SCHEME_PARITY = [
 ]
 
 
-_SCRIPT_SCHEME_POLICY: Final = Policy(
+_SCRIPT_SCHEME_POLICY: Final[Policy] = Policy(
     tags=frozenset({"a", "img", "p"}),
     attributes={"a": frozenset({"href"}), "img": frozenset({"srcset"}), "p": frozenset({"style"})},
     url_schemes=frozenset({"javascript", "http", "x-callback"}),
@@ -3920,28 +4867,24 @@ def test_javascript_scheme_dropped_from_style_element_even_when_allowlisted() ->
 
 
 @pytest.mark.parametrize(("url", "kept"), _SCHEME_PARITY)
-def test_scheme_allowlist_parity(url: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+def test_scheme_allowlist_parity(url: str, kept: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]  # the parametrized flag selects the expected outcome
     assert ("href=" in sanitize(f'<a href="{url}">x</a>', Policy())) is kept
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected"),
     [
-        # a raw carriage return normalizes to a newline when the sanitized text is reparsed.
-        pytest.param("a&#xd;b", id="cr-normalization"),
-        pytest.param("<div>&#xd;</div>", id="cr-in-element"),
+        pytest.param("a&#xd;b", "a&#13;b", id="cr-text"),
+        pytest.param("<div>&#xd;</div>", "&lt;div&gt;&#13;&lt;/div&gt;", id="cr-in-element"),
+        pytest.param('<a href="x" title="a&#xd;b">x</a>', '<a href="x" title="a&#13;b">x</a>', id="cr-in-attribute"),
     ],
 )
-def test_inert_even_when_not_string_idempotent(payload: str) -> None:
-    # These are benign inputs whose sanitized form is *not* byte-identical on a second pass
-    # (CR->LF normalization). Sanitization is single-pass, so the
-    # guarantee is inertness, not string idempotence: no executable construct survives either pass,
-    # even though sanitize(sanitize(x)) != sanitize(x). Consumers must trust the first pass, not reparse.
+def test_carriage_return_is_stable_across_reparse(payload: str, expected: str) -> None:
+    # a raw CR reparses as LF, so the sanitizer must write it as a reference for a second pass to match the first
     once = sanitize(payload)
-    twice = sanitize(once)
-    assert once != twice, "expected a non-idempotent case; move it to the round-trip corpus if it stabilizes"
+    assert once == expected
+    assert sanitize(once) == once
     assert _live_danger(once) == []
-    assert _live_danger(twice) == []
 
 
 @pytest.mark.parametrize(
@@ -3961,7 +4904,7 @@ def test_allowlisted_plaintext_is_neutralized(payload: str) -> None:
     assert sanitize(out, policy) == out, "sanitizing is not idempotent"
 
 
-_SANITIZER_TEMPLATES_ON = Policy(
+_SANITIZER_TEMPLATES_ON: Final[Policy] = Policy(
     tags=frozenset({"p", "a", "input"}),
     attributes={"a": frozenset({"href", "title"}), "input": frozenset({"disabled"})},
     strip_template_markers=True,
@@ -3991,7 +4934,7 @@ _SANITIZER_TEMPLATES_ON = Policy(
         pytest.param("<p>😀 &lt;%x%&gt; fin</p>", "<p>😀   fin</p>", id="astral-marker"),
         pytest.param("<p>東京 {x} 😀 $x</p>", "<p>東京 {x} 😀 $x</p>", id="wide-false-openers"),
         pytest.param("<p>{{t}}{x} $x &lt;x</p>", "<p> {x} $x &lt;x</p>", id="false-openers-after-marker"),
-        pytest.param("<p>" + "plain " * 100 + "{{x}}</p>", "<p>" + "plain " * 100 + " </p>", id="late-marker"),
+        pytest.param(f"<p>{'plain ' * 100}{{{{x}}}}</p>", f"<p>{'plain ' * 100} </p>", id="late-marker"),
     ],
 )
 def test_templates_text_run_collapses(fragment: str, expected: str) -> None:
@@ -4030,7 +4973,7 @@ def test_templates_text_run_collapses(fragment: str, expected: str) -> None:
     ],
 )
 def test_templates_joined_text_collapses(fragment: str, mode: OnDisallowed, expected: str) -> None:
-    """Markers split across text the walk removes or unwraps an element between are still stripped."""
+    # Markers split across text the walk removes or unwraps an element between are still stripped.
     assert sanitize(fragment, replace(_SANITIZER_TEMPLATES_ON, on_disallowed_tag=mode)) == expected
 
 
@@ -4151,8 +5094,7 @@ def test_transform_canonicalizes_unsafe_html_target() -> None:
 
 
 def test_transform_reports_target_name() -> None:
-    policy = Policy(tags=frozenset({"strong"}), transform_tags={"b": "script"})
-    html, removed = sanitize_report("<b>e</b>", policy)
+    html, removed = sanitize_report("<b>e</b>", Policy(tags=frozenset({"strong"}), transform_tags={"b": "script"}))
     assert html == "&lt;script&gt;e&lt;/script&gt;"
     assert [(item.tag, item.attribute) for item in removed] == [("script", None)]
 
@@ -4172,19 +5114,14 @@ def test_transform_skips_foreign_elements() -> None:
 )
 def test_transform_rejects_bad_rule(target: Transform | str | int, error: type[Exception], message: str) -> None:
     with pytest.raises(error, match=message):
-        Sanitizer(Policy(transform_tags={"b": target}))  # ty: ignore[invalid-argument-type]
+        Sanitizer(Policy(transform_tags={"b": target}))  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
-_XML = Policy(
+_XML: Final[Policy] = Policy(
     tags=frozenset({"p", "br", "a", "strong", "em", "img", "svg", "rect", "math", "mi"}),
     attributes={"a": frozenset({"href"}), "img": frozenset({"src"})},
     xml=True,
 )
-
-
-def _well_formed(fragment: str) -> None:
-    """Assert a sanitized fragment reparses as XML once wrapped in a single root, so it is well-formed."""
-    parse_xml(f"<root>{fragment}</root>")
 
 
 @pytest.mark.parametrize(
@@ -4208,15 +5145,165 @@ def test_xml_output_is_well_formed(html: str, expected: str) -> None:
     _well_formed(out)
 
 
+def _well_formed(fragment: str) -> None:
+    # Assert a sanitized fragment reparses as XML once wrapped in a single root, so it is well-formed.
+    parse_xml(f"<root>{fragment}</root>")
+
+
 def test_control_characters_are_dropped_from_xml() -> None:
     out = sanitize("<p>bad\x0cchar\x01here</p>", _XML)
     assert out == "<p>badcharhere</p>"
     _well_formed(out)
 
 
+_EITHER_FORM: Final[Policy] = Policy(
+    tags=frozenset({"p", "a", "style", "meta", "img", "video"}),
+    attributes={
+        "p": frozenset({"style", "title"}),
+        "a": frozenset({"href"}),
+        "meta": frozenset({"content", "http-equiv"}),
+        "img": frozenset({"srcset"}),
+        "video": frozenset({"src", "poster"}),
+    },
+    css_properties=frozenset({"color", "font-family", "background-image", "width"}),
+    media_hosts=frozenset({"media.example"}),
+    strip_comments=False,
+    strip_template_markers=True,
+)
+
+
+@pytest.mark.parametrize(
+    ("html", "as_html", "as_xml"),
+    [
+        pytest.param(
+            '<p style=\'font-family:"q\\\x1f\\";width:1px;margin:0;"\'>x</p>',
+            '<p style="font-family:&quot;q\\\\&quot;; width:1px">x</p>',
+            '<p style="font-family:&quot;q\\\\&quot;; width:1px">x</p>',
+            id="css-string-closed-by-drop",
+        ),
+        pytest.param(
+            '<p style="color:red;background-image:u\x02rl(javascript:void(0))">x</p>',
+            '<p style="color:red">x</p>',
+            '<p style="color:red">x</p>',
+            id="css-url-joined",
+        ),
+        pytest.param(
+            f'<p style=\'font-family:"q\\\x1f\\";{"color:red;" * 6}x:1;"\'>x</p>',
+            f'<p style="font-family:&quot;q\\\\&quot;{"; color:red" * 6}">x</p>',
+            f'<p style="font-family:&quot;q\\\\&quot;{"; color:red" * 6}">x</p>',
+            id="css-rescrub-same-length",
+        ),
+        pytest.param('<p style="width:expre\ufffession(1)">x</p>', "<p>x</p>", "<p>x</p>", id="css-expression-joined"),
+        pytest.param(
+            "<style>i{background-image:u\x1erl(javascript:void(0));color:blue}</style>",
+            "<style>i{color:blue;}</style>",
+            "<style>i{color:blue;}</style>",
+            id="stylesheet-url-joined",
+        ),
+        pytest.param("<p>${\x02x}</p>", "<p> </p>", "<p> </p>", id="template-text"),
+        pytest.param("<p>${x}a$\x02</p>", "<p> a$\x02</p>", "<p> a$</p>", id="template-opener-at-end"),
+        pytest.param("<p>&lt;\x02% x %\x02&gt;</p>", "<p> </p>", "<p> </p>", id="template-text-angle"),
+        pytest.param(
+            '<p title="{\x1f{ y }\x1f}">z</p>', '<p title=" ">z</p>', '<p title=" ">z</p>', id="template-attr"
+        ),
+        pytest.param(
+            '<meta http-equiv="Re\x1fFresh" content="1; URL=javascript:void(0)">',
+            '<meta http-equiv="Re\x1fFresh">',
+            '<meta http-equiv="ReFresh"/>',
+            id="refresh-joined",
+        ),
+        pytest.param(
+            '<meta http-equiv="refreshed" content="1; URL=/next">',
+            '<meta http-equiv="refreshed" content="1; URL=/next">',
+            '<meta http-equiv="refreshed" content="1; URL=/next"/>',
+            id="not-refresh",
+        ),
+        pytest.param('<a href="https:/\uffff/[x">y</a>', "<a>y</a>", "<a>y</a>", id="href-authority-joined"),
+        pytest.param('<img srcset="https:/\uffff/[x 1x">', "<img>", "<img/>", id="srcset-authority-joined"),
+        pytest.param(
+            '<video src="https://media.example/clip\x02.mp4" poster="/still.png"></video>',
+            '<video src="https://media.example/clip\x02.mp4" poster="/still.png"></video>',
+            '<video src="https://media.example/clip.mp4" poster="/still.png"/>',
+            id="media-host-kept",
+        ),
+        pytest.param(
+            '<p style="color:gr\x02een" title="t\x02u">v\x02w</p>',
+            '<p style="color:gr\x02een" title="t\x02u">v\x02w</p>',
+            '<p style="color:green" title="tu">vw</p>',
+            id="harmless-kept",
+        ),
+    ],
+)
+def test_checks_judge_the_form_each_serializer_writes(html: str, as_html: str, as_xml: str) -> None:
+    # the XML serializer drops what XML cannot hold, joining its neighbors, so a value must pass in both forms
+    node = sanitize_node(parse_fragment(html), _EITHER_FORM)
+    assert (sanitize(html, _EITHER_FORM), node.inner_html) == (as_html, as_html)
+    assert (sanitize(html, replace(_EITHER_FORM, xml=True)), node.inner_xml) == (as_xml, as_xml)
+    _well_formed(as_xml)
+
+
+def test_html_output_keeps_the_characters_xml_drops() -> None:
+    html = '<p style="color:gr\x02een" title="t\x02u">{\x02x}</p>'
+    assert sanitize(html, _EITHER_FORM) == html
+
+
+@pytest.mark.parametrize(
+    ("policy", "html", "expected"),
+    [
+        pytest.param(
+            replace(_EITHER_FORM, attribute_predicate=lambda _tag, _name, value: "secret" not in value),
+            '<p title="sec\x1fret">a</p><p title="sec\x1fond">b</p>',
+            '<p>a</p><p title="sec\x1fond">b</p>',
+            id="attribute-predicate",
+        ),
+        pytest.param(
+            replace(_EITHER_FORM, attribute_values={"p": {"title": frozenset({"one\x01two"})}}),
+            '<p title="one\x01two">a</p>',
+            "<p>a</p>",
+            id="attribute-values",
+        ),
+        pytest.param(
+            Policy(
+                tags=frozenset({"button"}),
+                custom_element_check=lambda name: name != "x-blocked",
+                allow_customized_builtins=True,
+            ),
+            '<button is="x-bl\x01ocked">a</button><button is="x-op\x01en">b</button>',
+            '<button>a</button><button is="x-op\x01en">b</button>',
+            id="customized-builtin",
+        ),
+        pytest.param(
+            replace(_EITHER_FORM, attribute_filter=lambda _tag, _name, value: value.replace("?", "\x1f")),
+            '<p title="$?{x}">a</p>',
+            '<p title=" ">a</p>',
+            id="attribute-filter",
+        ),
+        pytest.param(
+            replace(
+                _EITHER_FORM, set_attributes={"p": {"style": "background-image:u\x02rl(javascript:void(0));color:red"}}
+            ),
+            "<p>a</p>",
+            '<p style="color:red">a</p>',
+            id="set-attributes",
+        ),
+    ],
+)
+def test_policy_values_are_judged_in_the_xml_form(policy: Policy, html: str, expected: str) -> None:
+    assert sanitize(html, policy) == expected
+
+
+def test_attribute_predicate_raising_on_the_xml_form_propagates() -> None:
+    def predicate(_tag: str, _name: str, value: str) -> bool:
+        if "\x01" not in value:
+            raise ValueError(value)
+        return True
+
+    with pytest.raises(ValueError, match=r"^ab$"):
+        sanitize('<p title="a\x01b">c</p>', replace(_EITHER_FORM, attribute_predicate=predicate))
+
+
 def test_kept_comment_is_neutralized_for_xml() -> None:
-    policy = Policy(tags=frozenset({"p"}), strip_comments=False, xml=True)
-    out = sanitize("<p>a</p><!-- c--d- -->", policy)
+    out = sanitize("<p>a</p><!-- c--d- -->", Policy(tags=frozenset({"p"}), strip_comments=False, xml=True))
     assert out == "<p>a</p><!-- c- -d- -->"
     _well_formed(out)
 
@@ -4253,7 +5340,7 @@ def test_sanitizer_instance_reuses_xml_policy() -> None:
     assert cleaner.sanitize("<img src=x>") == '<img src="x"/>'
 
 
-_XML_ORACLE_POLICY: Final = Policy(
+_XML_ORACLE_POLICY: Final[Policy] = Policy(
     tags=frozenset({"p", "br", "a", "strong", "em", "img", "ul", "li", "svg", "rect", "circle", "math", "mi"}),
     attributes={"a": frozenset({"href"}), "img": frozenset({"src", "alt"})},
     strip_comments=False,
@@ -4283,15 +5370,14 @@ _XML_ORACLE_POLICY: Final = Policy(
 @pytest.mark.oracle
 def test_output_parses_under_lxml(html: str, tags: list[str], text: str) -> None:
     lxml_etree: Final = pytest.importorskip("lxml.etree")
-    fragment = sanitize(html, _XML_ORACLE_POLICY)
-    root = lxml_etree.fromstring(f"<root>{fragment}</root>".encode())
+    root = lxml_etree.fromstring(f"<root>{sanitize(html, _XML_ORACLE_POLICY)}</root>".encode())
     assert ([lxml_etree.QName(child).localname for child in root], root.xpath("string(.)")) == (tags, text)
 
 
-_DOMPURIFY_FIXTURE = Path(__file__).parent / "data" / "dompurify_expect.mjs"
+_DOMPURIFY_FIXTURE: Final[Path] = Path(__file__).parent / "data" / "dompurify_expect.mjs"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _DompurifyCase:
     payload: str
     accepted: frozenset[str]
@@ -4299,7 +5385,7 @@ class _DompurifyCase:
 
 
 def _load_cases() -> list[_DompurifyCase]:
-    """Extract the ``{payload, expected}`` entries from the ESM fixture by decoding each object with the JSON reader."""
+    # Extract the ``{payload, expected}`` entries from the ESM fixture by decoding each object with the JSON reader.
     body = _DOMPURIFY_FIXTURE.read_text(encoding="utf-8").split("export default", 1)[1]
     decoder = json.JSONDecoder()
     index = body.index("[") + 1
@@ -4312,11 +5398,11 @@ def _load_cases() -> list[_DompurifyCase]:
         entry, index = decoder.raw_decode(body, index)
         expected = entry["expected"]
         accepted = frozenset(expected if isinstance(expected, list) else [expected])
-        cases.append(_DompurifyCase(entry["payload"], accepted, entry.get("title", "")))
+        cases.append(_DompurifyCase(payload=entry["payload"], accepted=accepted, title=entry.get("title", "")))
 
 
-_DOMPURIFY_CASES = _load_cases()
-_DOMPURIFY_IDS = [
+_DOMPURIFY_CASES: Final[list[_DompurifyCase]] = _load_cases()
+_DOMPURIFY_IDS: Final[list[str]] = [
     f"{position:03d}-{re.sub(r'[^a-z0-9]+', '-', case.title.lower()).strip('-')[:48] or 'untitled'}"
     for position, case in enumerate(_DOMPURIFY_CASES)
 ]
@@ -4325,7 +5411,7 @@ _DOMPURIFY_IDS = [
 # only thing removing danger is the non-configurable C baseline (unsafe tags, on* handlers, non-allowlisted schemes,
 # CSS scrubbing). This is the strongest bypass surface -- a restrictive policy would escape most payloads to inert text
 # and never exercise a kept, attack-capable element.
-_DOMPURIFY_PERMISSIVE_TAGS = frozenset({
+_DOMPURIFY_PERMISSIVE_TAGS: Final[frozenset[str]] = frozenset({
     "a", "abbr", "b", "blockquote", "br", "button", "caption", "cite", "code", "col", "colgroup", "dd", "del", "div",
     "dl", "dt", "em", "figcaption", "figure", "form", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "input",
     "ins", "label", "li", "mark", "ol", "option", "p", "pre", "q", "s", "script", "select", "small", "span",
@@ -4335,22 +5421,30 @@ _DOMPURIFY_PERMISSIVE_TAGS = frozenset({
     "foreignobject", "text", "use", "animate", "animateColor", "animateMotion", "animateTransform", "set",
     "math", "mi", "mo", "mn", "ms", "mtext", "mrow", "mglyph", "annotation-xml",
 })  # fmt: skip
-_DOMPURIFY_PERMISSIVE = Policy(
+_DOMPURIFY_PERMISSIVE: Final[Policy] = Policy(
     tags=_DOMPURIFY_PERMISSIVE_TAGS,
     attributes=MappingProxyType({"*": frozenset({"*"})}),
     url_schemes=DEFAULT_SCHEMES,
     css_properties=DEFAULT_CSS_PROPERTIES,
 )
-_DOMPURIFY_POLICIES = [
+_DOMPURIFY_POLICIES: Final[list[pytest.ParameterSet]] = [
     pytest.param(Policy(), id="default"),
     pytest.param(Policy.relaxed(), id="relaxed"),
     pytest.param(_DOMPURIFY_PERMISSIVE, id="permissive"),
 ]
 
 # Scriptable elements that execute or load code if they survive in the HTML namespace; scheme prefixes that run script.
-_DOMPURIFY_DANGER_TAGS = frozenset({"script", "iframe", "object", "embed", "frame", "style", "noscript", "base"})
-_DOMPURIFY_DANGER_SCHEMES = ("javascript:", "data:", "vbscript:")
-_DOMPURIFY_URL_ATTRS = frozenset({
+_DOMPURIFY_DANGER_TAGS: Final[frozenset[str]] = frozenset({
+    "script",
+    "iframe",
+    "object",
+    "embed",
+    "frame",
+    "style",
+    "noscript",
+    "base",
+})
+_DOMPURIFY_URL_ATTRS: Final[frozenset[str]] = frozenset({
     "href",
     "src",
     "action",
@@ -4361,74 +5455,15 @@ _DOMPURIFY_URL_ATTRS = frozenset({
     "cite",
     "ping",
 })
-_DOMPURIFY_SVG_ANIMATION_TAGS = frozenset({"animate", "animateColor", "animateMotion", "animateTransform", "set"})
 # CSS constructs that execute or fetch when a kept <style> body or style attribute survives the property scrub.
-_DOMPURIFY_CSS_DANGER = ("javascript:", "vbscript:", "expression(", "@import", "behavior:", "-moz-binding")
-
-
-def _attr_value(raw: str | list[str] | None) -> str:
-    """The lowercased attribute value, joining a duplicate-attribute list and reading a boolean attr as empty."""
-    if raw is None:
-        return ""
-    joined = " ".join(raw) if isinstance(raw, list) else raw
-    return joined.lower()
-
-
-def _style_body(element: Element) -> str:
-    """The lowercased text content of a ``<style>`` element (rawtext, so its children are text nodes)."""
-    return "".join(getattr(child, "data", "") for child in element.children).lower()
-
-
-def _bad_scheme(value: str) -> bool:
-    """Whether a URL value resolves to a script-capable scheme once the control/whitespace obfuscation is stripped."""
-    return "".join(char for char in value if ord(char) > 0x20).startswith(_DOMPURIFY_DANGER_SCHEMES)
-
-
-def _dangerous_element(node: Element) -> str | None:
-    namespace = node.namespace.value
-    if namespace == "svg" and node.tag in _DOMPURIFY_SVG_ANIMATION_TAGS:
-        attrs = {name.lower(): _attr_value(value) for name, value in node.attrs.items()}
-        target = attrs.get("attributename", "")
-        if target.startswith("on"):
-            return f"<{node.tag}>->{target}"
-        if target in _DOMPURIFY_URL_ATTRS:
-            for name in ("from", "to", "values"):
-                if any(_bad_scheme(value) for value in attrs.get(name, "").split(";")):
-                    return f"<{node.tag}>->{target}"
-    if node.tag == "script" and namespace in {"html", "svg"}:
-        return "<script>"
-    if node.tag == "style" and namespace in {"html", "svg"}:
-        return "style-body" if any(token in _style_body(node) for token in _DOMPURIFY_CSS_DANGER) else None
-    if node.tag not in _DOMPURIFY_DANGER_TAGS or namespace != "html":
-        return None
-    return f"<{node.tag}>"
-
-
-def _dangerous_attribute(name: str, value: str) -> str | None:
-    """A label for an executable attribute: an ``on*`` handler, dangerous CSS on ``style``, or a scriptable URL."""
-    if name.startswith("on"):
-        return f"@{name}"
-    if name == "style":
-        return "@style" if any(token in value for token in _DOMPURIFY_CSS_DANGER) else None
-    return f"{name}={value[:32]}" if name in _DOMPURIFY_URL_ATTRS and _bad_scheme(value) else None
-
-
-def _live_danger(html: str) -> list[str]:
-    """Reparse sanitized HTML and list every executable construct that survived; an empty list means inert."""
-    survived: list[str] = []
-    stack = list(parse_fragment(html).children)
-    while stack:
-        node = stack.pop()
-        if isinstance(node, Element):
-            if (element_hit := _dangerous_element(node)) is not None:
-                survived.append(element_hit)
-            survived.extend(
-                hit
-                for name, raw in node.attrs.items()
-                if (hit := _dangerous_attribute(name, _attr_value(raw))) is not None
-            )
-            stack.extend(node.children)
-    return survived
+_DOMPURIFY_CSS_DANGER: Final[tuple[str, ...]] = (
+    "javascript:",
+    "vbscript:",
+    "expression(",
+    "@import",
+    "behavior:",
+    "-moz-binding",
+)
 
 
 @pytest.mark.parametrize("policy", _DOMPURIFY_POLICIES)
@@ -4515,13 +5550,18 @@ def test_live_danger_labels_every_executable_construct(html: str, survived: list
 @pytest.mark.parametrize(
     "count", [pytest.param(0, id="empty"), pytest.param(1, id="single"), pytest.param(1024, id="wide")]
 )
-@pytest.mark.parametrize(
-    "mode", [pytest.param(OnDisallowed.ESCAPE, id="escape"), pytest.param(OnDisallowed.STRIP, id="strip")]
-)
-def test_escaped_opening_attribute_width(count: int, mode: OnDisallowed) -> None:
+def test_escaped_opening_attribute_width(count: int) -> None:
     attributes: Final = "".join(f' a{index}="{index}"' for index in range(count))
-    expected: Final = f"&lt;x{attributes}&gt;text&lt;/x&gt;" if mode is OnDisallowed.ESCAPE else "text"
-    assert sanitize(f"<x{attributes}>text</x>", Policy(on_disallowed_tag=mode)) == expected
+    expected: Final = f"&lt;x{attributes}&gt;text&lt;/x&gt;"
+    assert sanitize(f"<x{attributes}>text</x>", Policy(on_disallowed_tag=OnDisallowed.ESCAPE)) == expected
+
+
+@pytest.mark.parametrize(
+    "count", [pytest.param(0, id="empty"), pytest.param(1, id="single"), pytest.param(1024, id="wide")]
+)
+def test_stripped_opening_attribute_width(count: int) -> None:
+    attributes: Final = "".join(f' a{index}="{index}"' for index in range(count))
+    assert sanitize(f"<x{attributes}>text</x>", Policy(on_disallowed_tag=OnDisallowed.STRIP)) == "text"
 
 
 @pytest.mark.parametrize(
@@ -4544,16 +5584,21 @@ def test_escaped_opening_surrogate_attribute_name(name: str) -> None:
         sanitize(f'<x valid="v" {name}="v">text</x>')
 
 
-@pytest.mark.parametrize("method", [False, True], ids=["function", "sanitizer"])
-def test_document_node_return_types(*, method: bool) -> None:
+@pytest.mark.parametrize(
+    "report",
+    [
+        pytest.param(lambda sanitizer, document, _policy: sanitizer.sanitize_report_node(document), id="sanitizer"),
+        pytest.param(lambda _sanitizer, document, policy: sanitize_report_node(document, policy), id="function"),
+    ],
+)
+def test_document_node_return_types(
+    report: Callable[[Sanitizer, Document, Policy], tuple[Document, list[Removed]]],
+) -> None:
     document: Final = parse("<p onclick='x'>hi</p>")
     policy: Final = Policy(tags=frozenset({"html", "head", "body", "p"}))
     sanitizer: Final = Sanitizer(policy)
     cleaned: Final[Document] = assert_type(sanitizer.sanitize_node(document), Document)
-    result: Final = assert_type(
-        sanitizer.sanitize_report_node(document) if method else sanitize_report_node(document, policy),
-        tuple[Document, list[Removed]],
-    )
+    result: Final = assert_type(report(sanitizer, document, policy), tuple[Document, list[Removed]])
     assert (cleaned.serialize(), result[0].serialize(), result[1]) == (
         "<html><head></head><body><p>hi</p></body></html>",
         "<html><head></head><body><p>hi</p></body></html>",
@@ -4605,23 +5650,33 @@ def test_attribute_name_allowlist_mutation_from_callback() -> None:
 
 
 @pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("http://[", id="open"),
+        pytest.param("http://host]", id="close"),
+        pytest.param("https://[host/path", id="before-path"),
+        pytest.param("http://[host?query]", id="query-cannot-close"),
+        pytest.param("http://[host#fragment]", id="fragment-cannot-close"),
+        pytest.param("http://[host/path]", id="path-cannot-close"),
+        pytest.param("//[", id="relative-authority-open"),
+        pytest.param("//host]", id="relative-authority-close"),
+        pytest.param("http://user[@host", id="userinfo-open"),
+        pytest.param("http://user]@host", id="userinfo-close"),
+        pytest.param(" \t\r\nHTTP://[", id="leading-whitespace"),
+        pytest.param("\x01\x1fhttp://[", id="leading-controls"),
+        pytest.param("h\tt\nt\rp://[", id="scheme-controls"),
+        pytest.param("http:\t/\n/[", id="authority-controls"),
+        pytest.param(" \t//[", id="relative-leading-whitespace"),
+    ],
+)
+def test_clean_url_authority_drops_the_href(value: str) -> None:
+    result: Final = clean(f'<a href="{escape(value, quote=True)}">x</a>')
+    assert dict(parse_fragment(result).select("a")[0].attrs) == {}
+
+
+@pytest.mark.parametrize(
     ("value", "expected"),
     [
-        pytest.param("http://[", None, id="open"),
-        pytest.param("http://host]", None, id="close"),
-        pytest.param("https://[host/path", None, id="before-path"),
-        pytest.param("http://[host?query]", None, id="query-cannot-close"),
-        pytest.param("http://[host#fragment]", None, id="fragment-cannot-close"),
-        pytest.param("http://[host/path]", None, id="path-cannot-close"),
-        pytest.param("//[", None, id="relative-authority-open"),
-        pytest.param("//host]", None, id="relative-authority-close"),
-        pytest.param("http://user[@host", None, id="userinfo-open"),
-        pytest.param("http://user]@host", None, id="userinfo-close"),
-        pytest.param(" \t\r\nHTTP://[", None, id="leading-whitespace"),
-        pytest.param("\x01\x1fhttp://[", None, id="leading-controls"),
-        pytest.param("h\tt\nt\rp://[", None, id="scheme-controls"),
-        pytest.param("http:\t/\n/[", None, id="authority-controls"),
-        pytest.param(" \t//[", None, id="relative-leading-whitespace"),
         pytest.param("http://[]", "http://[]", id="empty-literal"),
         pytest.param("http://[bad]", "http://[bad]", id="hostname-literal"),
         pytest.param("http://[::1]", "http://[::1]", id="ipv6"),
@@ -4644,28 +5699,53 @@ def test_attribute_name_allowlist_mutation_from_callback() -> None:
         pytest.param("mailto:user[", "mailto:user[", id="opaque"),
     ],
 )
-def test_clean_url_authority(value: str, expected: str | None) -> None:
+def test_clean_url_authority_keeps_the_href(value: str, expected: str) -> None:
     result: Final = clean(f'<a href="{escape(value, quote=True)}">x</a>')
-    assert dict(parse_fragment(result).select("a")[0].attrs) == ({} if expected is None else {"href": expected})
+    assert dict(parse_fragment(result).select("a")[0].attrs) == {"href": expected}
 
 
-@pytest.mark.parametrize("attribute", ["href", "src", "srcset", "imagesrcset"])
-@pytest.mark.parametrize("source", ["input", "rewrite", "forced"])
-def test_sanitize_url_authority_after_attribute_changes(attribute: str, source: str) -> None:
-    value: Final = "safe.png 1x, http://[ 2x" if attribute.endswith("srcset") else "http://["
+_URL_AUTHORITY_VALUES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(attribute, value, id=attribute)
+    for attribute, value in (
+        ("href", "http://["),
+        ("src", "http://["),
+        ("srcset", "safe.png 1x, http://[ 2x"),
+        ("imagesrcset", "safe.png 1x, http://[ 2x"),
+    )
+]
+
+
+@pytest.mark.parametrize(("attribute", "value"), _URL_AUTHORITY_VALUES)
+def test_sanitize_url_authority_after_input(attribute: str, value: str) -> None:
+    policy: Final = Policy(tags=frozenset({"x"}), attributes={"x": frozenset({attribute})})
+    result: Final = sanitize(f'<x {attribute}="{value}"></x>', policy)
+    assert dict(parse_fragment(result).select("x")[0].attrs) == {}
+
+
+@pytest.mark.parametrize(("attribute", "value"), _URL_AUTHORITY_VALUES)
+def test_sanitize_url_authority_after_rewrite(attribute: str, value: str) -> None:
     policy: Final = Policy(
         tags=frozenset({"x"}),
         attributes={"x": frozenset({attribute})},
-        attribute_filter=(lambda _tag, _name, _value: value) if source == "rewrite" else None,
-        set_attributes={"x": {attribute: value}} if source == "forced" else {},
+        attribute_filter=lambda _tag, _name, _value: value,
     )
-    original: Final = value if source == "input" else "https://safe.example/"
-    result: Final = sanitize(f'<x {attribute}="{original}"></x>', policy)
+    result: Final = sanitize(f'<x {attribute}="https://safe.example/"></x>', policy)
+    assert dict(parse_fragment(result).select("x")[0].attrs) == {}
+
+
+@pytest.mark.parametrize(("attribute", "value"), _URL_AUTHORITY_VALUES)
+def test_sanitize_url_authority_after_forced_value(attribute: str, value: str) -> None:
+    policy: Final = Policy(
+        tags=frozenset({"x"}),
+        attributes={"x": frozenset({attribute})},
+        set_attributes={"x": {attribute: value}},
+    )
+    result: Final = sanitize(f'<x {attribute}="https://safe.example/"></x>', policy)
     assert dict(parse_fragment(result).select("x")[0].attrs) == {}
 
 
 def test_sanitize_data_url_brackets() -> None:
-    value: Final = "data:text/plain," + "[" * 100_000
+    value: Final = f"data:text/plain,{'[' * 100_000}"
     policy: Final = Policy(
         tags=frozenset({"a"}), attributes={"a": frozenset({"href"})}, url_schemes=frozenset({"data"})
     )
@@ -4673,11 +5753,17 @@ def test_sanitize_data_url_brackets() -> None:
     assert dict(parse_fragment(result).select("a")[0].attrs) == {"href": value}
 
 
-@pytest.mark.parametrize("keep", [pytest.param(False, id="reject"), pytest.param(True, id="keep")])
-def test_predicate_selects_attributes(*, keep: bool) -> None:
-    policy: Final = Policy(attribute_predicate=lambda _tag, name, _value: keep or name != "title")
+def test_predicate_keeps_every_attribute() -> None:
+    policy: Final = Policy(attribute_predicate=lambda _tag, _name, _value: True)
     assert sanitize('<a title="first" href="https://example.com">x</a>', policy) == (
-        '<a title="first" href="https://example.com">x</a>' if keep else '<a href="https://example.com">x</a>'
+        '<a title="first" href="https://example.com">x</a>'
+    )
+
+
+def test_predicate_rejects_the_title() -> None:
+    policy: Final = Policy(attribute_predicate=lambda _tag, name, _value: name != "title")
+    assert sanitize('<a title="first" href="https://example.com">x</a>', policy) == (
+        '<a href="https://example.com">x</a>'
     )
 
 
@@ -4745,8 +5831,7 @@ def test_predicate_truth_exception_propagates() -> None:
         sanitize('<a title="x">x</a>', Policy(attribute_predicate=lambda *_: cast("bool", verdict)))
 
 
-@pytest.mark.parametrize("keep", [pytest.param(False, id="reject"), pytest.param(True, id="keep")])
-def test_predicate_controls_which_attributes_reach_rewrite_filter(*, keep: bool) -> None:
+def test_predicate_keeps_the_attribute_for_the_rewrite_filter() -> None:
     seen: Final[list[str]] = []
 
     def rewrite(_tag: str, name: str, value: str) -> str:
@@ -4754,9 +5839,17 @@ def test_predicate_controls_which_attributes_reach_rewrite_filter(*, keep: bool)
         return value
 
     assert (
-        sanitize('<a title="x">x</a>', Policy(attribute_predicate=lambda *_: keep, attribute_filter=rewrite)),
+        sanitize('<a title="x">x</a>', Policy(attribute_predicate=lambda *_: True, attribute_filter=rewrite)),
         seen,
-    ) == (('<a title="x">x</a>', ["title"]) if keep else ("<a>x</a>", []))
+    ) == ('<a title="x">x</a>', ["title"])
+
+
+def test_predicate_rejects_the_attribute_before_the_rewrite_filter() -> None:
+    seen: Final[list[str]] = []
+    policy: Final = Policy(
+        attribute_predicate=lambda *_: False, attribute_filter=lambda _tag, name, value: seen.append(name) or value
+    )
+    assert (sanitize('<a title="x">x</a>', policy), seen) == ("<a>x</a>", [])
 
 
 def test_rewrite_filter_still_receives_scrubbed_values() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
+from ...url_paths import encoded_path
 from ..model import ItemSummary
 from . import components
 from .config import SectionConfig, StandardSettings
@@ -43,7 +44,7 @@ class ListingView:
     root: str = ""              # the base path with a trailing slash ("posts/"), or "" for a site at the root
 
     def url_for_page(self, number: int) -> str:
-        prefix = "/" + self.root + (f"{self.base}/" if self.base else "")
+        prefix = encoded_path("/" + self.root + (f"{self.base}/" if self.base else ""))
         return prefix if number == 1 else f"{prefix}page/{number}/"
 
 
@@ -122,6 +123,9 @@ class StandardPage:
     #: Item pages of a translation: the original it was translated from (``{tag, name, url}``), else None. Core places the AI-translation line from it
     #: (``components.translation_notice``); a site that composes its own body places the same line.
     translation: Mapping[str, str] | None = None
+    #: Home and listing pages of a language edition that has no Story to list yet: the primary language's page of the same listing (``{tag, name, url}``).
+    #: Core places the notice from it (``components.untranslated_notice``); a site that composes its own body places the same line.
+    untranslated: Mapping[str, str] | None = None
     components = components
 
     def ranked(self, entries, bucket: str | None = None) -> list[StandardEntry]:

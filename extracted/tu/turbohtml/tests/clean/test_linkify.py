@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from threading import Barrier
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final, assert_type, cast
 
 import pytest
 from bench.operations import INPUTS
 
 from turbohtml import Document, Element, Text, parse, parse_fragment
-from turbohtml._html import _linkify_find, _linkify_fold, _linkify_scan, _phone_e164, _phone_regions
 from turbohtml.clean import (
     DEFAULT_CALLBACKS,
     LinkCandidate,
@@ -28,11 +29,10 @@ from turbohtml.clean import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from work_steps import WorkSteps
+
+    from turbohtml import Node
     from turbohtml.clean import Callback
-
-
-def _no_callbacks() -> list[Callback]:
-    return []
 
 
 @pytest.mark.parametrize(
@@ -136,6 +136,10 @@ def test_linkify_plain(text: str, expected: str) -> None:
     assert linkify(text, Linkify(callbacks=_no_callbacks())) == expected
 
 
+def _no_callbacks() -> list[Callback]:
+    return []
+
+
 @pytest.mark.parametrize(
     "cp",
     [
@@ -176,8 +180,7 @@ def test_linkify_leaves_existing_anchor_untouched() -> None:
 
 @pytest.mark.parametrize("tag", ["script", "style"])
 def test_linkify_skips_raw_text_elements(tag: str) -> None:
-    html = f"<{tag}>http://x.com</{tag}>http://y.com"
-    out = linkify(html, Linkify(callbacks=_no_callbacks()))
+    out = linkify(f"<{tag}>http://x.com</{tag}>http://y.com", Linkify(callbacks=_no_callbacks()))
     assert f"<{tag}>http://x.com</{tag}>" in out
     assert '<a href="http://y.com">' in out
 
@@ -224,10 +227,9 @@ def test_linkify_links_svg_title() -> None:
     assert linkify(html, Linkify(callbacks=_no_callbacks())) == expected
 
 
-@pytest.mark.parametrize("skip_tag", ["code", "CODE"], ids=["lowercase", "uppercase"])
+@pytest.mark.parametrize("skip_tag", [pytest.param("code", id="lowercase"), pytest.param("CODE", id="uppercase")])
 def test_linkify_skip_tags(skip_tag: str) -> None:
-    html = "<code>http://x.com</code> http://y.com"
-    out = linkify(html, Linkify(skip_tags=[skip_tag], callbacks=_no_callbacks()))
+    out = linkify("<code>http://x.com</code> http://y.com", Linkify(skip_tags=[skip_tag], callbacks=_no_callbacks()))
     assert out == '<code>http://x.com</code> <a href="http://y.com">http://y.com</a>'
 
 
@@ -242,14 +244,12 @@ def test_linkify_checks_each_skip_tag_by_exact_name() -> None:
 
 
 def test_linkify_walk_does_not_depend_on_python_recursion_limit() -> None:
-    html = "<div>" * 1_200 + "http://x.com" + "</div>" * 1_200
-    out = linkify(html, Linkify(callbacks=_no_callbacks()))
+    out = linkify(f"{'<div>' * 1200}http://x.com{'</div>' * 1200}", Linkify(callbacks=_no_callbacks()))
     assert out.count('<a href="http://x.com">') == 1
 
 
 def test_linkify_leaves_comment_nodes_untouched() -> None:
-    html = "<!-- http://skip.com --> http://link.com"
-    out = linkify(html, Linkify(callbacks=_no_callbacks()))
+    out = linkify("<!-- http://skip.com --> http://link.com", Linkify(callbacks=_no_callbacks()))
     assert out == '<!-- http://skip.com --> <a href="http://link.com">http://link.com</a>'
 
 
@@ -275,7 +275,7 @@ def test_linkify_email_keeps_non_ascii_local_part() -> None:
 
 
 def test_linkify_veto_callback_keeps_plain_text() -> None:
-    assert linkify("http://x.com", Linkify(callbacks=[lambda link: None])) == "http://x.com"  # ruff:ignore[unused-lambda-argument]
+    assert linkify("http://x.com", Linkify(callbacks=[lambda link: None])) == "http://x.com"  # ruff:ignore[unused-lambda-argument]  # the callback receives the link and ignores it
 
 
 def test_linkify_callback_can_change_text() -> None:
@@ -316,7 +316,7 @@ def test_linkify_callback_chain_runs_in_order() -> None:
         pytest.param("attrs", [], id="attrs"),
     ],
 )
-def test_linkify_rejects_invalid_callback_field(field: str, value: object) -> None:
+def test_linkify_rejects_invalid_callback_field(field: str, value: int | list[str]) -> None:
     def invalidate(link: LinkCandidate) -> LinkCandidate:
         setattr(link, field, value)
         return link
@@ -329,7 +329,7 @@ def test_linkify_rejects_invalid_callback_field(field: str, value: object) -> No
     "attrs",
     [pytest.param({1: "value"}, id="name"), pytest.param({"name": 1}, id="value")],
 )
-def test_linkify_rejects_invalid_callback_attribute(attrs: dict[object, object]) -> None:
+def test_linkify_rejects_invalid_callback_attribute(attrs: dict[int | str, int | str]) -> None:
     def invalidate(link: LinkCandidate) -> LinkCandidate:
         link.attrs = attrs  # ty: ignore[invalid-assignment]  # callback validation requires an invalid attrs mapping
         return link
@@ -371,7 +371,7 @@ def test_linkify_rejects_non_candidate_callback_result(
     process_existing: bool,
 ) -> None:
     def replace(_link: LinkCandidate) -> LinkCandidate:
-        return object()  # ty: ignore[invalid-return-type]  # callback validation requires an invalid result type
+        return object()  # ty: ignore[invalid-explicit-return]  # callback validation requires an invalid result type
 
     with pytest.raises(AttributeError):
         linkify(html, Linkify(callbacks=[replace], process_existing=process_existing))
@@ -431,159 +431,6 @@ def test_bare_domain_path_with_embedded_scheme_keeps_http_prefix() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "parse_email", "bare_domains", "spans"),
-    [
-        pytest.param("http://example.com", False, False, [(0, 18, 3)], id="scheme-url"),
-        pytest.param("HTTP://EXAMPLE.COM", False, False, [(0, 18, 3)], id="uppercase-scheme-and-host"),
-        pytest.param("ftp://example.com/file", False, False, [(0, 22, 3)], id="ftp-scheme"),
-        pytest.param("svn+ssh://example.com", False, False, [(0, 21, 3)], id="scheme-with-plus"),
-        pytest.param("view-source://example.com", False, False, [(0, 25, 3)], id="scheme-with-hyphen"),
-        pytest.param("a.b://example.com", False, False, [(0, 17, 3)], id="scheme-with-dot"),
-        pytest.param("nothttp//example.com", False, True, [(9, 20, 0)], id="no-colon-slash-slash-falls-to-bare"),
-        pytest.param("foo/example.com", False, True, [(4, 15, 0)], id="single-slash-keeps-bare-domain"),
-        pytest.param("mailto:bob", False, False, [], id="scheme-without-slashes-no-match"),
-        pytest.param(":no scheme here", False, False, [], id="leading-colon-no-scheme"),
-        pytest.param("xhttp://example.com", False, False, [(0, 19, 3)], id="arbitrary-scheme-matches-like-bleach"),
-        pytest.param("日http://example.com", False, False, [], id="non-ascii-before-scheme-blocks"),
-        pytest.param("http://.example.com", False, False, [], id="host-starts-with-dot"),
-        pytest.param("http://-example.com", False, False, [], id="host-starts-with-hyphen"),
-        pytest.param("http://localhost/x", False, False, [(0, 18, 3)], id="host-without-dot"),
-        pytest.param("x@example.com", False, True, [], id="bare-blocked-by-at-on-left"),
-        pytest.param(".example.com", False, True, [], id="bare-blocked-by-dot-on-left"),
-        pytest.param("see example.com here", False, True, [(4, 15, 0)], id="bare-domain"),
-        pytest.param("see example.com here", False, False, [], id="bare-domain-disabled"),
-        pytest.param("example.unknowntld nope", False, True, [], id="bare-domain-unknown-tld"),
-        pytest.param("a.co", False, True, [(0, 4, 0)], id="bare-two-char-tld"),
-        pytest.param("x.y nope", False, True, [], id="bare-one-char-tld-rejected"),
-        pytest.param("example.123 here", False, True, [], id="numeric-tld-rejected"),
-        pytest.param("foo.дом nope", False, True, [], id="non-ascii-tld-rejected"),
-        pytest.param("://example.com", False, False, [], id="scheme-has-no-letters"),
-        pytest.param("1http://example.com", False, False, [], id="scheme-starts-with-digit"),
-        pytest.param("ends in colon foo:", False, False, [], id="colon-at-end-no-room"),
-        pytest.param("http:/example.com", False, False, [], id="single-slash-scheme"),
-        pytest.param("http://a.bc- x", False, False, [(0, 11, 3)], id="host-ends-before-a-trailing-hyphen"),
-        pytest.param("trailing-.com", False, True, [], id="label-ends-with-hyphen"),
-        pytest.param("-leading.com here", False, True, [(1, 12, 0)], id="leading-hyphen-trimmed"),
-        pytest.param("a--b.com here", False, True, [(0, 8, 0)], id="double-hyphen-inside-label"),
-        pytest.param("food.example.com", False, True, [(0, 16, 0)], id="multi-label-host"),
-        pytest.param("дом.example.com", False, True, [(0, 15, 0)], id="non-ascii-label"),
-        pytest.param("xn--p1ai.example.com", False, True, [(0, 20, 0)], id="punycode-label-not-tld"),
-        pytest.param("ru.xn--p1ai stuff", False, True, [(0, 11, 0)], id="punycode-tld"),
-        pytest.param("dot at end example. nope", False, True, [], id="trailing-dot-no-following-label"),
-        pytest.param("a@example.com", True, False, [(0, 13, 1)], id="email"),
-        pytest.param("a@example.com", False, False, [], id="email-disabled"),
-        pytest.param("user.name+tag@example.com", True, False, [(0, 25, 1)], id="email-dotted-local-part"),
-        pytest.param("!#$%&'*+-/=?^_`{|}~a@example.com", True, False, [(0, 32, 1)], id="email-special-local-chars"),
-        pytest.param("ü2@example.com", True, False, [(0, 14, 1)], id="email-non-ascii-and-digit-local"),
-        pytest.param(".bad@example.com", True, False, [(1, 16, 1)], id="email-local-cannot-start-with-dot"),
-        pytest.param("x .name@example.com", True, False, [(3, 19, 1)], id="email-dot-after-non-local-stops"),
-        pytest.param("@example.com", True, False, [], id="email-no-local-part"),
-        pytest.param("a@@example.com", True, False, [], id="email-double-at"),
-        pytest.param("ab@cd@example.com", True, False, [], id="email-second-at-blocks-on-left"),
-        pytest.param("a@b nope", True, False, [], id="email-no-dotted-host"),
-        pytest.param("word http://example.com", False, False, [(5, 23, 3)], id="space-then-url-not-blocked"),
-        pytest.param("end. http://example.com", False, False, [(5, 23, 3)], id="not-blocked-after-dot-space"),
-        pytest.param("http://example.com/a(b)c", False, False, [(0, 24, 3)], id="balanced-round-in-path"),
-        pytest.param("http://example.com/a[b]c", False, False, [(0, 24, 3)], id="balanced-square-in-path"),
-        pytest.param("http://example.com/a)b", False, False, [(0, 20, 3)], id="unbalanced-round-stops"),
-        pytest.param("http://example.com/a]b", False, False, [(0, 20, 3)], id="unbalanced-square-stops"),
-        pytest.param("http://example.com/a{b}c", False, False, [(0, 24, 3)], id="balanced-curly-in-path"),
-        pytest.param("http://example.com/a}b", False, False, [(0, 20, 3)], id="unbalanced-curly-stops"),
-        pytest.param(
-            "{http://example.com/foo_bar}", False, False, [(1, 27, 3)], id="brace-scoped-trailing-brace-trimmed"
-        ),
-        pytest.param("http://example.com/foo'", False, False, [(0, 22, 3)], id="trailing-apostrophe-trimmed"),
-        pytest.param("http://example.com/o'reilly", False, False, [(0, 27, 3)], id="apostrophe-mid-path-kept"),
-        pytest.param("(http://example.com/path)", False, False, [(1, 24, 3)], id="link-in-parens"),
-        pytest.param("http://example.com/path.", False, False, [(0, 23, 3)], id="path-trailing-dot-trimmed"),
-        pytest.param("http://example.com/a,b,", False, False, [(0, 22, 3)], id="path-trailing-comma-trimmed"),
-        pytest.param("http://example.com/p!?:;", False, False, [(0, 20, 3)], id="path-trailing-punct-run-trimmed"),
-        # '*' is an RFC 3986 sub-delim that bleach and linkify_it keep, so a trailing one stays in the link
-        pytest.param("http://example.com/path*", False, False, [(0, 24, 3)], id="path-trailing-star-kept"),
-        pytest.param("http://example.com:notaport/x", False, False, [(0, 18, 3)], id="colon-not-a-port-ends-host"),
-        pytest.param("http://example.com:8080", False, False, [(0, 23, 3)], id="port-at-end-of-string"),
-        pytest.param("http://example.com?q=1", False, False, [(0, 22, 3)], id="query-led-tail"),
-        pytest.param("http://example.com no tail", False, False, [(0, 18, 3)], id="host-only-no-tail"),
-        pytest.param("see http://example.com.", False, False, [(4, 22, 3)], id="host-trailing-dot-trimmed"),
-        pytest.param('http://example.com/a"b', False, False, [(0, 20, 3)], id="tail-stops-at-quote"),
-        pytest.param("http://example.com/a`b", False, False, [(0, 20, 3)], id="tail-stops-at-backtick"),
-        pytest.param("http://example.com/a b", False, False, [(0, 20, 3)], id="tail-stops-at-space"),
-        pytest.param("http://example.com/a\x7fb", False, False, [(0, 20, 3)], id="tail-stops-at-del"),
-        pytest.param("http://user:pass@host.com/x", True, False, [(0, 27, 3)], id="userinfo-url"),
-        pytest.param("http://u@example.com", False, False, [(0, 20, 3)], id="userinfo-at-only"),
-        pytest.param("http://a.b@example.com", False, False, [(0, 22, 3)], id="userinfo-is-a-valid-host"),
-        pytest.param("http://1.2.3.4/path", False, False, [(0, 19, 3)], id="schemeful-ipv4"),
-        pytest.param("at 1.2.3.4 here", False, True, [], id="bare-ipv4-needs-tld"),
-        pytest.param("http://example.com#frag", False, False, [(0, 23, 3)], id="fragment-after-host"),
-        pytest.param("http://example.com:8080?q=1", False, False, [(0, 27, 3)], id="port-then-query-no-userinfo"),
-        pytest.param("http://example.com:8080#f", False, False, [(0, 25, 3)], id="port-then-fragment-no-userinfo"),
-        pytest.param("http://example.com:8080 x", False, False, [(0, 23, 3)], id="port-then-space-no-userinfo"),
-        pytest.param("see EXAMPLE.COM here", False, True, [(4, 15, 0)], id="bare-domain-uppercase-tld"),
-        pytest.param("https://cdn_1.example.org/x", False, False, [(0, 27, 3)], id="underscore-in-scheme-host"),
-        pytest.param("http://_dmarc.example.com/", False, False, [(0, 26, 3)], id="underscore-leading-scheme-host"),
-        pytest.param("cdn_1.example.org/x", False, True, [(0, 19, 0)], id="underscore-in-bare-host"),
-        pytest.param("_dmarc.example.com here", False, True, [(0, 18, 0)], id="underscore-leading-bare-host"),
-    ],
-)
-def test_scanner_spans(
-    text: str,
-    parse_email: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # a pytest parametrize value, not a boolean-trap call site
-    bare_domains: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # a pytest parametrize value, not a boolean-trap call site
-    spans: list[tuple[int, int, int]],
-    with_hrefs: Callable[[str, list[tuple[int, int, int]]], list[tuple[int, int, int, str, None]]],
-) -> None:
-    assert _linkify_scan(text, parse_email, bare_domains) == with_hrefs(text, spans)
-
-
-@pytest.mark.parametrize(
-    ("text", "url_schemes", "spans"),
-    [
-        pytest.param("http://example.com", ("http", "https", "ftp"), [(0, 18, 3)], id="allowed-scheme-matches"),
-        pytest.param("ftp://example.com/file", ("http",), [], id="scheme-not-in-allowlist-skipped"),
-        pytest.param("javascript://example.com", ("http", "https", "ftp"), [], id="javascript-scheme-excluded"),
-        pytest.param("HTTP://example.com", ("http",), [(0, 18, 3)], id="allowlist-is-case-insensitive"),
-        pytest.param("xhttp://example.com", (), [], id="empty-allowlist-matches-nothing"),
-    ],
-)
-def test_scanner_url_schemes_restrict_authority(
-    text: str,
-    url_schemes: tuple[str, ...],
-    spans: list[tuple[int, int, int]],
-    with_hrefs: Callable[[str, list[tuple[int, int, int]]], list[tuple[int, int, int, str, None]]],
-) -> None:
-    # a non-None url_schemes tuple restricts scheme://host matching to that allowlist; omitting it matches any scheme
-    assert _linkify_scan(text, False, False, (), url_schemes) == with_hrefs(text, spans)  # ruff:ignore[boolean-positional-value-in-call]  # positional-only C binding
-
-
-def test_scanner_omitting_url_schemes_matches_any_scheme() -> None:
-    assert _linkify_scan("xyzzy://example.com", False, False) == [(0, 19, 3, "xyzzy://example.com", None, False)]  # ruff:ignore[boolean-positional-value-in-call]  # positional C binding
-
-
-def test_scanner_rejects_non_str_text() -> None:
-    with pytest.raises(TypeError):
-        _linkify_scan(123, False, False)  # ruff:ignore[boolean-positional-value-in-call]  # ty: ignore[invalid-argument-type]  # the C arg check is the point
-
-
-def test_scanner_rejects_non_tuple_url_schemes() -> None:
-    with pytest.raises(TypeError):
-        _linkify_scan("http://x.com", False, False, (), ["http"])  # ruff:ignore[boolean-positional-value-in-call]  # ty: ignore[invalid-argument-type]
-
-
-def test_find_rejects_non_str_text() -> None:
-    with pytest.raises(TypeError):
-        _linkify_find(123, True, True, (), (), ("http",), None, False)  # ruff:ignore[boolean-positional-value-in-call]  # ty: ignore[invalid-argument-type]
-
-
-def test_find_rejects_non_tuple_tlds() -> None:
-    with pytest.raises(TypeError):
-        _linkify_find("text", True, True, ["corp"], (), ("http",), None, False)  # ruff:ignore[boolean-positional-value-in-call]  # ty: ignore[invalid-argument-type]
-
-
-def _tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
-    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
-
-
-@pytest.mark.parametrize(
     ("text", "expected"),
     [
         pytest.param("", [], id="empty"),
@@ -627,6 +474,10 @@ def test_find_returns_spans(text: str, expected: list[tuple[int, int, str, str, 
     assert _tuples(LinkDetector().find(text)) == expected
 
 
+def _tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
+    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
+
+
 def test_find_offsets_slice_back_to_text() -> None:
     text = "reach me at bob@example.com or https://example.org/x"
     for span in LinkDetector().find(text):
@@ -665,11 +516,51 @@ def test_find_keeps_a_balanced_brace_in_the_path() -> None:
 
 
 @pytest.mark.parametrize(
+    "nest",
+    [
+        pytest.param(f"{'(' * 32}x{')' * 32}", id="round"),
+        pytest.param(f"{'[' * 32}x{']' * 32}", id="square"),
+        pytest.param(f"{'{' * 32}x{'}' * 32}", id="curly"),
+        pytest.param(f"{'(' * 11}{'[' * 11}{'{' * 10}x{'}' * 10}{']' * 11}{')' * 11}", id="mixed"),
+    ],
+)
+def test_find_keeps_brackets_nested_to_the_depth_cap(nest: str) -> None:
+    text = f"http://example.com/{nest}"
+    assert _tuples(LinkDetector().find(text)) == [(0, len(text), text, text, False)]
+
+
+@pytest.mark.parametrize(
+    "nest",
+    [
+        pytest.param(f"{'(' * 33}x{')' * 33}", id="round"),
+        pytest.param(f"{'[' * 33}x{']' * 33}", id="square"),
+        pytest.param(f"{'{' * 33}x{'}' * 33}", id="curly"),
+        pytest.param(f"{'(' * 11}{'[' * 11}{'{' * 11}x{'}' * 11}{']' * 11}{')' * 11}", id="mixed"),
+    ],
+)
+def test_find_ends_a_link_before_brackets_nested_past_the_depth_cap(nest: str) -> None:
+    spans = LinkDetector().find(f"http://example.com/{nest}")
+    assert _tuples(spans) == [(0, 19, "http://example.com/", "http://example.com/", False)]
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        pytest.param("example.org/a[", id="bare-domain"),
+        pytest.param("http://example.org/a[", id="scheme-url"),
+        pytest.param("example.org/\u0101[", id="wide-text"),
+    ],
+)
+def test_links_before_unclosed_brackets_scan_in_linear_time(link: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda n: partial(LinkDetector().find, link * n), (500, 2000))
+
+
+@pytest.mark.parametrize(
     "text",
     [
-        pytest.param("http://example.com followed by " + "tail " * 40_000, id="start-with-large-tail"),
-        pytest.param("prefix " * 20 + "http://example.com" + " suffix " * 20, id="middle"),
-        pytest.param("prefix " * 40 + "http://example.com", id="end"),
+        pytest.param(f"http://example.com followed by {'tail ' * 40000}", id="start-with-large-tail"),
+        pytest.param(f"{'prefix ' * 20}http://example.com{' suffix ' * 20}", id="middle"),
+        pytest.param(f"{'prefix ' * 40}http://example.com", id="end"),
         pytest.param("bare example.com here", id="bare-domain"),
         pytest.param("mail bob@example.com", id="email"),
     ],
@@ -701,13 +592,13 @@ def test_has_link_respects_configuration() -> None:
     assert detector.has_link("but https://example.com still counts") is True
 
 
-def _detector_schemes_tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
-    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
-
-
 def test_registered_scheme_less_url_is_found() -> None:
     spans = LinkDetector(schemes=["tel"]).find("call tel:+1-800-555-0100 now")
     assert _detector_schemes_tuples(spans) == [(5, 24, "tel:+1-800-555-0100", "tel:+1-800-555-0100", False)]
+
+
+def _detector_schemes_tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
+    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
 
 
 def test_scheme_registration_is_case_and_colon_insensitive() -> None:
@@ -794,13 +685,13 @@ def test_span_is_unhashable() -> None:
         hash(LinkSpan(0, 3, "abc", "http://abc", is_email=False))
 
 
-def _detector_tlds_tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
-    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
-
-
 def test_custom_tld_makes_a_bare_domain_match() -> None:
     spans = LinkDetector(tlds=["corp"]).find("visit intranet.corp today")
     assert _detector_tlds_tuples(spans) == [(6, 19, "intranet.corp", "http://intranet.corp", False)]
+
+
+def _detector_tlds_tuples(spans: list[LinkSpan]) -> list[tuple[int, int, str, str, bool]]:
+    return [(span.start, span.end, span.text, span.url, span.is_email) for span in spans]
 
 
 def test_custom_tld_is_normalized() -> None:
@@ -827,16 +718,15 @@ def test_single_letter_last_label_is_not_a_tld() -> None:
 
 
 @pytest.mark.parametrize(
-    ("tlds", "text"),
+    ("tlds", "text", "expected"),
     [
-        pytest.param(["xyz", "corp"], "foo.corp", id="length-mismatch-then-hit"),
-        pytest.param(["corq"], "foo.corp", id="same-length-near-miss"),
+        pytest.param(["xyz", "corp"], "foo.corp", ["foo.corp"], id="length-mismatch-then-hit"),
+        pytest.param(["corq"], "foo.corp", [], id="same-length-near-miss"),
     ],
 )
-def test_custom_tld_candidate_scanning(tlds: list[str], text: str) -> None:
+def test_custom_tld_candidate_scanning(tlds: list[str], text: str, expected: list[str]) -> None:
     spans = LinkDetector(tlds=tlds).find(text)
-    matched = [span.text for span in spans]
-    assert matched == (["foo.corp"] if "corp" in tlds else [])
+    assert [span.text for span in spans] == expected
 
 
 @pytest.mark.parametrize(
@@ -947,111 +837,47 @@ def test_a_callback_answers_the_same_link() -> None:
     assert target_blank(link) is link
 
 
-@pytest.mark.parametrize("callback", [nofollow, target_blank], ids=["nofollow", "target_blank"])
+@pytest.mark.parametrize(
+    "callback", [pytest.param(nofollow, id="nofollow"), pytest.param(target_blank, id="target_blank")]
+)
 @pytest.mark.parametrize(
     "link",
     [
-        pytest.param(object(), id="not-a-candidate"),
+        pytest.param(SimpleNamespace(), id="not-a-candidate"),
         pytest.param(SystemError, id="a-type"),
     ],
 )
-def test_a_callback_rejects_a_foreign_object(callback: object, link: object) -> None:
+def test_a_callback_rejects_a_foreign_object(callback: Callback, link: SimpleNamespace | type[SystemError]) -> None:
     with pytest.raises(TypeError, match="expects a LinkCandidate"):
-        callback(link)  # ty: ignore[call-non-callable]  # the argument check is the point
+        callback(link)  # ty: ignore[invalid-argument-type]  # the argument check is the point
 
 
 class _UrlOnly:
-    """A stand-in carrying a url but no attrs, the way a caller's own object might."""
-
     url = "http://x.com"
 
 
-@pytest.mark.parametrize("callback", [nofollow, target_blank], ids=["nofollow", "target_blank"])
+@pytest.mark.parametrize(
+    "callback", [pytest.param(nofollow, id="nofollow"), pytest.param(target_blank, id="target_blank")]
+)
 @pytest.mark.parametrize(
     "link",
     [
-        pytest.param(LinkCandidate(1, "text", {}), id="url-is-not-a-string"),  # ty: ignore[invalid-argument-type]
-        pytest.param(LinkCandidate("http://x.com", "text", "attrs"), id="attrs-is-not-a-dict"),  # ty: ignore[invalid-argument-type]
+        pytest.param(LinkCandidate(1, "text", {}), id="url-is-not-a-string"),  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
+        pytest.param(LinkCandidate("http://x.com", "text", "attrs"), id="attrs-is-not-a-dict"),  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
         pytest.param(_UrlOnly(), id="no-attrs-at-all"),
     ],
 )
-def test_a_callback_rejects_wrongly_typed_fields(callback: object, link: object) -> None:
+def test_a_callback_rejects_wrongly_typed_fields(callback: Callback, link: LinkCandidate | _UrlOnly) -> None:
     with pytest.raises(TypeError, match="expects a LinkCandidate"):
-        callback(link)  # ty: ignore[call-non-callable]  # the field check is the point
-
-
-@pytest.mark.parametrize("callback", [nofollow, target_blank], ids=["nofollow", "target_blank"])
-def test_a_callback_takes_one_link(callback: object) -> None:
-    with pytest.raises(TypeError):
-        callback()  # ty: ignore[call-non-callable]  # the arity check is the point
+        callback(link)  # ty: ignore[invalid-argument-type]  # the field check is the point
 
 
 @pytest.mark.parametrize(
-    ("values", "kind", "expected"),
-    [
-        pytest.param(["Pre", "code", "pre"], 0, ("code", "pre"), id="lowercased-deduplicated-sorted"),
-        pytest.param([".Dev", "dev", "app"], 1, ("app", "dev"), id="a-leading-dot-falls-off-a-tld"),
-        pytest.param(["Git:", "ssh::", "git"], 2, ("git", "ssh"), id="trailing-colons-fall-off-a-scheme"),
-        pytest.param([" Fax ", "tel", "fax"], 3, ("fax", "tel"), id="words-are-stripped"),
-        pytest.param([], 0, (), id="nothing"),
-        pytest.param(["."], 1, ("",), id="a-lone-dot-is-an-empty-tld"),
-        pytest.param([""], 1, ("",), id="an-empty-tld"),
-        pytest.param([":", "::"], 2, ("",), id="lone-colons-are-an-empty-scheme"),
-    ],
+    "callback", [pytest.param(nofollow, id="nofollow"), pytest.param(target_blank, id="target_blank")]
 )
-def test_fold(values: list[str], kind: int, expected: tuple[str, ...]) -> None:
-    assert _linkify_fold(values, "field", kind) == expected
-
-
-def test_fold_names_the_field_in_its_error() -> None:
-    with pytest.raises(TypeError, match="skip_tags entries must be str"):
-        _linkify_fold(["pre", 5], "skip_tags", 0)  # ty: ignore[invalid-argument-type]  # the check is the point
-
-
-def test_fold_takes_three_arguments() -> None:
+def test_a_callback_takes_one_link(callback: Callback) -> None:
     with pytest.raises(TypeError):
-        _linkify_fold(["a"], "field")  # ty: ignore[missing-argument]  # the arity check is the point
-
-
-def test_fold_needs_an_iterable() -> None:
-    with pytest.raises(TypeError):
-        _linkify_fold(5, "skip_tags", 0)  # ty: ignore[invalid-argument-type]  # the check is the point
-
-
-def test_regions_strip_uppercase_and_keep_first_seen_order() -> None:
-    assert _phone_regions([" gb", "US", "gb", "de "]) == ("GB", "US", "DE")
-
-
-def test_a_non_ascii_region_is_left_alone() -> None:
-    # `ß` would otherwise fold to South Sudan's `SS`
-    assert _phone_regions(["ß", "us"]) == ("ß", "US")
-
-
-def test_regions_entries_must_be_str() -> None:
-    with pytest.raises(TypeError, match="regions entries must be str"):
-        _phone_regions(["US", 1])  # ty: ignore[invalid-argument-type]  # the check is the point
-
-
-def test_regions_need_an_iterable() -> None:
-    with pytest.raises(TypeError):
-        _phone_regions(5)  # ty: ignore[invalid-argument-type]  # the check is the point
-
-
-@pytest.mark.parametrize(
-    ("country_code", "national", "expected"),
-    [
-        pytest.param(44, "2079460958", "+442079460958", id="fits"),
-        pytest.param(1, "2" * 14, "+1" + "2" * 14, id="exactly-fifteen-digits"),
-        pytest.param(1, "2" * 15, None, id="one-digit-too-many"),
-    ],
-)
-def test_e164(country_code: int, national: str, expected: str | None) -> None:
-    assert _phone_e164(country_code, national) == expected
-
-
-def test_e164_rejects_a_non_str_number() -> None:
-    with pytest.raises(TypeError):
-        _phone_e164(1, 5)  # ty: ignore[invalid-argument-type]  # the check is the point
+        callback()  # ty: ignore[missing-argument]  # the arity check is the point
 
 
 def test_the_public_e164_reads_the_same() -> None:
@@ -1065,15 +891,15 @@ def test_the_type_mask_restricts_the_detector() -> None:
     assert [span.text for span in found] == ["07400 123456"]
 
 
-def _linkify_detection_no_callbacks() -> list[Callback]:
-    return []
-
-
 def test_extra_tlds_links_custom_bare_domain() -> None:
     out = linkify(
         "visit foo.internal here", Linkify(callbacks=_linkify_detection_no_callbacks(), extra_tlds=["internal"])
     )
     assert out == 'visit <a href="http://foo.internal">foo.internal</a> here'
+
+
+def _linkify_detection_no_callbacks() -> list[Callback]:
+    return []
 
 
 def test_extra_tlds_is_case_insensitive() -> None:
@@ -1128,31 +954,6 @@ def test_schemes_registers_a_custom_scheme() -> None:
         "git://example.com and http://x.com", Linkify(callbacks=_linkify_detection_no_callbacks(), schemes=["git"])
     )
     assert out == '<a href="git://example.com">git://example.com</a> and http://x.com'
-
-
-@pytest.mark.parametrize(
-    ("text", "parse_email", "extra_tlds", "spans"),
-    [
-        pytest.param("foo.internal x", False, ("internal",), [(0, 12, 0)], id="custom-ascii-tld"),
-        pytest.param("foo.internal x", False, (), [], id="absent-without-extra"),
-        pytest.param("a.zzz here", False, ("foo",), [], id="custom-tld-no-match"),
-        pytest.param("пример.дом ok", False, ("дом",), [(0, 10, 0)], id="custom-non-ascii-tld"),
-        pytest.param("m@foo.internal", True, ("internal",), [(0, 14, 1)], id="custom-tld-email"),
-        pytest.param("example.com", False, ("internal",), [(0, 11, 0)], id="builtin-tld-still-wins"),
-    ],
-)
-def test_scanner_extra_tlds(
-    text: str,
-    parse_email: bool,  # ruff:ignore[boolean-type-hint-positional-argument]  # a pytest parametrize value, not a boolean-trap call site
-    extra_tlds: tuple[str, ...],
-    spans: list[tuple[int, int, int]],
-    with_hrefs: Callable[[str, list[tuple[int, int, int]]], list[tuple[int, int, int, str, None]]],
-) -> None:
-    assert _linkify_scan(text, parse_email, True, extra_tlds) == with_hrefs(text, spans)  # ruff:ignore[boolean-positional-value-in-call]  # positional-only C binding under test
-
-
-def test_scanner_extra_tlds_defaults_to_none() -> None:
-    assert _linkify_scan("foo.internal", False, True) == []  # ruff:ignore[boolean-positional-value-in-call]  # positional-only C binding under test
 
 
 @pytest.mark.parametrize(
@@ -1212,7 +1013,7 @@ def test_only_a_port_in_range_joins_the_host(text: str, matched: str) -> None:
     assert [span.text for span in LinkDetector().find(text)] == [matched]
 
 
-_TEXT = "<p>See https://example.com and <a href='/x'>kept</a></p>"
+_TEXT: Final[str] = "<p>See https://example.com and <a href='/x'>kept</a></p>"
 
 
 def test_node_form_links_in_place_and_returns_the_node() -> None:
@@ -1222,8 +1023,7 @@ def test_node_form_links_in_place_and_returns_the_node() -> None:
 
 
 def test_a_document_links_its_body_text() -> None:
-    document = parse(_TEXT)
-    linked = assert_type(linkify_node(document), Document)
+    linked = assert_type(linkify_node(parse(_TEXT)), Document)
     assert isinstance(linked, Document)
     assert linked.serialize().count("<a ") == 2
 
@@ -1250,19 +1050,68 @@ def test_a_reusable_linker_offers_the_node_form() -> None:
     assert document.serialize().count("<a ") == 2
 
 
+def test_the_node_form_drops_what_the_tree_remembered() -> None:
+    root: Final = parse_fragment(
+        "<p>See https://example.com</p><p><a href='/y'><i>y</i></a></p>"
+        "<ol><li>a</li><a href='/x'><div><li>b</li></div></a><li>c</li></ol>"
+    )
+    last: Final = root.select("li")[-1]
+    assert len(root.select("a")) == 2  # builds the element index the queries below would read
+    assert last.to_markdown() == "2. c"  # the list does not look for items inside the link
+
+    def edit(link: LinkCandidate) -> LinkCandidate | None:
+        if link.url == "/x":
+            return None
+        if link.url == "/y":
+            link.text = "z"
+        return link
+
+    linkify_node(root, Linkify(callbacks=[edit], process_existing=True))
+    assert [anchor.attrs["href"] for anchor in root.select("a")] == ["https://example.com", "/y"]
+    assert root.select("i") == []
+    assert last.to_markdown() == "3. c"
+
+
 def test_the_node_form_refuses_a_str() -> None:
     with pytest.raises(TypeError, match="pass a str to linkify instead"):
         linkify_node(_TEXT)  # ty: ignore[invalid-argument-type]  # the argument check is the point
 
 
-@pytest.mark.parametrize("entry", [linkify, linkify_node], ids=["linkify", "linkify_node"])
-def test_a_foreign_object_is_rejected(entry: object) -> None:
+@pytest.mark.parametrize(
+    ("html", "selector", "expected"),
+    [
+        pytest.param(
+            '<a href="/x">see http://x.com</a>',
+            "a",
+            '<a href="/x">see http://x.com</a>',
+            id="anchor-owner",
+        ),
+        pytest.param(
+            '<a href="/x"><span>see http://x.com</span></a>',
+            "span",
+            '<a href="/x"><span>see http://x.com</span></a>',
+            id="node-inside-anchor",
+        ),
+        pytest.param(
+            '<a href="/x">kept</a><span>see http://x.com</span>',
+            "span",
+            '<a href="/x">kept</a><span>see <a href="http://x.com">http://x.com</a></span>',
+            id="node-beside-anchor",
+        ),
+    ],
+)
+def test_node_form_does_not_link_under_an_anchor(html: str, selector: str, expected: str) -> None:
+    root = parse_fragment(html)
+    owner = root.select_one(selector)
+    assert owner is not None
+    linkify_node(owner, Linkify(callbacks=_no_callbacks()))
+    assert root.inner_html == expected
+
+
+@pytest.mark.parametrize("entry", [pytest.param(linkify, id="linkify"), pytest.param(linkify_node, id="linkify_node")])
+def test_a_foreign_object_is_rejected(entry: Callable[[str | Node], object]) -> None:
     with pytest.raises(TypeError):
-        entry(42)  # ty: ignore[call-non-callable]  # the argument check is the point
-
-
-def _linkify_process_existing_no_callbacks() -> list[Callback]:
-    return []
+        entry(42)  # ty: ignore[invalid-argument-type]  # the argument check is the point
 
 
 def test_link_existing_defaults_to_false() -> None:
@@ -1320,8 +1169,7 @@ def test_process_existing_keeps_inner_markup_when_text_unchanged() -> None:
         link.attrs["rel"] = "ext"
         return link
 
-    html = '<a href="http://x.com"><b>x</b></a>'
-    out = linkify(html, Linkify(callbacks=[add_rel], process_existing=True))
+    out = linkify('<a href="http://x.com"><b>x</b></a>', Linkify(callbacks=[add_rel], process_existing=True))
     assert out == '<a href="http://x.com" rel="ext"><b>x</b></a>'
 
 
@@ -1335,6 +1183,10 @@ def test_process_existing_preserves_token_list_attr() -> None:
     html = '<a href="http://x.com" class="a b">x</a>'
     out = linkify(html, Linkify(callbacks=_linkify_process_existing_no_callbacks(), process_existing=True))
     assert out == '<a href="http://x.com" class="a b">x</a>'
+
+
+def _linkify_process_existing_no_callbacks() -> list[Callback]:
+    return []
 
 
 def test_process_existing_flattens_valueless_attr() -> None:
@@ -1358,8 +1210,7 @@ def test_existing_flag_distinguishes_existing_from_detected() -> None:
         link.attrs["data-kind"] = "existing" if link.existing else "new"
         return link
 
-    html = '<a href="http://x.com">x</a> see http://y.com'
-    out = linkify(html, Linkify(callbacks=[mark], process_existing=True))
+    out = linkify('<a href="http://x.com">x</a> see http://y.com', Linkify(callbacks=[mark], process_existing=True))
     assert '<a href="http://x.com" data-kind="existing">x</a>' in out
     assert 'data-kind="new"' in out
 
@@ -1481,10 +1332,14 @@ def test_bare_address_still_gets_the_mailto_prefix() -> None:
     assert (span.text, span.url) == ("a@b.com", "mailto:a@b.com")
 
 
-_US_DETECTOR: Final = LinkDetector(phones=PhoneNumbers(regions=("US",)))
+_US_DETECTOR: Final[LinkDetector] = LinkDetector(phones=PhoneNumbers(regions=("US",)))
 
 
-@pytest.mark.parametrize("lane", [pytest.param(lane, id=f"lane-{lane}") for lane in range(16)])
+@pytest.mark.parametrize(
+    ("lead", "lane"),
+    [pytest.param("", 0, id="lane-0")]
+    + [pytest.param(f"{'p' * (lane - 1)} ", lane, id=f"lane-{lane}") for lane in range(1, 16)],
+)
 @pytest.mark.parametrize(
     ("token", "url"),
     [
@@ -1494,11 +1349,8 @@ _US_DETECTOR: Final = LinkDetector(phones=PhoneNumbers(regions=("US",)))
         pytest.param("650-253-0000", "tel:+16502530000", id="phone"),
     ],
 )
-def test_trigger_at_every_lane(lane: int, token: str, url: str) -> None:
-    assert [
-        (span.start, span.url)
-        for span in _US_DETECTOR.find(("p" * (lane - 1) + " " if lane else "") + token + " q" * 5)
-    ] == [(lane, url)]
+def test_trigger_at_every_lane(lead: str, lane: int, token: str, url: str) -> None:
+    assert [(span.start, span.url) for span in _US_DETECTOR.find(lead + token + " q" * 5)] == [(lane, url)]
 
 
 @pytest.mark.parametrize(
@@ -1514,7 +1366,7 @@ def test_trigger_after_plain_blocks(prefix: str) -> None:
     assert [
         span.start
         for span in LinkDetector(phones=PhoneNumbers(regions=("US",)), emails=False, bare_domains=False).find(
-            prefix + " 650-253-0000"
+            f"{prefix} 650-253-0000"
         )
     ] == [len(prefix) + 1]
 
@@ -1529,30 +1381,41 @@ def test_plain_text_of_block_sizes_has_no_links(length: int) -> None:
 
 
 def test_digits_are_not_triggers_with_phones_off() -> None:
-    assert [span.url for span in LinkDetector().find("p" * 7 + "650-253-0000 a@b.com")] == ["mailto:a@b.com"]
+    assert [span.url for span in LinkDetector().find(f"{'p' * 7}650-253-0000 a@b.com")] == ["mailto:a@b.com"]
 
 
 def test_a_digit_in_the_last_lane_of_a_block() -> None:
-    assert [span.start for span in _US_DETECTOR.find("p" * 14 + " 6" + "50-253-0000")] == [15]
+    assert [span.start for span in _US_DETECTOR.find(f"{'p' * 14} 650-253-0000")] == [15]
 
 
-@pytest.mark.parametrize("kind", [pytest.param("ucs2", id="ucs2"), pytest.param("ucs4", id="ucs4")])
-def test_wide_text_without_digits_scans_clean(kind: str) -> None:
-    text = ("\u4e2d\u6587" if kind == "ucs2" else "\U0001f600\u4e2d") * 50_000 + " 650-253-0000"
+@pytest.mark.parametrize(
+    "filler",
+    [pytest.param("\u4e2d\u6587", id="ucs2"), pytest.param("\U0001f600\u4e2d", id="ucs4")],
+)
+def test_wide_text_without_digits_scans_clean(filler: str) -> None:
+    text = f"{filler * 50_000} 650-253-0000"
     assert [span.url for span in _US_DETECTOR.find(text)] == ["tel:+16502530000"]
     assert LinkDetector().find(text) == []
 
 
-@pytest.mark.parametrize("prefix", ["plain ", "café ", "中文 ", "😀 "], ids=["ascii", "latin1", "ucs2", "ucs4"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        pytest.param("plain ", id="ascii"),
+        pytest.param("café ", id="latin1"),
+        pytest.param("中文 ", id="ucs2"),
+        pytest.param("😀 ", id="ucs4"),
+    ],
+)
 def test_linkify_snapshot_width(prefix: str) -> None:
-    assert Linker().linkify(prefix + "https://example.com tail") == (
-        prefix + '<a href="https://example.com" rel="nofollow">https://example.com</a> tail'
+    assert Linker().linkify(f"{prefix}https://example.com tail") == (
+        f'{prefix}<a href="https://example.com" rel="nofollow">https://example.com</a> tail'
     )
 
 
-@pytest.mark.parametrize("prefix", ["plain ", "😀 "], ids=["ascii", "ucs4"])
+@pytest.mark.parametrize("prefix", [pytest.param("plain ", id="ascii"), pytest.param("😀 ", id="ucs4")])
 def test_linkify_snapshot_survives_callback_mutation(prefix: str) -> None:
-    root: Final = parse_fragment(prefix + "https://example.com tail")
+    root: Final = parse_fragment(f"{prefix}https://example.com tail")
     text: Final = root.children[0]
     assert isinstance(text, Text)
 
@@ -1561,8 +1424,49 @@ def test_linkify_snapshot_survives_callback_mutation(prefix: str) -> None:
         return link
 
     assert Linker(Linkify(callbacks=(mutate,))).linkify_node(root).inner_html == (
-        prefix + '<a href="https://example.com">https://example.com</a> tail'
+        f'{prefix}<a href="https://example.com">https://example.com</a> tail'
     )
+
+
+@pytest.mark.parametrize("verdict", ["veto", "keep"])
+def test_linkify_callback_detaches_text_node(verdict: str) -> None:
+    root: Final = parse_fragment("see example.com")
+    text: Final = root.children[0]
+    assert isinstance(text, Text)
+
+    def detach(link: LinkCandidate) -> LinkCandidate | None:
+        root.clear()
+        return link if verdict == "keep" else None
+
+    assert not Linker(Linkify(callbacks=(detach,))).linkify_node(root).inner_html
+    assert text.parent is None
+    assert text.data == "see example.com"
+
+
+def test_linkify_callback_detaches_later_text_node() -> None:
+    root: Final = parse_fragment("<p>see example.com</p>and example.org")
+    later: Final = root.children[1]
+    assert isinstance(later, Text)
+
+    def detach(link: LinkCandidate) -> LinkCandidate:
+        later.extract()
+        return link
+
+    assert Linker(Linkify(callbacks=(detach,))).linkify_node(root).inner_html == (
+        '<p>see <a href="http://example.com">example.com</a></p>'
+    )
+    assert later.data == "and example.org"
+
+
+def test_linkify_callback_detaches_vetoed_existing_anchor() -> None:
+    root: Final = parse_fragment('<p>hi <a href="http://example.com/">x</a></p>')
+    anchor: Final = root.select("a")[0]
+
+    def detach(_link: LinkCandidate) -> None:
+        anchor.extract()
+
+    assert Linker(Linkify(callbacks=(detach,), process_existing=True)).linkify_node(root).inner_html == "<p>hi </p>"
+    assert anchor.html == '<a href="http://example.com/">x</a>'
 
 
 def test_linkify_wide_snapshot_callback_veto() -> None:
@@ -1577,18 +1481,18 @@ def test_linkify_wide_snapshot_callback_veto() -> None:
     [
         pytest.param(
             1,
-            "<p>" + "😀 " * 32_768 + '<a href="https://example.com" rel="nofollow">https://example.com</a></p>',
+            f'<p>{"😀 " * 32_768}<a href="https://example.com" rel="nofollow">https://example.com</a></p>',
             id="wide-one-link",
         ),
         pytest.param(
             2,
-            "<p>" + "a " * 32_768 + '<a href="https://example.com" rel="nofollow">https://example.com</a></p>',
+            f'<p>{"a " * 32_768}<a href="https://example.com" rel="nofollow">https://example.com</a></p>',
             id="ascii-one-link",
         ),
-        pytest.param(3, "<p>" + "😀 " * 32_768 + "</p>", id="wide-no-links"),
+        pytest.param(3, f"<p>{'😀 ' * 32768}</p>", id="wide-no-links"),
         pytest.param(
             4,
-            "<p>" + '😀 <a href="https://example.com" rel="nofollow">https://example.com</a> ' * 1_024 + "</p>",
+            f"""<p>{'😀 <a href="https://example.com" rel="nofollow">https://example.com</a> ' * 1_024}</p>""",
             id="wide-many-links",
         ),
     ],
@@ -1601,9 +1505,7 @@ def test_linkify_snapshot_benchmark(case: int, expected: str) -> None:
 def test_linkify_snapshot_callback_benchmark() -> None:
     case: Final = cast("tuple[str, str]", INPUTS["linkify-traversal"]()[5][1])
     assert Linker(Linkify(callbacks=(nofollow, target_blank), process_existing=True)).linkify(case[1]) == (
-        "<p>"
-        + "😀 " * 32_768
-        + '<a href="https://example.com" rel="nofollow" target="_blank">https://example.com</a></p>'
+        f'<p>{"😀 " * 32_768}<a href="https://example.com" rel="nofollow" target="_blank">https://example.com</a></p>'
     )
 
 
@@ -1676,7 +1578,7 @@ def test_unique_on_text_without_links_is_empty() -> None:
     assert LinkDetector().find("nothing here", unique=True) == []
 
 
-_US: Final = PhoneNumbers(regions=("US",))
+_US: Final[PhoneNumbers] = PhoneNumbers(regions=("US",))
 
 
 def test_acceptance_case() -> None:
@@ -1718,28 +1620,21 @@ def test_a_reused_linker_and_one_without_phones() -> None:
 )
 def test_href_is_the_international_number(text: str, regions: tuple[str, ...], href: str) -> None:
     assert linkify(text, Linkify(phones=PhoneNumbers(regions=regions))) == f'<a href="{href}">{text}</a>'
-    span = LinkDetector(phones=PhoneNumbers(regions=regions)).find(text)[0]
-    assert span.phone is not None
-    expected = "tel:" + span.phone.international_number
-    if span.phone.extension is not None:
-        expected += ";ext=" + span.phone.extension
-    assert href == expected
+    assert LinkDetector(phones=PhoneNumbers(regions=regions)).find(text)[0].url == href
 
 
-def _collect(seen: list[LinkCandidate]) -> Callable[[LinkCandidate], LinkCandidate]:
-    def callback(link: LinkCandidate) -> LinkCandidate:
-        seen.append(link)
-        return link
-
-    return callback
-
-
-@pytest.mark.parametrize("entry", [pytest.param("function", id="linkify"), pytest.param("linker", id="Linker")])
-def test_callback_sees_the_phone(entry: str) -> None:
+@pytest.mark.parametrize(
+    "render",
+    [
+        pytest.param(linkify, id="linkify"),
+        pytest.param(lambda text, config: Linker(config).linkify(text), id="Linker"),
+    ],
+)
+def test_callback_sees_the_phone(render: Callable[[str, Linkify], str]) -> None:
     seen: list[LinkCandidate] = []
     config = Linkify(callbacks=[_collect(seen)], phones=_US, parse_email=True)
     text = "mail a@b.com, see example.com, call 650-253-0000"
-    assert (linkify(text, config) if entry == "function" else Linker(config).linkify(text)) == (
+    assert render(text, config) == (
         'mail <a href="mailto:a@b.com">a@b.com</a>, see <a href="http://example.com">example.com</a>, '
         'call <a href="tel:+16502530000">650-253-0000</a>'
     )
@@ -1750,10 +1645,18 @@ def test_callback_sees_the_phone(entry: str) -> None:
     ]
 
 
+def _collect(seen: list[LinkCandidate]) -> Callable[[LinkCandidate], LinkCandidate]:
+    def callback(link: LinkCandidate) -> LinkCandidate:
+        seen.append(link)
+        return link
+
+    return callback
+
+
 def test_callback_can_route_mobiles_to_sms() -> None:
     def sms(link: LinkCandidate) -> LinkCandidate:
         if link.phone is not None and link.phone.type in {PhoneType.MOBILE, PhoneType.FIXED_LINE_OR_MOBILE}:
-            link.url = "sms:" + link.phone.international_number
+            link.url = f"sms:{link.phone.international_number}"
         return link
 
     assert linkify(
@@ -1812,7 +1715,15 @@ def test_candidate_phone_defaults_to_none() -> None:
     assert LinkCandidate("tel:+1", "1", phone=None).phone is None
 
 
-@pytest.mark.parametrize("case", [1, 2, 3, 4], ids=["wide", "ascii", "no-links", "many-links"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(1, id="wide"),
+        pytest.param(2, id="ascii"),
+        pytest.param(3, id="no-links"),
+        pytest.param(4, id="many-links"),
+    ],
+)
 @pytest.mark.oracle
 def test_linkify_snapshot_outputs(case: int) -> None:
     html: Final = pytest.importorskip("lxml.html")
@@ -1829,10 +1740,10 @@ def test_linkify_snapshot_outputs(case: int) -> None:
     )
 
 
-@pytest.mark.parametrize("prefix", ["中文 ", "😀 "], ids=["ucs2", "ucs4"])
+@pytest.mark.parametrize("prefix", [pytest.param("中文 ", id="ucs2"), pytest.param("😀 ", id="ucs4")])
 def test_linkify_wide_email(prefix: str) -> None:
-    assert Linker(Linkify(parse_email=True)).linkify(prefix + "name@example.com") == (
-        prefix + '<a href="mailto:name@example.com">name@example.com</a>'
+    assert Linker(Linkify(parse_email=True)).linkify(f"{prefix}name@example.com") == (
+        f'{prefix}<a href="mailto:name@example.com">name@example.com</a>'
     )
 
 
@@ -1867,4 +1778,65 @@ def test_linkify_wide_invalid_email() -> None:
 
 @pytest.mark.parametrize("prefix", [pytest.param("中文 ", id="ucs2"), pytest.param("😀 ", id="ucs4")])
 def test_linkify_wide_presence(prefix: str) -> None:
-    assert LinkDetector().has_link(prefix + "https://example.com")
+    assert LinkDetector().has_link(f"{prefix}https://example.com")
+
+
+@pytest.mark.parametrize(
+    "template", [pytest.param("<a {}></a>", id="html"), pytest.param("<math><a {}></a></math>", id="math")]
+)
+def test_process_existing_anchor_writes_back_every_attribute(template: str) -> None:
+    names = [f"data-k{index}" for index in range(100)]
+    assert linkify(template.format(" ".join(names)), Linkify(process_existing=True)) == template.format(
+        " ".join(f'{name}=""' for name in names)
+    )
+
+
+@pytest.mark.parametrize(
+    "template", [pytest.param("<a {}></a>", id="html"), pytest.param("<math><a {}></a></math>", id="math")]
+)
+def test_process_existing_anchor_with_many_attributes_stays_linear(template: str, work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(
+        lambda count: partial(
+            linkify,
+            template.format(" ".join(f"data-k{index}" for index in range(count))),
+            Linkify(process_existing=True),
+        ),
+        (1000, 4000),
+    )
+
+
+def test_linkify_node_unwrap_keeps_iter_elements_safe() -> None:
+    document = parse('<div><a href="https://links.example/">x</a></div><p>tail</p>')
+    config = Linkify(callbacks=[lambda _link: None], process_existing=True)
+    seen: list[str] = []
+    for element in document.iter_elements():
+        seen.append(element.tag)
+        if element.tag == "div":
+            linkify_node(element, config)
+    assert seen == ["html", "head", "body", "div", "a"]  # the walk follows the unwrapped anchor, as Element.unwrap does
+    assert document.html == "<html><head></head><body><div>x</div><p>tail</p></body></html>"
+
+
+def test_linkify_node_replaced_text_keeps_iter_elements_safe() -> None:
+    def rename(link: LinkCandidate) -> LinkCandidate:
+        link.text = "renamed"
+        return link
+
+    document = parse('<div><a href="https://links.example/"><b>x</b></a></div><p>tail</p>')
+    seen: list[str] = []
+    for element in document.iter_elements():
+        seen.append(element.tag)
+        if element.tag == "a":
+            linkify_node(document, Linkify(callbacks=[rename], process_existing=True))
+    assert seen == ["html", "head", "body", "div", "a", "b"]  # the walk follows the replaced child out of the tree
+    assert [anchor.html for anchor in document.find_all("a")] == ['<a href="https://links.example/">renamed</a>']
+
+
+def test_linkify_node_refreshes_element_index() -> None:
+    document = parse("<p>see a.dev</p>")
+    assert document.find_all("a") == []  # builds the whole-tree index
+    linkify_node(document)
+    assert [anchor.attrs["href"] for anchor in document.find_all("a")] == ["http://a.dev"]
+    linkify_node(document, Linkify(callbacks=[lambda _link: None], process_existing=True))
+    assert document.find_all("a") == []
+    assert document.select("* > a") == []

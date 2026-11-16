@@ -1,7 +1,8 @@
 import asyncio
+
 import pytest
 
-from aiostream import stream, pipe
+from aiostream import pipe, stream
 from aiostream.test_utils import add_resource
 
 
@@ -75,6 +76,20 @@ async def test_slice(assert_run, assert_cleanup):
 
     with pytest.raises(ValueError):
         xs = stream.range(10, 20) | slice.pipe(-8, 8)
+
+
+@pytest.mark.parametrize(
+    "select_items",
+    [
+        lambda source: stream.select.slice(source, None, None, 0),
+        lambda source: source | stream.select.slice.pipe(1, 4, 0),
+        lambda source: source[::0],
+        lambda source: source | pipe.getitem(slice(1, 4, 0)),
+    ],
+)
+def test_slice_zero_step(select_items):
+    with pytest.raises(ValueError, match="slice step cannot be zero"):
+        select_items(stream.range(5))
 
 
 @pytest.mark.asyncio

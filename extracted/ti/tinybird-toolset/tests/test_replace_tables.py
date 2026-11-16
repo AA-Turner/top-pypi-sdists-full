@@ -125,6 +125,41 @@ class TestReplaceTables(unittest.TestCase):
             {("", "tt"): ("database", "t_01010101")},
             "SELECT sum(a) OVER w FROM (SELECT 1 AS a) WINDOW w AS (PARTITION BY a IN (SELECT a FROM database.t_01010101 AS tt))",
         ),
+        (
+            "SELECT * FROM tt FINAL WHERE b = 1",
+            {("", "tt"): ("", "(select * from database.t_01010101 where a > 1)")},
+            "SELECT * FROM (select * from database.t_01010101 FINAL where a > 1) AS tt WHERE b = 1",
+        ),
+        (
+            "SELECT * FROM tt AS t FINAL",
+            {("", "tt"): ("", "(select * from (select * from database.t_01010101 where a > 1) where a > 1)")},
+            "SELECT * FROM (select * from (select * from database.t_01010101 FINAL where a > 1) where a > 1) AS t",
+        ),
+        (
+            "SELECT * FROM tt FINAL",
+            {("", "tt"): ("", "(select * from cluster(c, database.t_01010101) where a > 1)")},
+            "SELECT * FROM (select * from cluster(c, database.t_01010101) FINAL where a > 1) AS tt",
+        ),
+        (
+            "SELECT * FROM tt FINAL",
+            {("", "tt"): ("", "(select a from table2 group by a)")},
+            "SELECT * FROM (select a from table2 group by a) AS tt FINAL",
+        ),
+        (
+            "SELECT * FROM tt FINAL",
+            {("", "tt"): ("", "(select count() from table2 where a > 1)")},
+            "SELECT * FROM (select count() from table2 where a > 1) AS tt FINAL",
+        ),
+        (
+            "SELECT * FROM tt FINAL",
+            {("", "tt"): ("", "(select * apply(sum) from table2 where a > 1)")},
+            "SELECT * FROM (select * apply(sum) from table2 where a > 1) AS tt FINAL",
+        ),
+        (
+            "SELECT * FROM tt FINAL",
+            {("", "tt"): ("", "(select * from (select a from table2 limit 1) where a > 1)")},
+            "SELECT * FROM (select * from (select a from table2 limit 1) where a > 1) AS tt FINAL",
+        ),
     ]
 
     def test_asterisks_no_database(self):
@@ -1313,7 +1348,8 @@ class TestDisabledFunctions(unittest.TestCase):
             max_memory_usage = 1000000,
             max_execution_time = 60,
             use_query_condition_cache = 0,
-            prefer_column_name_to_alias = 1
+            prefer_column_name_to_alias = 1,
+            final = 1
         """
         replacement = {("default", "a"): ("", "(SELECT count() FROM system.numbers LIMIT 1)")}
         replaced = chquery.replace_tables(sql, replacement, default_database="default")
@@ -1325,6 +1361,7 @@ class TestDisabledFunctions(unittest.TestCase):
             "max_execution_time",
             "use_query_condition_cache",
             "prefer_column_name_to_alias",
+            "final",
         ):
             self.assertIn(key, out)
 

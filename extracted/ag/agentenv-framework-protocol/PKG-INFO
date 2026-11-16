@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework-protocol
-Version: 0.1.550
+Version: 0.1.555
 Summary: Open data-plane protocol and server SDK for agent environments.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs

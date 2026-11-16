@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytest-recording"
-version = "0.14.1"
+version = "0.15.0"
 description = "A pytest plugin powered by VCR.py to record and replay HTTP traffic"
 keywords = ["pytest", "vcr", "network", "mock"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 requires-python = ">=3.10"
 license = "MIT"
-readme = "README.rst"
+readme = "README.md"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Pytest",
@@ -33,8 +33,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "vcrpy>=2.0.1",
-    "pytest>=3.5.0"
+    "vcrpy>=4.0.2",
+    "pytest>=6.2.5"
 ]
 [project.optional-dependencies]
 tests = [
@@ -47,12 +47,29 @@ dev = ["pytest_recording[tests]"]
 
 [project.urls]
 Documentation = "https://github.com/kiwicom/pytest-recording"
-Changelog = "https://github.com/kiwicom/pytest-recording/blob/master/docs/changelog.rst"
+Changelog = "https://github.com/kiwicom/pytest-recording/blob/master/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/kiwicom/pytest-recording/issues"
 "Source Code" = "https://github.com/kiwicom/pytest-recording"
+Funding = "https://github.com/sponsors/Stranger6667"
 
 [project.entry-points.pytest11]
 recording = "pytest_recording.plugin"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests"]
+
+[tool.coverage.run]
+parallel = true
+branch = true
+source = ["pytest_recording"]
+
+[tool.coverage.paths]
+source = ["src/pytest_recording", ".tox/*/lib/python*/site-packages/pytest_recording"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.ruff]
 line-length = 120
@@ -69,6 +86,10 @@ select = [
     "I", # isort
     "T", # prints
     "FIX", # fixme comments
+    "UP", # pyupgrade
+    "SIM", # flake8-simplify
+    "FURB", # refurb
+    "PGH003", # blanket-type-ignore
 ]
 ignore = [
     "E501", # Line too long, handled by ruff

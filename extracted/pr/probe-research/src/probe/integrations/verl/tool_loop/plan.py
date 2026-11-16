@@ -1,7 +1,7 @@
 """What verl's capture declares it cannot hold (`run.samples.plan(unsupported=...)`, D8), from the trainer's config and
 tokenizer: ids Probe numbered (hermes gives none, D3), reasoning without a think-end token (D4), both only when verl
 runs its tool loop, and, in every layout, files a reward function attaches where no rollout handle reaches it (the
-trainer process, or the remote reward manager's actor; D11)."""
+trainer process, or the remote reward manager's actor; D11); and GPU readings off verl's vLLM server."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from .reasoning import has_think_token
 PARSERS_WITHOUT_IDS = frozenset({"hermes"})
 #: The reward manager that calls the reward function in its own Ray actor (`reward_manager/remote.py:25-37`).
 REMOTE_REWARD_MANAGER = "remote"
+#: The one rollout engine whose serving worker returns each request's GPU readings (`../gpu/gpu.py`, `live.py`).
+GPU_ENGINE = "vllm"
 
 
 def build_unsupported(config: Any, tokenizer: Any) -> dict[str, str]:
@@ -21,6 +23,10 @@ def build_unsupported(config: Any, tokenizer: Any) -> dict[str, str]:
     files_reason = _get_reward_files_gap(config)
     if files_reason:
         unsupported["environment_files"] = files_reason
+    engine = _get(config, "actor_rollout_ref", "rollout", "name")
+    if isinstance(engine, str) and engine != GPU_ENGINE:  # unset: verl's default, vLLM
+        unsupported["gpu_readings"] = (f"Probe reads a model call's GPU readings only inside verl's vLLM server; this "
+                                       f"run's rollout engine is {engine}")
     multi_turn = _get(config, "actor_rollout_ref", "rollout", "multi_turn")
     # verl's tool agent loop: the multi-turn switch, tools (`agent_loop.py:627`), or the default loop named
     is_tool_loop = any(_get(multi_turn, name) for name in ("enable", "tool_config_path", "function_tool_path"))

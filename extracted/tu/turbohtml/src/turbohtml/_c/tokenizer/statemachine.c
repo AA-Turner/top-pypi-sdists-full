@@ -23,7 +23,10 @@
 #include "tokenizer/statemachine.h"
 
 #include "core/ascii.h"
+#include "core/hash.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
+#include "data/tag_atom.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -221,6 +224,7 @@ struct th_tokenizer {
     int resolve_references; /* fold references into text (1) or split them into
                                TH_CHARREF tokens (0) */
     int capture_source;     /* record the verbatim source span of markup tokens */
+    Py_ssize_t cdata_off;   /* input index of the open CDATA section's "<![CDATA[", under capture_source */
     int capture_attributes; /* retain tag attributes for emitted tokens */
     int capture_locations;  /* stamp the granular tag/attribute source spans */
     int building;           /* a markup token is mid-construction, so its source
@@ -253,7 +257,10 @@ struct th_tokenizer {
 
     th_attr_slot *attr_seen;  /* per-tag open-addressing set of kept attribute names */
     Py_ssize_t attr_seen_cap; /* power-of-two slot count, 0 until the first attribute */
-    uint64_t attr_epoch;      /* current tag generation; other epochs mark empty slots */
+    /* attrs from this index on take attr_seen_slow: half the slots, or 0 once keyed */
+    Py_ssize_t attr_seen_fast;
+    uint64_t attr_epoch; /* current tag generation; other epochs mark empty slots */
+    int attr_keyed;      /* 1 once the duplicate index has moved to th_name_hash, for the rest of the input */
 
     th_buf last_tag; /* last emitted start tag name, for appropriate end tags */
     th_buf temp;     /* spec "temporary buffer" for raw-text end tags and script */
@@ -263,6 +270,14 @@ struct th_tokenizer {
     th_buf ref;              /* scratch for a reference's resolved code points */
     Py_ssize_t ref_line;     /* position of the '&' that opened the reference */
     Py_ssize_t ref_col;
+    /* A reference that suspends inside a run of unbounded length (the digits after "&#", the
+       alphanumerics past the longest table name) resumes where it stopped: starting over at the
+       '&' on every feed would cost the square of a run delivered in small chunks. The offset
+       counts from the '&', which stays under `pos` until the reference resolves, so input
+       compaction does not disturb it. */
+    Py_ssize_t ref_scanned; /* code points scanned from the '&', 0 when no such run is suspended */
+    Py_UCS4 ref_num;        /* the numeric reference's value over the digits scanned so far */
+    int ref_overflow;
 
     th_token *queue[2];
     int queue_head;
@@ -356,6 +371,10 @@ void th_tok_set_options(th_tokenizer *self, int resolve_references, int capture_
     self->capture_attributes = capture_attributes;
 }
 
+void th_tok_capture_attributes(th_tokenizer *self, int on) {
+    self->capture_attributes = on;
+}
+
 void th_tok_capture_locations(th_tokenizer *self, int on) {
     self->capture_locations = on;
 }
@@ -421,6 +440,7 @@ void th_tok_reset(th_tokenizer *self) {
     self->slice_start = 0;
     self->slice_len = 0;
     buf_reset(&self->ref);
+    self->ref_scanned = 0;
     token_reset(&self->tok);
     token_reset(&self->charref_record);
     buf_reset(&self->last_tag);
@@ -456,6 +476,40 @@ void th_tok_free(th_tokenizer *self) {
 void th_tok_switch(th_tokenizer *self, enum th_initial_state state) {
     static const enum state initial_states[] = {ST_DATA, ST_RCDATA, ST_RAWTEXT, ST_SCRIPT, ST_PLAINTEXT, ST_CDATA};
     self->state = initial_states[state];
+}
+
+enum th_initial_state th_tok_content_model(const th_tokenizer *self, const th_buf **end_tag) {
+    static const uint8_t models[ST_CDATA_END + 1] = {
+        [ST_RCDATA] = TH_INIT_RCDATA,
+        [ST_RCDATA_LT] = TH_INIT_RCDATA,
+        [ST_RCDATA_END_OPEN] = TH_INIT_RCDATA,
+        [ST_RCDATA_END_NAME] = TH_INIT_RCDATA,
+        [ST_RAWTEXT] = TH_INIT_RAWTEXT,
+        [ST_RAWTEXT_LT] = TH_INIT_RAWTEXT,
+        [ST_RAWTEXT_END_OPEN] = TH_INIT_RAWTEXT,
+        [ST_RAWTEXT_END_NAME] = TH_INIT_RAWTEXT,
+        [ST_PLAINTEXT] = TH_INIT_PLAINTEXT,
+        [ST_SCRIPT] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_LT] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_END_OPEN] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_END_NAME] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESC_START] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESC_START_DASH] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED_DASH] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED_DASH_DASH] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED_LT] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED_END_OPEN] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_ESCAPED_END_NAME] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESC_START] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESCAPED] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESCAPED_DASH] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESCAPED_DASH_DASH] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESCAPED_LT] = TH_INIT_SCRIPT_DATA,
+        [ST_SCRIPT_DOUBLE_ESC_END] = TH_INIT_SCRIPT_DATA,
+    };
+    *end_tag = &self->last_tag;
+    return (enum th_initial_state)models[self->state];
 }
 
 void th_tok_set_cdata(th_tokenizer *self, int allowed) {
@@ -577,6 +631,15 @@ void th_tok_borrow_input(th_tokenizer *self, int kind, const void *data, Py_ssiz
     self->input_borrowed = 1;
 }
 
+void th_tok_seek(th_tokenizer *self, Py_ssize_t pos, Py_ssize_t line, Py_ssize_t col) {
+    self->pos = pos;
+    self->line = line;
+    self->col = col;
+    self->mark_pos = pos;
+    self->mark_line = line;
+    self->mark_col = col;
+}
+
 int th_tok_failed(const th_tokenizer *self) {
     return self->oom;
 }
@@ -584,6 +647,10 @@ int th_tok_failed(const th_tokenizer *self) {
 const void *th_tok_input_data(const th_tokenizer *self, int *kind) {
     *kind = self->input.kind;
     return self->input.data;
+}
+
+Py_ssize_t th_tok_position(const th_tokenizer *self) {
+    return self->pos;
 }
 
 void *th_tok_take_input(th_tokenizer *self, int *kind, Py_ssize_t *length) {
@@ -797,6 +864,7 @@ static void new_attr(th_tokenizer *self) {
    collision between a narrow and a wide name of equal length still resolves
    correctly. */
 static int attr_name_dup(const th_attr *a, const th_attr *b) {
+    TH_WORK_STEP();
     if (a->name.len != b->name.len) {
         return 0;
     }
@@ -811,54 +879,99 @@ static int attr_name_dup(const th_attr *a, const th_attr *b) {
 /* FNV-1a over a name's raw storage bytes. Equal names share width and content
    (buffers reset to the 1-byte kind and promote only on demand), so equal names
    always hash equal; a hash collision between distinct names is resolved by
-   attr_name_dup. */
+   attr_name_dup. Once the index is keyed, attr_seen_slow replaces it with
+   th_name_hash of the same bytes. */
 static uint32_t attr_name_hash(const th_buf *name) {
-    const unsigned char *bytes = name->data;
-    Py_ssize_t count = name->len * name->kind;
-    uint32_t hash = 2166136261u;
+    return th_fnv1a_bytes(name->data, name->len * name->kind);
+}
+
+/* Seat attrs[0, count) in the duplicate index at the current epoch. They go in the order
+   attr_seen_probe seated them, so in a doubled index none lands further from its home
+   than it sat before. */
+static void attr_seen_seat(th_tokenizer *self, Py_ssize_t count) {
+    const th_attr *attrs = self->tok.attrs;
+    Py_ssize_t mask = self->attr_seen_cap - 1;
     for (Py_ssize_t index = 0; index < count; index++) {
-        hash = (hash ^ bytes[index]) * 16777619u;
+        Py_ssize_t slot = (Py_ssize_t)(attrs[index].name_hash & (uint32_t)mask);
+        while (self->attr_seen[slot].epoch == self->attr_epoch) {
+            TH_WORK_STEP();
+            slot = (slot + 1) & mask;
+        }
+        self->attr_seen[slot].epoch = self->attr_epoch;
+        self->attr_seen[slot].index = index;
     }
-    return hash;
+}
+
+/* Move the duplicate index to th_name_hash for the rest of this tokenizer's input:
+   rehash attrs[0, cur] and seat attrs[0, seated) again. FNV-1a is fixed, so a
+   document can pick names that share one home; the key spreads them. Every later
+   attribute takes attr_seen_slow, which hashes it under the key. */
+static TH_NOINLINE void attr_seen_rekey(th_tokenizer *self, Py_ssize_t cur, Py_ssize_t seated) {
+    th_attr *attrs = self->tok.attrs;
+    self->attr_keyed = 1;
+    self->attr_seen_fast = 0;
+    for (Py_ssize_t index = 0; index <= cur; index++) {
+        attrs[index].name_hash = th_name_hash(attrs[index].name.data, attrs[index].name.len * attrs[index].name.kind);
+    }
+    memset(self->attr_seen, 0, (size_t)self->attr_seen_cap * sizeof(*self->attr_seen));
+    attr_seen_seat(self, seated);
+}
+
+/* The path attr_seen_probe takes for attrs[cur] once cur reaches attr_seen_fast: on
+   a keyed index it rehashes the name under th_name_hash, and when the index would
+   pass half full it doubles and re-seats attrs[0, cur) -- which by construction are
+   exactly the distinct names kept so far, since a dropped duplicate never holds a
+   permanent slot; the fresh table is zeroed to epoch 0, which no tag uses. Folding
+   both into the one bound keeps the per-attribute path to a single comparison. */
+static int attr_seen_slow(th_tokenizer *self, Py_ssize_t cur) {
+    th_attr *attrs = self->tok.attrs;
+    if (self->attr_keyed) {
+        attrs[cur].name_hash = th_name_hash(attrs[cur].name.data, attrs[cur].name.len * attrs[cur].name.kind);
+    }
+    if (cur * 2 < self->attr_seen_cap) {
+        return 0;
+    }
+    Py_ssize_t cap = self->attr_seen_cap ? self->attr_seen_cap * 2 : 16;
+    th_attr_slot *table = PyMem_Calloc((size_t)cap, sizeof(th_attr_slot));
+    if (table == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        self->oom = 1;   /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyMem_Free(self->attr_seen);
+    self->attr_seen = table;
+    self->attr_seen_cap = cap;
+    self->attr_seen_fast = self->attr_keyed ? 0 : cap / 2;
+    attr_seen_seat(self, cur);
+    return 0;
 }
 
 /* Return 1 when the tag already carries attrs[cur]'s name, else record cur and
    return 0. Open addressing keyed by the name hash keeps duplicate detection
    O(1) amortized, so a tag with n distinct attributes costs O(n) rather than the
-   O(n^2) a pairwise scan would pay on adversarial input. When the table crosses
-   half full it doubles and re-seats attrs[0, cur) -- which by construction are
-   exactly the distinct names kept so far, since a dropped duplicate never holds
-   a permanent slot; the fresh table is zeroed to epoch 0, which no tag uses. */
+   O(n^2) a pairwise scan would pay on adversarial input. The index stays at most
+   half full. A name is seated where the miss for it ended, so the distance it
+   lands from its home bounds every later probe that reaches it; one more than
+   TH_FAST_PROBE_LIMIT moves the index off FNV-1a (core/hash.h). */
 static int attr_seen_probe(th_tokenizer *self, Py_ssize_t cur) {
-    const th_attr *attrs = self->tok.attrs;
-    if (cur * 2 >= self->attr_seen_cap) { /* keep the load factor <= 1/2 */
-        Py_ssize_t cap = self->attr_seen_cap ? self->attr_seen_cap * 2 : 16;
-        th_attr_slot *table = PyMem_New(th_attr_slot, (size_t)cap); /* GCOVR_EXCL_BR_LINE: size-overflow guard */
-        if (table == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            self->oom = 1;   /* GCOVR_EXCL_LINE: allocation-failure path */
-            return 0;        /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        memset(table, 0, (size_t)cap * sizeof(*table));
-        PyMem_Free(self->attr_seen);
-        self->attr_seen = table;
-        self->attr_seen_cap = cap;
-        Py_ssize_t rmask = cap - 1;
-        for (Py_ssize_t index = 0; index < cur; index++) {
-            Py_ssize_t rslot = (Py_ssize_t)(attrs[index].name_hash & (uint32_t)rmask);
-            while (table[rslot].epoch == self->attr_epoch) {
-                rslot = (rslot + 1) & rmask;
-            }
-            table[rslot].epoch = self->attr_epoch;
-            table[rslot].index = index;
+    if (cur >= self->attr_seen_fast) {
+        if (attr_seen_slow(self, cur) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return 0;                        /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
+    const th_attr *attrs = self->tok.attrs;
     Py_ssize_t mask = self->attr_seen_cap - 1;
-    Py_ssize_t slot = (Py_ssize_t)(attrs[cur].name_hash & (uint32_t)mask);
+    Py_ssize_t home = (Py_ssize_t)(attrs[cur].name_hash & (uint32_t)mask);
+    Py_ssize_t slot = home;
     while (self->attr_seen[slot].epoch == self->attr_epoch) {
+        TH_WORK_STEP();
         if (attr_name_dup(&attrs[self->attr_seen[slot].index], &attrs[cur])) {
             return 1;
         }
         slot = (slot + 1) & mask;
+    }
+    if (TH_UNLIKELY(!self->attr_keyed && ((slot - home) & mask) > TH_FAST_PROBE_LIMIT)) {
+        attr_seen_rekey(self, cur, cur + 1); /* attrs[cur] missed every kept name, so it is seated as kept */
+        return 0;
     }
     self->attr_seen[slot].epoch = self->attr_epoch;
     self->attr_seen[slot].index = cur;
@@ -1017,6 +1130,27 @@ static void pi_temp_to_comment(th_tokenizer *self) {
     self->eof_code = NULL;
 }
 
+/* Queue the CDATA section that just ended as one text token spanning its source, delimiters included. Only under
+   capture_source, where the run before the section was flushed as it opened: a consumer copying tokens out verbatim
+   would otherwise write the section's text bare, and its "<" would turn into markup. An empty section still yields a
+   token, to carry its source. */
+static void flush_cdata(th_tokenizer *self) {
+    th_token *rec = &self->text_record;
+    text_materialize(self);
+    flush_text(self);
+    if (self->queue_len == 0) {
+        token_reset(rec);
+        rec->kind = TH_TEXT;
+        buf_reset(&rec->text);
+        rec->line = self->line;
+        rec->col = self->col;
+        enqueue(self, rec);
+    }
+    rec->src_off = self->cdata_off;
+    rec->src_span = self->pos - self->cdata_off;
+    rec->has_source = 1;
+}
+
 /* Queue a TH_CHARREF token for an unresolved reference: the resolved code points
    (already decoded into self->ref) become its data, and [amp, amp + consumed) is
    its verbatim source. Flush any pending text run ahead of it so order holds. */
@@ -1054,6 +1188,17 @@ static void rawtext_fallback(th_tokenizer *self, enum state ret) {
 
 static void finish_tag(th_tokenizer *self) {
     self->state = ST_DATA;
+    /* interned once here for every consumer: the tree builder, the Tokenizer following open elements, the rewriter */
+    const th_buf *name = &self->tok.name;
+    uint64_t key = 0;
+    uint16_t atom = TH_TAG_UNKNOWN; /* the table holds only ASCII names */
+    if (name->kind == PyUnicode_1BYTE_KIND) {
+        key = th_tag_key(name->data, name->len);
+        atom = key != 0 ? th_tag_key_atom(key) : th_tag_hash_atom(name->data, name->len);
+    }
+    self->tok.name_key = key;
+    self->tok.atom = atom;
+    self->tok.tag_flags = th_tag_atom_flags[atom];
     if (self->capture_locations) {
         /* the cursor has just passed the closing '>', so it marks the tag's end span */
         self->tok.end_line = self->line;

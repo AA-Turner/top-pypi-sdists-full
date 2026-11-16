@@ -16,15 +16,7 @@ use pyo3::{IntoPyObjectExt, pyfunction, wrap_pyfunction};
 
 use sqlbuild_host::entries::models::UserCodeHost;
 
-use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with, keywords};
-use crate::bindings::_helpers::cache::native_store::current_code_identity;
-use crate::bindings::_helpers::compile_driver::stage_work::count_stage;
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field;
-use crate::bindings::_helpers::records::fields::replaced;
-use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::rules::catalogue::{
     resolved_ignore_selectors, rule_catalogue, select_rules,
 };
@@ -51,6 +43,16 @@ use crate::bindings::_helpers::rules::rule_plan::{
 use crate::bindings::_helpers::rules::rule_run::finish_rule_run;
 use crate::bindings::_helpers::rules::selection::{rule_selected, selected_rule_codes};
 use crate::bindings::_helpers::rules::sql_rules::run_planned_sql_rules;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::cache::main::current_code_identity::current_code_identity;
+use sqlbuild_python_base::compile_driver::main::count_stage::count_stage;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field;
+use sqlbuild_python_base::records::main::fields::replaced::replaced;
+use sqlbuild_python_base::records::types::RecordId;
 use sqlbuild_rules::models::RowsRequest;
 use std::sync::Arc;
 
@@ -553,6 +555,7 @@ fn rules_result<'py>(
                 "custom_rule_timings",
                 field(&custom, "custom_rule_timings")?,
             ),
+            ("skipped_models", field(&native_result, "skipped_models")?),
         ],
     )
 }
@@ -566,7 +569,7 @@ fn native_request<'py>(
     let payloads: Bound<'py, PyAny> = match custom_payloads {
         Some(payloads) => payloads,
         None => call_with(
-            &host::entry(py, UserCodeHost::CustomRulePayloads)?,
+            &host_entry(py, UserCodeHost::CustomRulePayloads)?,
             &[
                 ("catalogue", run.catalogue.clone()),
                 ("project_dir", run.project_dir.clone()),

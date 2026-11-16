@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitarray
-Version: 3.12.3
+Version: 3.12.4
 Summary: efficient arrays of booleans -- C extension
 Home-page: https://github.com/ilanschnell/bitarray
 Author: Ilan Schnell
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Topic :: Utilities
 Requires-Python: >=3.7
 License-File: LICENSE
@@ -57,7 +57,7 @@ Key features
   their in-place versions ``&=``, ``|=``, ``^=``, ``<<=``, ``>>=``).
 * `Free-threading support <https://github.com/ilanschnell/bitarray/blob/master/doc/free_threading.rst>`__
   (for GIL-disabled CPython 3.14 and later)
-* Written to `support all platforms supported by CPython and PyPy <https://github.com/ilanschnell/bitarray/blob/master/doc/platforms.rst>`__.
+* Written to support all `platforms supported <https://github.com/ilanschnell/bitarray/blob/master/doc/platforms.rst>`__ by CPython and PyPy.
 * Fast methods for encoding and decoding variable-length
   `prefix codes <https://github.com/ilanschnell/bitarray/blob/master/doc/prefix_codes.rst>`__.
 * Bitarray objects support the `buffer protocol <https://github.com/ilanschnell/bitarray/blob/master/doc/buffer.rst>`__
@@ -102,7 +102,7 @@ Once you have installed the package, you may want to test it:
     $ python -c 'import bitarray; bitarray.test()'
     bitarray is installed in: /Users/ilan/bitarray/bitarray
     sys.prefix: /Users/ilan/miniforge
-    bitarray version: 3.12.3
+    bitarray version: 3.12.4
     platform.machine(): arm64
     platform.platform(): macOS-14.3-arm64-arm-64bit-Mach-O
     sys.platform: darwin
@@ -314,7 +314,7 @@ and can therefore be used as a dictionary key:
 Reference
 =========
 
-bitarray version: 3.12.3 -- `change log <https://github.com/ilanschnell/bitarray/blob/master/doc/changelog.rst>`__
+bitarray version: 3.12.4 -- `change log <https://github.com/ilanschnell/bitarray/blob/master/doc/changelog.rst>`__
 
 In the following, ``item`` and ``value`` are usually a single bit -
 an integer 0 or 1.

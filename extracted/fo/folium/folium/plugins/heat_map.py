@@ -45,16 +45,14 @@ class HeatMap(JSCSSMixin, Layer):
         Whether the layer will be shown on opening.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = L.heatLayer(
                 {{ this.data|tojson }},
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -75,13 +73,14 @@ class HeatMap(JSCSSMixin, Layer):
         overlay=True,
         control=True,
         show=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(name=name, overlay=overlay, control=control, show=show)
         self._name = "HeatMap"
         data = if_pandas_df_convert_to_numpy(data)
         self.data = [
-            [*validate_location(line[:2]), *line[2:]] for line in data  # noqa: E999
+            [*validate_location(line[:2]), *[float(w) for w in line[2:]]]
+            for line in data  # noqa: E999
         ]
         if np.any(np.isnan(self.data)):
             raise ValueError("data may not contain NaNs.")
@@ -97,7 +96,7 @@ class HeatMap(JSCSSMixin, Layer):
             radius=radius,
             blur=blur,
             gradient=gradient,
-            **kwargs
+            **kwargs,
         )
 
     def _get_self_bounds(self):

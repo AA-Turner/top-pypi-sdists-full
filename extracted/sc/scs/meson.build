@@ -163,6 +163,24 @@ if get_option('use_lapack')
   common_c_args += '-DUSE_LAPACK=1'
 endif
 
+# Parallel projection of the PSD blocks (USE_PARALLEL_PSD in SCS): the OpenMP
+# threads of SCS project several blocks at once, each calling LAPACK for its
+# own blocks. Off by default, because it is only faster when the BLAS runs on
+# one thread inside those threads. A BLAS on the same OpenMP runtime as SCS
+# does that by itself. A BLAS with threads of its own (a pthreads OpenBLAS)
+# has to be set to one thread (OPENBLAS_NUM_THREADS=1), or the threads of the
+# two multiply and the projection gets slower. See "Parallel projection of PSD
+# blocks" on the BLAS and LAPACK page of the SCS documentation.
+if get_option('use_parallel_psd')
+  if not get_option('use_openmp')
+    error('The parallel PSD projection requires OpenMP. Please re-run Meson with -Duse_openmp=true')
+  endif
+  if not get_option('use_lapack')
+    error('The parallel PSD projection requires LAPACK. Please re-run Meson with -Duse_lapack=true')
+  endif
+  common_c_args += '-DUSE_PARALLEL_PSD=1'
+endif
+
 use_spectral_cones = get_option('use_spectral_cones')
 if use_spectral_cones
   if not get_option('use_lapack')
@@ -310,18 +328,20 @@ endif
 
 if get_option('use_gpu')
   gpu_c_args = common_c_args + ['-DPY_GPU=1', '-DINDIRECT=1']
-  cublas_dep = cc.find_library('cublas', required: false)
-  if not cublas_dep.found()
-    cublas_dep = dependency('cublas', required: true)
-  endif
-  cusparse_dep = cc.find_library('cusparse', required: false)
-  if not cusparse_dep.found()
-    cusparse_dep = dependency('cusparse', required: true)
-  endif
+  # cuBLAS and cuSPARSE come from the CUDA toolkit. The compiler's default
+  # library path and pkg-config do not know where a toolkit is installed, and
+  # the toolkit's own .pc files carry the CUDA version in their names, so look
+  # them up with a second dependency('cuda') that requests them as modules.
+  # With no version given it resolves to the same toolkit as cuda_dep:
+  # CUDA_PATH, CUDA_HOME or CUDA_ROOT (CUDA_PATH only on Windows), or else
+  # /usr/local/cuda. Only that toolkit's lib folder (and its stubs) is searched,
+  # so cuBLAS and cuSPARSE must be installed in the same toolkit as cudart. As
+  # before, cudart is linked statically; cuBLAS and cuSPARSE link dynamically.
+  cuda_gpu_dep = dependency('cuda', modules: ['cublas', 'cusparse'], required: true)
   # Scope the CUDA libraries to this target rather than mutating the shared
   # `_deps`, so they don't leak into _scs_mkl / _scs_accelerate / _scs_cudss
   # when use_gpu is combined with those backends.
-  gpu_deps = _deps + [cuda_dep, cublas_dep, cusparse_dep]
+  gpu_deps = _deps + [cuda_gpu_dep]
   if get_option('gpu_atrans')
     gpu_c_args += '-DGPU_TRANSPOSE_MAT=1'
   endif
@@ -436,7 +456,36 @@ if host_machine.system() == 'darwin'
 endif
 
 if get_option('link_cudss')
-  cudss_dep = dependency('cudss', required: true)
+  # A cuDSS build works only with the CUDA major version it was built for, and
+  # NVIDIA's apt package installs the builds for CUDA 12 and 13 side by side
+  # with the CUDA 13 one as the default. cuDSS's CMake package (cuDSS 1.0 has
+  # this) refuses a build for another major version, but only when it is told
+  # the consumer's CUDA version, which Meson's CMake lookup does not do on its
+  # own. Pass it the major version of the toolkit cuda_dep found, so that a
+  # mismatched cuDSS stops the configure step instead of building a module that
+  # fails on import (for example with "libcublas.so.13: cannot open shared
+  # object file" under CUDA 12). A cuDSS found through pkg-config (cudss.pc) is
+  # not checked. Reuse cudss_dep: another dependency('cudss') call without these
+  # cmake_args would be a separate lookup without the check.
+  cuda_major = cuda_dep.version().split('.')[0]
+  cudss_dep = dependency('cudss', required: false,
+                         cmake_args: ['-DCUDAToolkit_VERSION_MAJOR=' + cuda_major])
+  if not cudss_dep.found()
+    cudss_apt_dir = ('/usr/lib/' + host_machine.cpu_family() + '-linux-gnu/libcudss/' +
+                     cuda_major + '/cmake/cudss')
+    if not find_program('cmake', required: false).found()
+      error('cuDSS was not found with pkg-config, and cmake was not found. A cuDSS ' +
+            'without cudss.pc (such as NVIDIA\'s apt package or archive) is found ' +
+            'only through its CMake package, so install cmake.')
+    endif
+    error('cuDSS for CUDA ' + cuda_major + ' was not found (tried pkg-config and ' +
+          'cuDSS\'s CMake package). If cuDSS is installed for another CUDA major ' +
+          'version, or Meson found that build, point it at the build for CUDA ' +
+          cuda_major + ' with the cudss_DIR environment variable, e.g. cudss_DIR=' +
+          cudss_apt_dir + ' for NVIDIA\'s apt package. pip deletes its build ' +
+          'directory; to see CMake\'s reason, rerun with -Cbuild-dir=build and read ' +
+          'build/meson-logs/meson-log.txt.')
+  endif
   # Scope the CUDA libraries to this target rather than mutating the shared
   # `_deps` (see the use_gpu block above).
   cudss_deps = _deps + [cuda_dep, cudss_dep]

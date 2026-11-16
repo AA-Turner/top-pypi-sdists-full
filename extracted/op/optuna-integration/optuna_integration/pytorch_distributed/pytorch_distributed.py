@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime
 import functools
 from typing import Any
+from typing import cast
 from typing import overload
 from typing import TYPE_CHECKING
 from typing import TypeVar
@@ -125,7 +126,7 @@ class TorchDistributedTrial(optuna.trial.BaseTrial):
                     raise RuntimeError("torch distributed is not initialized.")
                 default_pg: "ProcessGroup" = dist.group.WORLD
                 if dist.get_backend(default_pg) == "nccl":
-                    new_group: "ProcessGroup" = dist.new_group(backend="gloo")
+                    new_group = cast("ProcessGroup", dist.new_group(backend="gloo"))
                     _g_pg = new_group
                 else:
                     _g_pg = default_pg
@@ -304,15 +305,31 @@ class TorchDistributedTrial(optuna.trial.BaseTrial):
     def _call_and_communicate(self, func: Callable, dtype: "torch.dtype") -> Any:
         buffer = torch.empty(1, dtype=dtype)
         rank = dist.get_rank(self._group)
+        err = None
         if rank == 0:
-            result = func()
-            buffer[0] = result
+            try:
+                result = func()
+                buffer[0] = result
+            except Exception as e:
+                err = e
+        err = self._broadcast(err)
+        if err is not None:
+            raise err
         dist.broadcast(buffer, src=0, group=self._group)
         return buffer.item()
 
     def _call_and_communicate_obj(self, func: Callable) -> Any:
         rank = dist.get_rank(self._group)
-        result = func() if rank == 0 else None
+        result = None
+        err = None
+        if rank == 0:
+            try:
+                result = func()
+            except Exception as e:
+                err = e
+        err = self._broadcast(err)
+        if err is not None:
+            raise err
         return self._broadcast(result)
 
     def _broadcast(self, value: Any | None) -> Any:

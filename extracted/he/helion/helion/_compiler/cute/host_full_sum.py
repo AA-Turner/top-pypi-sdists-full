@@ -14,9 +14,16 @@ typed constexpr branches) that is ``name = torch.sum(x)`` / ``torch.mean(x)``
 / ``x.sum()`` / ``x.mean()`` with no other arguments, or a ``return`` whose
 value is such a call or a tuple of bound names and one such call; ``x`` a
 1-D contiguous FP32 tensor typed as such and the result a 0-d FP32 tensor.
-Shapes, alignment, gradients, dispatch modes and the ATen build are runtime
-guards in the helper. The rewrite is enabled by the ``cute_host_paired_sum``
-knob (any layout), together with the paired and single sum tails.
+A sum may also be divided by a host scalar (``torch.sum(loss) / BT``, the
+``batchmean`` of a loss; ``/ (BT * V)`` for a mean): the divisor is pure
+arithmetic over names, constants and tensor metadata typed as a number, and
+the helper applies ATen's own form of that division (``div_true_kernel_cuda``
+with a CPU scalar multiplies by the FP32 reciprocal), so the result stays
+bit-identical while the separate elementwise launch disappears. Shapes,
+alignment, gradients, dispatch modes and the ATen build are runtime guards
+in the helper. The rewrite is enabled by the ``cute_host_paired_sum`` knob
+(any layout), together with the paired and single sum tails
+(:mod:`host_sums`).
 """
 
 from __future__ import annotations
@@ -30,13 +37,19 @@ import torch
 
 from ..ast_extension import ExtendedAST
 from ..ast_extension import LoopType
-from ..ast_extension import statement_from_string
 from ..type_info import LiteralType
+from ..type_info import SymFloatType
+from ..type_info import SymIntType
 from ..type_info import TensorAttributeType
 from ..type_info import TensorType
-from .host_paired_sum import PAIRED_SUM_CHOICES
-from .host_paired_sum import _constant_condition
-from .host_paired_sum import _folded_body
+from .host_sum_site import PAIRED_SUM_CHOICES
+from .host_sum_site import HostSumSite
+from .host_sum_site import assigned_names
+from .host_sum_site import bound_names
+from .host_sum_site import fold_constexpr_branches
+from .host_sum_site import fresh_temporary
+from .host_sum_site import node_type
+from .host_sum_site import prove_host_body
 
 if TYPE_CHECKING:
     from ..host_function import HostFunction
@@ -56,16 +69,14 @@ class FullSumSite:
     # the returned tuple (``()`` for a bare ``return <call>``) and the call's
     # position in that tuple.
     returned: tuple[tuple[str, ...], int] | None
+    # Source of the host scalar a sum is divided by, ``None`` for a bare call.
+    divisor: str | None = None
 
 
 @dataclass(frozen=True)
 class HostFullSumProof:
     sites: tuple[FullSumSite, ...]
     conditions: dict[SourceLocation, tuple[str, bool]]
-
-
-def _type(node: ast.AST) -> object:
-    return node._type_info if isinstance(node, ExtendedAST) else None
 
 
 def _reduction_call(value: ast.AST) -> tuple[str, bool] | None:
@@ -78,22 +89,22 @@ def _reduction_call(value: ast.AST) -> tuple[str, bool] | None:
     ):
         return None
     owner = value.func.value
-    owner_type = _type(owner)
+    owner_type = node_type(owner)
     if isinstance(owner_type, LiteralType) and owner_type.value is torch:
         if len(value.args) != 1 or not isinstance(value.args[0], ast.Name):
             return None
         source = value.args[0]
     elif (
         isinstance(owner, ast.Name)
-        and isinstance(method := _type(value.func), TensorAttributeType)
+        and isinstance(method := node_type(value.func), TensorAttributeType)
         and method.attr() == value.func.attr
         and not value.args
     ):
         source = owner
     else:
         return None
-    source_type = _type(source)
-    result_type = _type(value)
+    source_type = node_type(source)
+    result_type = node_type(value)
     if not (
         isinstance(source_type, TensorType)
         and isinstance(result_type, TensorType)
@@ -107,21 +118,71 @@ def _reduction_call(value: ast.AST) -> tuple[str, bool] | None:
     return source.id, value.func.attr == "mean"
 
 
-def _shadows_helper(host: HostFunction, nodes: list[ast.AST]) -> bool:
-    names = (FULL_SUM_HELPER, RETURN_RESULT)
-    return host.name in names or any(
-        (isinstance(node, ast.Name) and node.id in names)
-        or (isinstance(node, ast.arg) and node.arg in names)
-        or (
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-            and node.name in names
+_METADATA_CALLS = frozenset({"size", "numel", "dim", "stride", "ndimension"})
+
+
+def _host_scalar(node: ast.AST) -> bool:
+    """Whether ``node`` is pure arithmetic over names, constants and tensor
+    metadata whose value is a (non-bool) host number: safe to evaluate twice
+    (once for the helper, once for the fallback) and a scalar ATen would wrap
+    as a CPU number."""
+    info = node_type(node)
+    if isinstance(info, LiteralType):
+        if type(info.value) not in (int, float):
+            return False
+    elif not isinstance(info, (SymIntType, SymFloatType)):
+        return False
+    for child in ast.walk(node):
+        if isinstance(
+            child,
+            (
+                ast.Name,
+                ast.Constant,
+                ast.BinOp,
+                ast.UnaryOp,
+                ast.Load,
+                ast.operator,
+                ast.unaryop,
+                ast.Attribute,
+                ast.Subscript,
+            ),
+        ):
+            continue
+        if (
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr in _METADATA_CALLS
+            and isinstance(node_type(child.func.value), TensorType)
+            and not child.keywords
+            and all(isinstance(arg, (ast.Constant, ast.Name)) for arg in child.args)
+        ):
+            continue
+        return False
+    return True
+
+
+def _scaled_reduction_call(value: ast.AST) -> tuple[str, bool, str | None] | None:
+    """``(source, is_mean, divisor_source)`` for a bare reduction call or a
+    ``torch.sum(x) / scalar`` quotient typed as a 0-d FP32 tensor."""
+    found = _reduction_call(value)
+    if found is not None:
+        return (*found, None)
+    if not (isinstance(value, ast.BinOp) and isinstance(value.op, ast.Div)):
+        return None
+    found = _reduction_call(value.left)
+    result_type = node_type(value)
+    if (
+        found is None
+        or found[1]
+        or not _host_scalar(value.right)
+        or not (
+            isinstance(result_type, TensorType)
+            and result_type.fake_value.ndim == 0
+            and result_type.fake_value.dtype == torch.float32
         )
-        or (
-            isinstance(node, ast.alias)
-            and (node.asname or node.name.split(".", 1)[0]) in names
-        )
-        for node in (*nodes, *ast.walk(host.args))
-    )
+    ):
+        return None
+    return found[0], False, ast.unparse(value.right)
 
 
 def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
@@ -132,35 +193,20 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
     no allocation or coverage proof: the helper reads the tensor the original
     call would have read, at the same point of the program.
     """
-    nodes = list(ast.walk(ast.Module(body=host.body, type_ignores=[])))
-    if _shadows_helper(host, nodes) or any(
-        isinstance(node, (ast.Delete, ast.Try, ast.Global, ast.Nonlocal))
-        for node in nodes
-    ):
+    facts = prove_host_body(host, (FULL_SUM_HELPER, RETURN_RESULT))
+    if facts is None:
         return HostFullSumProof((), {})
-    conditions = {
-        node._location: (ast.dump(node.test), condition)
-        for node in nodes
-        if isinstance(node, ast.If)
-        and isinstance(node, ExtendedAST)
-        and (condition := _constant_condition(node.test, host)) is not None
-    }
-    folded = _folded_body(host.body, conditions)
+    folded = facts.folded
     device_loops = [
         index
         for index, statement in enumerate(folded)
         if isinstance(statement, ExtendedAST) and statement._loop_type == LoopType.GRID
     ]
     if not device_loops:
-        return HostFullSumProof((), conditions)
-    defined = {argument.arg for argument in host.args.args}
+        return HostFullSumProof((), facts.conditions)
+    defined = facts.defined
     for statement in folded[: device_loops[-1] + 1]:
-        if isinstance(statement, ast.Assign):
-            defined.update(
-                target.id
-                for target in statement.targets
-                if isinstance(target, ast.Name)
-            )
+        defined.update(assigned_names(statement))
     sites: list[FullSumSite] = []
     for statement in folded[device_loops[-1] + 1 :]:
         if not isinstance(statement, ExtendedAST):
@@ -172,7 +218,7 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
                 calls = [
                     index
                     for index, element in enumerate(expression.elts)
-                    if _reduction_call(element) is not None
+                    if _scaled_reduction_call(element) is not None
                 ]
                 others = [
                     element
@@ -191,7 +237,7 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
                 )
                 returned = (names, calls[0])
                 expression = expression.elts[calls[0]]
-            found = _reduction_call(expression)
+            found = _scaled_reduction_call(expression)
             if found is None or found[0] not in defined:
                 continue
             sites.append(
@@ -201,6 +247,7 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
                     found[0],
                     found[1],
                     returned,
+                    found[2],
                 )
             )
         elif (
@@ -208,7 +255,7 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
             and len(statement.targets) == 1
             and isinstance(target := statement.targets[0], ast.Name)
         ):
-            found = _reduction_call(statement.value)
+            found = _scaled_reduction_call(statement.value)
             if found is not None and found[0] in defined:
                 sites.append(
                     FullSumSite(
@@ -217,10 +264,11 @@ def prove_host_full_sum(host: HostFunction) -> HostFullSumProof:
                         found[0],
                         found[1],
                         None,
+                        found[2],
                     )
                 )
             defined.add(target.id)
-    return HostFullSumProof(tuple(sites), conditions)
+    return HostFullSumProof(tuple(sites), facts.conditions)
 
 
 def lower_host_full_sum(
@@ -234,14 +282,8 @@ def lower_host_full_sum(
     if not proof.sites:
         return body
     sites = {site.location: site for site in proof.sites}
-    folded = _folded_body(body, proof.conditions)
-    names = {
-        node.id
-        for statement in folded
-        for node in ast.walk(statement)
-        if isinstance(node, ast.Name)
-    }
-    names.update(argument.arg for argument in host.args.args)
+    folded = fold_constexpr_branches(body, proof.conditions)
+    names = bound_names(host, folded)
     result: list[ast.AST] = []
     for statement in folded:
         site = (
@@ -257,12 +299,9 @@ def lower_host_full_sum(
             target = statement.targets[0]
             assert isinstance(target, ast.Name)
             temporary = target.id
-            tail: list[ast.stmt] = []
+            tail: tuple[ast.stmt, ...] = ()
         else:
-            temporary = RETURN_RESULT
-            while temporary in names:
-                temporary += "_"
-            names.add(temporary)
+            temporary = fresh_temporary(RETURN_RESULT, names)
             returned_names, position = site.returned
             value: ast.expr = ast.Name(temporary, ast.Load())
             if isinstance(statement, ast.Return) and isinstance(
@@ -273,23 +312,15 @@ def lower_host_full_sum(
                 ]
                 elements.insert(position, value)
                 value = ast.Tuple(elements, ast.Load())
-            tail = [ast.Return(value)]
+            tail = (ast.Return(value),)
+        divisor = f"divisor={site.divisor}, " if site.divisor is not None else ""
         result.extend(
-            (
-                statement_from_string(
-                    f"{temporary} = {FULL_SUM_HELPER}({site.source}, "
-                    f"mean={site.mean!r}, _launcher=_launcher)"
-                ),
-                ast.If(
-                    test=ast.Compare(
-                        ast.Name(temporary, ast.Load()),
-                        [ast.Is()],
-                        [ast.Constant(None)],
-                    ),
-                    body=[cast("ast.stmt", statement)],
-                    orelse=[],
-                ),
-                *tail,
-            )
+            HostSumSite(
+                temporary,
+                f"{FULL_SUM_HELPER}({site.source}, "
+                f"mean={site.mean!r}, {divisor}_launcher=_launcher)",
+                (cast("ast.stmt", statement),),
+                tail=tail,
+            ).emit()
         )
     return result

@@ -14,9 +14,13 @@ from trajectory._types import Headers, NotGiven, Omit, SequenceNotStr, not_given
 from trajectory._utils import maybe_transform
 from trajectory.types.benchmark_task_count_response import BenchmarkTaskCountResponse
 from trajectory.types.benchmark_task_diff_response import BenchmarkTaskDiffResponse
+from trajectory.types.benchmark_task_env_resources import BenchmarkTaskEnvResources
 from trajectory.types.benchmarks.benchmark_spec_params import BenchmarkSpecParams
 from trajectory.types.benchmarks.tasks.benchmark_spec_task import BenchmarkSpecTask
 from trajectory.types.benchmarks.tasks.tasks_diff_params import TasksDiffParams
+from trajectory.types.benchmarks.tasks.tasks_update_env_resources_params import (
+  TasksUpdateEnvResourcesParams,
+)
 
 
 class Tasks(APIResource):
@@ -199,6 +203,115 @@ class Tasks(APIResource):
       ),
     )
 
+  def get_env_resources(
+    self,
+    bench_id: str,
+    task_id: str,
+    *,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> BenchmarkTaskEnvResources:
+    """Return the CPU, memory, GPU and network settings of one benchmark task's sandbox.
+
+    Args:
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(bench_id, str) and not bench_id:
+      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(task_id, str) and not task_id:
+      raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
+    return self._get(
+      path_template(
+        "/api/v1/benchmarks/{bench_id}/tasks/{task_id}/env_resources",
+        bench_id=bench_id,
+        task_id=task_id,
+      ),
+      cast_to=BenchmarkTaskEnvResources,
+      options=make_request_options(
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
+  def update_env_resources(
+    self,
+    bench_id: str,
+    task_id: str,
+    *,
+    cpus: float | None | Omit = omit,
+    memory_mb: int | None | Omit = omit,
+    gpus: int | Omit = omit,
+    network_mode: Literal["no-network", "public", "allowlist"] | Omit = omit,
+    allowed_hosts: SequenceNotStr[str] | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> BenchmarkTaskEnvResources:
+    """Change the CPU, memory, GPU or network settings of one benchmark task's sandbox without
+    uploading the task again. Only the fields in the request change. Rollouts that start
+    after the change use it; sandboxes already running keep the settings they started with.
+
+    Args:
+      cpus: CPU cores to request. Set `cpus` and `memory_mb` both to null for the default.
+
+      memory_mb: Memory to request in MiB.
+
+      gpus: GPUs to request.
+
+      network_mode: `public`, `allowlist` or `no-network`. Leaving `allowlist` clears `allowed_hosts`
+        unless the request also sets it.
+
+      allowed_hosts: Domain names the sandbox may reach, such as `pypi.org` or `*.example.com` for
+        every subdomain; no scheme, port, path or IP address. Only valid with `allowlist`.
+
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(bench_id, str) and not bench_id:
+      raise ValueError(f"Expected a non-empty value for `bench_id` but received {bench_id!r}")
+    if isinstance(task_id, str) and not task_id:
+      raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
+    return self._patch(
+      path_template(
+        "/api/v1/benchmarks/{bench_id}/tasks/{task_id}/env_resources",
+        bench_id=bench_id,
+        task_id=task_id,
+      ),
+      cast_to=BenchmarkTaskEnvResources,
+      body=maybe_transform(
+        {
+          "cpus": cpus,
+          "memory_mb": memory_mb,
+          "gpus": gpus,
+          "network_mode": network_mode,
+          "allowed_hosts": allowed_hosts,
+        },
+        TasksUpdateEnvResourcesParams,
+      ),
+      options=make_request_options(
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
 
 class TasksWithRawResponse:
   def __init__(self, resource: Tasks) -> None:
@@ -206,3 +319,5 @@ class TasksWithRawResponse:
     self.list = to_raw_response_wrapper(resource.list)
     self.count = to_raw_response_wrapper(resource.count)
     self.diff = to_raw_response_wrapper(resource.diff)
+    self.get_env_resources = to_raw_response_wrapper(resource.get_env_resources)
+    self.update_env_resources = to_raw_response_wrapper(resource.update_env_resources)

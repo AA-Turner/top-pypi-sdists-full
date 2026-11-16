@@ -17,6 +17,17 @@ from ._proto import pb2, pb2_grpc
 from .types import RiverConnectionError, RiverError, RiverTimeoutError, Sample
 
 MAX_SAMPLING_BATCH = 128
+# Default ceiling on concurrent result snapshots: 64 x 128 = 8,192 handles
+# polled per sweep. Streams open only for handles that are due.
+MAX_POLL_RPCS = 64
+# Per-stream HTTP/2 read-ahead before gRPC's bandwidth-delay probe grows it:
+# several typical results (0.3-1 MB with top-k logprobs) in one round trip.
+STREAM_WINDOW_BYTES = 4 << 20
+# gRPC reads channel arguments as C ints.
+_MAX_STREAM_WINDOW_BYTES = 2**31 - 1
+_STREAMS_PER_CONNECTION = 8
+# Results a stream has read and handed to the executor but not yet settled.
+_DECODE_AHEAD = 2
 
 
 def _submission_request(
@@ -215,6 +226,13 @@ class PendingSamplingBatch:
 
 
 @dataclass
+class _Connection:
+    channel: Any
+    stub: Any
+    streams: int = 0
+
+
+@dataclass
 class _Entry:
     batch: PendingSamplingBatch
     index: int
@@ -228,19 +246,45 @@ class _Entry:
 class SamplingResultCollector:
     """Coalesce result snapshots across batches on one event loop.
 
-    At most max_poll_rpcs short streams run concurrently, each querying up to
-    128 handles. Backpressure permits one decoded result buffered per stream.
+    Each snapshot is a short stream querying up to 128 handles, and one opens
+    for every 128 handles due for a poll, up to max_poll_rpcs at once, so by
+    default every outstanding handle is asked after in one sweep. Streams
+    spread over connections of at most eight streams each. Each stream reads
+    on while the result before it decodes on the executor.
     Channels are owned by this collector; executors are caller-owned and only
     run preparation, decoding, and synchronous hooks, never sampling RPC waits.
+
+    The defaults assume a client with the memory and bandwidth to take every
+    finished result at once. Each stream buffers up to stream_window_bytes
+    gRPC has received but the collector has not read (gRPC's bandwidth probe
+    may grow this on a fast link, within its memory quota) and up to two
+    results waiting on the executor, so memory peaks near max_poll_rpcs x
+    (window + 2 results): 64 x (4 MiB + 2 x 10 MB) is about 1.5 GB for
+    10 MB results at 32k generated tokens, about 0.3 GB for 0.6 MB results.
+    Lower max_poll_rpcs, or stream_window_bytes, only on a client that cannot
+    afford that.
     """
 
-    def __init__(self, *, executor: Executor | None = None, max_poll_rpcs: int = 4):
-        if max_poll_rpcs < 1:
-            raise ValueError("max_poll_rpcs must be positive")
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        max_poll_rpcs: int = MAX_POLL_RPCS,
+        stream_window_bytes: int = STREAM_WINDOW_BYTES,
+    ):
+        if type(max_poll_rpcs) is not int or max_poll_rpcs < 1:
+            raise ValueError("max_poll_rpcs must be a positive integer")
+        if (
+            type(stream_window_bytes) is not int
+            or not 0 < stream_window_bytes <= _MAX_STREAM_WINDOW_BYTES
+        ):
+            raise ValueError(
+                f"stream_window_bytes must be an integer in 1..{_MAX_STREAM_WINDOW_BYTES}"
+            )
         self.executor = executor
         self.max_poll_rpcs = max_poll_rpcs
-        self._channels = {}
-        self._stubs = {}
+        self.stream_window_bytes = stream_window_bytes
+        self._connections: dict[Any, list[_Connection]] = {}
         self._latest_snapshot_capable = set()
         self._entries: dict[str, _Entry] = {}
         self._event = asyncio.Event()
@@ -249,19 +293,33 @@ class SamplingResultCollector:
         self.snapshot_rpcs = 0
         self.polled_handles = 0
 
-    def _stub(self, session):
+    def _connection(self, session, *, stream=False) -> _Connection:
+        """Submissions use a client's first connection; a snapshot the least busy.
+
+        Each connection is its own channel with a local subchannel pool, so it
+        owns a TCP connection instead of sharing one by target.
+        """
         if self._closed:
             raise RuntimeError("sampling collector is closed")
-        client = session._client
-        if client not in self._stubs:
-            channel = client._new_async_channel()
-            self._channels[client] = channel
-            self._stubs[client] = pb2_grpc.RiverServiceStub(channel)
-        return self._stubs[client]
+        connections = self._connections.setdefault(session._client, [])
+        if stream and connections:
+            least = min(connections, key=lambda connection: connection.streams)
+            if least.streams < _STREAMS_PER_CONNECTION:
+                return least
+        elif connections:
+            return connections[0]
+        channel = session._client._new_async_channel(
+            (
+                ("grpc.use_local_subchannel_pool", 1),
+                ("grpc.http2.lookahead_bytes", self.stream_window_bytes),
+            )
+        )
+        connections.append(_Connection(channel, pb2_grpc.RiverServiceStub(channel)))
+        return connections[-1]
 
     async def submit(self, session, source, *, timeout, **kwargs):
         request = _submission_request(source, timeout=timeout, **kwargs)
-        stub = self._stub(session)
+        stub = self._connection(session).stub
         deadline = time.monotonic() + timeout
         delay = 0.5
         while True:
@@ -329,9 +387,14 @@ class SamplingResultCollector:
         for entry in self._entries.values():
             entry.future.cancel()
         self._entries.clear()
-        await asyncio.gather(*(channel.close() for channel in self._channels.values()))
-        self._channels.clear()
-        self._stubs.clear()
+        await asyncio.gather(
+            *(
+                connection.channel.close()
+                for connections in self._connections.values()
+                for connection in connections
+            )
+        )
+        self._connections.clear()
         self._latest_snapshot_capable.clear()
 
     async def _run(self):
@@ -390,7 +453,10 @@ class SamplingResultCollector:
         from .client import _POLL_TERMINAL_STATUS_CODES
 
         seen, retrying = set(), set()
-        call = None
+        call = connection = None
+        # Results read from the stream and not yet settled; each settles as
+        # soon as its decode finishes, even while the stream waits.
+        decoding: set[asyncio.Task] = set()
         try:
             model_id = next(iter(entries.values())).batch._model_id
             session._check_heartbeat_health()
@@ -405,7 +471,9 @@ class SamplingResultCollector:
             request = pb2.RetrieveSamplingResultsRequest(request_ids=list(entries))
             if model_id is not None:
                 request.model_id = model_id
-            call = self._stub(session).RetrieveSamplingResults(
+            connection = self._connection(session, stream=True)
+            connection.streams += 1
+            call = connection.stub.RetrieveSamplingResults(
                 request,
                 metadata=session._live_metadata,
                 timeout=min(30.0, remaining),
@@ -448,16 +516,23 @@ class SamplingResultCollector:
                         raise error
                     if kind != "inference":
                         raise RiverError("Missing sampling result")
-                    # Await one decode at a time per stream to retain backpressure.
-                    sample = await loop.run_in_executor(
-                        self.executor,
-                        entry.batch._parse_result,
-                        entry.index,
-                        item.inference,
+                    # Keep reading while earlier results decode, but bound how
+                    # many a stream holds to retain backpressure.
+                    decoding.add(
+                        asyncio.create_task(
+                            self._settle(
+                                entries,
+                                id,
+                                entry,
+                                loop.run_in_executor(
+                                    self.executor,
+                                    entry.batch._parse_result,
+                                    entry.index,
+                                    item.inference,
+                                ),
+                            )
+                        )
                     )
-                    if not entry.future.done():
-                        entry.future.set_result(sample)
-                    del sample
                 except Exception as error:
                     if not entry.future.done():
                         entry.future.set_exception(error)
@@ -466,9 +541,16 @@ class SamplingResultCollector:
                         del entries[id]
                         self.wake()
                     del entry, item
+                if len(decoding) >= _DECODE_AHEAD:
+                    _, decoding = await asyncio.wait(
+                        decoding, return_when=asyncio.FIRST_COMPLETED
+                    )
+            await asyncio.gather(*decoding)
             if len(seen) != len(request.request_ids):
                 raise RiverError("Incomplete sampling snapshot")
         except Exception as error:
+            # Results already read are delivered, not retried.
+            await asyncio.gather(*decoding)
             retry = isinstance(error, grpc.RpcError)
             if retry:
                 error = RiverConnectionError.from_grpc_error(
@@ -479,14 +561,35 @@ class SamplingResultCollector:
                     self._fail_or_retry(entry, error, retry)
                     retrying.add(id)
         finally:
+            for task in decoding:
+                task.cancel()
+            await asyncio.gather(*decoding, return_exceptions=True)
+            decoding.clear()
             if call is not None:
                 call.cancel()
+            if connection is not None:
+                connection.streams -= 1
             for id, entry in entries.items():
                 entry.busy = False
                 if id not in retrying:
                     entry.retries, entry.delay = 0, 0.5
                     entry.next_poll = time.monotonic() + entry.batch._poll_interval
             self.wake()
+
+    async def _settle(self, entries, id, entry, decode):
+        try:
+            sample = await decode
+        except Exception as error:
+            if not entry.future.done():
+                entry.future.set_exception(error)
+        else:
+            if not entry.future.done():
+                entry.future.set_result(sample)
+            del sample
+        finally:
+            if entry.future.done():
+                entries.pop(id, None)
+                self.wake()
 
     @staticmethod
     def _fail_or_retry(entry, error, retry):

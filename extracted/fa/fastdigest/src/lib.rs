@@ -70,6 +70,7 @@ impl PyTDigest {
     #[staticmethod]
     #[pyo3(signature = (x, w=None, max_centroids=TD_SIZE_DEFAULT as i64))]
     pub fn from_values(
+        py: Python<'_>,
         x: Vec<f64>,
         w: Option<Bound<'_, PyAny>>,
         max_centroids: i64,
@@ -87,12 +88,12 @@ impl PyTDigest {
         } else {
             validate_values(&x)?;
             let w_vec = validate_weights(w, x.len())?;
-            let digest = match w_vec {
-                Some(weights) => digest
-                    .merge_unsorted_weighted(x, weights)
-                    .map_err(malloc_error)?,
-                None => digest.merge_unsorted(x).map_err(malloc_error)?,
-            };
+            let digest = py
+                .detach(|| match w_vec {
+                    Some(weights) => digest.merge_unsorted_weighted(x, weights),
+                    None => digest.merge_unsorted(x),
+                })
+                .map_err(malloc_error)?;
             Ok(Self {
                 state: Mutex::new(TDigestState {
                     digest,
@@ -300,13 +301,14 @@ impl PyTDigest {
     }
 
     /// Merges this digest with another, returning a new TDigest.
-    pub fn merge(&self, other: &Self) -> PyResult<Self> {
-        let (first, second) = order_by_address(self, other);
-        let digest1 = lock_and_flush(first)?.digest.clone();
-        let digest2 = lock_and_flush(second)?.digest.clone();
-        let digests: Vec<TDigest> = vec![digest1, digest2];
-        let merged =
-            TDigest::merge_digests(digests, None).map_err(malloc_error)?;
+    pub fn merge(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        let merged = py.detach(|| -> PyResult<TDigest> {
+            let (first, second) = order_by_address(self, other);
+            let digest1 = lock_and_flush(first)?.digest.clone();
+            let digest2 = lock_and_flush(second)?.digest.clone();
+            let digests: Vec<TDigest> = vec![digest1, digest2];
+            TDigest::merge_digests(digests, None).map_err(malloc_error)
+        })?;
         Ok(Self {
             state: Mutex::new(TDigestState {
                 digest: merged,
@@ -316,47 +318,50 @@ impl PyTDigest {
     }
 
     /// Merges this digest with another, modifying the current instance.
-    pub fn merge_inplace(&self, other: &Self) -> PyResult<()> {
-        let self_addr = self as *const _ as usize;
-        let other_addr = other as *const _ as usize;
+    pub fn merge_inplace(&self, py: Python<'_>, other: &Self) -> PyResult<()> {
+        py.detach(|| {
+            let self_addr = self as *const _ as usize;
+            let other_addr = other as *const _ as usize;
 
-        if self_addr == other_addr {
-            // same object -> clone digest from already-locked state
-            let mut state = lock_and_flush(self)?;
-            let max_size = state.digest.max_size();
-            let lhs = mem::take(&mut state.digest);
-            let other_digest = lhs.clone();
-            let digests = vec![lhs, other_digest];
-            state.digest = TDigest::merge_digests(digests, Some(max_size))
-                .map_err(malloc_error)?;
-            Ok(())
-        } else if self_addr < other_addr {
-            // lock self first, then other
-            let mut state = lock_and_flush(self)?;
-            let other_digest = lock_and_flush(other)?.digest.clone();
-            let max_size = state.digest.max_size();
-            let lhs = mem::take(&mut state.digest);
-            let digests = vec![lhs, other_digest];
-            state.digest = TDigest::merge_digests(digests, Some(max_size))
-                .map_err(malloc_error)?;
-            Ok(())
-        } else {
-            // lock other first, then self
-            let other_digest = lock_and_flush(other)?.digest.clone();
-            let mut state = lock_and_flush(self)?;
-            let max_size = state.digest.max_size();
-            let lhs = mem::take(&mut state.digest);
-            let digests = vec![lhs, other_digest];
-            state.digest = TDigest::merge_digests(digests, Some(max_size))
-                .map_err(malloc_error)?;
-            Ok(())
-        }
+            if self_addr == other_addr {
+                // same object -> clone digest from already-locked state
+                let mut state = lock_and_flush(self)?;
+                let max_size = state.digest.max_size();
+                let lhs = mem::take(&mut state.digest);
+                let other_digest = lhs.clone();
+                let digests = vec![lhs, other_digest];
+                state.digest = TDigest::merge_digests(digests, Some(max_size))
+                    .map_err(malloc_error)?;
+                Ok(())
+            } else if self_addr < other_addr {
+                // lock self first, then other
+                let mut state = lock_and_flush(self)?;
+                let other_digest = lock_and_flush(other)?.digest.clone();
+                let max_size = state.digest.max_size();
+                let lhs = mem::take(&mut state.digest);
+                let digests = vec![lhs, other_digest];
+                state.digest = TDigest::merge_digests(digests, Some(max_size))
+                    .map_err(malloc_error)?;
+                Ok(())
+            } else {
+                // lock other first, then self
+                let other_digest = lock_and_flush(other)?.digest.clone();
+                let mut state = lock_and_flush(self)?;
+                let max_size = state.digest.max_size();
+                let lhs = mem::take(&mut state.digest);
+                let digests = vec![lhs, other_digest];
+                state.digest = TDigest::merge_digests(digests, Some(max_size))
+                    .map_err(malloc_error)?;
+                Ok(())
+            }
+        })
     }
 
     /// Updates the digest (in-place) with a sequence of float values.
     #[pyo3(signature = (x, w=None))]
     pub fn batch_update(
         &self,
+        py: Python<'_>,
         x: Vec<f64>,
         w: Option<Bound<'_, PyAny>>,
     ) -> PyResult<()> {
@@ -366,24 +371,31 @@ impl PyTDigest {
 
         validate_values(&x)?;
         let w_vec = validate_weights(w, x.len())?;
-        let mut state = lock_and_flush(self)?;
-        state.digest = match w_vec {
-            Some(weights) => state
-                .digest
-                .merge_unsorted_weighted(x, weights)
-                .map_err(malloc_error)?,
-            None => state.digest.merge_unsorted(x).map_err(malloc_error)?,
-        };
-        Ok(())
+        py.detach(|| {
+            let mut state = lock_and_flush(self)?;
+            state.digest = match w_vec {
+                Some(weights) => state
+                    .digest
+                    .merge_unsorted_weighted(x, weights)
+                    .map_err(malloc_error)?,
+                None => state.digest.merge_unsorted(x).map_err(malloc_error)?,
+            };
+            Ok(())
+        })
     }
 
     /// Updates the digest (in-place) with a single float value.
     #[pyo3(signature = (x, w=None))]
-    pub fn update(&self, x: f64, w: Option<f64>) -> PyResult<()> {
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        x: f64,
+        w: Option<f64>,
+    ) -> PyResult<()> {
         validate_value(x)?;
         let weight = validate_weight(w.unwrap_or(1.0))?;
         let mut state = lock_state(self)?;
-        record_observation(&mut state, x, weight)?;
+        record_observation(py, &mut state, x, weight)?;
         Ok(())
     }
 
@@ -500,6 +512,19 @@ impl PyTDigest {
     pub fn std(&self) -> PyResult<f64> {
         let state = lock_flush_check(self)?;
         Ok(state.digest.estimate_var().sqrt())
+    }
+
+    /// Estimates skewness.
+    pub fn skew(&self) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_skew())
+    }
+
+    /// Estimates Fisher kurtosis, or Pearson kurtosis if excess=false.
+    #[pyo3(signature = (excess=true))]
+    pub fn kurtosis(&self, excess: bool) -> PyResult<f64> {
+        let state = lock_flush_check(self)?;
+        Ok(state.digest.estimate_kurtosis(excess))
     }
 
     /// Performs a KS test to determine normality.
@@ -659,13 +684,13 @@ impl PyTDigest {
     }
 
     /// Magic method: dig1 + dig2 returns dig1.merge(dig2).
-    pub fn __add__(&self, other: &Self) -> PyResult<Self> {
-        self.merge(other)
+    pub fn __add__(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        self.merge(py, other)
     }
 
     /// Magic method: dig1 += dig2 calls dig1.merge_inplace(dig2).
-    pub fn __iadd__(&self, other: &Self) -> PyResult<()> {
-        self.merge_inplace(other)
+    pub fn __iadd__(&self, py: Python<'_>, other: &Self) -> PyResult<()> {
+        self.merge_inplace(py, other)
     }
 }
 
@@ -673,6 +698,7 @@ impl PyTDigest {
 #[pyfunction]
 #[pyo3(signature = (digests, max_centroids=None))]
 pub fn merge_all(
+    py: Python<'_>,
     digests: &Bound<'_, PyAny>,
     max_centroids: Option<i64>,
 ) -> PyResult<PyTDigest> {
@@ -684,8 +710,9 @@ pub fn merge_all(
                 .map_err(|_| {
                 PyTypeError::new_err("Provide an iterable of TDigests.")
             })?;
-            let state = lock_and_flush(&py_tdigest)?;
-            Ok(state.digest.clone())
+            let mut state = py_tdigest.state.into_inner();
+            maybe_flush(&mut state)?;
+            Ok(state.digest)
         })
         .collect::<PyResult<Vec<_>>>()?;
 
@@ -694,7 +721,8 @@ pub fn merge_all(
         None => None,
     };
 
-    let merged = TDigest::merge_digests(digests, max_cent_valid)
+    let merged = py
+        .detach(|| TDigest::merge_digests(digests, max_cent_valid))
         .map_err(malloc_error)?;
     Ok(PyTDigest {
         state: Mutex::new(TDigestState {
@@ -707,6 +735,7 @@ pub fn merge_all(
 /// Online TDigest algorithm by kvc0 (https://github.com/MnO2/t-digest/pull/2)
 #[inline(always)]
 fn record_observation(
+    py: Python<'_>,
     state: &mut TDigestState,
     observation: f64,
     weight: f64,
@@ -718,7 +747,7 @@ fn record_observation(
     }
     state.i += 1;
     if state.i == CACHE_SIZE {
-        flush_cache(state)?;
+        py.detach(|| flush_cache(state))?;
     }
     Ok(())
 }

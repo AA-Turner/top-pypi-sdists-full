@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langwatch
-Version: 1.4.0
+Version: 1.4.1
 Summary: LangWatch Python SDK, for monitoring your LLMs
 Author-email: Langwatch Engineers <engineering@langwatch.ai>
 License: MIT
@@ -31,7 +31,7 @@ Requires-Dist: opentelemetry-instrumentation-crewai>=0.45.0
 Requires-Dist: opentelemetry-sdk>=1.32.1
 Requires-Dist: pksuid>=1.1.2
 Requires-Dist: pydantic>=2
-Requires-Dist: python-liquid>=2.2.0
+Requires-Dist: python-liquid<3,>=2.2.1
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: retry>=0.9.2
 Requires-Dist: tenacity>=8.0.0

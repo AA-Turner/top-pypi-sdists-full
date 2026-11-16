@@ -13,10 +13,12 @@ use sqlbuild_core::git_revisions::main::head_commit::head_commit;
 use sqlbuild_orchestration::declarations::models::{
     Schedule, TriggerDeclaration, TriggerDefinition,
 };
+use sqlbuild_orchestration::dev_events::main::compile_summary::compile_summary;
+use sqlbuild_orchestration::dev_events::main::emit_dev_steps::emit_dev_steps;
+use sqlbuild_orchestration::dev_events::models::{DevPhase, DevStepState};
 use sqlbuild_orchestration::snapshots::models::{SnapshotInput, SnapshotRecord};
 use sqlbuild_orchestration::warehouse_metadata::models::WarehouseStateLocation;
 
-use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::compile_driver::pipeline::compiled_phase;
 use crate::bindings::_helpers::compiled_project::snapshot::NativeOrchestrationSnapshot;
 use crate::bindings::_helpers::compiled_project::snapshot_execution::NodeKeys;
@@ -27,18 +29,28 @@ use crate::bindings::_helpers::location_command::snapshot::{
     build_orchestration_snapshot, orchestration_snapshot,
 };
 use crate::bindings::_helpers::location_command::worker::{blocked_nodes, execute_worker};
-use crate::bindings::_helpers::native_host::host::write_console;
 use crate::bindings::_helpers::query_command::project::{
     ProjectAdapter, ProjectInputs, project_adapter,
 };
 use crate::bindings::_helpers::recall::console::write_stderr;
 use crate::bindings::_helpers::recall::session::InvocationRecall;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field;
-use crate::bindings::_helpers::records::ids::RecordId;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::native_host::main::write_console::write_console;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field;
+use sqlbuild_python_base::records::types::RecordId;
 
 fn status(py: Python<'_>, message: &str) -> PyResult<()> {
     write_stderr(py, &format!("{message}\n"))
+}
+
+/// Tell a `sqb dev` parent that each phase reached its state; silent outside `sqb dev`.
+fn steps(
+    py: Python<'_>,
+    steps: &[(DevPhase, DevStepState)],
+    detail: Option<String>,
+) -> PyResult<()> {
+    Ok(py.detach(|| emit_dev_steps(steps, detail))?)
 }
 
 /// Git is optional in deployed images; absent metadata is not fabricated from the last publication.
@@ -116,14 +128,22 @@ fn compile_location<'py>(
     input: &SnapshotInput,
 ) -> PyResult<(NativeOrchestrationSnapshot, ProjectAdapter<'py>, NodeKeys)> {
     status(py, "Discovering location project...")?;
+    steps(py, &[(DevPhase::Discover, DevStepState::Started)], None)?;
     let project = project_adapter(
         py,
         Some(arguments.value("project_dir")?),
-        ProjectInputs::Discovered,
+        ProjectInputs::DiscoveredDeferringSecrets,
     )?;
     status(py, "Location project discovered. Compiling snapshot...")?;
+    let discovered = [
+        (DevPhase::Discover, DevStepState::Finished),
+        (DevPhase::Compile, DevStepState::Started),
+    ];
+    steps(py, &discovered, None)?;
     let (snapshot, blocked) = compile_snapshot(py, arguments, (input, &project), None)?;
     status(py, "Location snapshot compiled.")?;
+    let compiled = [(DevPhase::Compile, DevStepState::Finished)];
+    steps(py, &compiled, Some(compile_summary(&snapshot.input)))?;
     Ok((snapshot, project, blocked))
 }
 
@@ -251,6 +271,7 @@ pub(super) fn publish_location(
         })
         .min();
     status(py, "Publishing location snapshot...")?;
+    steps(py, &[(DevPhase::Publish, DevStepState::Started)], None)?;
     let record = snapshot.publication(
             py,
             &arguments.value("server_url")?.extract::<String>()?,
@@ -264,6 +285,7 @@ pub(super) fn publish_location(
             PyValueError::new_err(message)
         })?;
     status(py, "Location snapshot published.")?;
+    steps(py, &[(DevPhase::Publish, DevStepState::Finished)], None)?;
     Ok((record, refresh_at, locations.into_iter().collect()))
 }
 

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import inspect
 import builtins
 import collections
+import inspect
+from typing import AsyncIterable, AsyncIterator, Awaitable, Callable, TypeVar
 
-from typing import Awaitable, Callable, TypeVar, AsyncIterable, AsyncIterator
-
-from . import transform
 from ..aiter_utils import aiter, anext
-from ..core import streamcontext, pipable_operator
+from ..core import pipable_operator, streamcontext
+from . import transform
 
 __all__ = [
     "take",
@@ -121,6 +120,8 @@ def slice(source: AsyncIterable[T], *args: int | None) -> AsyncIterator[T]:
     - Negative step is not supported
     """
     s = builtins.slice(*args)
+    if s.step == 0:
+        raise ValueError("slice step cannot be zero")
     start, stop, step = s.start or 0, s.stop, s.step or 1
     aiterator = aiter(source)
     # Filter the first items

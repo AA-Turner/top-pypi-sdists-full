@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "countryinfo"
-version = "1.0.1"
+version = "1.1.0"
 description = "A Python module for returning data about countries, ISO info, and states/provinces within them."
 readme = "README.md"
 license = "MIT"

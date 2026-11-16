@@ -31,16 +31,14 @@ class StripePattern(JSCSSMixin, MacroElement):
     See https://github.com/teastman/Leaflet.pattern for more information.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }} = new L.StripePattern(
                 {{ this.options|tojavascript }}
             );
             {{ this.get_name() }}.addTo({{ this.parent_map.get_name() }});
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         ("pattern", "https://teastman.github.io/Leaflet.pattern/leaflet.pattern.js")
@@ -55,7 +53,7 @@ class StripePattern(JSCSSMixin, MacroElement):
         space_color="#ffffff",
         opacity=0.75,
         space_opacity=0.0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "StripePattern"
@@ -67,7 +65,7 @@ class StripePattern(JSCSSMixin, MacroElement):
             space_color=space_color,
             opacity=opacity,
             space_opacity=space_opacity,
-            **kwargs
+            **kwargs,
         )
         self.parent_map = None
 
@@ -103,8 +101,7 @@ class CirclePattern(JSCSSMixin, MacroElement):
     See https://github.com/teastman/Leaflet.pattern for more information.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.get_name() }}_shape = new L.PatternCircle(
                 {{ this.options_pattern_circle|tojavascript }}
@@ -115,8 +112,7 @@ class CirclePattern(JSCSSMixin, MacroElement):
             {{ this.get_name() }}.addShape({{ this.get_name() }}_shape);
             {{ this.get_name() }}.addTo({{ this.parent_map }});
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         ("pattern", "https://teastman.github.io/Leaflet.pattern/leaflet.pattern.js")

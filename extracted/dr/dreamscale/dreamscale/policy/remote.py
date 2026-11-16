@@ -28,6 +28,7 @@ from dreamscale_transport.send_hints import SendHint, send_hint
 from dreamscale_transport.websocket_client import (
     CONTEXT_CAPABILITY,
     HISTORY_FRAMES_CAPABILITY,
+    NEXT_REQUEST_CAPABILITY,
 )
 
 from dreamscale import errors, region_hint, wire
@@ -449,12 +450,17 @@ class AsyncRemotePolicy:
             self._prepared_run_active = managed
             self._emit_progress("Task ready.")
 
-    async def push_history(self, observation: Any) -> None:
+    async def push_history(self, observation: Any, *, next_request_in: int | None = None) -> None:
         """Keep a pre-request observation for the next request's history frames.
 
         Where the server accepts history frames, its frames are sent now, in the
         background and in order with later observations, so the request carries only
         its newest frame. A failed send only costs context: the server pads.
+
+        ``next_request_in``: the ticks until the loop's next request, which an async loop has
+        already decided (its threshold changes only when an answer arrives). A server that
+        plans requests ahead (``next_request_v1``: Praxis-1 lightning) then gets that request's
+        episode step with the frames; others never see it.
         """
         history = self.observation_history
         if history is None:
@@ -488,6 +494,12 @@ class AsyncRemotePolicy:
             # frames (one thread, first in first out), so they reach the server first.
             encoded = self._hand_off(lambda: encode(snapshot))
 
+        announce: dict[str, int] = {}
+        if (next_request_in is not None and send_key is not None and type(key) is int
+                and next_request_in >= 0
+                and NEXT_REQUEST_CAPABILITY in getattr(transport, "capabilities", ())):
+            announce["next_request"] = key + int(next_request_in)
+
         async def send() -> None:
             try:
                 frames = await encoded
@@ -495,7 +507,7 @@ class AsyncRemotePolicy:
                 self._history_error = self._history_error or exc
                 return
             with suppress(Exception):  # a failed send only costs context: the server pads
-                await transport.send_history_frames(key, frames)
+                await transport.send_history_frames(key, frames, **announce)
 
         task = asyncio.create_task(send())
         self._background_tasks.add(task)

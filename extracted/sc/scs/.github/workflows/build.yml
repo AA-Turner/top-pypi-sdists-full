@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ "3.12" ]
+        python-version: [ "3.12", "3.13", "3.14", "3.15" ]
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -32,7 +32,20 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      # setup-pixi downloads the pixi binary without retrying, so a transient
+      # 5xx or DNS failure would fail the job; retry once after a pause.
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        id: pixi
+        continue-on-error: true
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Wait before retrying setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        run: sleep 60
+      - name: Retry setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -44,6 +57,26 @@ jobs:
       - name: Test
         run: |
           pixi r python -m pip install -v . --no-build-isolation -Csetup-args=-Duse_openmp=true
+          pixi r pytest
+          # Without use_parallel_psd an OpenMP build projects the PSD blocks
+          # one after another, under the conditions of the step below too.
+          OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1 SCS_EXPECT_PARALLEL_PSD=0 pixi r pytest -v test/test_scs_sdp.py -k parallel_psd
+          rm -rf build/
+      - name: Test with the parallel PSD projection option
+        # One Python version is enough to check the Meson option. The suite
+        # runs with several OpenMP threads and the BLAS on one thread, which
+        # is what the parallel projection asks for: SCS keeps it serial when
+        # it sees an OpenBLAS with a thread pool of its own on more than one
+        # thread. SCS_EXPECT_PARALLEL_PSD=1 makes
+        # test_parallel_psd_matches_build fail unless SCS reports a parallel
+        # projection.
+        if: matrix.python-version == '3.13'
+        env:
+          OMP_NUM_THREADS: "4"
+          OPENBLAS_NUM_THREADS: "1"
+          SCS_EXPECT_PARALLEL_PSD: "1"
+        run: |
+          pixi r python -m pip install -v . --no-build-isolation -Csetup-args=-Duse_openmp=true -Csetup-args=-Duse_parallel_psd=true
           pixi r pytest
           rm -rf build/
 
@@ -64,13 +97,37 @@ jobs:
           - case: lp64-solve
             use_blas64: false
             numpy_blas: mkl
+            python-version: "3.12"
           - case: ilp64-guard
             use_blas64: true
             numpy_blas: mkl
+            python-version: "3.12"
           - case: ilp64-solve
             use_blas64: true
             numpy_blas: openblas
-    name: build_mkl (${{ matrix.case }})
+            python-version: "3.12"
+          # Every case on the newest Python; only lp64-solve in between.
+          - case: lp64-solve
+            use_blas64: false
+            numpy_blas: mkl
+            python-version: "3.13"
+          - case: lp64-solve
+            use_blas64: false
+            numpy_blas: mkl
+            python-version: "3.14"
+          - case: lp64-solve
+            use_blas64: false
+            numpy_blas: mkl
+            python-version: "3.15"
+          - case: ilp64-guard
+            use_blas64: true
+            numpy_blas: mkl
+            python-version: "3.15"
+          - case: ilp64-solve
+            use_blas64: true
+            numpy_blas: openblas
+            python-version: "3.15"
+    name: build_mkl (${{ matrix.case }}, ${{ matrix.python-version }})
     env:
       USE_BLAS64: ${{ matrix.use_blas64 }}
       NUMPY_BLAS: ${{ matrix.numpy_blas }}
@@ -79,7 +136,19 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      # Retry once on a transient download failure (see build_openmp).
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        id: pixi
+        continue-on-error: true
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Wait before retrying setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        run: sleep 60
+      - name: Retry setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -88,7 +157,7 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: |
-          pixi add --platform linux-64 "blas-devel=*=*${NUMPY_BLAS}" pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python python==3.12
+          pixi add --platform linux-64 "blas-devel=*=*${NUMPY_BLAS}" pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python python==${{ matrix.python-version }}
       - name: Build
         run: |
           pixi r python -c "import numpy as np;print(np.show_config())"
@@ -120,13 +189,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.12" ]
+        python-version: [ "3.12", "3.13", "3.14", "3.15" ]
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      # Retry once on a transient download failure (see build_openmp).
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        id: pixi
+        continue-on-error: true
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Wait before retrying setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        run: sleep 60
+      - name: Retry setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -163,6 +244,62 @@ jobs:
           readelf -d "$so" | grep -q 'libcusparse' || { echo "ERROR: _scs_gpu not linked against cuSPARSE"; exit 1; }
           echo "OK: _scs_gpu links cuBLAS and cuSPARSE"
 
+  build_cudss:
+    # Build-only check of the cuDSS backend against NVIDIA's apt cuDSS, which
+    # installs the builds for CUDA 12 and CUDA 13 side by side. With the CUDA 12
+    # toolkit of this container, the CUDA 13 build must be refused when Meson
+    # configures (cuDSS's own check, see link_cudss in meson.build) and the
+    # CUDA 12 build must build and import. Importing needs only the shared
+    # libraries, not a GPU. Each build is pointed at explicitly with cudss_DIR,
+    # so the job does not depend on which one apt makes the default; if apt stops
+    # shipping one of them, the step that needs it is skipped with a warning.
+    runs-on: ubuntu-latest
+    # The newest CUDA 12 devel image when this job was written; bump it if
+    # NVIDIA removes the tag.
+    container: nvidia/cuda:12.6.3-devel-ubuntu22.04
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get -o Acquire::Retries=5 update
+          DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y git pkg-config cmake \
+            ninja-build libopenblas-dev liblapack-dev python3-dev python3-venv binutils cudss
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Python build tools
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # --upgrade-deps: Ubuntu 22.04's pip (22.0) has no -C option
+          python3 -m venv --upgrade-deps /opt/venv
+          /opt/venv/bin/pip install numpy scipy meson-python meson ninja
+          # meson-python runs the meson it finds on PATH
+          echo /opt/venv/bin >> "$GITHUB_PATH"
+      - name: The cuDSS build for another CUDA major version is refused
+        run: |
+          d=/usr/lib/x86_64-linux-gnu/libcudss/13/cmake/cudss
+          if [ ! -f "$d/cudss-config.cmake" ]; then
+            echo "::warning::apt's cuDSS has no CUDA 13 build; mismatch check skipped"
+            exit 0
+          fi
+          # LIBRARY_PATH: the image points it at the CUDA stubs; a plain toolkit install does not
+          if cudss_DIR=$d env -u LIBRARY_PATH /opt/venv/bin/pip install -v \
+              --no-build-isolation -Csetup-args=-Dlink_cudss=true -Csetup-args=-Dint32=true . > mismatch.log 2>&1; then
+            cat mismatch.log
+            echo "::error::the CUDA 13 build of cuDSS was accepted with the CUDA 12 toolkit"
+            exit 1
+          fi
+          grep "cuDSS for CUDA 12 was not found" mismatch.log || { cat mismatch.log; exit 1; }
+      - name: The cuDSS build for this CUDA builds and imports
+        run: |
+          d=/usr/lib/x86_64-linux-gnu/libcudss/12/cmake/cudss
+          if [ ! -f "$d/cudss-config.cmake" ]; then
+            echo "::warning::apt's cuDSS has no CUDA 12 build; build check skipped"
+            exit 0
+          fi
+          cudss_DIR=$d env -u LIBRARY_PATH /opt/venv/bin/pip install -v \
+            --no-build-isolation -Csetup-args=-Dlink_cudss=true -Csetup-args=-Dint32=true .
+          cd /tmp && /opt/venv/bin/python -c "from scs import _scs_cudss; import scs; print('scs', scs.__version__, 'cuDSS backend imports')"
+
   build_native_arch:
     runs-on: ubuntu-latest
     defaults:
@@ -172,12 +309,25 @@ jobs:
       fail-fast: false
       matrix:
         native_arch: [true]
+        python-version: [ "3.12", "3.13", "3.14", "3.15" ]
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      # Retry once on a transient download failure (see build_openmp).
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        id: pixi
+        continue-on-error: true
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Wait before retrying setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        run: sleep 60
+      - name: Retry setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -185,7 +335,7 @@ jobs:
         run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
         shell: bash
       - name: Install dependencies
-        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==3.12
+        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==${{ matrix.python-version }}
       - name: Build (native_arch=${{ matrix.native_arch }})
         run: |
           pixi r python -m pip install -v . --no-build-isolation \
@@ -203,13 +353,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.14" ]
+        python-version: [ "3.13", "3.14", "3.15" ]
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      # Retry once on a transient download failure (see build_openmp).
+      - uses: prefix-dev/setup-pixi@v0.11.3
+        id: pixi
+        continue-on-error: true
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Wait before retrying setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        run: sleep 60
+      - name: Retry setup-pixi
+        if: steps.pixi.outcome == 'failure'
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -241,34 +403,75 @@ jobs:
             arch: auto
           - os: windows-latest
             arch: auto
+          - os: windows-11-arm
+            arch: auto
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: true
 
-      - name: Set up MSVC for Windows
-        if: runner.os == 'Windows'
-        uses: egor-tensin/vs-shell@v2
+      - name: Install OpenBLAS on Windows x64
+        # meson finds OpenBLAS via its CMake config; delvewheel finds the DLL via PATH.
+        # 0.3.34 is skipped: its DGEMM kernels crash on AMD Zen 4/5 CPUs that
+        # expose AVX-512 (Fixed in OpenMathLib/OpenBLAS#6013. Bump with the next release.)
+        if: runner.os == 'Windows' && runner.arch == 'X64'
+        shell: pwsh
+        run: |
+          $version = '0.3.33'
+          $sha256 = '7ad797ef0c9a5c42e28903bf726eaaaade307dafe187ff0e923d90cd4002780c'
+          $zip = Join-Path $env:RUNNER_TEMP 'openblas.zip'
+          $dest = Join-Path $env:RUNNER_TEMP 'openblas'
+          $uri = "https://github.com/OpenMathLib/OpenBLAS/releases/download/v$version/OpenBLAS-$version-x64.zip"
+          # Retry transient 5xx/network failures before failing the job.
+          for ($attempt = 1; ; $attempt++) {
+            try { Invoke-WebRequest -OutFile $zip -Uri $uri; break }
+            catch {
+              if ($attempt -ge 4) { throw }
+              Write-Warning "Download of $uri failed (attempt $attempt): $_"
+              Start-Sleep -Seconds (15 * $attempt)
+            }
+          }
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $sha256) { throw 'OpenBLAS checksum mismatch' }
+          Expand-Archive $zip -DestinationPath $dest
+          $root = $dest
+          # The x64 (MinGW) CMake config points the linker at the DLL instead of its import library.
+          # (Fixed in OpenMathLib/OpenBLAS#6091. Can be removed with the next release.)
+          $cfg = Join-Path $root 'lib\cmake\openblas\OpenBLASConfig.cmake'
+          if (Test-Path $cfg) {
+            (Get-Content $cfg) -replace 'bin/libopenblas\.dll', 'lib/libopenblas.lib' | Set-Content $cfg
+          }
+          "CMAKE_PREFIX_PATH=$root" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "$root\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
-      - name: Install conda on Windows
-        if: runner.os == 'Windows'
-        uses: conda-incubator/setup-miniconda@v4
-        with:
-          miniconda-version: "latest"
-          channels: conda-forge, anaconda
+      - name: Build OpenBLAS for Windows ARM64
+        # The upstream woa64 DLL targets NEOVERSEN1 and requires LSE atomics.
+        # Build for ARMV8 so the wheels also work on older Windows ARM64 CPUs.
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        shell: pwsh
+        run: ./.github/scripts/install_openblas_arm64.ps1
 
-      - name: Install openblas from conda on Windows
-        if: runner.os == 'Windows'
-        # 0.3.33 pinned: conda-forge's win-64 0.3.34 build crashes inside its
-        # DGEMM kernels on AMD Zen 4/5 CPUs that expose AVX-512
-        # (conda-forge/openblas-feedstock#196). Unpin once a fixed build ships.
-        run: conda install -y "openblas=0.3.33" pkgconfig
-
+      # cibuildwheel's own downloads (virtualenv, CPython installers) and the
+      # pip installs inside it fail outright on a transient 5xx or DNS error,
+      # so retry the step once after a pause. A genuine build failure also
+      # reruns once, costing one extra build before the job goes red.
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.2.0
+        id: cibw
+        continue-on-error: true
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           # Explicitly set the architecture based on the matrix
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+
+      - name: Wait before retrying cibuildwheel
+        if: steps.cibw.outcome == 'failure'
+        run: sleep 60
+        shell: bash
+
+      - name: Build wheels (retry)
+        if: steps.cibw.outcome == 'failure'
+        uses: pypa/cibuildwheel@v4.3.5
+        env:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
       - name: Report wheel sizes
@@ -298,7 +501,7 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-wheels-ubuntu-*
           path: wheelhouse
@@ -361,9 +564,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.14", "3.14t"]
+        python: ["3.9", "3.13", "3.14", "3.15", "3.14t", "3.15t"]
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: cibw-wheels-ubuntu-latest-*
           path: wheelhouse
@@ -397,8 +600,11 @@ jobs:
           EOF
           case "${{ matrix.python }}" in
             3.9)   IMAGE=python:3.9-slim;  TAG=cp39-cp39 ;;
+            3.13)  IMAGE=python:3.13-slim; TAG=cp313-cp313 ;;
             3.14)  IMAGE=python:3.14-slim; TAG=cp314-cp314 ;;
+            3.15)  IMAGE=python:3.15-slim; TAG=cp315-cp315 ;;
             3.14t) IMAGE=ghcr.io/astral-sh/uv:debian-slim; TAG=cp314-cp314t ;;
+            3.15t) IMAGE=ghcr.io/astral-sh/uv:debian-slim; TAG=cp315-cp315t ;;
           esac
           docker run --rm -v "$PWD:/work" -w /tmp -e PY=${{ matrix.python }} -e TAG=$TAG \
             "$IMAGE" bash -ec '

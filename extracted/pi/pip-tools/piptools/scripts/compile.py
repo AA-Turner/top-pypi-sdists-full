@@ -148,7 +148,6 @@ Examples:
 @options.only_build_deps
 def cli(
     ctx: click.Context,
-    color: bool | None,
     verbose: int,
     quiet: int,
     dry_run: bool,
@@ -199,8 +198,6 @@ def cli(
     Valid sources are requirements.in, pyproject.toml, setup.cfg,
     or setup.py specs.
     """
-    if color is not None:
-        ctx.color = color
     log.verbosity = verbose - quiet
 
     # NOTE: On older `click` versions, `src_files` is not populated automatically from
@@ -301,12 +298,6 @@ def cli(
     for host in trusted_host:
         pip_args.extend(["--trusted-host", host])
     if uploaded_prior_to:
-        if _pip_api.PIP_VERSION_MAJOR_MINOR < (26, 0):
-            raise click.BadParameter(
-                "--uploaded-prior-to requires pip >= 26.0, "
-                f"but you have pip {_pip_api.PIP_VERSION}",
-                param_hint="--uploaded-prior-to",
-            )
         pip_args.extend(["--uploaded-prior-to", uploaded_prior_to])
     if not build_isolation:
         pip_args.append("--no-build-isolation")

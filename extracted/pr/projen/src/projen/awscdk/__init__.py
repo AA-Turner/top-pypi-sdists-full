@@ -4831,6 +4831,16 @@ class LambdaRuntime(metaclass=jsii.JSIIMeta, jsii_type="projen.awscdk.LambdaRunt
         return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_24_X"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_26_X")
+    @builtins.classmethod
+    def NODEJS_26_X(cls) -> "LambdaRuntime":
+        '''(experimental) Node.js 26.x.
+
+        :stability: experimental
+        '''
+        return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_26_X"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_REGIONAL_LATEST")
     @builtins.classmethod
     def NODEJS_REGIONAL_LATEST(cls) -> "LambdaRuntime":

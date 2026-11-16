@@ -4,10 +4,11 @@ import configparser
 import itertools
 import os
 import sys
+import tomllib
+from collections.abc import Callable
 from importlib import import_module
-from typing import Any, Callable
+from typing import Any
 
-import toml
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandParser
 
@@ -190,10 +191,10 @@ class Command(BaseCommand):
 
     @staticmethod
     def read_django_settings(options: dict[str, Any]) -> dict[str, Any]:
-        django_settings_options = dict()
+        django_settings_options = {}
 
         django_migration_linter_settings = getattr(
-            settings, "MIGRATION_LINTER_OPTIONS", dict()
+            settings, "MIGRATION_LINTER_OPTIONS", {}
         )
         for key in options:
             if key in django_migration_linter_settings:
@@ -203,7 +204,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def read_config_file(options: dict[str, Any]) -> dict[str, Any]:
-        config_options = dict()
+        config_options = {}
 
         config_parser = configparser.ConfigParser()
         config_parser.read(DEFAULT_CONFIG_FILES, encoding="utf-8")
@@ -221,10 +222,11 @@ class Command(BaseCommand):
 
     @staticmethod
     def read_toml_file(options: dict[str, Any]) -> dict[str, Any]:
-        toml_options = dict()
+        toml_options = {}
 
         if os.path.exists(PYPROJECT_TOML):
-            pyproject_toml = toml.load(PYPROJECT_TOML)
+            with open(PYPROJECT_TOML, encoding="utf-8") as f:
+                pyproject_toml = tomllib.loads(f.read())
             section = pyproject_toml.get("tool", {}).get(CONFIG_NAME, {})
             for key in options:
                 if key in section:

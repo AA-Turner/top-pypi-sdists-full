@@ -1,5 +1,3 @@
-from typing import Union
-
 from branca.element import MacroElement
 
 from folium.elements import JSCSSMixin
@@ -74,7 +72,7 @@ class TreeLayerControl(JSCSSMixin, MacroElement):
         on to toggle the layer.
     **kwargs
         Additional (possibly inherited) options. See
-        https://leafletjs.com/reference.html#control-layers
+        https://leafletjs.com/reference-1.9.4.html#control-layers
 
     Examples
     --------
@@ -122,8 +120,7 @@ class TreeLayerControl(JSCSSMixin, MacroElement):
         )
     ]
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this,kwargs) %}
             L.control.layers.tree(
                 {{this.base_tree|tojavascript}},
@@ -131,13 +128,12 @@ class TreeLayerControl(JSCSSMixin, MacroElement):
                 {{this.options|tojavascript}}
             ).addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )
+        """)
 
     def __init__(
         self,
-        base_tree: Union[dict, list, None] = None,
-        overlay_tree: Union[dict, list, None] = None,
+        base_tree: dict | list | None = None,
+        overlay_tree: dict | list | None = None,
         closed_symbol: str = "+",
         opened_symbol: str = "-",
         space_symbol: str = "&nbsp;",
@@ -146,7 +142,7 @@ class TreeLayerControl(JSCSSMixin, MacroElement):
         collapse_all: str = "",
         expand_all: str = "",
         label_is_selector: str = "both",
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "TreeLayerControl"

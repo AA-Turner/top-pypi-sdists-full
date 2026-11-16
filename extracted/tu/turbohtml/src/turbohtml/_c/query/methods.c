@@ -6,6 +6,7 @@
 
 #include "core/node_map.h"
 #include "core/vec.h"
+#include "core/work_steps.h"
 #include "dom/nodes.h"
 #include "css/select/selector.h"
 
@@ -114,7 +115,9 @@ static int check_selector_arg(PyObject *arg) {
    compiled before a new attribute name was interned is recompiled in place so a
    once-absent attribute now resolves. The caller must already hold the handle's
    critical section and have type-checked arg; the returned pointer is borrowed
-   (the cache owns it). Returns NULL with a Python error set on a compile error. */
+   (the cache owns it). Returns NULL with a Python error set on a compile error, or when
+   the calling thread's stack cannot match the selector's chain: the cache may hold a
+   compile made on another thread, so the stack is checked on every call. */
 static sel_compiled *cached_compile(PyObject *selector_error, HandleObject *handle, PyObject *arg) {
 restart:;
     uint32_t gen = th_tree_attr_generation(handle->tree);
@@ -131,10 +134,17 @@ restart:;
             selector_free(entry.compiled);
             entry.compiled = fresh;
             entry.attr_gen = gen;
+            handle->sel_cache[index] = entry;
         }
-        memmove(&handle->sel_cache[1], &handle->sel_cache[0], (size_t)index * sizeof(sel_cache_entry));
-        handle->sel_cache[0] = entry;
-        return entry.compiled;
+        if (index > 0) {
+            memmove(&handle->sel_cache[1], &handle->sel_cache[0], (size_t)index * sizeof(sel_cache_entry));
+            handle->sel_cache[0] = entry;
+        }
+        sel_compiled *hit = entry.compiled;
+        if (sel_stack_check(hit->chain) < 0) {
+            return NULL;
+        }
+        return hit;
     }
     if (handle->sel_cache_len == SEL_CACHE_CAP) {
         sel_cache_entry evicted = handle->sel_cache[--handle->sel_cache_len];
@@ -162,6 +172,9 @@ restart:;
     memmove(&handle->sel_cache[1], &handle->sel_cache[0],
             (size_t)(handle->sel_cache_len - 1) * sizeof(sel_cache_entry));
     handle->sel_cache[0] = (sel_cache_entry){Py_NewRef(arg), compiled, gen};
+    if (sel_stack_check(compiled->chain) < 0) {
+        return NULL;
+    }
     return compiled;
 }
 
@@ -173,16 +186,31 @@ PyObject *turbohtml_register_selector_error(PyObject *module, PyObject *type) {
     Py_RETURN_NONE;
 }
 
+/* Store the XPathDepthError type the evaluator raises past its nesting cap; turbohtml.query._xpath registers it. */
+PyObject *turbohtml_register_xpath_depth_error(PyObject *module, PyObject *type) {
+    module_state *state = PyModule_GetState(module);
+    Py_XSETREF(state->xpath_depth_error, Py_NewRef(type));
+    Py_RETURN_NONE;
+}
+
 static int append_selected(PyObject *out, module_state *state, PyObject *handle, th_node *origin,
                            sel_compiled *compiled, Py_ssize_t limit, const sel_simple *single) {
     int error = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
     sel_sibling_memo memo = {0};
+    sel_position_memo position_memo = {0};
     HandleObject *handle_obj = (HandleObject *)handle;
-    sel_ctx ctx = {
-        compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
-        &default_memo,  &memo};
+    sel_ctx ctx = {compiled->tree,
+                   origin,
+                   compiled->quirks,
+                   selector_uses_has_memo(compiled) ? &memo.table : NULL,
+                   &nth_memo,
+                   &default_memo,
+                   &memo,
+                   &memo.table,
+                   &position_memo,
+                   &memo.table};
     if (selector_use_index(handle_obj, origin, compiled)) {
         Py_ssize_t end = indexed_candidates_end(handle_obj, compiled);
         for (Py_ssize_t pos = handle_obj->index_offsets[compiled->subject_atom]; pos < end; pos++) {
@@ -212,7 +240,10 @@ static int append_selected(PyObject *out, module_state *state, PyObject *handle,
             }
         }
     }
-    sel_memo_free(&memo.table);
+    if (memo.table.slots != NULL) {
+        sel_memo_free(&memo.table);
+    }
+    sel_position_memo_free(&position_memo);
     if (error) { /* GCOVR_EXCL_START: append_wrapped failed to allocate */
         return -1;
     } /* GCOVR_EXCL_STOP */
@@ -242,6 +273,8 @@ retry:;
         moved = 1;
     } else {
         th_node *origin = ((NodeObject *)self)->node;
+        sel_deep_query deep;
+        compiled = sel_deep_enter(compiled, &deep);
         const sel_simple *single = sel_single_simple(compiled);
         if (single != NULL && single->kind == 'e' && single->tag_atom != TH_TAG_UNKNOWN &&
             !th_tree_is_xml(compiled->tree) && handle_use_index(handle_obj, origin, 1)) {
@@ -250,6 +283,7 @@ retry:;
         } else {
             error = append_selected(out, state, handle, origin, compiled, limit, single);
         }
+        sel_deep_leave(&deep);
     }
     Py_END_CRITICAL_SECTION();
     Py_DECREF(handle);
@@ -375,6 +409,9 @@ PyObject *turbohtml_matches_many(PyObject *module, PyObject *args) {
             /* each candidate is its own :scope, so the sibling memo serves only a selector without one */
             sel_sibling_memo sibling_memo = {0};
             sel_sibling_memo *memo = selector_uses_scope(compiled) ? NULL : &sibling_memo;
+            sel_position_memo positions = {0}; /* a sibling position does not depend on the scope */
+            sel_deep_query deep;
+            compiled = sel_deep_enter(compiled, &deep);
             for (; index < count; index++) {
                 item = PyList_GET_ITEM(nodes, index);
                 if (!Py_IS_TYPE(item, (PyTypeObject *)state->element_type)) {
@@ -386,12 +423,15 @@ PyObject *turbohtml_matches_many(PyObject *module, PyObject *args) {
                 if (!node_owned_by(candidate, handle)) {
                     break;
                 }
-                sel_ctx ctx = {compiled->tree, candidate->node, compiled->quirks, NULL, NULL, NULL, memo};
+                sel_ctx ctx = {compiled->tree,      candidate->node, compiled->quirks,   NULL, NULL, NULL, memo,
+                               &sibling_memo.table, &positions,      &sibling_memo.table};
                 int matched = selector_matches_c(candidate->node, compiled, &ctx);
                 results[index] = (unsigned char)matched;
                 matched_count += matched;
             }
             sel_memo_free(&sibling_memo.table);
+            sel_position_memo_free(&positions);
+            sel_deep_leave(&deep);
         }
         Py_END_CRITICAL_SECTION();
         Py_DECREF(handle);
@@ -414,12 +454,6 @@ PyObject *turbohtml_matches_many(PyObject *module, PyObject *args) {
     }
     PyMem_Free(results);
     return out;
-}
-
-static int compare_roots(const void *left, const void *right) {
-    th_node *left_node = *(th_node *const *)left;
-    th_node *right_node = *(th_node *const *)right;
-    return left_node == right_node ? 0 : node_order(left_node, right_node); /* GCOVR_EXCL_BR_LINE: qsort self-compare */
 }
 
 static int sort_sibling_roots(th_node **group, Py_ssize_t group_count) {
@@ -459,30 +493,127 @@ static int sort_sibling_roots(th_node **group, Py_ssize_t group_count) {
     return 1;
 }
 
-static int sort_roots(th_node **group, Py_ssize_t group_count) {
+/* A mark's low bit says the node is one of the roots; the rest counts the node's marked children. */
+#define ROOT_MARK_SELECTED 1
+#define ROOT_MARK_CHILD 2
+
+static inline th_node_map_entry *root_mark(const th_node_map *marks, const th_node *node) {
+    if (marks->capacity == 0) {
+        return NULL;
+    }
+    th_node_map_entry *mark = &marks->entries[th_node_map_slot(marks, node)];
+    return mark->node != NULL ? mark : NULL;
+}
+
+/* node_order climbs to the top from both nodes and counts their preceding siblings, so comparing the roots pairwise is
+   quadratic for roots nested in each other or under a wide parent. Mark each root and the ancestors it has not in
+   common with an earlier root instead, then walk the marked nodes in document order from the roots' lowest common
+   ancestor. The walk never enters an unmarked subtree nor a root, so it costs the marked nodes plus the siblings
+   before each one, whatever the size of the tree around them, and it drops the roots inside another root. */
+static Py_ssize_t sort_tree_roots(th_node **group, Py_ssize_t group_count) {
+    th_node_map marks = {0};
+    for (Py_ssize_t index = 0; index < group_count; index++) {
+        th_node *node = group[index];
+        th_node_map_entry *mark = root_mark(&marks, node);
+        if (mark != NULL) {
+            mark->value |= ROOT_MARK_SELECTED;
+            continue;
+        }
+        if (th_node_map_insert(&marks, node, ROOT_MARK_SELECTED) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyMem_Free(marks.entries);                                  /* GCOVR_EXCL_LINE */
+            return -1;                                                  /* GCOVR_EXCL_LINE */
+        }
+        for (th_node *parent = node->parent; parent != NULL; parent = parent->parent) {
+            TH_WORK_STEP();
+            mark = root_mark(&marks, parent);
+            if (mark != NULL) {
+                mark->value += ROOT_MARK_CHILD;
+                break;
+            }
+            if (th_node_map_insert(&marks, parent, ROOT_MARK_CHILD) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                PyMem_Free(marks.entries);                                 /* GCOVR_EXCL_LINE */
+                return -1;                                                 /* GCOVR_EXCL_LINE */
+            }
+        }
+    }
+    /* The lowest common ancestor is the highest node above a root that is a root or has two marked children. */
+    th_node *top = group[0];
+    for (th_node *node = top->parent; node != NULL; node = node->parent) {
+        TH_WORK_STEP();
+        if (th_node_map_find(&marks, node) != ROOT_MARK_CHILD) {
+            top = node;
+        }
+    }
+    Py_ssize_t kept = 0;
+    for (th_node *node = top;;) {
+        TH_WORK_STEP();
+        if ((th_node_map_find(&marks, node) & ROOT_MARK_SELECTED) == 0) {
+            node = node->first_child;
+        } else {
+            group[kept++] = node;
+            /* leave every parent whose marked children are all visited */
+            while (node != top && (root_mark(&marks, node->parent)->value -= ROOT_MARK_CHILD) == 0) {
+                node = node->parent;
+            }
+            if (node == top) {
+                break;
+            }
+            node = node->next_sibling;
+        }
+        while (th_node_map_find(&marks, node) == 0) {
+            node = node->next_sibling;
+        }
+    }
+    PyMem_Free(marks.entries);
+    return kept;
+}
+
+/* Put the roots of one tree in document order and drop those inside another root, whose matches that root already
+   reports. Returns how many are left, or -1 on allocation failure. */
+static Py_ssize_t sort_roots(th_node **group, Py_ssize_t group_count) {
     if (group_count >= 32) {
         int sorted = sort_sibling_roots(group, group_count);
         if (sorted != 0) {
-            return sorted < 0 ? -1 : 0; /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return sorted < 0 ? -1 : group_count; /* GCOVR_EXCL_BR_LINE: allocation failure */
         }
-        for (Py_ssize_t index = 1; index < group_count; index++) {
-            if (node_order(group[index], group[index - 1]) < 0) {
-                qsort(group, (size_t)group_count, sizeof(th_node *), compare_roots);
-                break;
-            }
+        return sort_tree_roots(group, group_count);
+    }
+    if (group_count == 1) {
+        return 1;
+    }
+    /* node_order climbs both roots on every comparison, so climb each root once and compare at known depths */
+    Py_ssize_t depths[32];
+    for (Py_ssize_t index = 0; index < group_count; index++) {
+        depths[index] = 0;
+        for (th_node *node = group[index]; node->parent != NULL; node = node->parent) {
+            depths[index]++;
         }
-        return 0;
     }
     for (Py_ssize_t index = 1; index < group_count; index++) {
         th_node *node = group[index];
+        Py_ssize_t depth = depths[index];
         Py_ssize_t position = index;
-        while (position > 0 && node_order(node, group[position - 1]) < 0) {
+        while (position > 0 && node_order_at(node, depth, group[position - 1], depths[position - 1]) < 0) {
             group[position] = group[position - 1];
+            depths[position] = depths[position - 1];
             position--;
         }
         group[position] = node;
+        depths[position] = depth;
     }
-    return 0;
+    /* a root is inside the last kept root when climbing it to that root's depth lands on it */
+    Py_ssize_t kept = 1;
+    for (Py_ssize_t index = 1; index < group_count; index++) {
+        th_node *node = group[index];
+        for (Py_ssize_t depth = depths[index]; depth > depths[kept - 1]; depth--) {
+            node = node->parent;
+        }
+        if (node != group[kept - 1]) {
+            group[kept] = group[index];
+            depths[kept++] = depths[index];
+        }
+    }
+    return kept;
 }
 
 #ifndef Py_GIL_DISABLED
@@ -544,6 +675,43 @@ static Py_ssize_t index_root_group(th_node_map *groups, th_node *root, Py_ssize_
     groups->entries[slot] = (th_node_map_entry){root, position};
     groups->count++;
     return 0;
+}
+
+/* node_root for a node under 32 levels deep. For a deeper one it returns NULL and leaves the ancestor 32 levels up
+   in *passed. The fixed inner bound unrolls, so the climb costs no more than node_root. */
+static inline th_node *climb_levels(th_node *node, th_node **passed) {
+    for (int stride = 0; stride < 4; stride++) {
+        for (int level = 0; level < 8; level++) {
+            if (node->parent == NULL) {
+                return node;
+            }
+            node = node->parent;
+        }
+    }
+    *passed = node;
+    return NULL;
+}
+
+/* The rest of node_root for the root at position, from node 32 levels above it. A climb to the top from every root is
+   quadratic for roots nested in each other, or for siblings below a deep chain, so the climb stops at a node an earlier
+   root passed and takes that root's top from root_tops, then records its own position on the nodes it passed. Tops
+   have no parent, so they and the recorded nodes share the map without colliding. Returns NULL on allocation
+   failure. */
+static th_node *climb_deep_root(th_node_map *tops, th_node *node, th_node **root_tops, Py_ssize_t position) {
+    th_node *stop = node;
+    Py_ssize_t passer = 0;
+    while (stop->parent != NULL && (passer = th_node_map_find(tops, stop)) == 0) {
+        TH_WORK_STEP();
+        stop = stop->parent;
+    }
+    for (th_node *passed = node; passed != stop; passed = passed->parent) {
+        TH_WORK_STEP();
+        if (th_node_map_insert(tops, passed, position) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return NULL;                                      /* GCOVR_EXCL_LINE */
+        }
+    }
+    root_tops[position - 1] = passer == 0 ? stop : root_tops[passer - 1];
+    return root_tops[position - 1];
 }
 
 PyObject *turbohtml_select_many(PyObject *module, PyObject *args) {
@@ -613,7 +781,17 @@ PyObject *turbohtml_select_many(PyObject *module, PyObject *args) {
                 if (roots[index].processed || !node_owned_by(candidate, handle)) {
                     continue;
                 }
-                th_node *top = node_root(candidate->node);
+                th_node *passed;
+                th_node *top = climb_levels(candidate->node, &passed);
+                if (top == NULL) {
+                    /* group holds the tops of the deep roots until the roots are grouped */
+                    top = climb_deep_root(&tops, passed, group, index + 1);
+                    if (top == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure */
+                        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+                        error = 1;        /* GCOVR_EXCL_LINE */
+                        break;            /* GCOVR_EXCL_LINE */
+                    }
+                }
                 Py_ssize_t head = top == first_top   ? first_group
                                   : first_group == 0 ? 0
                                                      : index_root_group(&tops, top, index + 1);
@@ -650,21 +828,21 @@ PyObject *turbohtml_select_many(PyObject *module, PyObject *args) {
                 for (Py_ssize_t member = head; member != 0; member = roots[member - 1].next) {
                     group[group_count++] = roots[member - 1].node->node;
                 }
-                if (sort_roots(group, group_count) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-                    PyErr_NoMemory();                     /* GCOVR_EXCL_LINE */
-                    error = 1;                            /* GCOVR_EXCL_LINE */
-                    break;                                /* GCOVR_EXCL_LINE */
+                group_count = sort_roots(group, group_count);
+                if (group_count < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                    PyErr_NoMemory();  /* GCOVR_EXCL_LINE */
+                    error = 1;         /* GCOVR_EXCL_LINE */
+                    break;             /* GCOVR_EXCL_LINE */
                 }
                 batches[tree_first].offset = PyList_GET_SIZE(out);
-                th_node *covered = NULL;
                 for (Py_ssize_t index = 0; index < group_count; index++) {
                     th_node *origin = group[index];
-                    if (covered != NULL && is_ancestor(covered, origin)) {
-                        continue;
-                    }
-                    covered = origin;
+                    /* each root is its own :scope, so each takes a stand-in of its own */
+                    sel_deep_query deep;
+                    sel_compiled *matcher = sel_deep_enter(compiled, &deep);
                     int append_error =
-                        append_selected(out, state, anchor->handle, origin, compiled, 0, sel_single_simple(compiled));
+                        append_selected(out, state, anchor->handle, origin, matcher, 0, sel_single_simple(matcher));
+                    sel_deep_leave(&deep);
                     if (append_error < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
                         error = 1;          /* GCOVR_EXCL_LINE */
                         break;              /* GCOVR_EXCL_LINE */
@@ -721,6 +899,7 @@ retry:;
     int moved = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
+    sel_position_memo position_memo = {0};
     sel_sibling_memo memo = {0};       /* shared across the walk so :has() and ~ memoize their scans */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock around the walk */
     HandleObject *handle_obj = (HandleObject *)handle;
@@ -731,10 +910,19 @@ retry:;
         moved = 1;
     } else {
         th_node *origin = ((NodeObject *)self)->node;
+        sel_deep_query deep;
+        compiled = sel_deep_enter(compiled, &deep);
         const sel_simple *single = sel_single_simple(compiled);
-        sel_ctx ctx = {
-            compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
-            &default_memo,  &memo};
+        sel_ctx ctx = {compiled->tree,
+                       origin,
+                       compiled->quirks,
+                       selector_uses_has_memo(compiled) ? &memo.table : NULL,
+                       &nth_memo,
+                       &default_memo,
+                       &memo,
+                       &memo.table,
+                       &position_memo,
+                       &memo.table};
         if (selector_use_index(handle_obj, origin, compiled)) {
             Py_ssize_t end = indexed_candidates_end(handle_obj, compiled);
             for (Py_ssize_t pos = handle_obj->index_offsets[compiled->subject_atom]; pos < end; pos++) {
@@ -755,6 +943,7 @@ retry:;
                 }
             }
         }
+        sel_deep_leave(&deep);
     }
     Py_END_CRITICAL_SECTION();
     Py_DECREF(handle);
@@ -762,6 +951,7 @@ retry:;
         goto retry;
     }
     sel_memo_free(&memo.table);
+    sel_position_memo_free(&position_memo);
     if (error) {
         return NULL;
     }
@@ -977,7 +1167,7 @@ TH_NODE_API(, PyObject *, node_re_first, (PyObject * self, PyObject *args, PyObj
    is tree-independent, so an entry never goes stale. The caller must hold the handle's
    critical section and have type-checked arg; the returned pointer is borrowed. NULL
    with a Python error set on a compile error. */
-static xp_program *cached_xpath_compile(HandleObject *handle, PyObject *arg) {
+static xp_program *cached_xpath_compile(HandleObject *handle, PyObject *arg, PyObject *depth_error) {
     for (int index = 0; index < handle->xpath_cache_len; index++) {
         xpath_cache_entry entry = handle->xpath_cache[index];
         if (entry.key != arg && PyUnicode_Compare(entry.key, arg) != 0) {
@@ -993,7 +1183,7 @@ static xp_program *cached_xpath_compile(HandleObject *handle, PyObject *arg) {
         return NULL;   /* GCOVR_EXCL_LINE */
     }
     char err[128];
-    xp_program *prog = xp_compile(src, len, err, sizeof(err));
+    xp_program *prog = xp_compile(src, len, err, sizeof(err), depth_error);
     PyMem_Free(src);
     if (prog == NULL) {
         if (!PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: allocation error */
@@ -1031,6 +1221,24 @@ PyObject *turbohtml_register_xpath_string(PyObject *module, PyObject *type) {
     Py_RETURN_NONE;
 }
 
+/* Live frames past which a call into Python finds a pinned node through one index instead of each frame's own map.
+   Common expressions stay below it and pay nothing for the index; nested predicates and operators can stack up to
+   XP_MAX_DEPTH frames, where probing every frame for every pinned node costs the depth over again. */
+#define XPATH_PIN_INDEX_FRAMES 16
+
+/* A wrapper the live frames pin and how many of them hold it; the slot outlives them, empty, for the next to pin. */
+typedef struct {
+    PyObject *wrapper;
+    size_t frames;
+} xpath_index_pin;
+
+typedef struct {
+    th_node_map nodes[2]; /* a node's owner, and a text node's parent */
+    xpath_index_pin *pins;
+    size_t len;
+    size_t cap;
+} xpath_pin_index;
+
 typedef struct xpath_ext_ctx {
     PyObject *extensions; /* {(None, name): callable}; only set when non-empty */
     PyObject *handle;
@@ -1044,13 +1252,14 @@ typedef struct xpath_ext_ctx {
     struct xpath_ext_ctx *previous;
     struct xpath_frame_pins **frames;
     size_t frame_count;
+    xpath_pin_index *index; /* every frame's pins, once the frames first reach XPATH_PIN_INDEX_FRAMES */
 } xpath_ext_ctx;
 
 typedef struct xpath_frame_pins {
     uint64_t activation;
-    uint64_t version;
     size_t references;
     Py_ssize_t appended;
+    Py_ssize_t results;
     xpath_ext_ctx pins;
 } xpath_frame_pins;
 
@@ -1075,15 +1284,20 @@ static PyObject *xpath_item_to_py(module_state *state, PyObject *handle, th_tree
 }
 
 /* Translate an xp_eval status into a Python error: -4 a TypeError (a value where a
-   node-set is required), -3 a ValueError (an unbound variable, an unbound prefix, or an
-   over-deep expression), -1 an allocation failure or an already-set exception (an unknown
-   function, a wrong-arity call, a malformed regex, or an extension failure). */
-static void *xpath_raise_status(int status, const char *feature) {
+   node-set is required), -5 an XPathDepthError (an expression nested past the evaluator cap),
+   -3 a ValueError (an unbound variable or an unbound prefix), -1 an allocation failure or an
+   already-set exception (an unknown function, a wrong-arity call, a malformed regex, or an
+   extension failure). */
+static void *xpath_raise_status(module_state *state, int status, const char *feature) {
     if (PyErr_Occurred()) { /* a borrowed Python call already set the exception (regex, unknown function, ...) */
         return NULL;
     }
     if (status == -4) {
         PyErr_Format(PyExc_TypeError, "xpath: %s", feature);
+        return NULL;
+    }
+    if (status == -5) {
+        PyErr_Format(state->xpath_depth_error, "xpath: %s", feature);
         return NULL;
     }
     if (status == -3) { /* GCOVR_EXCL_BR_LINE: the remaining status -1 is an allocation failure */
@@ -1236,7 +1450,12 @@ static PyObject *xpath_retained_node(xpath_ext_ctx *ec, th_node *node, int paren
     if (index != 0) {
         return ec->retained[index - 1];
     }
+    if (ec->index != NULL) {
+        index = th_node_map_find(&ec->index->nodes[parent], node);
+        return index != 0 ? ec->index->pins[index - 1].wrapper : NULL;
+    }
     for (size_t frame = 0; frame < ec->frame_count; frame++) {
+        TH_WORK_STEP();
         xpath_ext_ctx *pins = &ec->frames[frame]->pins;
         index = th_node_map_find(parent ? &pins->text_parents : &pins->owners, node);
         if (index != 0) {
@@ -1253,6 +1472,100 @@ static PyObject *xpath_text_parent(xpath_ext_ctx *ec, th_node *node) {
 static PyObject *xpath_owned_node(xpath_ext_ctx *ec, th_node *node) {
     PyObject *owner = xpath_retained_node(ec, node, 0);
     return owner != NULL ? Py_NewRef(owner) : node_wrap(ec->state, ec->handle, node);
+}
+
+/* Count one more frame pinning node; the index keeps the wrapper while any frame does. */
+static int xpath_index_hold(xpath_pin_index *index, const th_node *node, int parent, PyObject *wrapper) {
+    Py_ssize_t slot = th_node_map_find(&index->nodes[parent], node);
+    if (slot == 0) {
+        if (index->len == index->cap) {
+            size_t capacity;
+            size_t bytes;
+            int grew = th_grow_cap(index->len + 1, index->cap, 8, sizeof(xpath_index_pin), &capacity, &bytes);
+            if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow */
+                PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation size overflow */
+                return -1;        /* GCOVR_EXCL_LINE */
+            }
+            xpath_index_pin *pins = PyMem_Realloc(index->pins, bytes);
+            if (pins == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure */
+                PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+                return -1;        /* GCOVR_EXCL_LINE */
+            }
+            index->pins = pins;
+            index->cap = capacity;
+        }
+        slot = (Py_ssize_t)index->len + 1;
+        if (th_node_map_insert(&index->nodes[parent], node, slot) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyErr_NoMemory();                                            /* GCOVR_EXCL_LINE */
+            return -1;                                                   /* GCOVR_EXCL_LINE */
+        }
+        index->pins[index->len++] = (xpath_index_pin){0};
+    }
+    xpath_index_pin *pin = &index->pins[slot - 1];
+    if (pin->frames++ == 0) {
+        pin->wrapper = Py_NewRef(wrapper);
+    }
+    return 0;
+}
+
+/* Count every node a frame pins, each held by the wrapper its map's value names in the frame. */
+static int xpath_index_hold_frame(xpath_pin_index *index, const xpath_ext_ctx *pins) {
+    for (int parent = 0; parent < 2; parent++) {
+        const th_node_map *held = parent ? &pins->text_parents : &pins->owners;
+        for (size_t slot = 0; slot < held->capacity; slot++) {
+            const th_node_map_entry *entry = &held->entries[slot];
+            if (entry->node == NULL) {
+                continue;
+            }
+            int status = xpath_index_hold(index, entry->node, parent, pins->retained[entry->value - 1]);
+            if (status < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;    /* GCOVR_EXCL_LINE */
+            }
+        }
+    }
+    return 0;
+}
+
+/* A frame's pins go away: uncount each node they held. */
+static void xpath_index_release_frame(xpath_pin_index *index, const xpath_ext_ctx *pins) {
+    for (int parent = 0; parent < 2; parent++) {
+        const th_node_map *held = parent ? &pins->text_parents : &pins->owners;
+        for (size_t slot = 0; slot < held->capacity; slot++) {
+            if (held->entries[slot].node == NULL) {
+                continue;
+            }
+            xpath_index_pin *pin = &index->pins[th_node_map_find(&index->nodes[parent], held->entries[slot].node) - 1];
+            if (--pin->frames == 0) {
+                Py_SETREF(pin->wrapper, NULL);
+            }
+        }
+    }
+}
+
+static void xpath_index_free(xpath_pin_index *index) {
+    for (size_t slot = 0; slot < index->len; slot++) {
+        Py_XDECREF(index->pins[slot].wrapper);
+    }
+    PyMem_Free(index->pins);
+    PyMem_Free(index->nodes[0].entries);
+    PyMem_Free(index->nodes[1].entries);
+    PyMem_Free(index);
+}
+
+/* The live frames reached XPATH_PIN_INDEX_FRAMES: index the pins of every frame still held. Every frame made from now
+   until the evaluation ends counts its own pins in the index too. */
+static int xpath_index_start(xpath_ext_ctx *ec) {
+    ec->index = PyMem_Calloc(1, sizeof(xpath_pin_index));
+    if (ec->index == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyErr_NoMemory();    /* GCOVR_EXCL_LINE */
+        return -1;           /* GCOVR_EXCL_LINE */
+    }
+    for (size_t index = 0; index < ec->frame_count; index++) {
+        if (xpath_index_hold_frame(ec->index, &ec->frames[index]->pins) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            return -1;                                                         /* GCOVR_EXCL_LINE */
+        }
+    }
+    return 0;
 }
 
 static int xpath_capture_owner(void *context, th_node *node) {
@@ -1294,6 +1607,23 @@ static int xpath_capture_owner(void *context, th_node *node) {
     return 0;
 }
 
+/* xpath_capture_owner for a frame the evaluation's index counts: the wrappers it retains, the node's own and then a
+   text node's parent, are counted in the index as well. */
+static int xpath_capture_counted(void *context, th_node *node) {
+    xpath_ext_ctx *ec = context;
+    size_t taken = ec->retained_len;
+    if (xpath_capture_owner(ec, node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return -1;                           /* GCOVR_EXCL_LINE */
+    }
+    for (size_t parent = 0; taken + parent < ec->retained_len; parent++) {
+        int held = xpath_index_hold(ec->previous->index, node, (int)parent, ec->retained[taken + parent]);
+        if (held < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;  /* GCOVR_EXCL_LINE */
+        }
+    }
+    return 0;
+}
+
 static void xpath_extension_clear(xpath_ext_ctx *ec) {
     for (size_t index = 0; index < ec->retained_len; index++) {
         Py_DECREF(ec->retained[index]);
@@ -1311,6 +1641,86 @@ static void xpath_extension_clear(xpath_ext_ctx *ec) {
     PyMem_Free(ec->frames);
 }
 
+/* An evaluation ends: its context goes away, and with it the index its frames started, which still counts the pins of
+   the frames held at the end. */
+static void xpath_evaluation_clear(xpath_ext_ctx *ec) {
+    xpath_extension_clear(ec);
+    if (ec->index != NULL) {
+        xpath_index_free(ec->index);
+    }
+}
+
+/* Pin into current the nodes of one live frame: every node of a frame new since the last call (pins NULL), or the
+   results and appended nodes a frame the last call kept has gained since. */
+static inline int xpath_pin_frame(xpath_ext_ctx *ec, xpath_ext_ctx *current, const xp_live_frame *active,
+                                  xpath_frame_pins *pins, int (*capture)(void *, th_node *)) {
+    if (pins == NULL) {
+        pins = PyMem_Calloc(1, sizeof(xpath_frame_pins));
+        if (pins == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
+            return -1;        /* GCOVR_EXCL_LINE */
+        }
+        pins->activation = xp_live_id(active);
+        pins->references = 1;
+        pins->pins = (xpath_ext_ctx){.handle = ec->handle, .state = ec->state, .tree = ec->tree, .previous = ec};
+        current->frames[current->frame_count++] = pins;
+        if (xp_visit_frame_nodes(active, capture, &pins->pins) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                                                /* GCOVR_EXCL_LINE */
+        }
+        pins->pins.previous = NULL;
+        pins->appended = xp_live_append_count(active);
+        pins->results = xp_live_result_count(active);
+        return 0;
+    }
+    current->frames[current->frame_count++] = pins;
+    if (pins->results < xp_live_result_count(active)) {
+        pins->pins.previous = ec;
+        int visited = xp_visit_frame_results(active, pins->results, capture, &pins->pins);
+        pins->pins.previous = NULL;
+        if (visited < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;     /* GCOVR_EXCL_LINE */
+        }
+        pins->results = xp_live_result_count(active);
+    }
+    if (pins->appended < xp_live_append_count(active)) {
+        pins->pins.previous = ec;
+        int visited = xp_visit_frame_append(active, pins->appended, capture, &pins->pins);
+        pins->pins.previous = NULL;
+        if (visited < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;     /* GCOVR_EXCL_LINE */
+        }
+        pins->appended = xp_live_append_count(active);
+    }
+    return 0;
+}
+
+/* The pinning of xpath_before_python once the evaluation has an index: every pin counts in it, and since the held
+   frames run from the innermost out like the live ones and a frame entered later has the larger id, one pass over both
+   pairs them. A frame only the last call held is freed with it, so its pins stop counting. */
+static int xpath_pin_counted_frames(xpath_ext_ctx *ec, xpath_ext_ctx *current, const xp_live_frame *frame) {
+    size_t held = 0;
+    for (const xp_live_frame *active = frame; active != NULL; active = xp_live_previous(active)) {
+        while (held < ec->frame_count && ec->frames[held]->activation > xp_live_id(active)) {
+            TH_WORK_STEP();
+            held++;
+        }
+        xpath_frame_pins *pins = NULL;
+        if (held < ec->frame_count && ec->frames[held]->activation == xp_live_id(active)) {
+            pins = ec->frames[held];
+            pins->references++;
+        }
+        if (xpath_pin_frame(ec, current, active, pins, xpath_capture_counted) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            return -1;                                                               /* GCOVR_EXCL_LINE */
+        }
+    }
+    for (size_t index = 0; index < ec->frame_count; index++) {
+        if (ec->frames[index]->references == 1) {
+            xpath_index_release_frame(ec->index, &ec->frames[index]->pins);
+        }
+    }
+    return 0;
+}
+
 static int xpath_before_python(void *context, const xp_live_frame *frame) {
     xpath_ext_ctx *ec = context;
     xpath_ext_ctx current = {
@@ -1319,56 +1729,42 @@ static int xpath_before_python(void *context, const xp_live_frame *frame) {
     for (const xp_live_frame *active = frame; active != NULL; active = xp_live_previous(active)) {
         count++;
     }
+    if (count >= XPATH_PIN_INDEX_FRAMES && ec->index == NULL) {
+        if (xpath_index_start(ec) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                   /* GCOVR_EXCL_LINE */
+        }
+    }
     current.frames = PyMem_Malloc(count * sizeof(xpath_frame_pins *));
     if (current.frames == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
         PyErr_NoMemory();         /* GCOVR_EXCL_LINE */
         return -1;                /* GCOVR_EXCL_LINE */
     }
-    for (const xp_live_frame *active = frame; active != NULL; active = xp_live_previous(active)) {
-        xpath_frame_pins *pins = NULL;
-        for (size_t index = 0; index < ec->frame_count; index++) {
-            xpath_frame_pins *prior = ec->frames[index];
-            if (prior->activation == xp_live_id(active) && prior->version == xp_live_version(active)) {
-                pins = prior;
-                pins->references++;
-                break;
-            }
+    if (ec->index != NULL) {
+        if (xpath_pin_counted_frames(ec, &current, frame) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            xpath_extension_clear(&current);                     /* GCOVR_EXCL_LINE */
+            return -1;                                           /* GCOVR_EXCL_LINE */
         }
-        if (pins == NULL) {
-            pins = PyMem_Calloc(1, sizeof(xpath_frame_pins));
-            if (pins == NULL) {                  /* GCOVR_EXCL_BR_LINE: allocation failure */
-                PyErr_NoMemory();                /* GCOVR_EXCL_LINE */
-                xpath_extension_clear(&current); /* GCOVR_EXCL_LINE */
-                return -1;                       /* GCOVR_EXCL_LINE */
-            }
-            pins->activation = xp_live_id(active);
-            pins->version = xp_live_version(active);
-            pins->references = 1;
-            pins->pins = (xpath_ext_ctx){.handle = ec->handle, .state = ec->state, .tree = ec->tree, .previous = ec};
-            current.frames[current.frame_count++] = pins;
-            int visited = xp_visit_frame_nodes(active, xpath_capture_owner, &pins->pins);
-            if (visited < 0) {                   /* GCOVR_EXCL_BR_LINE: allocation failure */
-                xpath_extension_clear(&current); /* GCOVR_EXCL_LINE */
-                return -1;                       /* GCOVR_EXCL_LINE */
-            }
-            pins->pins.previous = NULL;
-            pins->appended = xp_live_append_count(active);
-        } else {
-            current.frames[current.frame_count++] = pins;
-            if (pins->appended < xp_live_append_count(active)) {
-                pins->pins.previous = ec;
-                int visited = xp_visit_frame_append(active, pins->appended, xpath_capture_owner, &pins->pins);
-                pins->pins.previous = NULL;
-                if (visited < 0) {                   /* GCOVR_EXCL_BR_LINE: allocation failure */
-                    xpath_extension_clear(&current); /* GCOVR_EXCL_LINE */
-                    return -1;                       /* GCOVR_EXCL_LINE */
+    } else {
+        for (const xp_live_frame *active = frame; active != NULL; active = xp_live_previous(active)) {
+            xpath_frame_pins *pins = NULL;
+            for (size_t index = 0; index < ec->frame_count; index++) {
+                TH_WORK_STEP();
+                xpath_frame_pins *prior = ec->frames[index];
+                if (prior->activation == xp_live_id(active)) {
+                    pins = prior;
+                    pins->references++;
+                    break;
                 }
-                pins->appended = xp_live_append_count(active);
+            }
+            if (xpath_pin_frame(ec, &current, active, pins, xpath_capture_owner) < 0) { /* GCOVR_EXCL_BR_LINE */
+                xpath_extension_clear(&current); /* GCOVR_EXCL_LINE: allocation failure */
+                return -1;                       /* GCOVR_EXCL_LINE */
             }
         }
     }
     xpath_ext_ctx previous = *ec;
     current.previous = NULL;
+    current.index = previous.index;
     *ec = current;
     xpath_extension_clear(&previous);
     return 0;
@@ -1503,7 +1899,7 @@ static PyObject *xpath_extension_context(PyObject *element) {
 
 /* xp_extension_fn: resolve `name` against the (None, name) extension keys and run
    the callable over the marshaled context and arguments. */
-static int xpath_call_extension(void *vctx, th_node *context_node, const Py_UCS4 *name, Py_ssize_t name_len,
+static int xpath_call_extension(void *vctx, xp_item item, const Py_UCS4 *name, Py_ssize_t name_len,
                                 const xp_result *args, int argc, xp_result *out) {
     xpath_ext_ctx *ec = vctx;
     typedef struct {
@@ -1516,7 +1912,7 @@ static int xpath_call_extension(void *vctx, th_node *context_node, const Py_UCS4
         return -1;                     /* GCOVR_EXCL_LINE */
     }
     int status = -1;
-    PyObject *element = xpath_owned_node(ec, context_node);
+    PyObject *element = xpath_owned_node(ec, item.node);
     PyObject *func = NULL;
     PyObject *call_args = NULL;
     if (element == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
@@ -1660,7 +2056,7 @@ static PyObject *xpath_eval_object(PyObject *self, PyObject *arg, const xp_bindi
     HandleObject *handle_obj = (HandleObject *)handle;
     th_tree *tree = handle_obj->tree;
     xpath_ext_ctx ext_ctx = {.extensions = extensions, .handle = handle, .state = state, .tree = tree};
-    xp_program *prog = cached_xpath_compile(handle_obj, arg);
+    xp_program *prog = cached_xpath_compile(handle_obj, arg, state->xpath_depth_error);
     if (prog != NULL) {
         compiled = 1;
         int callbacks = extensions != NULL || xp_calls_python(prog);
@@ -1679,7 +2075,7 @@ static PyObject *xpath_eval_object(PyObject *self, PyObject *arg, const xp_bindi
             xp_free(prog);
         }
     }
-    xpath_extension_clear(&ext_ctx);
+    xpath_evaluation_clear(&ext_ctx);
     Py_END_CRITICAL_SECTION();
     Py_XDECREF(extensions);
     Py_DECREF(handle);
@@ -1687,7 +2083,7 @@ static PyObject *xpath_eval_object(PyObject *self, PyObject *arg, const xp_bindi
         return NULL; /* a compile error left a Python exception set */
     }
     if (status < 0) {
-        return xpath_raise_status(status, feature);
+        return xpath_raise_status(state, status, feature);
     }
     return out; /* the result, or NULL with an error set if marshaling hit an allocation failure */
 }
@@ -1718,12 +2114,12 @@ static PyObject *xpath_run_program(module_state *state, PyObject *handle, th_nod
     if (status == 0) {
         out = xpath_result_to_py(state, handle, tree, smart_strings, &result, callbacks ? &ext_ctx : NULL);
     }
-    xpath_extension_clear(&ext_ctx);
+    xpath_evaluation_clear(&ext_ctx);
     Py_END_CRITICAL_SECTION();
     Py_XDECREF(extensions);
     Py_DECREF(handle);
     if (status < 0) {
-        return xpath_raise_status(status, feature);
+        return xpath_raise_status(state, status, feature);
     }
     return out;
 }
@@ -1890,14 +2286,17 @@ static int build_xpath_namespaces(PyObject *mapping, xp_namespace **out_items, P
    skipped because Node.xpath reads them as options off the same kwargs; the
    precompiled XPath object binds them at construction and clears the flag, so every
    keyword is a $variable. self is the context Node: it supplies the module state and
-   the reference handle a bound Element is validated against. On error an exception is
-   set and partial bindings freed. */
+   the reference handle a bound Element is validated against. A node-set binding holds
+   node pointers into that handle's tree, and the iterable it is read from runs Python
+   that can move self into another tree, dropping the reference self holds on this one.
+   So the handle is owned while the bindings are built, and a context Node that has left
+   it by the end is an error, because the caller evaluates in whichever tree self is in
+   afterwards. On error an exception is set and partial bindings freed. */
 static int build_xpath_vars(PyObject *self, PyObject *kwds, int reserve_options, xp_binding **out_items,
                             Py_ssize_t *out_len) {
     *out_items = NULL;
     *out_len = 0;
     module_state *state = state_of(self);
-    PyObject *reference_handle = ((NodeObject *)self)->handle;
     Py_ssize_t total = kwds == NULL ? 0 : PyDict_Size(kwds);
     if (total == 0) {
         return 0;
@@ -1907,6 +2306,7 @@ static int build_xpath_vars(PyObject *self, PyObject *kwds, int reserve_options,
         PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
         return -1;        /* GCOVR_EXCL_LINE */
     }
+    PyObject *reference_handle = Py_NewRef(((NodeObject *)self)->handle);
     Py_ssize_t count = 0;
     Py_ssize_t pos = 0;
     PyObject *key;
@@ -1926,10 +2326,12 @@ static int build_xpath_vars(PyObject *self, PyObject *kwds, int reserve_options,
         }
         Py_UCS4 *name = PyUnicode_AsUCS4Copy(key);
         if (name == NULL) {                /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
+            Py_DECREF(reference_handle);   /* GCOVR_EXCL_LINE */
             free_xpath_vars(items, count); /* GCOVR_EXCL_LINE */
             return -1;                     /* GCOVR_EXCL_LINE */
         }
         if (xpath_var_value(value, &items[count].value, state, reference_handle) < 0) {
+            Py_DECREF(reference_handle);
             PyMem_Free(name);
             free_xpath_vars(items, count);
             return -1;
@@ -1937,6 +2339,13 @@ static int build_xpath_vars(PyObject *self, PyObject *kwds, int reserve_options,
         items[count].name = name;
         items[count].name_len = PyUnicode_GET_LENGTH(key);
         count++;
+    }
+    int moved = !node_owned_by((NodeObject *)self, reference_handle);
+    Py_DECREF(reference_handle);
+    if (moved) {
+        PyErr_SetString(PyExc_ValueError, "xpath context node moved to a different tree while its variables were read");
+        free_xpath_vars(items, count);
+        return -1;
     }
     *out_items = items;
     *out_len = count;
@@ -1984,7 +2393,7 @@ static PyObject *xpath_eval_with_vars(PyObject *self, PyObject *args, PyObject *
         return NULL;
     }
     xp_bindings vars = {items, len};
-    xp_namespaces namespaces = {ns_items, ns_len};
+    xp_namespaces namespaces = {.items = ns_items, .len = ns_len};
     PyObject *result = xpath_eval_object(self, expr_obj, len == 0 ? NULL : &vars, ns_len == 0 ? NULL : &namespaces,
                                          smart_strings, extensions);
     free_xpath_vars(items, len);
@@ -2063,7 +2472,8 @@ static PyObject *xpath_compiled_new(PyTypeObject *type, PyObject *args, PyObject
         return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     char err[128];
-    xp_program *prog = xp_compile(src, len, err, sizeof(err));
+    module_state *state = PyType_GetModuleState(type);
+    xp_program *prog = xp_compile(src, len, err, sizeof(err), state->xpath_depth_error);
     PyMem_Free(src);
     if (prog == NULL) {
         if (!PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: allocation error */
@@ -2203,7 +2613,9 @@ retry:;
     } else {
         th_node *node = ((NodeObject *)self)->node;
         /* matches() scopes :scope to the node being tested */
-        matched = node->type == TH_NODE_ELEMENT && selector_matches(node, compiled, node);
+        matched =
+            node->type == TH_NODE_ELEMENT && (sel_climbs_deep(compiled) ? selector_matches_deep(node, compiled, node)
+                                                                        : selector_matches(node, compiled, node, NULL));
     }
     Py_END_CRITICAL_SECTION();
     Py_DECREF(handle);
@@ -2216,6 +2628,18 @@ retry:;
     return PyBool_FromLong(matched);
 }
 
+/* The closest driver and its helpers stay inline in node_css_closest: an out-of-line copy adds a call to every
+ * closest(). */
+#if defined(_MSC_VER)
+#define CLOSEST_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define CLOSEST_INLINE inline __attribute__((always_inline))
+#else
+#define CLOSEST_INLINE inline
+#endif
+
+static CLOSEST_INLINE int node_css_closest_borrowed(PyObject *self, PyObject *arg, th_node **found);
+
 TH_NODE_API(, PyObject *, node_css_closest, (PyObject * self, PyObject *arg), (self, arg),
             (PyObject * self, PyObject *arg), (NodeObject *)self,
             arg != NULL && is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL) {
@@ -2226,7 +2650,33 @@ TH_NODE_API(, PyObject *, node_css_closest, (PyObject * self, PyObject *arg), (s
     return node_wrap(state_of(self), ((NodeObject *)self)->handle, found);
 }
 
-int node_css_closest_borrowed(PyObject *self, PyObject *arg, th_node **found) {
+/* The nearest inclusive ancestor of scope that matches a :dir() selector, under one context for the whole walk so
+   the ancestors below a dir=auto element share its answers. The context binds a legend table on its first dir=auto
+   read, unless a :disabled-family pseudo-class reads one from the start. */
+static TH_NOINLINE th_node *closest_sharing_dir(th_node *scope, const sel_compiled *compiled) {
+    sel_memo legend_memo = {0};
+    sel_ctx ctx = {compiled->tree,
+                   scope,
+                   compiled->quirks,
+                   NULL,
+                   NULL,
+                   NULL,
+                   NULL,
+                   compiled->reads_legend ? &legend_memo : NULL,
+                   NULL,
+                   &legend_memo};
+    th_node *found = NULL;
+    for (th_node *node = scope; node != NULL; node = node->parent) {
+        if (node->type == TH_NODE_ELEMENT && selector_matches_c(node, compiled, &ctx)) {
+            found = node;
+            break;
+        }
+    }
+    sel_memo_free(&legend_memo);
+    return found;
+}
+
+static CLOSEST_INLINE int node_css_closest_borrowed(PyObject *self, PyObject *arg, th_node **found) {
     if (check_selector_arg(arg) < 0) {
         return -1;
     }
@@ -2244,12 +2694,24 @@ retry:;
     } else {
         /* closest() scopes :scope to the element it was invoked on */
         th_node *scope = ((NodeObject *)self)->node;
-        for (th_node *node = scope; node != NULL; node = node->parent) {
-            if (node->type == TH_NODE_ELEMENT && selector_matches(node, compiled, scope)) {
-                *found = node;
-                break;
+        sel_deep_query deep;
+        compiled = sel_deep_enter(compiled, &deep);
+        if (compiled->reads_dir) {
+            *found = closest_sharing_dir(scope, compiled);
+        } else {
+            /* each ancestor's test reads the long values above it again */
+            sel_memo values = {0};
+            for (th_node *node = scope; node != NULL; node = node->parent) {
+                if (node->type == TH_NODE_ELEMENT && selector_matches(node, compiled, scope, &values)) {
+                    *found = node;
+                    break;
+                }
+            }
+            if (values.slots != NULL) {
+                sel_memo_free(&values);
             }
         }
+        sel_deep_leave(&deep);
     }
     Py_END_CRITICAL_SECTION();
     Py_DECREF(handle);
@@ -2262,84 +2724,447 @@ retry:;
     return 0;
 }
 
-/* One entry in prune()'s keep set: a node the prune must retain. full marks a
-   match, whose whole subtree stays; a cleared full marks an ancestor of a match,
-   whose other children are still pruned. */
+/* What node_css_closest_each holds for a node: whether an element at or above it matches. The match is in the output by
+   then, so which one it is no longer matters. */
+enum { CLOSEST_FOUND = 1, CLOSEST_NONE = 2 };
+
+/* Until a climb gets this far, a run keeps no answers: ordinary markup nests far less deep, so it never pays for
+   storing or looking one up (the threshold of the selector matcher's SEL_SIBLING_MEMO_MIN_RUN). */
+#define CLOSEST_MEMO_MIN_RUN 32
+
+/* closest() binds :scope to the node it starts from. A selector compares the scope only with the node it tests, the
+   ancestors of that node and the siblings before them, apart from :has() arguments, which rebind the scope to their
+   own anchor. Tested above its start, then, :scope matches nothing when the start is an element, and matches what it
+   matches for every other start when the start is not one (the document element). The climbs above their starts share
+   answers under these two stand-in scopes; only an element start is tested against its own. */
+static th_node closest_above_element = {.type = TH_NODE_ELEMENT};
+static th_node closest_above_other = {.type = TH_NODE_TEXT};
+
+/* A node of the set to climb from, keyed by the handle of its tree when the set was grouped. */
 typedef struct {
-    th_node *node;
-    int full;
-} prune_keep;
+    uintptr_t owner;
+    Py_ssize_t index;
+} closest_entry;
 
-/* Append (node, full) to the keep buffer, doubling its capacity on demand.
-   Returns 0, or -1 on allocation failure. */
-static int prune_push(prune_keep **buffer, Py_ssize_t *count, Py_ssize_t *capacity, th_node *node, int full) {
-    if (*count == *capacity) {
-        size_t cap;
-        size_t bytes;
-        int grew = th_grow_cap((size_t)*capacity + 1, (size_t)*capacity, 16, sizeof(prune_keep), &cap, &bytes);
-        if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-        }
-        prune_keep *resized = PyMem_Realloc(*buffer, bytes);
-        if (resized == NULL) { /* GCOVR_EXCL_BR_LINE: a realloc failure cannot be forced from a test */
-            return -1;         /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        *buffer = resized;
-        *capacity = (Py_ssize_t)cap;
-    }
-    (*buffer)[*count].node = node;
-    (*buffer)[*count].full = full;
-    (*count)++;
-    return 0;
+/* Groups the entries by tree, each group in set order. Branch-free, as which pairs qsort compares depends on the
+   libc. */
+static int closest_entry_order(const void *first, const void *second) {
+    const closest_entry *left = first;
+    const closest_entry *right = second;
+    return 2 * ((left->owner > right->owner) - (left->owner < right->owner)) +
+           ((left->index > right->index) - (left->index < right->index));
 }
 
-/* Order keep entries by node address so prune_kept can binary-search them. */
-static int prune_compare(const void *left, const void *right) {
-    uintptr_t left_node = (uintptr_t)((const prune_keep *)left)->node;
-    uintptr_t right_node = (uintptr_t)((const prune_keep *)right)->node;
-    if (left_node < right_node) {
-        return -1;
-    }
-    return left_node > right_node ? 1 : 0;
+static uintptr_t closest_owner_key(PyObject *item) {
+    PyObject *handle = node_owner_ref((NodeObject *)item);
+    Py_DECREF(handle);
+    return (uintptr_t)handle;
 }
 
-/* Binary-search the address-sorted keep set; on a hit set *full and return 1. */
-static int prune_kept(const prune_keep *keep, Py_ssize_t count, th_node *node, int *full) {
-    Py_ssize_t low = 0;
-    Py_ssize_t high = count;
-    uintptr_t target = (uintptr_t)node;
-    while (low < high) {
-        Py_ssize_t mid = low + (high - low) / 2;
-        uintptr_t at = (uintptr_t)keep[mid].node;
-        if (at < target) {
-            low = mid + 1;
-        } else if (at > target) {
-            high = mid;
+typedef struct {
+    module_state *state;
+    PyObject *nodes;
+    PyObject *selector;
+    PyObject *out;        /* the matches of the first run, appended as found */
+    PyObject **found;     /* grouped runs: the match each node is the first of its run to reach, by index - first */
+    Py_ssize_t first;     /* where the grouped runs start */
+    closest_entry *retry; /* grouped runs: the nodes that moved to another tree before their run took them */
+    Py_ssize_t retries;
+} closest_call;
+
+/* What a run does with the node at position: CLOSEST_CLIMB from *start, CLOSEST_SKIP it (it moved to another tree
+   and waits for the next round of the grouped runs), or CLOSEST_END the run there (a run without a group ends at the
+   first node of another tree, or at one that is not a node). */
+enum { CLOSEST_CLIMB, CLOSEST_SKIP, CLOSEST_END };
+
+static CLOSEST_INLINE int closest_take(closest_call *call, PyObject *handle, const closest_entry *group,
+                                       Py_ssize_t position, Py_ssize_t *index, th_node **start) {
+    *index = group != NULL ? group[position].index : position;
+    PyObject *item = PyList_GET_ITEM(call->nodes, *index);
+    /* a Query holds elements: the exact type spares them the subtype check of the other nodes; the grouped runs
+       checked theirs up front */
+    if (group == NULL && !Py_IS_TYPE(item, (PyTypeObject *)call->state->element_type) && !is_node(item, call->state)) {
+        return CLOSEST_END;
+    }
+    if (!node_owned_by((NodeObject *)item, handle)) {
+        if (group == NULL) {
+            return CLOSEST_END;
+        }
+        call->retry[call->retries++] = group[position];
+        return CLOSEST_SKIP;
+    }
+    *start = ((NodeObject *)item)->node;
+    return CLOSEST_CLIMB;
+}
+
+/* Output node, the first match of its run, for the set node at index. Returns 0, or -1 with an exception set. */
+static CLOSEST_INLINE int closest_emit(closest_call *call, PyObject *handle, const closest_entry *group,
+                                       Py_ssize_t index, th_node *node) {
+    /* GCOVR_EXCL_BR_START: the wrapper and the append only fail on allocation failure */
+    if (group == NULL) {
+        return append_wrapped(call->out, call->state, handle, node);
+    }
+    return (call->found[index - call->first] = element_wrap(call->state, handle, node)) == NULL ? -1 : 0;
+    /* GCOVR_EXCL_BR_STOP */
+}
+
+/* The run of a selector without :scope: climb from the nodes at positions from..to of group, one tree's entries, or
+   from the nodes at indices from..to of the set when group is NULL. Without a group the run ends at the first node of
+   another tree and sets *stop there. Returns 0, or -1 with an exception set.
+
+   The HTML tree builder caps nesting at TH_MAX_TREE_DEPTH, but an XML or a programmatic tree nests without limit, and
+   climbing from every node to its match is quadratic for nodes nested in each other or below one long chain of
+   ancestors. A node that does not match answers as its parent does, so past the first CLOSEST_MEMO_MIN_RUN ancestors
+   a climb stops at the first one whose answer the node map holds, and it stores its answer under each ancestor it
+   passed from there. Once one climb has gone that far the tree is a deep one, and the climbs after it ask and fill the
+   map from their first node: from then on the run tests each node once, while a tree that nests no deeper than
+   ordinary markup never touches the map on the way up. A match is in the map once it is output, so the same map
+   tells which matches are new. */
+static int closest_plain(closest_call *call, PyObject *handle, sel_compiled *compiled, const closest_entry *group,
+                         Py_ssize_t from, Py_ssize_t to, Py_ssize_t *stop) {
+    const sel_simple *single = sel_single_simple(compiled);
+    /* a builtin tag name on an HTML tree compares atoms, as select() does through the element index */
+    uint16_t tag = TH_TAG_UNKNOWN;
+    if (single != NULL && single->kind == 'e' && !th_tree_is_xml(compiled->tree)) {
+        tag = single->tag_atom;
+    }
+    th_node_map known = {0};
+    sel_sibling_memo memo = {0};
+    /* the selector compares no node with the scope */
+    sel_ctx ctx = {compiled->tree, &closest_above_element, compiled->quirks, NULL, NULL, NULL, &memo, NULL, NULL,
+                   &memo.table};
+    int memo_after = CLOSEST_MEMO_MIN_RUN; /* steps a climb takes before it asks the map */
+    th_node *last = NULL;                  /* the previous climb's answer, already in the map */
+    int error = 0;
+    Py_ssize_t position = from;
+    for (; position < to; position++) {
+        Py_ssize_t index;
+        th_node *node;
+        const int take = closest_take(call, handle, group, position, &index, &node);
+        if (take != CLOSEST_CLIMB) {
+            if (take == CLOSEST_END) {
+                break;
+            }
+            continue;
+        }
+        th_node *memo_from = NULL;
+        Py_ssize_t answer = 0;
+        for (int walked = 0; node != NULL; node = node->parent, walked++) {
+            TH_WORK_STEP();
+            if (walked >= memo_after) {
+                if (memo_from == NULL) {
+                    memo_from = node;
+                }
+                if ((answer = th_node_map_find(&known, node)) != 0) {
+                    break;
+                }
+            }
+            if (node->type != TH_NODE_ELEMENT) {
+                continue;
+            }
+            int matched;
+            if (tag != TH_TAG_UNKNOWN) {
+                matched = node->atom == tag;
+            } else if (single != NULL) {
+                matched = sel_match_simple(node, single, &ctx);
+            } else {
+                matched = selector_matches_c(node, compiled, &ctx);
+            }
+            if (matched) {
+                break;
+            }
+        }
+        if (memo_from != NULL) {
+            memo_after = 0;
+        }
+        int fresh = 0;
+        int failed = 0;
+        if (answer == 0) {
+            answer = node != NULL ? CLOSEST_FOUND : CLOSEST_NONE;
+            /* a climb that has not asked the map yet can end on a match an earlier one stored */
+            fresh = node != NULL && node != last && th_node_map_find(&known, node) == 0;
+            if (fresh) {
+                failed |= th_node_map_insert(&known, node, CLOSEST_FOUND) < 0;
+            }
+            last = node;
+        }
+        if (memo_from != NULL) {
+            for (th_node *passed = memo_from; passed != node; passed = passed->parent) {
+                failed |= th_node_map_insert(&known, passed, answer) < 0;
+            }
+        }
+        if (failed) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            error = 1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+            break;            /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (fresh && closest_emit(call, handle, group, index, node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            error = 1;                                                     /* GCOVR_EXCL_LINE: allocation */
+            break;                                                         /* GCOVR_EXCL_LINE: allocation */
+        }
+    }
+    *stop = position;
+    sel_memo_free(&memo.table);
+    PyMem_Free(known.entries);
+    return -error;
+}
+
+/* The run of a selector with :scope, as closest_plain. An element start is tested against its own scope, and the climb
+   above it, or from a start that is not an element, answers under the stand-in scope of its kind, with a node map
+   and a sibling memo of that kind. The matches output go to a map of their own: a start that matched against its own
+   scope answers for no climb. */
+static int closest_scoped(closest_call *call, PyObject *handle, sel_compiled *compiled, sel_compiled *source,
+                          const closest_entry *group, Py_ssize_t from, Py_ssize_t to, Py_ssize_t *stop) {
+    const sel_simple *single = sel_single_simple(compiled);
+    /* the stand-in of compiled keeps answers for one scope, so the climbs above a start that is not an element run on
+       one of their own */
+    sel_deep_query deep_other;
+    sel_compiled *const compiled_other = sel_deep_enter(source, &deep_other);
+    const sel_simple *single_other = sel_single_simple(compiled_other);
+    th_node_map known = {0};
+    sel_sibling_memo memo = {0};
+    /* the climbs of both kinds and the starts read the same values, whose answers hold under any scope */
+    sel_ctx above = {compiled->tree, &closest_above_element, compiled->quirks, NULL, NULL, NULL, &memo, NULL, NULL,
+                     &memo.table};
+    th_node_map known_other = {0};
+    sel_sibling_memo memo_other = {0};
+    sel_ctx above_other = {compiled->tree, &closest_above_other, compiled->quirks, NULL, NULL, NULL, &memo_other, NULL,
+                           NULL,           &memo.table};
+    sel_ctx own = {compiled->tree, NULL, compiled->quirks, NULL, NULL, NULL, NULL, NULL, NULL, &memo.table};
+    th_node_map emitted = {0};
+    int memo_after = CLOSEST_MEMO_MIN_RUN;
+    th_node *last = NULL; /* the previous climb's answer, already output */
+    int error = 0;
+    Py_ssize_t position = from;
+    for (; position < to; position++) {
+        Py_ssize_t index;
+        th_node *start;
+        const int take = closest_take(call, handle, group, position, &index, &start);
+        if (take != CLOSEST_CLIMB) {
+            if (take == CLOSEST_END) {
+                break;
+            }
+            continue;
+        }
+        th_node *node = start;
+        th_node_map *map = &known;
+        const sel_ctx *ctx = &above;
+        const sel_compiled *matcher = compiled;
+        const sel_simple *test = single;
+        th_node *memo_from = NULL;
+        Py_ssize_t answer = 0;
+        int walked = 0;
+        if (start->type != TH_NODE_ELEMENT) {
+            map = &known_other;
+            ctx = &above_other;
+            matcher = compiled_other;
+            test = single_other;
         } else {
-            *full = keep[mid].full;
-            return 1;
+            own.scope = start;
+            if (single != NULL ? sel_match_simple(start, single, &own) : selector_matches_c(start, compiled, &own)) {
+                goto settle;
+            }
+            node = start->parent;
+            walked = 1;
+        }
+        for (; node != NULL; node = node->parent, walked++) {
+            TH_WORK_STEP();
+            if (walked >= memo_after) {
+                if (memo_from == NULL) {
+                    memo_from = node;
+                }
+                if ((answer = th_node_map_find(map, node)) != 0) {
+                    break;
+                }
+            }
+            if (node->type == TH_NODE_ELEMENT &&
+                (test != NULL ? sel_match_simple(node, test, ctx) : selector_matches_c(node, matcher, ctx))) {
+                break;
+            }
+        }
+        if (memo_from != NULL) {
+            memo_after = 0;
+        }
+    settle:;
+        int fresh = 0;
+        int failed = 0;
+        if (answer == 0) {
+            answer = node != NULL ? CLOSEST_FOUND : CLOSEST_NONE;
+            fresh = node != NULL && node != last && th_node_map_find(&emitted, node) == 0;
+            if (fresh) {
+                failed |= th_node_map_insert(&emitted, node, CLOSEST_FOUND) < 0;
+            }
+            last = node;
+        }
+        if (memo_from != NULL) {
+            for (th_node *passed = memo_from; passed != node; passed = passed->parent) {
+                failed |= th_node_map_insert(map, passed, answer) < 0;
+            }
+        }
+        if (failed) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            error = 1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+            break;            /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (fresh && closest_emit(call, handle, group, index, node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            error = 1;                                                     /* GCOVR_EXCL_LINE: allocation */
+            break;                                                         /* GCOVR_EXCL_LINE: allocation */
         }
     }
-    return 0;
+    *stop = position;
+    sel_memo_free(&memo.table);
+    sel_memo_free(&memo_other.table);
+    sel_deep_leave(&deep_other);
+    PyMem_Free(known.entries);
+    PyMem_Free(known_other.entries);
+    PyMem_Free(emitted.entries);
+    return -error;
 }
 
-/* Record a match and its ancestor chain up to (but excluding) origin in the keep
-   set. Returns 0, or -1 on allocation failure. */
-static int prune_keep_match(prune_keep **buffer, Py_ssize_t *count, Py_ssize_t *capacity, th_node *node,
-                            th_node *origin, th_node_map *ancestors) {
-    if (prune_push(buffer, count, capacity, node, 1) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-        return -1;                                          /* GCOVR_EXCL_LINE: allocation-failure path */
+/* One run over the tree of leader, under its critical section with one compiled selector. Without a group its matches
+   go to out; a group sets aside its nodes that moved to another tree and leaves its matches in found. Returns 0, or
+   -1 with an exception set. */
+static int closest_run(closest_call *call, PyObject *leader, const closest_entry *group, Py_ssize_t from, Py_ssize_t to,
+                       Py_ssize_t *stop) {
+    PyObject *handle = node_owner_ref((NodeObject *)leader);
+    int status = -1;
+    Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock around the ancestor walks */
+    sel_compiled *compiled = cached_compile(call->state->selector_error, (HandleObject *)handle, call->selector);
+    if (compiled != NULL) {
+        sel_deep_query deep;
+        sel_compiled *matcher = sel_deep_enter(compiled, &deep);
+        status = selector_uses_scope(compiled) ? closest_scoped(call, handle, matcher, compiled, group, from, to, stop)
+                                               : closest_plain(call, handle, matcher, group, from, to, stop);
+        sel_deep_leave(&deep);
     }
-    for (th_node *ancestor = node->parent; ancestor != origin; ancestor = ancestor->parent) {
-        if (th_node_map_find(ancestors, ancestor) != 0) {
+    Py_END_CRITICAL_SECTION();
+    Py_DECREF(handle);
+    return status;
+}
+
+/* The runs after the first: group the nodes from call->first on by tree, take each tree in one run, and append the
+   matches in the order the set reaches them, each once. A set that alternates between trees would otherwise start a
+   run, and an empty node map, at every node. A node that moved to another tree before its run took it goes to a run of
+   the next round. Returns 0, or -1 with an exception set. */
+static int closest_grouped(closest_call *call) {
+    Py_ssize_t count = PyList_GET_SIZE(call->nodes);
+    Py_ssize_t limit = count;
+    for (Py_ssize_t index = call->first; index < count; index++) {
+        if (!is_node(PyList_GET_ITEM(call->nodes, index), call->state)) {
+            limit = index; /* the nodes before it still run, so a selector error among them comes first */
             break;
         }
-        if (th_node_map_insert(ancestors, ancestor, 1) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            PyErr_NoMemory();                                 /* GCOVR_EXCL_LINE: allocation-failure path */
-            return -1;                                        /* GCOVR_EXCL_LINE: allocation-failure path */
-        } /* GCOVR_EXCL_LINE: closes the allocation-failure-only branch */
-        if (prune_push(buffer, count, capacity, ancestor, 0) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
-            return -1;                                              /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t pending = limit - call->first;
+    closest_entry *order = PyMem_Malloc(2 * (size_t)pending * sizeof(closest_entry));
+    call->found = PyMem_Calloc((size_t)pending, sizeof(PyObject *));
+    /* GCOVR_EXCL_BR_START: allocation failure cannot be forced from a test */
+    if (order == NULL || call->found == NULL) {
+        PyMem_Free(order);       /* GCOVR_EXCL_LINE: allocation-failure path */
+        PyMem_Free(call->found); /* GCOVR_EXCL_LINE: allocation-failure path */
+        PyErr_NoMemory();        /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;               /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    call->retry = order + pending;
+    for (Py_ssize_t entry = 0; entry < pending; entry++) {
+        order[entry].index = call->first + entry;
+    }
+    int status = -1;
+    PyObject *seen = NULL;
+    while (pending > 0) {
+        for (Py_ssize_t entry = 0; entry < pending; entry++) {
+            order[entry].owner = closest_owner_key(PyList_GET_ITEM(call->nodes, order[entry].index));
+        }
+        qsort(order, (size_t)pending, sizeof(closest_entry), closest_entry_order);
+        call->retries = 0;
+        for (Py_ssize_t start = 0, end; start < pending; start = end) {
+            end = start + 1;
+            while (end < pending && order[end].owner == order[start].owner) {
+                end++;
+            }
+            Py_ssize_t stop;
+            /* GCOVR_EXCL_BR_START: the first run compiled the selector, so only an allocation fails here */
+            if (closest_run(call, PyList_GET_ITEM(call->nodes, order[start].index), order, start, end, &stop) < 0) {
+                goto done; /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            /* GCOVR_EXCL_BR_STOP */
+        }
+        memcpy(order, call->retry, (size_t)call->retries * sizeof(closest_entry));
+        pending = call->retries;
+    }
+    /* the first run can have output a match that a later node of its tree reaches again */
+    if ((seen = PySet_New(call->out)) == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        goto done;                               /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t index = call->first; index < limit; index++) {
+        PyObject *wrapped = call->found[index - call->first];
+        if (wrapped == NULL) {
+            continue;
+        }
+        Py_ssize_t before = PySet_GET_SIZE(seen);
+        if (PySet_Add(seen, wrapped) < 0) { /* GCOVR_EXCL_BR_LINE: the add only fails on allocation */
+            goto done;                      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        /* GCOVR_EXCL_BR_START: the append only fails on allocation */
+        if (PySet_GET_SIZE(seen) != before && PyList_Append(call->out, wrapped) < 0) {
+            goto done; /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        /* GCOVR_EXCL_BR_STOP */
+    }
+    if (limit < count) {
+        PyErr_SetString(PyExc_TypeError, "expected a turbohtml element");
+    } else {
+        status = 0;
+    }
+done:
+    for (Py_ssize_t index = call->first; index < limit; index++) {
+        Py_XDECREF(call->found[index - call->first]);
+    }
+    Py_XDECREF(seen);
+    PyMem_Free(call->found);
+    PyMem_Free(order);
+    return status;
+}
+
+/* Query.closest(): append to out the nearest self-or-ancestor match of every node in nodes, each match once and in the
+   order the nodes reach it. Returns 0, or -1 with an exception set. The nodes of the first tree in the set take one
+   run up to the first node of another tree; a set that goes on past them is grouped by tree. */
+int node_css_closest_each(PyObject *module, PyObject *nodes, PyObject *selector, PyObject *out) {
+    closest_call call = {PyModule_GetState(module), nodes, selector, out, NULL, 0, NULL, 0};
+    if (PyList_GET_SIZE(nodes) == 0) {
+        return 0;
+    }
+    PyObject *leader = PyList_GET_ITEM(nodes, 0);
+    if (is_node(leader, call.state) && closest_run(&call, leader, NULL, 0, PyList_GET_SIZE(nodes), &call.first) < 0) {
+        return -1;
+    }
+    return call.first == PyList_GET_SIZE(nodes) ? 0 : closest_grouped(&call);
+}
+
+/* prune()'s keep map values. A match keeps its whole subtree; an ancestor of a match keeps only
+   the path to its matches, so its other children are still pruned. Zero marks a removed node. */
+enum prune_mark {
+    PRUNE_ANCESTOR = 1,
+    PRUNE_MATCH = 2,
+};
+
+/* Record a match and its ancestor chain up to (but excluding) origin in the keep map. A match
+   precedes its descendants in document order, so it is never recorded yet; an ancestor that is
+   already recorded has its own chain recorded too, which ends the walk. Returns 0, or -1 on
+   allocation failure. */
+static int prune_keep_match(th_node_map *keep, th_node *node, th_node *origin) {
+    if (th_node_map_insert(keep, node, PRUNE_MATCH) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        PyErr_NoMemory();                                  /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;                                         /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (th_node *ancestor = node->parent; ancestor != origin; ancestor = ancestor->parent) {
+        if (th_node_map_find(keep, ancestor) != 0) {
+            break;
+        }
+        if (th_node_map_insert(keep, ancestor, PRUNE_ANCESTOR) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            PyErr_NoMemory();                                         /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;                                                /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
     return 0;
@@ -2358,15 +3183,15 @@ static inline void query_unlink(th_tree *tree, th_node *node, int iterators) {
 
 /* Remove every node under origin that keep does not hold. Removing one node rewires only links outside the nodes
    still to visit, and subtree_after reads them before the remove, so no snapshot pointer goes stale. */
-static void prune_unkept(th_tree *tree, th_node *origin, const prune_keep *keep, Py_ssize_t unique, int iterators) {
+static void prune_unkept(th_tree *tree, th_node *origin, const th_node_map *keep, int iterators) {
     th_node *node = origin->first_child;
     while (node != NULL) {
-        int full = 0;
-        if (!prune_kept(keep, unique, node, &full)) {
+        Py_ssize_t mark = th_node_map_find(keep, node);
+        if (mark == 0) {
             th_node *after = subtree_after(node, origin);
             query_unlink(tree, node, iterators);
             node = after;
-        } else if (full) {
+        } else if (mark == PRUNE_MATCH) {
             node = subtree_after(node, origin); /* a match: keep its whole subtree, skip it */
         } else {
             node = node->first_child; /* an ancestor of a match always has a child to descend into */
@@ -2381,14 +3206,12 @@ TH_NODE_API(, PyObject *, node_prune, (PyObject * self, PyObject *arg), (self, a
     }
 retry:;
     PyObject *handle = Py_NewRef(((NodeObject *)self)->handle);
-    prune_keep *keep = NULL;
-    th_node_map ancestors = {0};
-    Py_ssize_t count = 0;
-    Py_ssize_t capacity = 0;
+    th_node_map keep = {0};
     int error = 0;
     int moved = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
+    sel_position_memo position_memo = {0};
     sel_sibling_memo memo = {0};       /* shared across the walk so :has() and ~ memoize their scans */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock: match and edit must see one stable tree */
     sel_compiled *compiled = cached_compile(state_of(self)->selector_error, (HandleObject *)handle, arg);
@@ -2402,10 +3225,19 @@ retry:;
            intact. A string/regex selector can call back into Python, so no edit
            may run here; matching alone never rewires a node, so the snapshot lets
            pass 2 edit in pure C without dereferencing a stale pointer. */
+        sel_deep_query deep;
+        compiled = sel_deep_enter(compiled, &deep);
         const sel_simple *single = sel_single_simple(compiled);
-        sel_ctx ctx = {
-            compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
-            &default_memo,  &memo};
+        sel_ctx ctx = {compiled->tree,
+                       origin,
+                       compiled->quirks,
+                       selector_uses_has_memo(compiled) ? &memo.table : NULL,
+                       &nth_memo,
+                       &default_memo,
+                       &memo,
+                       &memo.table,
+                       &position_memo,
+                       &memo.table};
         for (th_node *node = origin->first_child; node != NULL; node = preorder_next(node, origin)) {
             if (node->type != TH_NODE_ELEMENT) {
                 continue;
@@ -2414,32 +3246,20 @@ retry:;
                 continue;
             }
             /* GCOVR_EXCL_BR_START: allocation failure */
-            if (prune_keep_match(&keep, &count, &capacity, node, origin, &ancestors) < 0) {
+            if (prune_keep_match(&keep, node, origin) < 0) {
                 /* GCOVR_EXCL_BR_STOP */
                 error = 1; /* GCOVR_EXCL_LINE: allocation path */
                 break;     /* GCOVR_EXCL_LINE: allocation path */
             }
         }
+        sel_deep_leave(&deep);
         if (!error) { /* GCOVR_EXCL_BR_LINE: the false arm is the pass-1 allocation-failure bail, unforceable */
-            /* Sort by address and fold duplicates so a node that is both a match and
-               an ancestor of a deeper match keeps its whole subtree (full wins). */
-            if (count > 0) {
-                qsort(keep, (size_t)count, sizeof(prune_keep), prune_compare);
-            }
-            Py_ssize_t unique = 0;
-            for (Py_ssize_t read = 0; read < count; read++) {
-                if (unique > 0 && keep[unique - 1].node == keep[read].node) {
-                    keep[unique - 1].full |= keep[read].full;
-                } else {
-                    keep[unique++] = keep[read];
-                }
-            }
             /* Pass 2: pure-C edit (see prune_unkept). */
             handle_drop_index(handle);
             if (th_tree_has_iterators(tree_of(self))) {
-                prune_unkept(tree_of(self), origin, keep, unique, 1);
+                prune_unkept(tree_of(self), origin, &keep, 1);
             } else {
-                prune_unkept(tree_of(self), origin, keep, unique, 0);
+                prune_unkept(tree_of(self), origin, &keep, 0);
             }
         }
     }
@@ -2449,8 +3269,8 @@ retry:;
         goto retry;
     }
     sel_memo_free(&memo.table);
-    PyMem_Free(keep);
-    PyMem_Free(ancestors.entries);
+    sel_position_memo_free(&position_memo);
+    PyMem_Free(keep.entries);
     if (error) {
         return NULL;
     }
@@ -2516,13 +3336,23 @@ static void unwrap_matches(th_tree *tree, const node_snapshot *snapshot, int ite
    the snapshot lets the edit pass run in pure C. Returns 0, or -1 on allocation
    failure. */
 static int snapshot_matches(sel_compiled *compiled, th_node *origin, node_snapshot *snapshot) {
+    sel_deep_query deep;
+    compiled = sel_deep_enter(compiled, &deep);
     const sel_simple *single = sel_single_simple(compiled);
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
     sel_sibling_memo memo = {0}; /* shared across the walk so :has() and ~ memoize their scans */
-    sel_ctx ctx = {
-        compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
-        &default_memo,  &memo};
+    sel_position_memo position_memo = {0};
+    sel_ctx ctx = {compiled->tree,
+                   origin,
+                   compiled->quirks,
+                   selector_uses_has_memo(compiled) ? &memo.table : NULL,
+                   &nth_memo,
+                   &default_memo,
+                   &memo,
+                   &memo.table,
+                   &position_memo,
+                   &memo.table};
     int result = 0;
     for (th_node *node = origin->first_child; node != NULL; node = preorder_next(node, origin)) {
         if (node->type != TH_NODE_ELEMENT) {
@@ -2537,6 +3367,8 @@ static int snapshot_matches(sel_compiled *compiled, th_node *origin, node_snapsh
         }
     }
     sel_memo_free(&memo.table);
+    sel_position_memo_free(&position_memo);
+    sel_deep_leave(&deep);
     return result;
 }
 

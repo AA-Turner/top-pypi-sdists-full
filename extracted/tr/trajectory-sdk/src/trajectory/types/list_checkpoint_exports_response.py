@@ -20,7 +20,7 @@ class CheckpointExportPrecisionOption(BaseModel):
   """Known limits of this format for this model."""
 
 
-CheckpointExportType: TypeAlias = Literal["lora_adapter", "merged_model"]
+CheckpointExportType: TypeAlias = Literal["lora_adapter", "merged_model", "full_weights"]
 
 
 class ListCheckpointExportsResponse(SyncPage[CheckpointExport]):

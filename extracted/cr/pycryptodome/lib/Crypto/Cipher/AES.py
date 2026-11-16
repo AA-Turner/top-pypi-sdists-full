@@ -43,12 +43,14 @@ if TYPE_CHECKING:
     from Crypto.Cipher._mode_eax import EaxMode
     from Crypto.Cipher._mode_ecb import EcbMode
     from Crypto.Cipher._mode_gcm import GcmMode
+    from Crypto.Cipher._mode_gcm_siv import GcmSivMode
     from Crypto.Cipher._mode_kw import KWMode
     from Crypto.Cipher._mode_kwp import KWPMode
     from Crypto.Cipher._mode_ocb import OcbMode
     from Crypto.Cipher._mode_ofb import OfbMode
     from Crypto.Cipher._mode_openpgp import OpenPgpMode
     from Crypto.Cipher._mode_siv import SivMode
+    from Crypto.Cipher._mode_xts import XtsMode
     from Crypto.Util.Counter import CounterParams
 
 Buffer = Union[bytes, bytearray, memoryview]
@@ -66,6 +68,8 @@ MODE_GCM: Literal[11] = 11  #: Galois Counter Mode (:ref:`gcm_mode`)
 MODE_OCB: Literal[12] = 12  #: Offset Code Book (:ref:`ocb_mode`)
 MODE_KW: Literal[13] = 13  #: Key Wrap (:ref:`kw_mode`)
 MODE_KWP: Literal[14] = 14  #: Key Wrap with Padding (:ref:`kwp_mode`)
+MODE_GCM_SIV: Literal[15] = 15  #: AES-GCM-SIV (:ref:`gcm_siv_mode`)
+MODE_XTS: Literal[16] = 16  #: XEX with ciphertext stealing, for storage (:ref:`xts_mode`)
 
 _cproto = """
         int AES_start_operation(const uint8_t key[],
@@ -259,6 +263,20 @@ def new(key: Buffer, mode: Literal[13], use_aesni: bool = ...) -> KWMode: ...
 def new(key: Buffer, mode: Literal[14], use_aesni: bool = ...) -> KWPMode: ...
 
 
+@overload
+def new(
+    key: Buffer,
+    mode: Literal[15],
+    nonce: Optional[Buffer] = ...,
+    use_aesni: bool = ...,
+    threads: int = ...,
+) -> GcmSivMode: ...
+
+
+@overload
+def new(key: Buffer, mode: Literal[16], *, tweak: Buffer, use_aesni: bool = ...) -> XtsMode: ...
+
+
 def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
     """Create a new AES cipher.
 
@@ -269,6 +287,11 @@ def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
         It must be 16 (*AES-128)*, 24 (*AES-192*) or 32 (*AES-256*) bytes long.
 
         For ``MODE_SIV`` only, it doubles to 32, 48, or 64 bytes.
+
+        For ``MODE_GCM_SIV`` only, it must be 16 or 32 bytes long.
+
+        For ``MODE_XTS`` only, it must be 32 or 64 bytes long: two AES-128 or
+        AES-256 keys (concatenated), which must be different.
       mode (a ``MODE_*`` constant):
         The chaining mode to use for encryption or decryption.
         If in doubt, use ``MODE_GCM`` (with a random 12-byte ``nonce``).
@@ -292,10 +315,10 @@ def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
 
       nonce (bytes/bytearray/memoryview):
         (Only applicable for ``MODE_CCM``, ``MODE_EAX``, ``MODE_GCM``,
-        ``MODE_SIV``, ``MODE_OCB``, and ``MODE_CTR``).
+        ``MODE_SIV``, ``MODE_GCM_SIV``, ``MODE_OCB``, and ``MODE_CTR``).
 
         A value that must never be reused for any other encryption done
-        with this key (except possibly for ``MODE_SIV``, see below).
+        with this key (except possibly for ``MODE_SIV`` and ``MODE_GCM_SIV``, see below).
 
         For ``MODE_EAX``, ``MODE_GCM`` and ``MODE_SIV`` there are no
         restrictions on its length (recommended: **16** bytes).
@@ -313,6 +336,10 @@ def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
         For ``MODE_SIV``, the nonce is optional, if it is not specified,
         then no nonce is being used, which renders the encryption
         deterministic.
+
+        For ``MODE_GCM_SIV``, it must be **12** bytes long. Reusing a nonce
+        only reveals if the same message was encrypted twice
+        (with the same key, nonce and associated data).
 
         If not provided, for modes other than ``MODE_SIV``, a random
         byte string of the recommended length is used (you must then
@@ -357,7 +384,7 @@ def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
         AES-NI on x86, or the Cryptography Extensions on 64-bit ARM.
 
       threads (integer):
-        (Only ``MODE_CTR``, ``MODE_GCM`` and ``MODE_OCB``).
+        (Only ``MODE_CTR``, ``MODE_GCM``, ``MODE_GCM_SIV`` and ``MODE_OCB``).
         The maximum number of threads used to encrypt or decrypt long data
         (default: 1, no extra threads).
         Use 0 for as many threads as the CPU cores available
@@ -367,6 +394,11 @@ def new(key: Buffer, mode: int, *args: Any, **kwargs: Any) -> Any:
         fewer threads are used, or none at all.
         For best results, do not exceed the number of physical cores.
         The output does not depend on the number of threads.
+
+      tweak (bytes/bytearray/memoryview):
+        (Only ``MODE_XTS``, where it is mandatory).
+        The value that identifies the data unit, 16 bytes long.
+        For a sector number, use ``number.to_bytes(16, "little")``.
 
     Returns:
         :ref:`A cipher object <aes_modes>`: Its class depends on ``mode``,

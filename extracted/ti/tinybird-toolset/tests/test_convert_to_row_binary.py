@@ -9079,6 +9079,20 @@ class TestRowBinaryEncoder:
             outputs[type_name] = result
         assert outputs['Tuple(JSON, LowCardinality(String))'] == outputs['Tuple(JSON, String)']
 
+    def test_binary_json_as_string_is_per_encoder(self):
+        schema = json.dumps(get_schema([('v', 'JSON', '$.v', False)]))
+        data = json.dumps({'v': {'a': 1}})
+        outputs = {}
+        for binary_json_as_string in (True, False):
+            with chquery.RowBinaryEncoder(schema, binary_json_as_string=binary_json_as_string, legacy_conversion_mode=False) as encoder:
+                outputs[binary_json_as_string] = encoder.encode(data)[0]
+        assert outputs[True] != outputs[False]
+
+        with chquery.RowBinaryEncoder(schema, binary_json_as_string=True, legacy_conversion_mode=False) as string_encoder:
+            with chquery.RowBinaryEncoder(schema, binary_json_as_string=False, legacy_conversion_mode=False) as binary_encoder:
+                assert string_encoder.encode(data)[0] == outputs[True]
+                assert binary_encoder.encode(data)[0] == outputs[False]
+
     OBJECT_COLUMN_SCRATCH_CASES = [
         # Objects directly in the column: rows 1-2 share a shape (reuse), rows 3-4 don't (reset).
         ('JSON', True,

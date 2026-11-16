@@ -11,14 +11,18 @@ at the end of the body (:func:`_cute_remainder_fill`) and the host statement
 is dropped. The value is exact (a constant representable in the dtype), so
 numerics are unchanged.
 
-Admission (built on the zero-fill coverage proof): a top-level host
-statement after the last device loop ``name[...] = <int or float constant>``
-whose slices are the ``_remainder_fill`` shape (full ranges except one
-``-r`` / ``-r:`` dimension); every device access to the tensor is a complete
-tile store with that remainder (no loads, no masked, conditional, atomic or
-view stores); no host statement between the launch and the fill reads or
-rebinds the name; the tensor is a kernel argument of rank <= 4; the kernel
-body has no early return and no grid barrier.
+Admission (built on the zero-fill coverage proof): a host statement after
+the last device loop ``name[...] = <int or float constant>`` whose slices are
+the ``_remainder_fill`` shape (full ranges except one ``-r`` / ``-r:``
+dimension); every device access to the tensor is a complete tile store with
+that remainder (no loads, no masked, conditional, atomic or view stores); no
+host statement between the launch and the fill reads or rebinds the name; the
+tensor is a kernel argument of rank <= 4; the kernel body has no early return
+and no grid barrier.  The host body is read through the constexpr branches
+the specialization fixes (:attr:`HostFillElision.body`): a fill under ``if
+True:`` or under a constexpr argument is a top-level statement of this
+variant, so the proof admits it and the lowering drops it from the generated
+``if``'s branch.
 """
 
 from __future__ import annotations
@@ -30,21 +34,23 @@ from typing import TYPE_CHECKING
 import torch
 
 from ..ast_extension import ExtendedAST
-from ..ast_extension import LoopType
 from ..ast_extension import statement_from_string
 from ..device_function import TensorArg
 from ..device_ir import ReductionLoopGraphInfo
-from ..device_ir import RootGraphInfo
-from ..device_ir import control_flow_parent_entries
 from ..type_info import TensorType
+from ._ast_pass_utils import body_end_follows_all_tiles
+from .host_zero_fills import HostFillElision
 from .host_zero_fills import _assigns
+from .host_zero_fills import _combine_coverages
 from .host_zero_fills import _is_load
+from .host_zero_fills import _Range
 from .host_zero_fills import _reads
 from .host_zero_fills import _remainder_fill
-from .host_zero_fills import _store_coverage
-from .host_zero_fills import _top_graph
+from .host_zero_fills import walk_proven_fills
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ...runtime.config import Config
     from ..compile_environment import CompileEnvironment
     from ..generate_ast import GenerateAST
@@ -106,17 +112,8 @@ def _exact_in_dtype(value: float, dtype: torch.dtype) -> bool:
 def prove_host_remainder_fills(
     host: HostFunction, env: CompileEnvironment, config: Config
 ) -> list[RemainderFill]:
-    device_ir = host.device_ir
-    graphs = device_ir.graphs
-    skewed = device_ir.noncanonical_task_origin_block_ids
-    roots = {
-        graphs[root_id].graph: set(block_ids) - skewed
-        for root_id, block_ids in zip(
-            device_ir.root_ids, device_ir.grid_block_ids, strict=True
-        )
-        if isinstance(graphs[root_id], RootGraphInfo)
-    }
-    if not roots:
+    analysis = HostFillElision.analyze(host, env, config)
+    if analysis is None:
         return []
     nodes = list(ast.walk(ast.Module(body=host.body, type_ignores=[])))
     if any(
@@ -124,26 +121,11 @@ def prove_host_remainder_fills(
         for node in nodes
     ) or any(isinstance(node, ast.Name) and node.id == FILL_HELPER for node in nodes):
         return []
-    device_loops = [
-        index
-        for index, statement in enumerate(host.body)
-        if isinstance(statement, ExtendedAST) and statement._loop_type == LoopType.GRID
-    ]
-    if not device_loops:
-        return []
-    last_device_loop = device_loops[-1]
-    host_tensors: dict[torch.Tensor, list[torch.fx.Node]] = {}
-    for info in graphs:
-        for node in info.graph.nodes:
-            if node.target is _host_tensor_target():
-                value = node.meta.get("val")
-                if isinstance(value, torch.Tensor):
-                    host_tensors.setdefault(value, []).append(node)
-    parents = control_flow_parent_entries(graphs)
+    last_device_loop = analysis.last_device_loop
     result: list[RemainderFill] = []
     seen: set[str] = set()
-    for position in range(last_device_loop + 1, len(host.body)):
-        statement = host.body[position]
+    for position in analysis.host_statements_after_device_loops():
+        statement = analysis.body[position]
         found = _constant_fill(statement)
         if found is None:
             continue
@@ -164,15 +146,15 @@ def prove_host_remainder_fills(
         fake = tensor_type.fake_value
         if fake.ndim > MAX_RANK or not _exact_in_dtype(value, fake.dtype):
             continue
-        tensors = host_tensors.get(fake, [])
+        tensors = analysis.host_tensors.get(fake, [])
         if not tensors:
             continue
-        coverages: set[tuple[int, ...] | None] = set()
+        coverages: list[tuple[int | _Range, ...] | None] = []
         admitted = True
         for tensor in tensors:
             for user in tensor.users:
-                top = _top_graph(user, graphs, parents)
-                if top.graph not in roots:
+                top = analysis.top_graph(user)
+                if top.graph not in analysis.roots:
                     if isinstance(top, ReductionLoopGraphInfo):
                         continue
                     admitted = False
@@ -180,22 +162,19 @@ def prove_host_remainder_fills(
                 if _is_load(user, tensor):
                     admitted = False
                     break
-                coverages.add(
-                    _store_coverage(
-                        user, tensor, fake, env, graphs, parents, roots, host, config
-                    )
-                )
+                coverages.append(analysis.store_coverage(user, tensor, fake))
             if not admitted:
                 break
-        if not admitted or len(coverages) != 1 or None in coverages:
+        if not admitted or not coverages or None in coverages:
             continue
-        (remainders,) = coverages
-        assert remainders is not None
-        if sum(1 for remainder in remainders if remainder) != 1:
+        remainders = _combine_coverages(
+            [coverage for coverage in coverages if coverage is not None], fake.shape
+        )
+        if remainders is None or sum(1 for remainder in remainders if remainder) != 1:
             continue
         if not _remainder_fill(statement, name, remainders):
             continue
-        between = host.body[last_device_loop + 1 : position]
+        between = analysis.body[last_device_loop + 1 : position]
         if any(_reads(other, name) or _assigns(other, name) for other in between):
             continue
         dim = next(index for index, remainder in enumerate(remainders) if remainder)
@@ -213,12 +192,6 @@ def prove_host_remainder_fills(
     return result
 
 
-def _host_tensor_target() -> object:
-    from ...language import _tracing_ops
-
-    return _tracing_ops._host_tensor
-
-
 def append_device_remainder_fills(
     codegen: GenerateAST, host: HostFunction, config: Config
 ) -> list[RemainderFill]:
@@ -233,14 +206,8 @@ def append_device_remainder_fills(
     env = CompileEnvironment.current()
     fn = codegen.device_function
     fills = prove_host_remainder_fills(host, env, config)
-    if not fills:
-        return []
-    if any(argument.name.startswith("x_grid_sem") for argument in fn.arguments):
-        return []
-    if any(
-        isinstance(node, ast.Return)
-        for statement in fn.body
-        for node in ast.walk(statement)
+    if not fills or not body_end_follows_all_tiles(
+        [*fn.preamble, *fn.body], host.device_ir
     ):
         return []
     arguments = {
@@ -269,19 +236,28 @@ def append_device_remainder_fills(
 def lower_host_remainder_fills(
     body: list[ast.AST], fills: list[RemainderFill]
 ) -> list[ast.AST]:
-    """Drop the host fills the kernel now performs."""
+    """Drop the host fills the kernel now performs.
+
+    The proof read the host body through its constexpr branches
+    (:attr:`HostFillElision.body`), so a proven fill may sit in a branch of a
+    generated ``if``: the branches are rewritten in place, matching the fill
+    by its own location and text, and a body left empty keeps a ``pass``.
+    """
     if not fills:
         return body
     sites = {fill.location: fill for fill in fills}
-    result: list[ast.AST] = []
-    for statement in body:
-        fill = (
-            sites.get(statement._location)
-            if isinstance(statement, ExtendedAST)
-            else None
-        )
-        if fill is not None and ast.unparse(statement) == fill.statement:
-            continue
-        result.append(statement)
-    assert len(result) == len(body) - len(fills), "remainder fill statement missing"
+    result = _drop_fills(body, sites)
+    assert not sites, "remainder fill statement missing"
     return result
+
+
+def _drop_fills(
+    body: Sequence[ast.AST], sites: dict[SourceLocation, RemainderFill]
+) -> list[ast.AST]:
+    """``body`` without the proven fills (``sites`` loses each one it drops)."""
+
+    def drop(_statement: ast.AST, fill: RemainderFill) -> list[ast.AST]:
+        del sites[fill.location]
+        return []
+
+    return walk_proven_fills(body, sites, drop)

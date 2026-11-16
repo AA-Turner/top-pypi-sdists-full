@@ -10,6 +10,7 @@ ws_manager/org_id,ws_id:
     - flow_viewer/org_id,ws_id,*
     - r+w:workspace_user_management/org_id,ws_id
     - r+w:workspace_api_keys/org_id,ws_id
+    - r+w:workspace_wizard/org_id,ws_id,{env=*}
     - w+d:flow_folders/org_id,ws_id
     - w+d:outcome_type_management/org_id,ws_id
     - w:flow_settings/org_id,ws_id

@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -23,11 +24,13 @@ from bitfab.constants import (
     STREAM_RESULT_KEY,
     _replay_context,
     _seed_context,
+    replay_item_running,
 )
 from bitfab.error_chain import describe_error, serialize_error
 from bitfab.git_command import run_git
+from bitfab.gmail_sandbox import default_sandboxes
 from bitfab.integration_fixture import extract_integration_fixtures
-from bitfab.mock_matching import MATCHER
+from bitfab.mock_matching import MATCHER, span_id_of_tree_node
 from bitfab.mock_override import (
     MockOverride,
     MockOverrideInput,
@@ -44,6 +47,15 @@ from bitfab.replay_invocation import (
     build_replay_invocation,
     flags_for_invocation,
     safe_replay_invocation,
+)
+from bitfab.sandbox import (
+    SANDBOX_FIXTURE_PREFIX,
+    SANDBOX_SESSION_KEY,
+    RecordedSpan,
+    Sandbox,
+    SandboxSession,
+    SandboxStartCtx,
+    combine_sandboxes,
 )
 from bitfab.selective_replay import (
     SelectiveReplayOptions,
@@ -959,6 +971,7 @@ def replay(
     judge_assertions: bool | None = None,
     mock: MockStrategy = "marked",
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
+    sandboxes: list[Sandbox] | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
     adapt_inputs: (
         Callable[
@@ -1133,6 +1146,13 @@ def replay(
             gate the span tree fetch, overrides fire even under ``mock="none"``
             (run everything real but replace node X). The root span is never
             overridden.
+        sandboxes: Sandboxes that answer calls to outside services during
+            each item, keeping state for the length of the item so a write
+            followed by a read sees the write (see :class:`~bitfab.Sandbox`).
+            A sandbox that matches a call answers it before any mock override
+            or ``mock`` strategy. Built-in sandboxes (the Gmail sandbox) are
+            always on; passing one with the same name replaces it, for example
+            to change where its starting state comes from.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
             and recorded reuse eligibility.
@@ -1294,6 +1314,7 @@ def replay(
         *normalize_mock_overrides(mock_override),
         *client._mock_overrides,
     ]
+    resolved_sandboxes = combine_sandboxes(sandboxes, default_sandboxes())
     if experimental_selective_replay is not None:
         wire_options(experimental_selective_replay)
         if mock != "marked" or resolved_mock_overrides:
@@ -1506,6 +1527,7 @@ def replay(
                     work_items=work_items,
                     carried_over_items=carried_over_items,
                     experimental_selective_replay=experimental_selective_replay,
+                    sandboxes=resolved_sandboxes,
                 )
             )
         reported_items = [*carried_over_items, *result_items]
@@ -2123,6 +2145,7 @@ def execute_replay_item(
     trace_function_key: str | None = None,
     mock: MockStrategy = "marked",
     mock_override: MockOverrideInput | list[MockOverrideInput] | None = None,
+    sandboxes: list[Sandbox] | None = None,
     adapt_inputs: (
         Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2164,6 +2187,7 @@ def execute_replay_item(
             replayed_trace_id=replayed_trace_id,
             dry_run=dry_run,
             attempt=attempt,
+            sandboxes=combine_sandboxes(sandboxes, default_sandboxes()),
         )
     )
     if not dry_run:
@@ -2383,6 +2407,7 @@ async def _run_replay_async(
     work_items: list[ReplayWorkItem] | None = None,
     carried_over_items: list[ReplayItem] | None = None,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
+    sandboxes: list[Sandbox] | None = None,
 ) -> list[ReplayItem]:
     """Process all replay items concurrently using asyncio.gather."""
     _validate_max_concurrency(max_concurrency)
@@ -2570,6 +2595,7 @@ async def _run_replay_async(
                 dry_run=dry_run,
                 attempt=attempt,
                 experimental_selective_replay=experimental_selective_replay,
+                sandboxes=sandboxes,
             )
             await report_finish(result[0], result[1], replayed_trace_id, attempt)
             return result
@@ -2609,6 +2635,7 @@ async def _process_item_async(
     dry_run: bool = False,
     attempt: int = 0,
     experimental_selective_replay: SelectiveReplayOptions | None = None,
+    sandboxes: list[Sandbox] | None = None,
 ) -> tuple[ReplayItem, bool]:
     """Fetch span data and execute a single replay item.
 
@@ -2702,6 +2729,7 @@ async def _process_item_async(
         has_overrides = bool(mock_overrides)
         include_outputs = mock == "all"
         mock_tree: dict[str, dict[str, Any]] | None = None
+        tree_root: dict[str, Any] | None = None
         mock_tree_has_variants = False
         fetch_span_output: Callable[[str], Any] | None = None
         if selective is None and (mock == "all" or mock == "marked" or has_overrides):
@@ -2712,7 +2740,8 @@ async def _process_item_async(
                     include_outputs,
                     False,
                 )
-                mock_tree = MATCHER.build_index(tree.get("root") or {})
+                tree_root = tree.get("root") or {}
+                mock_tree = MATCHER.build_index(tree_root)
                 mock_tree_has_variants = MATCHER.records_variants(
                     tree.get("root") or {}
                 )
@@ -2764,6 +2793,12 @@ async def _process_item_async(
             dry_run=dry_run,
             attempt=attempt,
             selective_replay=selective,
+            sandboxes=sandboxes,
+            trace_started_at=span.get("startedAt"),
+            load_recorded_spans=_recorded_span_loader(
+                client, original_span_id, tree_root
+            ),
+            client=client,
         )
     except Exception as e:
         logger.warning(
@@ -2904,6 +2939,100 @@ def _make_span_output_fetcher(client: Bitfab) -> Callable[[str], Any]:
     return fetch_span_output
 
 
+def _sandbox_session(
+    sandboxes: list[Sandbox],
+    client: Any,
+    fixtures: dict[str, Any],
+    original_trace_id: str | None,
+    trace_started_at: str | None,
+    attempt: int,
+    load_recorded_spans: Callable[[str | None], list[RecordedSpan]],
+) -> SandboxSession:
+    def make_start_ctx(sandbox: Sandbox) -> SandboxStartCtx:
+        return SandboxStartCtx(
+            name=sandbox.name,
+            original_trace_id=original_trace_id,
+            trace_started_at=trace_started_at,
+            attempt=attempt,
+            recorded_state=fixtures.get(f"{SANDBOX_FIXTURE_PREFIX}{sandbox.name}"),
+            load_recorded_spans=load_recorded_spans,
+        )
+
+    return SandboxSession(
+        sandboxes=sandboxes,
+        client=client,
+        make_start_ctx=make_start_ctx,
+    )
+
+
+def _tree_nodes(root: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes: list[dict[str, Any]] = []
+    pending = list(reversed(root.get("children") or []))
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        pending.extend(reversed(node.get("children") or []))
+    return nodes
+
+
+def _node_span_name(node: dict[str, Any]) -> str:
+    return str(node.get("spanName") or node.get("traceFunctionKey") or "")
+
+
+def _recorded_span(client: Bitfab, node: dict[str, Any]) -> RecordedSpan | None:
+    span_id = span_id_of_tree_node(node)
+    if not span_id:
+        return None
+    raw = client.http_client.get_span_raw(span_id, replay_view=True)
+    span_data = (raw.get("rawData") or {}).get("span_data") or {}
+    restored = restore_inputs(span_data.get("input"), span_data.get("input_meta"))
+    return RecordedSpan(
+        span_name=_node_span_name(node),
+        trace_function_key=node.get("traceFunctionKey"),
+        input=(restored[1] or restored[0]) if restored else span_data.get("input"),
+        output=_deserialize_span_output(raw),
+    )
+
+
+def _recorded_span_loader(
+    client: Bitfab, original_span_id: str | None, tree_root: dict[str, Any] | None
+) -> Callable[[str | None], list[RecordedSpan]]:
+    lock = threading.Lock()
+    tree: list[list[dict[str, Any]]] = []
+    fetched: dict[str, RecordedSpan | None] = {}
+
+    def nodes() -> list[dict[str, Any]]:
+        if not tree:
+            root = tree_root
+            if root is None and original_span_id:
+                root = (
+                    client.http_client.get_span_tree(
+                        original_span_id, False, False
+                    ).get("root")
+                    or {}
+                )
+            tree.append(_tree_nodes(root or {}))
+        return tree[0]
+
+    def load(name: str | None) -> list[RecordedSpan]:
+        with lock:
+            wanted = [
+                node
+                for node in nodes()
+                if name is None or _node_span_name(node) == name
+            ]
+            spans: list[RecordedSpan] = []
+            for node in wanted:
+                key = span_id_of_tree_node(node) or ""
+                if key not in fetched:
+                    fetched[key] = _recorded_span(client, node)
+                if fetched[key] is not None:
+                    spans.append(fetched[key])
+            return spans
+
+    return load
+
+
 async def _execute_item_async(
     item: dict[str, Any],
     fn: Callable,
@@ -2932,6 +3061,10 @@ async def _execute_item_async(
     dry_run: bool = False,
     attempt: int = 0,
     selective_replay: SelectiveReplayRuntime | None = None,
+    sandboxes: list[Sandbox] | None = None,
+    trace_started_at: str | None = None,
+    load_recorded_spans: Callable[[str | None], list[RecordedSpan]] | None = None,
+    client: Any = None,
 ) -> tuple[ReplayItem, bool]:
     """Execute a single replay item: deserialize inputs, call fn with replay context.
 
@@ -3008,7 +3141,19 @@ async def _execute_item_async(
         replay_ctx["db_branch_timings"] = db_branch_timings
     if source_bitfab_trace_id is not None:
         replay_ctx["source_bitfab_trace_id"] = source_bitfab_trace_id
+    if sandboxes:
+        replay_ctx[SANDBOX_SESSION_KEY] = _sandbox_session(
+            sandboxes,
+            client,
+            item.get("integrationFixtures") or {},
+            source_bitfab_trace_id,
+            trace_started_at,
+            attempt,
+            load_recorded_spans or (lambda _name: []),
+        )
     token = _replay_context.set(replay_ctx)
+    running = contextlib.ExitStack()
+    running.enter_context(replay_item_running())
     try:
         # Reshape recorded inputs onto the current signature when an adapter is
         # supplied. Inside the try so a raising adapter surfaces on this item's
@@ -3054,6 +3199,7 @@ async def _execute_item_async(
             except RuntimeError as error:
                 replay_error = error
         _replay_context.reset(token)
+        running.close()
 
     metrics = metrics or {}
     # Report kwargs alongside args: a kwargs-only call (e.g. a dict root

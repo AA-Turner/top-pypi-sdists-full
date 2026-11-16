@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-protocol
-Version: 2.0.0
+Version: 2.0.1
 Summary: Python protocol stubs for LiveKit
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/

@@ -33,7 +33,6 @@ from trilogy.core.processing.grain_utility import (
     JoinProofs,
     anti_join_preserved_grain,
     calculate_joined_pregrain,
-    collect_applied_conditions,
     condition_key_grain,
     grain_satisfied_by_pregrain,
     has_condition_key_outside_grain,
@@ -44,6 +43,7 @@ from trilogy.core.processing.grain_utility import (
     rows_unique_at_outputs,
 )
 from trilogy.core.processing.join_resolution import (
+    OUTER_JOIN_TYPES,
     PlannedPairs,
     compute_outer_null_status,
     get_node_joins,
@@ -52,6 +52,7 @@ from trilogy.core.processing.join_resolution import (
     narrow_keyless_joins,
     preserved_sources,
     prune_outer_join_pairs,
+    restore_unpadded_joins,
 )
 from trilogy.core.processing.nodes.base_node import (
     NodeJoin,
@@ -62,6 +63,8 @@ from trilogy.core.processing.nodes.base_node import (
 )
 from trilogy.core.processing.null_provenance import side_nullable
 from trilogy.core.processing.utility import (
+    applied_atoms,
+    collect_applied_conditions,
     find_nullable_concepts,
     left_deep_joins,
     padded_by,
@@ -277,6 +280,38 @@ def _planned_source_pairs(
                 | grains[right]
             )
     return out
+
+
+def _full_join_concepts(
+    joins: list[SourceJoin | UnnestJoin],
+    sources: list[QueryDatasource | BuildDatasource],
+) -> list[BuildConcept]:
+    """What a FULL join's rows read off every source supplying it: its keys,
+    and each column its right shares with a source joined before. A FULL pads
+    either side, so one provider's column is NULL on the rows only the other
+    holds (a product no filtered aggregate kept), whichever the walk joined
+    first."""
+    by_id = {source.identifier: source for source in sources}
+    out: list[BuildConcept] = []
+    for join, left in left_deep_joins(joins):
+        if join.join_type != JoinType.FULL:
+            continue
+        out += join.input_concepts
+        held = {
+            c.address
+            for identifier in left
+            if identifier in by_id
+            for c in _visible_outputs(by_id[identifier])
+        }
+        out += [c for c in _visible_outputs(join.right) if c.address in held]
+    return out
+
+
+def _visible_outputs(
+    source: QueryDatasource | BuildDatasource,
+) -> list[BuildConcept]:
+    hidden = source.hidden_concepts if isinstance(source, QueryDatasource) else set()
+    return [c for c in source.output_concepts if c.address not in hidden]
 
 
 def _cap_lookup_joins(
@@ -565,6 +600,20 @@ class MergeNode(StrategyNode):
             c.address for c in read if c.address in solid_outputs and c.zero_on_empty
         )
 
+    def _gate_sources(
+        self, final_datasets: list[QueryDatasource | BuildDatasource]
+    ) -> set[str]:
+        """Parents that supply only what the WHERE reads, none of the outputs."""
+        if not self.conditions:
+            return set()
+        hidden = self.hidden_concepts or set()
+        visible = {c.address for c in self.output_concepts if c.address not in hidden}
+        return {
+            ds.identifier
+            for ds in final_datasets
+            if not visible & {c.address for c in ds.output_concepts}
+        }
+
     def _join_proofs(
         self,
         final_datasets: list[QueryDatasource | BuildDatasource],
@@ -638,11 +687,7 @@ class MergeNode(StrategyNode):
                 if not any(atom == r for r in rendered)
             ]
             for source in final_datasets:
-                applied = [
-                    atom
-                    for condition in collect_applied_conditions(source)
-                    for atom in decompose_condition(condition)
-                ]
+                applied = applied_atoms(source)
                 if any(any(atom == a for a in applied) for atom in request_atoms):
                     filtered_ids.add(source.identifier)
         # Authored coalescing (union/full) relations declare row intent: only
@@ -912,14 +957,12 @@ class MergeNode(StrategyNode):
         null_status = compute_outer_null_status(joins)
         prune_outer_join_pairs(joins)
         narrow_directional_join_types(joins, join_proofs, final_datasets)
-        narrow_keyless_joins(joins)
+        restore_unpadded_joins(joins)
+        narrow_keyless_joins(joins, self._gate_sources(final_datasets))
         # FULL JOINs only: both sides may be NULL, so source_map needs every
         # input supplying the address. For LEFT/RIGHT the preserved-side
         # ordering above suffices.
-        full_join_concepts = []
-        for join in joins:
-            if isinstance(join, Join) and join.join_type == JoinType.FULL:
-                full_join_concepts += join.input_concepts
+        full_join_concepts = _full_join_concepts(joins, final_datasets)
         joined = calculate_joined_pregrain(
             join_candidates, joins, grain, self.environment
         )
@@ -938,8 +981,6 @@ class MergeNode(StrategyNode):
         force_group, grain_forced = self._group_decision(
             pregrain, grain, join_candidates, joins, final_datasets
         )
-
-        qd_joins: list[SourceJoin | UnnestJoin] = [*joins]
 
         # Preserved sides first: first-wins inside ``resolve_concept_map`` then
         # picks the non-NULL source for a shared concept. Existence-only sources
@@ -976,9 +1017,7 @@ class MergeNode(StrategyNode):
         outer_pairs: list[tuple[str, str]] = [
             (pair.left.address, pair.right.address)
             for join in joins
-            if isinstance(join, Join)
-            and join.join_type
-            in (JoinType.LEFT_OUTER, JoinType.RIGHT_OUTER, JoinType.FULL)
+            if isinstance(join, Join) and join.join_type in OUTER_JOIN_TYPES
             for pair in join.pairs or []
             if pair.left.address != pair.right.address
         ]
@@ -1063,7 +1102,7 @@ class MergeNode(StrategyNode):
                 grain_basis, environment=self.environment, padded=padded
             )
         joined_partials = merge_partial_addresses(
-            final_datasets, qd_joins, final_output_concepts
+            final_datasets, joins, final_output_concepts
         )
         qds = QueryDatasource(
             input_concepts=unique(self.input_concepts, "address"),
@@ -1072,7 +1111,7 @@ class MergeNode(StrategyNode):
             source_type=self.source_type,
             source_map=source_map,
             existence_source_map=node_existence_source_map,
-            joins=qd_joins,
+            joins=joins,
             grain=grain,
             # node-level nullables carry inferred nullability for concepts
             # COMPUTED at this node (e.g. a derived join key over a nullable
@@ -1087,7 +1126,7 @@ class MergeNode(StrategyNode):
                 self.partial_concepts
                 + [c for c in final_output_concepts if c.address in joined_partials]
                 + self._extent_free_partials(
-                    final_datasets, final_output_concepts, qd_joins
+                    final_datasets, final_output_concepts, joins
                 ),
                 "address",
             ),

@@ -1,8 +1,8 @@
-"""feed: extract.feed() normalizes RSS 2.0, Atom 1.0, and RDF/RSS-1.0 documents into one Feed of Entry records."""
-
 from __future__ import annotations
 
-from typing import Final, cast
+from functools import partial
+from itertools import combinations
+from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 from bench.operations import INPUTS
@@ -10,7 +10,12 @@ from bench.operations import INPUTS
 from turbohtml import Text, parse, parse_xml
 from turbohtml.extract import Entry, Feed, feed
 
-RSS = """<?xml version="1.0"?>
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from work_steps import WorkSteps
+
+_RSS_XML: Final[str] = """<?xml version="1.0"?>
 <rss version="2.0"><channel>
 <title>RSS Title</title>
 <link>http://example.com/</link>
@@ -31,57 +36,18 @@ RSS = """<?xml version="1.0"?>
 </item>
 </channel></rss>"""
 
-ATOM = """<feed xmlns="http://www.w3.org/2005/Atom">
-<title>Atom Title</title>
-<link href="http://example.com/self" rel="self"/>
-<link href="http://example.com/" rel="alternate"/>
-<subtitle>Atom subtitle</subtitle>
-<updated>2026-07-06T00:00:00Z</updated>
-<entry>
-  <title>Entry One</title>
-  <link href="http://example.com/e1" rel="alternate" type="text/html"/>
-  <id>urn:e1</id>
-  <updated>2026-07-06T01:00:00Z</updated>
-  <published>2026-07-05T01:00:00Z</published>
-  <summary>Entry summary</summary>
-  <content type="html">&lt;p&gt;body&lt;/p&gt;</content>
-  <author><name>Jane Roe</name><email>jane@example.com</email></author>
-</entry>
-</feed>"""
-
-ATOM_PREFIXED: Final = """<a:feed xmlns:a="http://www.w3.org/2005/Atom">
+_ATOM_PREFIXED: Final[str] = """<a:feed xmlns:a="http://www.w3.org/2005/Atom">
 <a:title>Feed</a:title><a:link href="https://example.org/"/><a:subtitle>Subtitle</a:subtitle>
 <a:updated>2026-07-06</a:updated><a:entry><a:id>urn:entry</a:id><a:title>Entry</a:title>
 <a:link href="https://example.org/entry"/><a:summary>Summary</a:summary><a:content>Body</a:content>
 <a:author><a:name>Alice</a:name></a:author></a:entry></a:feed>"""
 
-RDF = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/">
-<channel rdf:about="http://example.com/">
-<title>RDF Title</title>
-<link>http://example.com/</link>
-<description>RDF description</description>
-<dc:date>2026-07-06</dc:date>
-</channel>
-<item rdf:about="http://example.com/1">
-<title>RDF Item</title>
-<link>http://example.com/1</link>
-<description>RDF item summary</description>
-<dc:date>2026-07-06</dc:date>
-<dc:creator>Bob Loblaw</dc:creator>
-</item>
-</rdf:RDF>"""
-
-RDF_PREFIXED: Final = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:s="http://purl.org/rss/1.0/">
+_RDF_PREFIXED: Final[
+    str
+] = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:s="http://purl.org/rss/1.0/">
 <s:channel><s:title>Feed</s:title><s:link>https://example.org/</s:link><s:description>Summary</s:description></s:channel>
 <s:item rdf:about="https://example.org/item"><s:title>Item</s:title><s:link>https://example.org/item</s:link>
 <s:description>Entry summary</s:description></s:item></rdf:RDF>"""
-
-
-def parse_feed(xml: str) -> Feed:
-    """Parse a feed the test knows is well-formed, narrowing the ``Feed | None`` return for the assertions."""
-    result = feed(xml)
-    assert result is not None
-    return result
 
 
 def test_feed_rss_module_prefix_aliases() -> None:
@@ -97,13 +63,20 @@ def test_feed_rss_module_prefix_aliases() -> None:
     )
 
 
+def parse_feed(xml: str) -> Feed:
+    # Parse a feed the test knows is well-formed, narrowing the ``Feed | None`` return for the assertions.
+    result = feed(xml)
+    assert result is not None
+    return result
+
+
 @pytest.mark.parametrize(
     ("local", "uri", "field"),
     [
-        ("date", "http://purl.org/dc/elements/1.1/", "published"),
-        ("description", "http://purl.org/dc/elements/1.1/", "summary"),
-        ("creator", "http://purl.org/dc/elements/1.1/", "author"),
-        ("encoded", "http://purl.org/rss/1.0/modules/content/", "content"),
+        pytest.param("date", "http://purl.org/dc/elements/1.1/", "published", id="date"),
+        pytest.param("description", "http://purl.org/dc/elements/1.1/", "summary", id="description"),
+        pytest.param("creator", "http://purl.org/dc/elements/1.1/", "author", id="creator"),
+        pytest.param("encoded", "http://purl.org/rss/1.0/modules/content/", "content", id="encoded"),
     ],
 )
 def test_feed_rss_default_module_namespace(local: str, uri: str, field: str) -> None:
@@ -237,40 +210,61 @@ def test_feed_rss_canonical_module_names() -> None:
 
 
 def test_feed_rss_shape() -> None:
-    result = parse_feed(RSS)
+    result = parse_feed(_RSS_XML)
     assert result.type == "rss"
     assert (result.title, result.link, result.description) == ("RSS Title", "http://example.com/", "RSS description")
-    assert result.updated == "Mon, 06 Jul 2026 00:00:00 GMT"
-    assert result.entries == (
-        Entry(
-            "Item One",
-            "http://example.com/1",
-            "urn:1",
-            None,
-            "Sun, 05 Jul 2026 00:00:00 GMT",
-            "Item summary",
-            "<p>full body</p>",
-            "writer@example.com",
+    assert (result.updated, result.entries) == (
+        "Mon, 06 Jul 2026 00:00:00 GMT",
+        (
+            Entry(
+                "Item One",
+                "http://example.com/1",
+                "urn:1",
+                None,
+                "Sun, 05 Jul 2026 00:00:00 GMT",
+                "Item summary",
+                "<p>full body</p>",
+                "writer@example.com",
+            ),
+            Entry("Item Two", "http://example.com/2", None, None, None, None, None, None),
         ),
-        Entry("Item Two", "http://example.com/2", None, None, None, None, None, None),
     )
 
 
 def test_feed_atom_shape() -> None:
-    result = parse_feed(ATOM)
+    atom = """<feed xmlns="http://www.w3.org/2005/Atom">
+<title>Atom Title</title>
+<link href="http://example.com/self" rel="self"/>
+<link href="http://example.com/" rel="alternate"/>
+<subtitle>Atom subtitle</subtitle>
+<updated>2026-07-06T00:00:00Z</updated>
+<entry>
+  <title>Entry One</title>
+  <link href="http://example.com/e1" rel="alternate" type="text/html"/>
+  <id>urn:e1</id>
+  <updated>2026-07-06T01:00:00Z</updated>
+  <published>2026-07-05T01:00:00Z</published>
+  <summary>Entry summary</summary>
+  <content type="html">&lt;p&gt;body&lt;/p&gt;</content>
+  <author><name>Jane Roe</name><email>jane@example.com</email></author>
+</entry>
+</feed>"""
+    result = parse_feed(atom)
     assert result.type == "atom"
     assert (result.title, result.link, result.description) == ("Atom Title", "http://example.com/", "Atom subtitle")
-    assert result.updated == "2026-07-06T00:00:00Z"
-    assert result.entries == (
-        Entry(
-            "Entry One",
-            "http://example.com/e1",
-            "urn:e1",
-            "2026-07-06T01:00:00Z",
-            "2026-07-05T01:00:00Z",
-            "Entry summary",
-            "<p>body</p>",
-            "Jane Roe",
+    assert (result.updated, result.entries) == (
+        "2026-07-06T00:00:00Z",
+        (
+            Entry(
+                "Entry One",
+                "http://example.com/e1",
+                "urn:e1",
+                "2026-07-06T01:00:00Z",
+                "2026-07-05T01:00:00Z",
+                "Entry summary",
+                "<p>body</p>",
+                "Jane Roe",
+            ),
         ),
     )
 
@@ -278,29 +272,29 @@ def test_feed_atom_shape() -> None:
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        ("title", "Feed"),
-        ("link", "https://example.org/"),
-        ("description", "Subtitle"),
-        ("updated", "2026-07-06"),
+        pytest.param("title", "Feed", id="title"),
+        pytest.param("link", "https://example.org/", id="link"),
+        pytest.param("description", "Subtitle", id="description"),
+        pytest.param("updated", "2026-07-06", id="updated"),
     ],
 )
 def test_feed_atom_prefixed_feed_fields(field: str, expected: str) -> None:
-    assert getattr(parse_feed(ATOM_PREFIXED), field) == expected
+    assert getattr(parse_feed(_ATOM_PREFIXED), field) == expected
 
 
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        ("id", "urn:entry"),
-        ("title", "Entry"),
-        ("link", "https://example.org/entry"),
-        ("summary", "Summary"),
-        ("content", "Body"),
-        ("author", "Alice"),
+        pytest.param("id", "urn:entry", id="id"),
+        pytest.param("title", "Entry", id="title"),
+        pytest.param("link", "https://example.org/entry", id="link"),
+        pytest.param("summary", "Summary", id="summary"),
+        pytest.param("content", "Body", id="content"),
+        pytest.param("author", "Alice", id="author"),
     ],
 )
 def test_feed_atom_prefixed_entry_fields(field: str, expected: str) -> None:
-    assert getattr(parse_feed(ATOM_PREFIXED).entries[0], field) == expected
+    assert getattr(parse_feed(_ATOM_PREFIXED).entries[0], field) == expected
 
 
 def test_feed_atom_wrong_prefixed_root_namespace() -> None:
@@ -339,20 +333,37 @@ def test_feed_atom_prefixed_author_name_namespace_shadowing() -> None:
 
 
 def test_feed_rdf_shape() -> None:
-    result = parse_feed(RDF)
+    rdf: Final = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/">
+<channel rdf:about="http://example.com/">
+<title>RDF Title</title>
+<link>http://example.com/</link>
+<description>RDF description</description>
+<dc:date>2026-07-06</dc:date>
+</channel>
+<item rdf:about="http://example.com/1">
+<title>RDF Item</title>
+<link>http://example.com/1</link>
+<description>RDF item summary</description>
+<dc:date>2026-07-06</dc:date>
+<dc:creator>Bob Loblaw</dc:creator>
+</item>
+</rdf:RDF>"""
+    result = parse_feed(rdf)
     assert result.type == "rdf"
     assert (result.title, result.link, result.description) == ("RDF Title", "http://example.com/", "RDF description")
-    assert result.updated == "2026-07-06"
-    assert result.entries == (
-        Entry(
-            "RDF Item",
-            "http://example.com/1",
-            "http://example.com/1",
-            None,
-            "2026-07-06",
-            "RDF item summary",
-            None,
-            "Bob Loblaw",
+    assert (result.updated, result.entries) == (
+        "2026-07-06",
+        (
+            Entry(
+                "RDF Item",
+                "http://example.com/1",
+                "http://example.com/1",
+                None,
+                "2026-07-06",
+                "RDF item summary",
+                None,
+                "Bob Loblaw",
+            ),
         ),
     )
 
@@ -432,26 +443,26 @@ def test_feed_rdf_other_prefixed_attribute_before_about() -> None:
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        ("title", "Feed"),
-        ("link", "https://example.org/"),
-        ("description", "Summary"),
+        pytest.param("title", "Feed", id="title"),
+        pytest.param("link", "https://example.org/", id="link"),
+        pytest.param("description", "Summary", id="description"),
     ],
 )
 def test_feed_rdf_prefixed_channel_fields(field: str, expected: str) -> None:
-    assert getattr(parse_feed(RDF_PREFIXED), field) == expected
+    assert getattr(parse_feed(_RDF_PREFIXED), field) == expected
 
 
 @pytest.mark.parametrize(
     ("field", "expected"),
     [
-        ("title", "Item"),
-        ("link", "https://example.org/item"),
-        ("id", "https://example.org/item"),
-        ("summary", "Entry summary"),
+        pytest.param("title", "Item", id="title"),
+        pytest.param("link", "https://example.org/item", id="link"),
+        pytest.param("id", "https://example.org/item", id="id"),
+        pytest.param("summary", "Entry summary", id="summary"),
     ],
 )
 def test_feed_rdf_prefixed_item_fields(field: str, expected: str) -> None:
-    assert getattr(parse_feed(RDF_PREFIXED).entries[0], field) == expected
+    assert getattr(parse_feed(_RDF_PREFIXED).entries[0], field) == expected
 
 
 def test_feed_rdf_prefixed_item_namespace_shadowing() -> None:
@@ -525,7 +536,7 @@ def test_feed_non_feed_returns_none(xml: str, expected: None) -> None:
 
 
 def test_feed_document_method_matches_facade() -> None:
-    assert parse(RSS).feed() == feed(RSS)
+    assert parse(_RSS_XML).feed() == feed(_RSS_XML)
 
 
 def test_feed_rss_without_channel_is_empty() -> None:
@@ -640,8 +651,7 @@ def test_feed_empty_field_falls_through_to_next_source() -> None:
 
 
 def test_feed_missing_field_is_none() -> None:
-    result = parse_feed("<rss version='2.0'><channel><item><title>only title</title></item></channel></rss>")
-    entry = result.entries[0]
+    entry = parse_feed("<rss version='2.0'><channel><item><title>only title</title></item></channel></rss>").entries[0]
     assert (entry.summary, entry.content, entry.published, entry.updated, entry.author, entry.id) == (
         None,
         None,
@@ -696,7 +706,7 @@ def test_feed_ignores_non_item_children() -> None:
     assert [entry.title for entry in result.entries] == ["real"]
 
 
-_RSS: Final = Feed(
+_RSS: Final[Feed] = Feed(
     "rss",
     "Example Engineering Blog",
     "https://blog.example/",
@@ -812,9 +822,16 @@ def test_feed_empty_metadata_uses_fallback() -> None:
     ) == ("rss", None, None, "fallback", "date", ())
 
 
-@pytest.mark.parametrize("case", [0, 1, 2], ids=["rss", "rss-extensions", "atom"])
+@pytest.mark.parametrize(
+    ("case", "kind"),
+    [
+        pytest.param(0, "rss", id="rss"),
+        pytest.param(1, "rss", id="rss-extensions"),
+        pytest.param(2, "atom", id="atom"),
+    ],
+)
 @pytest.mark.oracle
-def test_feed_benchmark_entry_values(case: int) -> None:
+def test_feed_benchmark_entry_values(case: int, kind: str) -> None:
     feedparser: Final = pytest.importorskip("feedparser")
     source: Final = cast("str", INPUTS["syndication"]()[case][1])
     oracle: Final = feedparser.parse(source)
@@ -833,7 +850,7 @@ def test_feed_benchmark_entry_values(case: int) -> None:
     )
     header: Final = dict(oracle.feed)
     assert feed(source) == Feed(
-        "atom" if oracle.version.startswith("atom") else "rss",
+        kind,
         cast("str | None", header.get("title")),
         cast("str | None", header.get("link")),
         cast("str | None", header.get("subtitle")),
@@ -842,7 +859,7 @@ def test_feed_benchmark_entry_values(case: int) -> None:
     )
 
 
-XML_RSS: Final = """<?xml version="1.0"?>
+_XML_RSS: Final[str] = """<?xml version="1.0"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>
 <image><title>Logo title</title><url>https://example.com/logo.png</url><link>https://example.com/logo</link></image>
 <title>Feed title</title>
@@ -856,7 +873,7 @@ XML_RSS: Final = """<?xml version="1.0"?>
 </item>
 </channel></rss>"""
 
-XML_RSS_FEED: Final = Feed(
+_XML_RSS_FEED: Final[Feed] = Feed(
     "rss",
     "Feed title",
     "https://example.com/",
@@ -867,11 +884,11 @@ XML_RSS_FEED: Final = Feed(
 
 
 def test_feed_well_formed_rss_parses_as_xml() -> None:
-    assert feed(XML_RSS) == XML_RSS_FEED
+    assert feed(_XML_RSS) == _XML_RSS_FEED
 
 
 def test_feed_xml_document_method() -> None:
-    assert parse_xml(XML_RSS).feed() == XML_RSS_FEED
+    assert parse_xml(_XML_RSS).feed() == _XML_RSS_FEED
 
 
 def test_feed_atom_nested_xml_bases_resolve_links() -> None:
@@ -1019,7 +1036,7 @@ def test_feed_atom_xhtml_inherits_prefix_from_div() -> None:
     assert parse_feed(xml).title == '<s:box xmlns:s="urn:s"/>'
 
 
-@pytest.mark.parametrize("binding", [None, ""], ids=["valueless", "empty"])
+@pytest.mark.parametrize("binding", [pytest.param(None, id="valueless"), pytest.param("", id="empty")])
 def test_feed_atom_xhtml_invalid_foreign_binding_falls_back(binding: str | None) -> None:
     document: Final = parse_xml(
         '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:s="urn:s"><title type="xhtml">'
@@ -1045,6 +1062,311 @@ def test_feed_atom_xhtml_unbound_attribute_prefix_falls_back() -> None:
     )
     del document.select("feed")[0].attrs["xmlns:s"]
     assert cast("Feed", document.feed()).title == "text"
+
+
+def test_feed_atom_xhtml_repeats_inherited_prefix_once_per_tag() -> None:
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:s="urn:s" xmlns:t="urn:t"><title type="xhtml">'
+        '<div xmlns="http://www.w3.org/1999/xhtml"><p s:a="1" k="2" t:a="3" s:b="4" t:b="5"><s:x s:a="6" t:a="7"/>'
+        '<i xmlns:t="urn:own" t:a="8" s:a="9" t:b="10" s:b="11"/></p></div></title></feed>'
+    )
+    assert parse_feed(xml).title == (
+        '<p xmlns:s="urn:s" s:a="1" k="2" xmlns:t="urn:t" t:a="3" s:b="4" t:b="5">'
+        '<s:x xmlns:s="urn:s" s:a="6" xmlns:t="urn:t" t:a="7"/>'
+        '<i xmlns:t="urn:own" t:a="8" xmlns:s="urn:s" s:a="9" t:b="10" s:b="11"></i></p>'
+    )
+
+
+def test_feed_atom_xhtml_prefixes_of_different_length_stay_apart() -> None:
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:s="urn:s" xmlns:ss="urn:ss"><title type="xhtml">'
+        '<div xmlns="http://www.w3.org/1999/xhtml"><p s:a="1" ss:a="2" s:b="3" ss:b="4"/></div></title></feed>'
+    )
+    assert parse_feed(xml).title == ('<p xmlns:s="urn:s" s:a="1" xmlns:ss="urn:ss" ss:a="2" s:b="3" ss:b="4"></p>')
+
+
+def test_feed_atom_xhtml_more_prefixes_than_inline_slots_declare_once() -> None:
+    prefixes: Final = "abcdefghi"
+    declarations: Final = "".join(f' xmlns:{prefix}="urn:{prefix}"' for prefix in prefixes)
+    attributes: Final = "".join(f' {prefix}:x="{index}"' for index, prefix in enumerate(prefixes))
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><title type="xhtml">'
+        f'<div xmlns="http://www.w3.org/1999/xhtml"{declarations}><p{attributes} a:y="9" i:y="10" k="11"/></div>'
+        "</title></feed>"
+    )
+    inherited: Final = "".join(
+        f' xmlns:{prefix}="urn:{prefix}" {prefix}:x="{index}"' for index, prefix in enumerate(prefixes)
+    )
+    assert parse_feed(xml).title == f'<p{inherited} a:y="9" i:y="10" k="11"></p>'
+
+
+def test_feed_atom_xhtml_prefixed_attributes_parse_in_linear_time(work_steps: WorkSteps) -> None:
+    prefixes: Final = [f"p{index}" for index in range(10)]
+    attributes: Final = {prefix: "".join(f' {prefix}:a{index}=""' for index in range(300)) for prefix in prefixes}
+    declarations: Final = "".join(f' xmlns:{prefix}="urn:{prefix}"' for prefix in prefixes)
+    head: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><title type="xhtml">'
+        f'<div xmlns="http://www.w3.org/1999/xhtml"{declarations}><b'
+    )
+    tail: Final = "/></div></title></feed>"
+    prefixed_xml: Final = head + "".join(attributes.values()) + tail
+    expected_attributes: Final = "".join(f' xmlns:{prefix}="urn:{prefix}"{attributes[prefix]}' for prefix in prefixes)
+    assert parse_feed(prefixed_xml).title == f"<b{expected_attributes}></b>"
+    # Rescanning earlier attributes per prefix is quadratic in the attribute count. The same tag with the prefixes
+    # removed from its attribute names skips that lookup, so it is the baseline.
+    plain_xml: Final = head + "".join(attributes.values()).replace(":", "_") + tail
+    work_steps.assert_within(partial(parse_feed, prefixed_xml), partial(parse_feed, plain_xml), factor=40)
+
+
+def test_feed_atom_xhtml_redeclared_prefix_is_scoped_to_its_element() -> None:
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:s="urn:s">'
+        '<title type="xhtml"><h:div><h:p xmlns:h="urn:other" xmlns:s="urn:t"><h:b><s:x/></h:b></h:p>'
+        "<h:i><s:y/></h:i><h:u/></h:div></title></feed>"
+    )
+    assert parse_feed(xml).title == (
+        '<h:p xmlns:h="urn:other" xmlns:s="urn:t"><h:b xmlns:h="urn:other"><s:x xmlns:s="urn:t"/></h:b></h:p>'
+        '<i><s:y xmlns:s="urn:s"/></i><u></u>'
+    )
+
+
+def test_feed_atom_xhtml_redeclared_default_namespace_is_scoped_to_its_element() -> None:
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><title type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">'
+        '<p xmlns="urn:other"><b/></p><i xmlns="http://www.w3.org/1999/xhtml"><b/></i><b/></div></title></feed>'
+    )
+    assert parse_feed(xml).title == (
+        '<p xmlns="urn:other"><b/></p><i xmlns="http://www.w3.org/1999/xhtml"><b></b></i><b></b>'
+    )
+
+
+def test_feed_atom_xhtml_many_redeclarations_on_one_element() -> None:
+    declarations: Final = "".join(f' xmlns:p{index}="urn:{index}"' for index in range(20))
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:p7="urn:outer"><title type="xhtml">'
+        f'<div xmlns="http://www.w3.org/1999/xhtml"><p{declarations}><p7:x/></p><p7:y/></div></title></feed>'
+    )
+    assert parse_feed(xml).title == f'<p{declarations}><p7:x xmlns:p7="urn:7"/></p><p7:y xmlns:p7="urn:outer"/>'
+
+
+def test_feed_atom_xhtml_resolves_every_prefix_pair() -> None:
+    pairs: Final = list(combinations(range(40), 2))
+    declarations: Final = "".join(f' xmlns:p{index}="urn:{index}"' for index in range(40))
+    entries: Final = "".join(
+        f'<entry><title type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p{first}:x/><p{second}:y/></div>'
+        "</title></entry>"
+        for first, second in pairs
+    )
+    xml: Final = f'<feed xmlns="http://www.w3.org/2005/Atom"{declarations}>{entries}</feed>'
+    assert [entry.title for entry in parse_feed(xml).entries] == [
+        f'<p{first}:x xmlns:p{first}="urn:{first}"/><p{second}:y xmlns:p{second}="urn:{second}"/>'
+        for first, second in pairs
+    ]
+
+
+def test_feed_atom_xhtml_resolves_more_prefixes_than_the_first_table_holds() -> None:
+    prefixes: Final = [f"p{index}" for index in range(40)]
+    declarations: Final = "".join(f' xmlns:{prefix}="urn:{prefix}"' for prefix in prefixes)
+    uses: Final = "".join(f"<{prefix}:x/>" for prefix in prefixes)
+    xml: Final = (
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{declarations}><title type="xhtml">'
+        f'<div xmlns="http://www.w3.org/1999/xhtml">{uses}</div></title></feed>'
+    )
+    assert parse_feed(xml).title == "".join(f'<{prefix}:x xmlns:{prefix}="urn:{prefix}"/>' for prefix in prefixes)
+
+
+def test_feed_atom_xhtml_xmlns_like_attribute_declares_nothing() -> None:
+    xml: Final = (
+        '<feed xmlns="http://www.w3.org/2005/Atom"><title type="xhtml">'
+        '<div xmlns="http://www.w3.org/1999/xhtml"><p xmlnsx="urn:other"><b/></p></div></title></feed>'
+    )
+    assert parse_feed(xml).title == '<p xmlnsx="urn:other"><b></b></p>'
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        pytest.param("\u00e9", id="two-byte"),
+        pytest.param("\u65e5", id="three-byte"),
+        pytest.param("\U00010400", id="four-byte"),
+        pytest.param("p" * 80, id="long"),
+        pytest.param("\u00e9" * 40, id="long-non-ascii"),
+    ],
+)
+def test_feed_atom_xhtml_prefix_spelling(prefix: str) -> None:
+    xml: Final = (
+        f'<feed xmlns="http://www.w3.org/2005/Atom" xmlns:{prefix}="http://www.w3.org/1999/xhtml" '
+        f'xmlns:{prefix}x="urn:s"><title type="xhtml"><{prefix}:div><{prefix}:b {prefix}x:k="v">B</{prefix}:b>'
+        f"<{prefix}x:box/></{prefix}:div></title></feed>"
+    )
+    assert parse_feed(xml).title == (
+        f'<b xmlns:{prefix}x="urn:s" {prefix}x:k="v">B</b><{prefix}x:box xmlns:{prefix}x="urn:s"/>'
+    )
+
+
+def test_feed_atom_xhtml_never_declared_attribute_prefix_falls_back() -> None:
+    document: Final = parse_xml(
+        '<feed xmlns="http://www.w3.org/2005/Atom"><title type="xhtml">'
+        '<div xmlns="http://www.w3.org/1999/xhtml"><p>text</p></div></title></feed>'
+    )
+    document.select("p")[0].attrs["q:key"] = "v"
+    assert cast("Feed", document.feed()).title == "text"
+
+
+def test_feed_atom_never_declared_entry_field_prefix() -> None:
+    document: Final = parse_xml('<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Entry</title></entry></feed>')
+    document.select("title")[0].tag = "q:title"
+    assert cast("Feed", document.feed()).entries[0].title is None
+
+
+def test_feed_rdf_long_about_prefix() -> None:
+    prefix: Final = "r" * 80
+    xml: Final = (
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" '
+        f'xmlns:{prefix}="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        f'<item {prefix}:about="https://example.org/item"><title>Item</title></item></rdf:RDF>'
+    )
+    assert parse_feed(xml).entries[0].id == "https://example.org/item"
+
+
+def _wide_unused_declarations(count: int) -> str:
+    declarations: Final = "".join(f' xmlns:p{index}="urn:{index}"' for index in range(count))
+    elements: Final = "<h:b/>" * count
+    return (
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{declarations} xmlns:h="http://www.w3.org/1999/xhtml">'
+        f'<title type="xhtml"><h:div>{elements}</h:div></title></feed>'
+    )
+
+
+def _deep_nesting(depth: int) -> str:
+    opening: Final = "<h:b>" * depth
+    closing: Final = "</h:b>" * depth
+    return (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:h="http://www.w3.org/1999/xhtml">'
+        f'<title type="xhtml"><h:div>{opening}{closing}</h:div></title></feed>'
+    )
+
+
+@pytest.mark.parametrize(
+    "build",
+    [pytest.param(_wide_unused_declarations, id="wide"), pytest.param(_deep_nesting, id="deep")],
+)
+def test_feed_atom_xhtml_namespace_lookup_stays_linear(build: Callable[[int], str], work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: partial(parse_feed, build(count)), (500, 2000))
+
+
+def _declarations(count: int) -> str:
+    return "".join(f' xmlns:p{index}="urn:{index}"' for index in range(count))
+
+
+def _prefixed(local: str, count: int) -> str:
+    return f"<p{count - 1}:{local}/>" * count
+
+
+def _rss_channel_prefixed(count: int) -> str:
+    return (
+        f'<rss version="2.0"{_declarations(count)}><channel>{_prefixed("title", count)}'
+        "<item><title>i</title></item></channel></rss>"
+    )
+
+
+def _atom_entry_prefixed(count: int) -> str:
+    return (
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{_declarations(count)}>'
+        f"<entry>{_prefixed('title', count)}</entry></feed>"
+    )
+
+
+def _atom_source_prefixed(count: int) -> str:
+    return (
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{_declarations(count)}><entry><source>'
+        f"{_prefixed('author', count)}</source></entry></feed>"
+    )
+
+
+def _atom_author_prefixed(count: int) -> str:
+    return (
+        f'<feed xmlns="http://www.w3.org/2005/Atom"{_declarations(count)}>'
+        f"<author>{_prefixed('name', count)}</author><entry><title>e</title></entry></feed>"
+    )
+
+
+def _atom_root_prefixed(count: int) -> str:
+    return f'<feed xmlns="http://www.w3.org/2005/Atom"{_declarations(count)}>{_prefixed("entry", count)}</feed>'
+
+
+def _rdf_item_prefixed_about(count: int) -> str:
+    attributes = "".join(f' p{index}:about="v"' for index in range(count))
+    return (
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/"'
+        f"{_declarations(count)}><channel><title>c</title></channel>"
+        f"<item{attributes}><title>i</title></item></rdf:RDF>"
+    )
+
+
+def _rss_item_relative_links(count: int) -> str:
+    link = '<link rel="self" href="b"/>'
+    return (
+        f'<rss version="2.0"{_declarations(count)} xml:base="https://example.org/a/"><channel>'
+        f"<item><title>i</title>{link * count}</item></channel></rss>"
+    )
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(_rss_channel_prefixed, id="rss-channel"),
+        pytest.param(_atom_entry_prefixed, id="atom-entry"),
+        pytest.param(_atom_source_prefixed, id="atom-source"),
+        pytest.param(_atom_author_prefixed, id="atom-author"),
+        pytest.param(_atom_root_prefixed, id="atom-root"),
+        pytest.param(_rdf_item_prefixed_about, id="rdf-item"),
+        pytest.param(_rss_item_relative_links, id="xml-base-links"),
+    ],
+)
+def test_feed_prefixed_lookup_stays_linear_under_wide_ancestors(
+    build: Callable[[int], str], work_steps: WorkSteps
+) -> None:
+    work_steps.assert_linear(lambda count: partial(parse_feed, build(count)), (500, 2000))
+
+
+@pytest.mark.parametrize(
+    ("entry_uri", "expected"),
+    [
+        pytest.param("urn:other", None, id="entry-redeclares-prefix"),
+        pytest.param("http://www.w3.org/2005/Atom", "Shadowed", id="entry-declares-atom"),
+    ],
+)
+def test_feed_atom_prefix_nearest_declaration_on_wide_entry(entry_uri: str, expected: str | None) -> None:
+    attributes = "".join(f' a{index}="x"' for index in range(10))
+    xml = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:p="http://www.w3.org/2005/Atom">'
+        f'<entry{attributes} xmlns:p="{entry_uri}"><p:title>Shadowed</p:title></entry></feed>'
+    )
+    assert parse_feed(xml).entries[0].title == expected
+
+
+def test_feed_atom_prefix_lookup_on_element_with_many_attributes() -> None:
+    attributes = "".join(f' a{index}="x"' for index in range(60))
+    declarations = "".join(f' xmlns:q{index}="urn:q{index}"' for index in range(20))
+    xml = (
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:p="http://www.w3.org/2005/Atom">'
+        f"<entry{attributes}{declarations}><p:title>Wide</p:title></entry></feed>"
+    )
+    assert parse_feed(xml).entries[0].title == "Wide"
+
+
+def test_feed_atom_many_wide_entries_resolve_prefixes() -> None:
+    attributes = "".join(f' a{index}="x"' for index in range(9))
+    entries = "".join(f"<entry{attributes}><p:title>e{index}</p:title></entry>" for index in range(10))
+    xml = f'<feed xmlns="http://www.w3.org/2005/Atom" xmlns:p="http://www.w3.org/2005/Atom">{entries}</feed>'
+    assert [entry.title for entry in parse_feed(xml).entries] == [f"e{index}" for index in range(10)]
+
+
+def test_feed_rss_xml_base_on_wide_ancestor_resolves_link() -> None:
+    attributes = "".join(f' a{index}="x"' for index in range(10))
+    xml = f'<rss version="2.0"{attributes} xml:base="https://example.org/a/"><channel><item><link>b</link></item></channel></rss>'
+    assert parse_feed(xml).entries[0].link == "https://example.org/a/b"
 
 
 def test_feed_atom_xhtml_escapes_markup_text_and_attributes() -> None:

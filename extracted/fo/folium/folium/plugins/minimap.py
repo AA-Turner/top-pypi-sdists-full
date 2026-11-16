@@ -59,8 +59,7 @@ class MiniMap(JSCSSMixin, MacroElement):
     >>> MiniMap(position="bottomleft")
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             var {{ this.tile_layer.get_name() }} = L.tileLayer(
                 {{ this.tile_layer.tiles|tojson }},
@@ -72,8 +71,7 @@ class MiniMap(JSCSSMixin, MacroElement):
             );
             {{ this._parent.get_name() }}.addControl({{ this.get_name() }});
         {% endmacro %}
-    """
-    )  # noqa
+    """)  # noqa
 
     default_js = [
         (
@@ -103,7 +101,7 @@ class MiniMap(JSCSSMixin, MacroElement):
         toggle_display=False,
         auto_toggle_display=False,
         minimized=False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "MiniMap"
@@ -128,5 +126,5 @@ class MiniMap(JSCSSMixin, MacroElement):
             toggle_display=toggle_display,
             auto_toggle_display=auto_toggle_display,
             minimized=minimized,
-            **kwargs
+            **kwargs,
         )

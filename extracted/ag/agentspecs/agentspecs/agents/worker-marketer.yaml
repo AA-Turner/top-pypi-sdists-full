@@ -42,16 +42,13 @@ mcp_servers:
   # access"): the person signs in to LinkedIn in their runtime's own browser,
   # from the chat, and the server reads and acts through that session.
   - linkedin:0.0.1
-# Every skill of the catalogue (the user, 7 November 2026): what a marketer
-# makes — snapshots, recordings, PDFs, summaries, a crawl of a page, the
-# calendar, the repository, the books, a joke.
+# What a marketer makes — snapshots, recordings, PDFs, summaries, a crawl of a
+# page, the repository. Accounting, events and jokes left out (the user,
+# 15 November 2026: leftovers of "every skill of the catalogue", 7 November).
 skills:
-  - accounting:0.0.1
   - crawl:0.0.1
-  - events:0.0.1
   - github:0.0.1
   - image:0.0.1
-  - jokes:0.0.1
   - pdf:0.0.1
   - text-summarizer:0.0.1
   - video:0.0.1
@@ -135,6 +132,21 @@ backend_tools:
   - social-post-linkedin:0.0.1
   - social-comment-linkedin:0.0.1
 environment_name: ai-agents-env
+# What to ask it, as the other seed agents have (the user, 15 November 2026):
+# the demo's starters, in the person's own words.
+suggestions:
+  - text: >-
+      Plan a two-week launch campaign for our new feature across X, Bluesky,
+      LinkedIn and our Discord, with one goal and a post a day.
+    summary: "Plan a launch"
+  - text: >-
+      Draft today's post for each network from this note, in our voice, and
+      show me before anything goes out.
+    summary: "Draft today's post"
+  - text: >-
+      Read the replies and the numbers on last week's posts and tell me what
+      worked and what to change.
+    summary: "What came back"
 # What X costs Datalayer, held to budgets (the user, 15 November 2026: "move X
 # read/write to iam but create a guardrail to cap the usage to a limited amount
 # to avoid paying too much", then "we want to use a agent guardrail, not a iam
@@ -232,12 +244,14 @@ system_prompt: >-
   read_bluesky, and reply, like, repost or follow, each asked first. If a
   Bluesky tool says to connect Bluesky again, tell the person to reconnect it
   in Settings › Bluesky; nothing on Bluesky works until then. On LinkedIn you can also comment
-  under a post the person points you at. With the linkedin tools — there when the person signed in to LinkedIn
-  in their runtime's browser (Sign in to LinkedIn, in the chat) — you read
+  under a post the person points you at. With the linkedin tools — there when the person saved their
+  LinkedIn session in Settings › LinkedIn, or signed in to LinkedIn in their
+  runtime's browser (Sign in to LinkedIn, in the chat) — you read
   LinkedIn too: their feed, posts and the comments under them, profiles,
   companies and their inbox; you send a message or a connection request only
   once the person approved it. Without them LinkedIn lets you read nothing back:
-  say so when asked how a LinkedIn post did, offer Sign in to LinkedIn, and ask
+  say so when asked how a LinkedIn post did, offer Settings › LinkedIn or Sign
+  in to LinkedIn, and ask
   the person what they see. Read the
   replies, the likes and the trends where you can and report them plainly, with
   numbers you read, never numbers you guess. Never invent a metric, a quote or an endorsement; never buy
@@ -252,5 +266,9 @@ system_prompt: >-
 
 policy:
   shield:
-    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
-    egress: ["*"]
+    # The web, and nothing else (the user, 15 November 2026): any public
+    # address on ports 80 and 443 (agent-shield 0.2.21's '*:port'), never
+    # another port, never a private, link-local, metadata, loopback, CGNAT or
+    # cluster address. LinkedIn, X, Bluesky, Discord and the pages it
+    # crawls are all on 443.
+    egress: ["*:80", "*:443"]

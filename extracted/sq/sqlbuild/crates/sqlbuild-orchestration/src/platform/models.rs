@@ -31,7 +31,7 @@ pub struct LocationWorkClient {
     pub(crate) location_id: Uuid,
 }
 
-/// Locations report bounded facts, never connection strings or user exception text.
+/// Locations report bounded facts, never connection strings; a failed warehouse read carries only its redacted error text.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LocationHealth {
@@ -43,6 +43,11 @@ pub enum LocationHealth {
         generation: i64,
         healthy: bool,
     },
+    /// How many provider secret settings the location's environment leaves unset.
+    ProviderSecrets {
+        generation: i64,
+        missing: u64,
+    },
     WarehouseSync {
         generation: i64,
         location: WarehouseStateLocation,
@@ -50,10 +55,13 @@ pub enum LocationHealth {
         failure: Option<WarehouseSyncFailure>,
         records_sent: u64,
         elapsed_millis: u64,
+        /// A failed read's warehouse error, redacted and bounded; absent otherwise.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
     },
 }
 
-/// Closed failure stages keep warehouse errors and credentials out of health observations.
+/// The stage a warehouse sync failed at; only a failed read also reports its redacted error.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WarehouseSyncFailure {
@@ -96,12 +104,14 @@ pub enum LocationState {
     Degraded,
     /// The last load failed, so runs use the previous snapshot.
     FallingBack,
+    /// A provider secret is unset in the location's environment, so runs that use the provider fail.
+    MissingSecrets,
     /// No instance has checked in for 90 seconds.
     Broken,
 }
 
 impl LocationState {
-    /// `target`'s state at `now` from observations that may cover several targets: down without a recent check-in, then a failed load, then a failed connection.
+    /// `target`'s state at `now` from observations that may cover several targets: down without a recent check-in, then a failed load, then missing provider secrets, then a failed connection.
     #[must_use]
     pub fn of(
         observations: &[LocationHealthObservation],
@@ -121,6 +131,7 @@ impl LocationState {
         }
         let mut failed: Option<(DateTime<Utc>, i64)> = None;
         let mut connection: Option<(DateTime<Utc>, i64, bool)> = None;
+        let mut secrets: Option<(DateTime<Utc>, u64)> = None;
         for observation in own {
             let seen = observation.received_at;
             match observation.report.health {
@@ -135,15 +146,21 @@ impl LocationState {
                 } if connection.is_none_or(|(at, _, _)| seen > at) => {
                     connection = Some((seen, generation, healthy));
                 }
+                LocationHealth::ProviderSecrets { missing, .. }
+                    if secrets.is_none_or(|(at, _)| seen > at) =>
+                {
+                    secrets = Some((seen, missing));
+                }
                 _ => {}
             }
         }
-        match (failed, connection) {
-            (Some((_, failed)), Some((_, connected, _))) if failed >= connected => {
+        match (failed, connection, secrets) {
+            (Some((_, failed)), Some((_, connected, _)), _) if failed >= connected => {
                 Self::FallingBack
             }
-            (Some(_), None) => Self::FallingBack,
-            (_, Some((_, _, false))) => Self::Degraded,
+            (Some(_), None, _) => Self::FallingBack,
+            (_, _, Some((_, missing))) if missing > 0 => Self::MissingSecrets,
+            (_, Some((_, _, false)), _) => Self::Degraded,
             _ => Self::Healthy,
         }
     }

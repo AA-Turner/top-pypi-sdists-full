@@ -2,20 +2,24 @@ import builtins
 import warnings
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union, cast
 
+import sqlalchemy
 from sqlalchemy import Executable
 from sqlalchemy.exc import IntegrityError
 
 import ormar.queryset  # noqa I100
-from ormar.exceptions import ModelPersistenceError, NoMatch
+from ormar.exceptions import ModelPersistenceError, NoMatch, QueryDefinitionError
 from ormar.models import NewBaseModel  # noqa I100
 from ormar.models.model_row import ModelRow
-from ormar.queryset.templates import (
-    delete_template,
-    insert_template,
-    pk_select_template,
-    update_template,
-)
+from ormar.queryset.actions.select_action import expression_columns
+from ormar.queryset.expressions import Expression, F, expression_leaves
+from ormar.queryset.templates import insert_template, update_values_params
 from ormar.queryset.utils import subtract_dict, translate_list_to_dict
+from ormar.queryset.write_statements import (
+    DeleteWrite,
+    RowSelectWrite,
+    UpdateWrite,
+    row_template,
+)
 
 T = TypeVar("T", bound="Model")
 
@@ -118,7 +122,9 @@ class Model(ModelRow):
             return await self.update(**kwargs)
         if self.pk is None:
             return await self.save()
-        template = pk_select_template(model_cls=type(self), pk=self.pk)
+        template = row_template(
+            statement=RowSelectWrite, model_cls=type(self), pk=self.pk
+        )
         row = await self._execute_query(
             expr=template.statement, is_select=True, params=template.params
         )
@@ -195,29 +201,8 @@ class Model(ModelRow):
         """
         self.verify_writable()
         await self._emit_signal("pre_save", instance=self)
-        self_fields = self._extract_model_db_fields()
-
+        self_fields = self._prepare_insert_row()
         key = self.ormar_config.pk
-        if not self.pk and key.autoincrement:
-            for field in key.fields:
-                self_fields.pop(field, None)
-        self_fields = self.populate_default_values(self_fields)
-        # Values taken from ``__dict__`` are already set, re-assigning them only
-        # costs a validation and two hash recomputations per field.
-        current_values = self.__dict__
-        related_names = self.extract_related_names()
-        self.update_from_dict(
-            {
-                k: v
-                for k, v in self_fields.items()
-                if k not in related_names
-                and k in self.ormar_config.model_fields
-                and (k not in current_values or current_values[k] is not v)
-            }
-        )
-
-        self_fields = self.translate_columns_to_aliases(self_fields)
-        self._verify_key_parts_set(row=self_fields)
         # MySQL has no conflict clause telling an insert from a skipped row, so
         # it runs a plain insert and a duplicate key error means skipped
         rules = self.ormar_config.database.rules
@@ -226,7 +211,7 @@ class Model(ModelRow):
             model_cls=type(self),
             values=self_fields,
             on_conflict=on_conflict if returning else None,
-            returning=returning,
+            returning=key.column_aliases() if returning else (),
         )
         try:
             pk = await self._execute_query(
@@ -271,6 +256,227 @@ class Model(ModelRow):
         ):
             await self.load()
 
+        self._reset_change_tracking()
+        await self._emit_signal("post_save", instance=self)
+        return self
+
+    def _prepare_insert_row(self) -> builtins.dict[str, Any]:
+        """
+        Fill the default values of the instance and return its row to insert,
+        by column name. A generated primary key that is not set is left out.
+
+        :raises ModelPersistenceError: if only a part of the primary key is set
+        :return: inserted values by column name
+        :rtype: dict[str, Any]
+        """
+        self_fields = self._extract_model_db_fields()
+        key = self.ormar_config.pk
+        if not self.pk and key.autoincrement:
+            for field in key.fields:
+                self_fields.pop(field, None)
+        self_fields = self.populate_default_values(self_fields)
+        # Values taken from ``__dict__`` are already set, re-assigning them only
+        # costs a validation and two hash recomputations per field.
+        current_values = self.__dict__
+        related_names = self.extract_related_names()
+        self.update_from_dict(
+            {
+                name: value
+                for name, value in self_fields.items()
+                if name not in related_names
+                and name in self.ormar_config.model_fields
+                and (name not in current_values or current_values[name] is not value)
+            }
+        )
+        self_fields = self.translate_columns_to_aliases(self_fields)
+        self._verify_key_parts_set(row=self_fields)
+        return self_fields
+
+    @classmethod
+    def _conflict_updates(
+        cls,
+        update_fields: Optional[list[str]],
+        update_values: Optional[builtins.dict[str, Any]],
+    ) -> tuple[builtins.dict[str, Any], builtins.dict[str, Any]]:
+        """
+        Validate the ``update_values`` of an upsert like ``QuerySet.update()``
+        validates its values and return the ``on_update`` values of the fields
+        set by neither ``update_fields`` nor ``update_values``, and the
+        ``update_values`` as column values or expression nodes, both by column
+        name.
+
+        :param update_fields: names of the fields updated from the inserted row
+        :type update_fields: Optional[list[str]]
+        :param update_values: value or expression by field name
+        :type update_values: Optional[dict[str, Any]]
+        :raises QueryDefinitionError: for a field not stored in the model's
+            table (unknown, reverse or many to many relation), a field also in
+            ``update_fields``, an expression setting a relation, reading a
+            related model or another field the upsert sets
+        :return: ``on_update`` values and ``update_values``, by column name
+        :rtype: tuple[dict[str, Any], dict[str, Any]]
+        """
+        update_fields = update_fields or []
+        update_values = update_values or {}
+        # foreign keys stored in the model's own table, no reverse or m2m names
+        related_names = cls._extract_db_related_names()
+        unknown = [
+            name
+            for name in update_values
+            if name not in cls.extract_db_own_fields() and name not in related_names
+        ]
+        if unknown:
+            raise QueryDefinitionError(
+                f"update_values names fields the model does not store in its "
+                f"table: {unknown}"
+            )
+        repeated = [name for name in update_values if name in update_fields]
+        if repeated:
+            raise QueryDefinitionError(
+                f"Fields cannot be in both update_fields and update_values: {repeated}"
+            )
+        model_fields = cls.ormar_config.model_fields
+        on_update = {
+            cls.get_column_alias(field_name=name): model_fields[name].get_on_update()
+            for name in sorted(cls._onupdate_fields)
+            if name not in update_fields and name not in update_values
+        }
+        updated = {*update_fields, *update_values, *cls._onupdate_fields}
+        expressions = {
+            name: value._node()
+            for name, value in update_values.items()
+            if isinstance(value, Expression)
+        }
+        for name, node in expressions.items():
+            expression_columns(node=node, model=cls, upsert=True)
+            read = [
+                leaf._path
+                for leaf in expression_leaves(node=node)
+                if isinstance(leaf, F)
+            ]
+            if name in related_names or any(
+                field != name and field in updated for field in read
+            ):
+                raise QueryDefinitionError(
+                    f"update_values cannot set '{name}' from an expression reading "
+                    f"{read}: expressions set no relations and read no fields set "
+                    f"by the same upsert (use Inserted() for the inserted value)."
+                )
+        values = cls.validate_update_values(
+            {
+                name: value
+                for name, value in update_values.items()
+                if name not in expressions
+            }
+        )
+        values = cls.reconvert_str_to_bytes(values)
+        return on_update, cls.translate_columns_to_aliases({**values, **expressions})
+
+    async def _upsert(
+        self: T,
+        conflict_target: Optional[list[str]] = None,
+        update_fields: Optional[list[str]] = None,
+        update_values: Optional[builtins.dict[str, Any]] = None,
+    ) -> T:
+        """
+        Insert the instance, or update the row it conflicts with on
+        ``conflict_target`` (the primary key by default), in one statement, and
+        fill the instance with the stored row. ``update_fields`` (by default
+        all inserted fields but the target and the key, none with
+        ``update_values``), ``update_values`` and the fields with ``on_update``
+        are updated.
+
+        PostgreSQL and SQLite return the stored row from the insert. MySQL has
+        no RETURNING and conflicts on any unique key: the row is read back by
+        the ``conflict_target`` values.
+
+        Sends pre_save and post_save signals, whether the row was inserted or
+        updated.
+
+        :param conflict_target: names of the fields of the conflicting unique key
+        :type conflict_target: Optional[list[str]]
+        :param update_fields: names of the fields updated on conflict
+        :type update_fields: Optional[list[str]]
+        :param update_values: values or expressions set on conflict, by field
+        :type update_values: Optional[dict[str, Any]]
+        :raises QueryDefinitionError: if a field of the target has no value or
+            ``update_values`` are invalid (see ``_conflict_updates``)
+        :raises NoMatch: if on MySQL no row matches the target values after the
+            write (a conflict on another unique key, or values the database
+            stores rounded)
+        :return: the stored row
+        :rtype: Model
+        """
+        self.verify_writable()
+        on_update, values = self._conflict_updates(
+            update_fields=update_fields, update_values=update_values
+        )
+        await self._emit_signal("pre_save", instance=self)
+        self_fields = self._prepare_insert_row()
+        config = self.ormar_config
+        target_fields = conflict_target or list(config.pk.fields)
+        unknown = [name for name in target_fields if name not in config.model_fields]
+        if unknown:
+            raise QueryDefinitionError(
+                f"conflict_target names fields the model does not have: {unknown}"
+            )
+        target = {
+            column: self_fields.get(column)
+            for field_name in target_fields
+            for column in self.get_column_aliases(field_name=field_name)
+        }
+        missing = [column for column, value in target.items() if value is None]
+        if missing:
+            raise QueryDefinitionError(
+                f"on_conflict='update' needs a value for every field of the "
+                f"conflict target, missing: {missing}"
+            )
+        rules = config.database.rules
+        template = insert_template(
+            model_cls=type(self),
+            values=self_fields,
+            on_conflict="update",
+            conflict_target=conflict_target,
+            update_fields=update_fields,
+            on_update=tuple(sorted(on_update)),
+            update_values=values,
+            returning=(
+                tuple(column.name for column in config.table.columns)
+                if rules.conflict_returning
+                else ()
+            ),
+        )
+        params = {
+            **template.params,
+            **{
+                f"ormar_on_update_{column}": value
+                for column, value in on_update.items()
+            },
+            **update_values_params(update_values=values),
+        }
+        # each branch runs on its own databases only
+        if rules.conflict_returning:  # pragma: no cover
+            row = await self._execute_query(
+                expr=template.statement, is_select=True, params=params
+            )
+        else:  # pragma: no cover
+            await self._execute_query(expr=template.statement, params=params)
+            table = config.table
+            row = await self._execute_query(
+                expr=sqlalchemy.select(table).where(
+                    *(table.c[column] == value for column, value in target.items())
+                ),
+                is_select=True,
+            )
+            if row is None:
+                raise NoMatch(
+                    f"The row was written, but no row matches the conflict target "
+                    f"{target} when read back: the conflict was on another unique "
+                    f"key, or the database stored different values (rounded "
+                    f"floats or datetimes)"
+                )
+        self.update_from_dict(self.translate_row_to_fields(row=dict(row)))
+        self.set_save_status(True)
         self._reset_change_tracking()
         await self._emit_signal("post_save", instance=self)
         return self
@@ -322,7 +528,9 @@ class Model(ModelRow):
         """
         self.verify_writable()
         relation_map = (
-            relation_map if relation_map is not None else self._relation_tree()
+            relation_map
+            if relation_map is not None
+            else cast(builtins.dict, self._default_relation_map())
         )
         if exclude and isinstance(exclude, set):
             exclude = translate_list_to_dict(exclude)
@@ -452,7 +660,8 @@ class Model(ModelRow):
         )
         if self_fields:
             self_fields = self.translate_columns_to_aliases(self_fields)
-            template = update_template(
+            template = row_template(
+                statement=UpdateWrite,
                 model_cls=type(self),
                 values=self_fields,
                 pk=self.persisted_key,
@@ -558,7 +767,9 @@ class Model(ModelRow):
         """
         self.verify_writable()
         await self._emit_signal("pre_delete", instance=self)
-        template = delete_template(model_cls=type(self), pk=self.persisted_key)
+        template = row_template(
+            statement=DeleteWrite, model_cls=type(self), pk=self.persisted_key
+        )
         result = await self._execute_query(
             expr=template.statement, params=template.params
         )
@@ -605,7 +816,9 @@ class Model(ModelRow):
                 "loaded from the database"
             )
         else:
-            template = pk_select_template(model_cls=type(self), pk=self.persisted_key)
+            template = row_template(
+                statement=RowSelectWrite, model_cls=type(self), pk=self.persisted_key
+            )
             row = await self._execute_query(
                 expr=template.statement, is_select=True, params=template.params
             )
@@ -624,6 +837,8 @@ class Model(ModelRow):
         follow: bool = False,
         exclude: Union[list, str, set, dict, None] = None,
         order_by: Union[list, str, None] = None,
+        max_depth: Optional[int] = None,
+        follow_reverse: Union[bool, int] = 0,
     ) -> T:
         """
         Allow to refresh existing Models fields from database.
@@ -641,6 +856,14 @@ class Model(ModelRow):
         will load second Model A but will never follow into Model X.
         Nested relations of those kind need to be loaded manually.
 
+        :param max_depth: number of relations to follow at most with
+            follow=True, forward foreign keys ``DEFAULT_FOLLOW_DEPTH`` (5) deep by
+            default (every relation without limit in the deprecated ``map``
+            traversal)
+        :type max_depth: Optional[int]
+        :param follow_reverse: number of first levels where follow=True also
+            follows reverse and many to many relations, ``True`` = 1
+        :type follow_reverse: Union[bool, int]
         :param order_by: columns by which models should be sorted
         :type order_by: Union[list, str]
         :raises NoMatch: If given pk is not found in database.
@@ -656,7 +879,9 @@ class Model(ModelRow):
         """
         relations = list(self.extract_related_names())
         if follow:
-            relations = self._iterate_related_models()
+            relations = self._follow_relation_paths(
+                max_depth=max_depth, follow_reverse=follow_reverse
+            )
         queryset = self.__class__.objects
         if exclude:
             queryset = queryset.exclude_fields(exclude)

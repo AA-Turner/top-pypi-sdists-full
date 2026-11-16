@@ -11,12 +11,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from probe.generated.samples import FinishReason, SampleErrorReason, TurnsSource
-from probe.sdk.run.samples.rollout import RolloutCapture
+from probe.sdk.run.samples.rollout import Decode, RolloutCapture, build_decoded_turns
 
+from ..task_label import TASK_DESCRIPTION_FIELD, TASK_ID_FIELD, TASK_NAME_FIELD, get_task_label
 from .tool_loop import FINISH_FIELD
 
-#: Dataset `extra_info` keys (`utils/dataset/rl_dataset.py:400-410`) naming the task and its scenario.
-TASK_KEY_FIELD = "task_id"
+#: Dataset `extra_info` keys (`utils/dataset/rl_dataset.py:400-410`) naming the task and its scenario; the task's
+#: label (name, description) rides beside them (`task_label/task_label.py`).
+TASK_KEY_FIELD = TASK_ID_FIELD
 SCENARIO_FIELD = "scenario"
 #: A scenario text value's cap (`records/samples/task.py`, `MAX_SCENARIO_TEXT_CHARS`).
 MAX_SCENARIO_TEXT = 256
@@ -35,8 +37,6 @@ MAX_EXTRA_TEXT = 256
 #: The agent loop whose non-model tokens are tool replies (`experimental/agent_loop/tool_agent_loop.py:101`); any
 #: other loop's are an environment's (an interaction's user turns).
 TOOL_AGENT = "tool_agent"
-#: A chat role's source (`records/samples/turns.py` `MessageSource`).
-ROLE_SOURCES = {"system": "system", "user": "user", "assistant": "model", "tool": "tool"}
 #: Rows of a step critic warmup trains the critic on and not the actor (`ray_trainer.py:1684`,
 #: `v1/trainer_base.py:608`): generated, never consumed.
 CRITIC_WARMUP_DROP = "filter:critic_warmup"
@@ -126,7 +126,9 @@ class VerlRow:
 class RowMapper:
     """VerlRows -> `SamplePartIn`-shaped parts. ``decode`` turns token ids into text (verl's own dump decodes with
     `skip_special_tokens=True`, `ray_trainer.py:525-526`), ``tokens_to_text`` into one string per token; either may
-    be None. ``max_response_length`` tells a cut-off response (`length`) from a finished one."""
+    be None. ``decode_turns`` decodes for decoded turns, special tokens kept (their reader needs the template's role
+    markers); without it ``decode`` serves. ``max_response_length`` tells a cut-off response (`length`) from a
+    finished one."""
 
     def __init__(
         self,
@@ -136,8 +138,12 @@ class RowMapper:
         max_response_length: int | None = None,
         host: str | None = None,
         worker: str | None = None,
+        decode_turns: Decode | None = None,
     ) -> None:
         self._decode = decode
+        if decode_turns is None and decode is not None:
+            decode_turns = lambda ids, keep_special: str(decode(list(ids)))  # noqa: E731 -- one decode for both
+        self._decode_turns = decode_turns
         self._tokens_to_text = tokens_to_text
         self._max_response_length = max_response_length
         self._where = {name: value for name, value in (("host", host), ("worker", worker)) if value}
@@ -206,6 +212,7 @@ class RowMapper:
             "task_key": str(task_key) if isinstance(task_key, (str, int)) and str(task_key) else make_prompt_key(prompt),
             "scenario": get_scenario(extra),
             "prompt": prompt,
+            **get_task_label(extra),
             "response": response,
             "generated_by": make_policy_pieces(row.min_version, row.max_version, fallback=fallback_version),
             **self._where,
@@ -265,26 +272,14 @@ class RowMapper:
 
     def _build_turns(self, row: VerlRow) -> list[dict]:
         """The fallback when the loop captured no messages (another agent loop class, a worker that could not join),
-        marked `turns_source=decoded`: a multi-turn response as its messages: the dataset's prompt messages, then each run of model tokens
-        (`response_mask` 1) and of tool or environment tokens (0) decoded alone, one turn per model reply. A response
-        with no 0 run is single-turn: no turns."""
-        mask = row.get_loss_mask()
-        if self._decode is None or not mask or 0 not in mask or 1 not in mask:
+        marked `turns_source=decoded`: the dataset's prompt messages, then the response read through its chat
+        template (`rollout.decoded`), one turn per model reply. A response with no mask is all the model's."""
+        if self._decode_turns is None or not row.response_ids:
             return []
-        other_role, other_source = ("tool", "tool") if row.agent_name == TOOL_AGENT else ("user", "environment")
-        messages = [_to_message(message) for message in row.raw_prompt or () if isinstance(message, Mapping)]
-        turns: list[dict] = []
-        for is_model, ids in _split_runs(row.response_ids, mask):
-            content = self._decode_text(ids)
-            if is_model:
-                messages.append({"role": "assistant", "source": "model", "is_trainable": True, "content": content})
-                turns.append({"messages": messages})
-                messages = []
-            else:
-                messages.append({"role": other_role, "source": other_source, "content": content})
-        if messages:
-            turns.append({"messages": messages})
-        return turns
+        other_role = "tool" if row.agent_name == TOOL_AGENT else "user"
+        prompt = [message for message in row.raw_prompt or () if isinstance(message, Mapping)]
+        return build_decoded_turns(row.response_ids, row.get_loss_mask(), self._decode_turns, prompt_messages=prompt,
+                                   other_role=other_role)
 
     def _get_finish_reason(self, length: int) -> str | None:
         """`length` when the response filled `data.max_response_length` (verl's own clip ratio,
@@ -354,33 +349,13 @@ def get_extras(extra: Mapping[str, Any], data_source: str | None) -> dict:
     if data_source:
         extras["data_source"] = str(data_source)
     for name, value in extra.items():
-        if name in (TASK_KEY_FIELD, SCENARIO_FIELD):
+        if name in (TASK_KEY_FIELD, SCENARIO_FIELD, TASK_NAME_FIELD, TASK_DESCRIPTION_FIELD):
             continue
         if isinstance(value, bool) or (isinstance(value, (int, float)) and math.isfinite(float(value))):
             extras[f"extra_info.{name}"] = value
         elif isinstance(value, str) and len(value) <= MAX_EXTRA_TEXT:
             extras[f"extra_info.{name}"] = value
     return extras
-
-
-def _split_runs(ids: Sequence[int], mask: Sequence[int]) -> list[tuple[bool, list[int]]]:
-    """The response's runs of equal mask bits: (is the model's, token ids), in order."""
-    runs: list[tuple[bool, list[int]]] = []
-    for token, bit in zip(ids, mask):
-        if runs and runs[-1][0] == bool(bit):
-            runs[-1][1].append(int(token))
-        else:
-            runs.append((bool(bit), [int(token)]))
-    return runs
-
-
-def _to_message(message: Mapping[str, Any]) -> dict:
-    """A dataset chat message as a turn message; non-text content (an image part) is kept as its text parts only."""
-    role = str(message.get("role") or "user")
-    content = message.get("content")
-    if isinstance(content, list):
-        content = "".join(str(part.get("text", "")) for part in content if isinstance(part, Mapping))
-    return {"role": role[:64], "source": ROLE_SOURCES.get(role, "environment"), "content": str(content or "")}
 
 
 def _pick_arrays(arrays: Mapping[str, list], names: Mapping[str, str], length: int) -> dict[str, list]:

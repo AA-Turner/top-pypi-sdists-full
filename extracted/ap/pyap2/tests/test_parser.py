@@ -1,0 +1,500 @@
+# pyright: reportPrivateUsage=false
+# -*- coding: utf-8 -*-
+
+"""Test for parser classes"""
+
+import pytest
+from pyap import parser, exceptions, address, parse, parse_single_street
+
+
+def test_api_parse():
+    test_address = (
+        "xxx 225 E. John Carpenter Freeway, " + "Suite 1500 Irving, Texas 75062 xxx"
+    )
+    addresses = parse(test_address, country="US")
+    assert (
+        str(addresses[0].full_address)
+        == "225 E. John Carpenter Freeway, Suite 1500 Irving, Texas 75062"
+    )
+
+
+def test_api_parse_canada():
+    test_address = "xxx 33771 George Ferguson Way Abbotsford, BC V2S 2M5 xxx"
+    addresses = parse(test_address, country="CA")
+    assert (
+        str(addresses[0].full_address)
+        == "33771 George Ferguson Way Abbotsford, BC V2S 2M5"
+    )
+
+
+def test_api_parse_single_street():
+    test_address = "255 SOUTH STREET"
+    addresses = parse_single_street(test_address, country="US")
+    assert str(addresses[0].full_street) == "255 SOUTH STREET"
+    assert str(addresses[0].full_address) == "255 SOUTH STREET"
+
+
+def test_api_parse_single_street_skips_mixed_case_state_highway_false_positive():
+    test_address = (
+        "Hilmar Cheese Company, Inc.\n"
+        "Plies: aR 8901 North Lander Avenue\n"
+        "ANY\n"
+        "2-CHEESE COMPANY No Hilmar, California 95324"
+    )
+    addresses = parse_single_street(test_address, country="US")
+    assert str(addresses[0].full_street) == "8901 North Lander Avenue"
+
+
+def test_address_class_init():
+    addr = address.Address(
+        country_id="US",
+        match_end=10,
+        match_start=5,
+        region1="USA ",
+        city="CityVille, ",
+        full_street="Street 1b",
+        full_address="Street 1b CityVille USA",
+        line1="Street 1b",
+    )
+    assert addr.region1 == "USA"
+
+    assert addr.city == "CityVille"
+
+    assert addr.full_street == "Street 1b"
+
+    assert str(addr) == "Street 1b CityVille USA"
+
+
+def test_no_country_selected_exception():
+    with pytest.raises(TypeError):
+        parser.AddressParser()  # type: ignore
+
+
+def test_country_detection_missing():
+    with pytest.raises(exceptions.CountryDetectionMissing):
+        parser.AddressParser(country="TheMoon")  # type: ignore
+
+
+def test_normalize_string():
+    ap = parser.AddressParser(country="US")
+    raw_string = (
+        """, The  quick      \t, brown fox      jumps over the lazy dog, ‐ ‑ ‒ – — ―,"""
+    )
+    clean_string = ", The quick, brown fox jumps over the lazy dog, - - - - - -, "
+    assert ap._normalize_string(raw_string) == clean_string
+
+
+def test_combine_results():
+    ap = parser.AddressParser(country="US")
+    raw_dict = {"test_one": None, "test_one_a": 1, "test_two": None, "test_two_b": 2}
+    assert ap._combine_results(raw_dict) == {"test_one": 1, "test_two": 2}
+
+
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ("No address here", None),
+        (
+            "2590 Elm Road NE - Warren, OH 44483, US",
+            {
+                "street_number": "2590",
+                "street_name": "Elm",
+                "street_type": "Road",
+                "post_direction": "NE",
+                "city": "Warren",
+                "region1": "OH",
+                "postal_code": "44483",
+                "full_address": "2590 Elm Road NE - Warren, OH 44483, US",
+                "country": "US",
+                "line1": "2590 Elm Road NE",
+                "line2": "",
+            },
+        ),
+        (
+            "899 HEATHROW PARK LN 02-2135\nLAKE MARY,FL 32746",
+            {
+                "street_number": "899",
+                "street_name": "HEATHROW PARK",
+                "street_type": "LN",
+                "city": "LAKE MARY",
+                "region1": "FL",
+                "postal_code": "32746",
+                "full_address": "899 HEATHROW PARK LN 02-2135\nLAKE MARY, FL 32746",
+                "line1": "899 HEATHROW PARK LN",
+                "line2": "02-2135",
+            },
+        ),
+        (
+            "696 BEAL PKWY NW\nFT WALTON BCH FL 32547",
+            {
+                "street_number": "696",
+                "street_name": "BEAL",
+                "street_type": "PKWY",
+                "post_direction": "NW",
+                "city": "FT WALTON BCH",
+                "region1": "FL",
+                "postal_code": "32547",
+                "full_address": "696 BEAL PKWY NW\nFT WALTON BCH FL 32547",
+                "line1": "696 BEAL PKWY NW",
+                "line2": "",
+            },
+        ),
+        (
+            "xxx, 225 E. John Carpenter Freeway, Suite 1500 Irving, Texas 75062 xxx",
+            {
+                "street_number": "225",
+                "street_name": "E. John Carpenter",
+                "street_type": "Freeway",
+                "occupancy": "Suite 1500",
+                "city": "Irving",
+                "region1": "Texas",
+                "postal_code": "75062",
+                "full_address": (
+                    "225 E. John Carpenter Freeway, Suite 1500 Irving, Texas 75062"
+                ),
+                "line1": "225 E. John Carpenter Freeway",
+                "line2": "Suite 1500",
+            },
+        ),
+        (
+            "1300 E MOUNT GARFIELD ROAD, NORTON SHORES 49441",
+            {
+                "street_number": "1300",
+                "street_name": "E MOUNT GARFIELD",
+                "street_type": "ROAD",
+                "city": "NORTON SHORES",
+                "region1": None,
+                "postal_code": "49441",
+                "full_address": "1300 E MOUNT GARFIELD ROAD, NORTON SHORES 49441",
+                "line1": "1300 E MOUNT GARFIELD ROAD",
+                "line2": "",
+            },
+        ),
+        (
+            "7601 Penn Avenue South, Richfield MN 55423",
+            {
+                "street_number": "7601",
+                "street_name": "Penn",
+                "street_type": "Avenue",
+                "post_direction": "South",
+                "city": "Richfield",
+                "region1": "MN",
+                "postal_code": "55423",
+                "line1": "7601 Penn Avenue South",
+                "line2": "",
+            },
+        ),
+        (
+            "STAFFING LLC, 242 N AVENUE 25 SUITE 300, LOS ANGELES, CA 900031, Period ",
+            {
+                "street_number": "242",
+                "typeless_street_name": "N AVENUE 25",
+                "occupancy": "SUITE 300",
+                "city": "LOS ANGELES",
+                "region1": "CA",
+                "postal_code": None,
+                "line1": "242 N AVENUE 25",
+                "line2": "SUITE 300",
+            },
+        ),
+        (
+            "2633 Camino Ramon Ste. 400 San Ramon, CA 94583-2176",
+            {
+                "street_number": "2633",
+                "street_type": "Camino",
+                "street_name": "Ramon",
+                "occupancy": "Ste. 400",
+                "city": "San Ramon",
+                "region1": "CA",
+                "postal_code": "94583-2176",
+                "line1": "2633 Camino Ramon",
+                "line2": "Ste. 400",
+            },
+        ),
+        (
+            "742 Via Fontana Riverside CA 92501",
+            {
+                "street_number": "742",
+                "street_type": "Via",
+                "street_name": "Fontana",
+                "city": "Riverside",
+                "region1": "CA",
+                "postal_code": "92501",
+                "line1": "742 Via Fontana",
+            },
+        ),
+        (
+            "2006 Broadway Ave Suite 2A, PO Drawer J, Great Bend, KS 67530",
+            {
+                "street_number": "2006",
+                "street_type": "Ave",
+                "street_name": "Broadway",
+                "occupancy": "Suite 2A",
+                "city": "Great Bend",
+                "region1": "KS",
+                "po_box": "PO Drawer J",
+                "postal_code": "67530",
+                "line1": "2006 Broadway Ave",
+                "line2": "Suite 2A, PO Drawer J",
+            },
+        ),
+        (
+            "One Baylor Plaza MS: BCM204\nHouston TX 77030-3411",
+            {
+                "street_number": "One",
+                "street_type": "Plaza",
+                "street_name": "Baylor",
+                "mail_stop": "MS: BCM204",
+                "city": "Houston",
+                "region1": "TX",
+                "postal_code": "77030-3411",
+                "line1": "One Baylor Plaza",
+                "line2": "MS: BCM204",
+            },
+        ),
+        (
+            "Wonderville Nursing and Rehab\n742 Zephyr St\nBay Fernwood, MI 12345",
+            {
+                "street_number": "742",
+                "street_type": "St",
+                "street_name": "Zephyr",
+                "occupancy": None,
+                "city": "Bay Fernwood",
+                "region1": "MI",
+                "postal_code": "12345",
+                "line1": "742 Zephyr St",
+                "line2": "",
+            },
+        ),
+        (
+            "742 Zephyr St, Bay Fernwood, MI 12345",
+            {
+                "street_number": "742",
+                "street_type": "St",
+                "street_name": "Zephyr",
+                "occupancy": None,
+                "city": "Bay Fernwood",
+                "region1": "MI",
+                "postal_code": "12345",
+                "line1": "742 Zephyr St",
+                "line2": "",
+            },
+        ),
+        (
+            "1600 Larkspur Parkway, Mount Amberly, CA 12345",
+            {
+                "street_number": "1600",
+                "street_type": "Parkway",
+                "street_name": "Larkspur",
+                "city": "Mount Amberly",
+                "region1": "CA",
+                "postal_code": "12345",
+                "line1": "1600 Larkspur Parkway",
+                "line2": "",
+            },
+        ),
+        (
+            "4 Bay St, Green Bay, WI 54301",
+            {
+                "street_number": "4",
+                "street_type": "St",
+                "street_name": "Bay",
+                "city": "Green Bay",
+                "region1": "WI",
+                "postal_code": "54301",
+                "line1": "4 Bay St",
+                "line2": "",
+            },
+        ),
+        (
+            "Wonderville Nursing and Rehab 742 Zephyr St Bay Fernwood MI 12345",
+            {
+                "street_number": "742",
+                "street_type": "St",
+                "street_name": "Zephyr",
+                "city": "Bay Fernwood",
+                "region1": "MI",
+                "postal_code": "12345",
+            },
+        ),
+        (
+            "1600 Larkspur Parkway Mount Amberly CA 12345",
+            {
+                "street_number": "1600",
+                "street_type": "Parkway",
+                "street_name": "Larkspur",
+                "city": "Mount Amberly",
+                "region1": "CA",
+                "postal_code": "12345",
+                "line1": "1600 Larkspur Parkway",
+                "line2": "",
+            },
+        ),
+        (
+            "4 Bay St Green Bay WI 54301",
+            {
+                "street_number": "4",
+                "street_type": "St",
+                "street_name": "Bay",
+                "city": "Green Bay",
+                "region1": "WI",
+                "postal_code": "54301",
+                "line1": "4 Bay St",
+                "line2": "",
+            },
+        ),
+        (
+            "1 Wall Street Court, New York, NY 10005",
+            {
+                "street_number": "1",
+                "street_type": "Court",
+                "street_name": "Wall Street",
+                "city": "New York",
+                "region1": "NY",
+                "postal_code": "10005",
+                "line1": "1 Wall Street Court",
+                "line2": "",
+            },
+        ),
+        (
+            "2 Broadway Ave, Bay Shore, NY 11706",
+            {
+                "street_number": "2",
+                "street_type": "Ave",
+                "street_name": "Broadway",
+                "occupancy": None,
+                "city": "Bay Shore",
+                "region1": "NY",
+                "postal_code": "11706",
+                "line1": "2 Broadway Ave",
+                "line2": "",
+            },
+        ),
+        (
+            "100 N Main St, Lot 18, Bay Village, OH 44140",
+            {
+                "street_number": "100",
+                "street_type": "St",
+                "street_name": "N Main",
+                "occupancy": "Lot 18",
+                "city": "Bay Village",
+                "region1": "OH",
+                "postal_code": "44140",
+                "line1": "100 N Main St",
+                "line2": "Lot 18",
+            },
+        ),
+        (
+            "2817 PETERS ROAD BAY 52, Amazeville, AL 12345",
+            {
+                "street_number": "2817",
+                "street_type": "ROAD",
+                "street_name": "PETERS",
+                "occupancy": "BAY 52",
+                "city": "Amazeville",
+                "region1": "AL",
+                "postal_code": "12345",
+                "line1": "2817 PETERS ROAD",
+                "line2": "BAY 52",
+            },
+        ),
+        (
+            "6325F OPAL HEIGHTS BL\nSAN FRANCISCO CA 94131",
+            {
+                "street_number": "6325F",
+                "street_type": "BL",
+                "street_name": "OPAL HEIGHTS",
+                "occupancy": None,
+                "city": "SAN FRANCISCO",
+                "region1": "CA",
+                "postal_code": "94131",
+                "line1": "6325F OPAL HEIGHTS BL",
+                "line2": "",
+            },
+        ),
+        (
+            "2744W GRANDIOSE WAY#100\nLEHI UT 84043",
+            {
+                "street_number": "2744W",
+                "street_type": "WAY",
+                "street_name": "GRANDIOSE",
+                "occupancy": "#100",
+                "city": "LEHI",
+                "region1": "UT",
+                "postal_code": "84043",
+                "line1": "2744W GRANDIOSE WAY",
+                "line2": "#100",
+            },
+        ),
+        (
+            "532 N 9TH STREET\nST. LOUIS, MO 63101",
+            {
+                "street_number": "532",
+                "street_name": "N 9TH",
+                "street_type": "STREET",
+                "post_direction": None,
+                "city": "ST. LOUIS",
+                "region1": "MO",
+                "postal_code": "63101",
+                "line1": "532 N 9TH STREET",
+                "line2": "",
+            },
+        ),
+    ],
+)
+def test_parse_address(input: str, expected):
+    ap = parser.AddressParser(country="US")
+    if result := ap.parse(input):
+        expected = expected or {}
+        received = {key: getattr(result[0], key) for key in expected}
+        assert received == expected
+    else:
+        assert expected is None
+
+
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        (
+            "1111, 101-3RD STR SW, CALGARY, ALBERTA, T2P3E6",
+            {
+                "street_number": "1111",
+                "street_type": "STR",
+                "street_name": "101-3RD",
+                "occupancy": None,
+                "city": "CALGARY",
+                "region1": "ALBERTA",
+                "postal_code": "T2P3E6",
+            },
+        ),
+    ],
+)
+def test_parse_address_canada(input: str, expected):
+    ap = parser.AddressParser(country="CA")
+    if result := ap.parse(input):
+        expected = expected or {}
+        received = {key: getattr(result[0], key) for key in expected}
+        assert received == expected
+    else:
+        assert expected is None
+
+
+def test_parse_po_box():
+    ap = parser.AddressParser(country="US")
+
+    address = ap.parse_single_street(
+        "ELECTRIC WIRING SYSTEMS INC, 1111 ASHLEY STREET, P.O. BOX 99999, "
+        "BOWLING GREEN, KY 444444-9999"
+    )[0]
+    assert address.po_box == "P.O. BOX 99999"
+
+    address = ap.parse_single_street("P.O. BOX 99999, One Velvet Drive")[0]
+    assert address.po_box == "P.O. BOX 99999"
+
+    address = ap.parse_single_street("P.O. BOX 99999")[0]
+    assert address.po_box == "P.O. BOX 99999"
+
+    address = ap.parse_single_street(
+        "IRS OGDEN PAYROLL CENTER MAIL STOP 9999 P.O. 1234 OGDEN UT 84409"
+    )[0]
+    assert address.po_box == "P.O. 1234"

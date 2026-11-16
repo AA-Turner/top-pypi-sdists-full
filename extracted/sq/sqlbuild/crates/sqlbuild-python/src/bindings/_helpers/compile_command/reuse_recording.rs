@@ -16,9 +16,6 @@ use sqlbuild_cache::project_reuse::models::RecordedArtifact;
 use sqlbuild_core::posix_path::main::posix_abspath::posix_abspath;
 use sqlbuild_host::entries::models::{FacadeHost, UserCodeHost};
 
-use crate::bindings::_helpers::boundary::python_calls::{
-    KeywordArguments, call_with, imported, keywords,
-};
 use crate::bindings::_helpers::compile_command::constants::{
     BYTES_PER_MEBIBYTE, REUSE_BYPASS_TIMING, REUSE_CHECK_TIMING, REUSE_HIT_TIMING,
     REUSE_LOGGER_NAME, REUSE_MISS_TIMING, REUSE_STORE_DONE_PREFIX, REUSE_STORE_NOTICE_BYTES,
@@ -28,8 +25,12 @@ use crate::bindings::_helpers::compile_command::reuse_attempt::{reuse_rules, wri
 use crate::bindings::_helpers::compile_outputs::reuse::{
     ArtifactRow, CompileRecordPy, NativeReuseAttempt, SettingsRow, artifact_digest,
 };
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::fields::field as native_field;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::boundary::main::imported::imported;
+use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::native_host::main::host_entry::host_entry;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
 
 const MISS_OUTCOME: &str = "miss";
 const HIT_OUTCOME: &str = "hit";
@@ -307,7 +308,7 @@ pub(crate) fn print_to<'py>(
 impl RecordedCompileOutput {
     /// Print one stderr result line, such as a note, and record it; a delta only records it.
     pub(crate) fn print_stderr_line(&self, line: Bound<'_, PyString>) -> PyResult<()> {
-        if crate::bindings::_helpers::compile_context::delta::injection().is_none() {
+        if sqlbuild_python_base::compile_context::main::delta::injection::injection().is_none() {
             print_to(line.py(), "stderr", &line)?;
         }
         self.locked().0.push(line.unbind());
@@ -386,7 +387,7 @@ fn module_paths(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
     let extra: Bound<'_, PyAny> = py
         .import("builtins")?
         .getattr("sorted")?
-        .call1((host::entry(py, UserCodeHost::MacroStoreModulePaths)?.call0()?,))?;
+        .call1((host_entry(py, UserCodeHost::MacroStoreModulePaths)?.call0()?,))?;
     for path in extra.try_iter()? {
         let path: Bound<'_, PyAny> = path?;
         if path.is_instance_of::<pyo3::types::PyString>() {
@@ -440,7 +441,7 @@ struct CompileFacts<'py> {
 fn record<'py>(facts: &CompileFacts<'py>) -> PyResult<bool> {
     let py: Python<'py> = facts.native.py();
     let settings: Bound<'_, PyAny> = call_with(
-        &host::entry(py, FacadeHost::ProviderSettingsInputs)?,
+        &host_entry(py, FacadeHost::ProviderSettingsInputs)?,
         &[(
             "settings_classes",
             native_field(&facts.input_reads, "settings_classes")?,
@@ -513,7 +514,9 @@ fn record<'py>(facts: &CompileFacts<'py>) -> PyResult<bool> {
         json_output: facts.json_output.extract()?,
         rules: reuse_rules(py)?,
     };
-    if let Some(mut capture) = crate::bindings::_helpers::compile_context::delta::take_capture() {
+    if let Some(mut capture) =
+        sqlbuild_python_base::compile_context::main::delta::take_capture::take_capture()
+    {
         capture.environment_names =
             native_field(&facts.input_reads, "environment_names")?.extract()?;
         let json_output: bool = facts.json_output.is_truthy()?;
@@ -526,7 +529,7 @@ fn record<'py>(facts: &CompileFacts<'py>) -> PyResult<bool> {
                 if let Ok(sections) = image.encode() {
                     pending = Some(sections);
                 }
-                crate::bindings::_helpers::compile_context::delta::set_pending_image(pending);
+                sqlbuild_python_base::compile_context::main::delta::set_pending_image::set_pending_image(pending);
             }
             Err(reason) => {
                 crate::bindings::_helpers::compile_command::reuse_attempt::reuse_debug(

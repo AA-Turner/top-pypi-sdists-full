@@ -135,6 +135,18 @@ _LIST_TITLES = {"fits": "adapters in your account that declare this pair:"}
 
 
 
+_LIST_LINES = {"counts": "cards a machine holds"}
+
+
+def _or(items: list) -> str:
+    """A list in words, as the gateway says one: "1", "1 or 4", "1, 2, 4 or 8"."""
+    said = [str(x) for x in items]
+    return said[0] if len(said) == 1 else f"{', '.join(said[:-1])} or {said[-1]}"
+
+
+
+
+
 
 _OWN_FLAGS = {
     (None, "robots_connected"): "add --force to delete it anyway",
@@ -164,6 +176,8 @@ _OWN_FLAGS = {
     ("gpu add", "snapshot_not_ready"): "seq gpu saved shows when it is ready",
     ("gpu add", "snapshot_not_found"): "seq gpu saved lists your snapshots",
     ("gpu saved", "snapshot_not_found"): "seq gpu saved lists your snapshots",
+
+    ("robot record", "record_off"): "turn its Record on: seq robot set <name> record=on",
 }
 
 
@@ -182,8 +196,9 @@ def _own_flags(exc: BaseException, command: str | None) -> str | None:
 
 def _report(exc: BaseException, command: str | None = None) -> int:
     """How every failed command ends, on stderr: `error[<code>]: <detail>`, the
-    lists the platform named (each under its title where one is known: _LIST_TITLES), a `hint:` line when there is
-    one and another in this CLI's own flags (_OWN_FLAGS), `request_id:` for a 500 — and the exit code of the code's
+    lists the platform named (each under its title where one is known: _LIST_TITLES, or on one line after what it is:
+    _LIST_LINES), a `hint:` line when there is one and another in this CLI's own flags (_OWN_FLAGS), `request_id:`
+    for a 500 — and the exit code of the code's
     row (1 internal, 2 the request, 3 the key, 4 not there or gone, 5 the state, 6 money, 7 worth retrying), so a script
     tells retry from give up without reading the text. A declaration error is the request's (2)."""
     from sequence_ai._core.error_codes import CODES
@@ -193,6 +208,9 @@ def _report(exc: BaseException, command: str | None = None) -> int:
     print(f"error[{code}]: {getattr(exc, 'message', None) or exc}", file=sys.stderr)
     for key, items in (getattr(exc, "details", None) or {}).items():
         if isinstance(items, list) and all(isinstance(x, (str, int, float)) for x in items):
+            if items and key in _LIST_LINES:
+                print(f"{_LIST_LINES[key]}: {_or(items)}", file=sys.stderr)
+                continue
             if items and key in _LIST_TITLES:
                 print(_LIST_TITLES[key], file=sys.stderr)
             for x in items:
@@ -506,7 +524,7 @@ def _cmd_billing(args: argparse.Namespace) -> int:
 
 
 def _cmd_robot(args: argparse.Namespace) -> int:
-    """`seq robot create | list | show | set | rm | key`: a robot of your own (seq/robot_cli.py), and one robot's live
+    """`seq robot create | list | show | set | record | rm | key`: a robot of your own (seq/robot_cli.py), and one robot's live
     detail (seq/machines_cli.py)."""
     from seq import machines_cli, robot_cli
 
@@ -518,6 +536,8 @@ def _cmd_robot(args: argparse.Namespace) -> int:
         return _cmd_platform(args, machines_cli.robot_show, args.name, out=args.out)
     if args.robot_cmd == "set":
         return _cmd_platform(args, robot_cli.robot_set, args.name, robot_cli.parse_pairs(args.pairs))
+    if args.robot_cmd == "record":
+        return _cmd_platform(args, robot_cli.robot_record, args.name, out=args.out)
     if args.robot_cmd == "rm":
         return _cmd_platform(args, robot_cli.robot_rm, args.name)
     if args.robot_cmd == "key":
@@ -563,16 +583,11 @@ def _cmd_gpu(args: argparse.Namespace) -> int:
 
 
 def _cmd_record(args: argparse.Namespace) -> int:
-    """`seq record add | list | revoke`: the keys your own recorder of a policy's steps holds (seq/record_cli.py)."""
-    from seq import record_cli
+    """`seq record add | list | revoke`: gone - a robot's Record is a switch, and `seq robot record <name>` records it.
+    Said, whatever it was given (seq/robot_cli.RECORD_GONE)."""
+    from seq import robot_cli
 
-    if args.record_cmd == "add":
-        return _cmd_platform(args, record_cli.record_add, args.policy, expires=args.expires)
-    if args.record_cmd == "list":
-        return _cmd_platform(args, record_cli.record_list)
-    if args.record_cmd == "revoke":
-        return _cmd_platform(args, record_cli.record_revoke, args.key)
-    raise InvalidRequest(f"seq record {args.record_cmd} is not a command; `seq record --help` lists them")
+    raise InvalidRequest(robot_cli.RECORD_GONE)
 
 
 def _cmd_key(args: argparse.Namespace) -> int:

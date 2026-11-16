@@ -1,31 +1,32 @@
 import asyncio
+import importlib.metadata
 import sys
 import threading
 from asyncio import QueueEmpty as AsyncQueueEmpty
 from asyncio import QueueFull as AsyncQueueFull
 from collections import deque
+from collections.abc import Callable
 from heapq import heappop, heappush
 from queue import Empty as SyncQueueEmpty
 from queue import Full as SyncQueueFull
 from time import monotonic
-from typing import Callable, Generic, Optional, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 if sys.version_info >= (3, 13):
     from asyncio import QueueShutDown as AsyncQueueShutDown
     from queue import ShutDown as SyncQueueShutDown
 else:
-    class QueueShutDown(Exception):
-        pass
+    # Python 3.11-3.12 stdlib queues have no shutdown support,
+    # provide compatible replacements.
 
-    AsyncQueueShutDown = QueueShutDown
+    class AsyncQueueShutDown(Exception):
+        """Raised when put/get is called on a shut-down async queue."""
 
-    class ShutDown(Exception):
-        pass
-
-    SyncQueueShutDown = ShutDown
+    class SyncQueueShutDown(Exception):
+        """Raised when put/get is called on a shut-down sync queue."""
 
 
-__version__ = "2.0.0"
+__version__ = importlib.metadata.version("janus")
 __all__ = (
     "Queue",
     "PriorityQueue",
@@ -42,8 +43,18 @@ __all__ = (
 )
 
 
+class SupportsLT(Protocol):
+    def __lt__(self, other: Any) -> bool: ...
+
+
+class SupportsGT(Protocol):
+    def __gt__(self, other: Any) -> bool: ...
+
+
+RichComparableT = TypeVar("RichComparableT", bound=SupportsGT | SupportsLT)
+
 T = TypeVar("T")
-OptFloat = Optional[float]
+OptFloat = float | None
 
 
 class BaseQueue(Protocol[T]):
@@ -72,7 +83,6 @@ class BaseQueue(Protocol[T]):
 
 
 class SyncQueue(BaseQueue[T], Protocol[T]):
-
     def put(self, item: T, block: bool = True, timeout: OptFloat = None) -> None: ...
 
     def get(self, block: bool = True, timeout: OptFloat = None) -> T: ...
@@ -89,12 +99,9 @@ class AsyncQueue(BaseQueue[T], Protocol[T]):
 
 
 class Queue(Generic[T]):
-    _loop: Optional[asyncio.AbstractEventLoop] = None
+    _loop: asyncio.AbstractEventLoop | None = None
 
     def __init__(self, maxsize: int = 0) -> None:
-        if sys.version_info < (3, 10):
-            self._loop = asyncio.get_running_loop()
-
         self._maxsize = maxsize
         self._is_shutdown = False
 
@@ -111,9 +118,6 @@ class Queue(Generic[T]):
         self._sync_tasks_done_waiting = 0
 
         self._async_mutex = asyncio.Lock()
-        if sys.version_info[:3] == (3, 10, 0):
-            # Workaround for Python 3.10 bug, see #358:
-            getattr(self._async_mutex, "_get_loop", lambda: None)()
         self._async_not_empty = asyncio.Condition(self._async_mutex)
         self._async_not_empty_waiting = 0
         self._async_not_full = asyncio.Condition(self._async_mutex)
@@ -696,7 +700,7 @@ class _AsyncQueueProxy(AsyncQueue[T]):
         self._parent.shutdown(immediate)
 
 
-class PriorityQueue(Queue[T]):
+class PriorityQueue(Queue[RichComparableT]):
     """Variant of Queue that retrieves open entries in priority order
     (lowest first).
 
@@ -705,15 +709,15 @@ class PriorityQueue(Queue[T]):
     """
 
     def _init(self, maxsize: int) -> None:
-        self._heap_queue: list[T] = []
+        self._heap_queue: list[RichComparableT] = []
 
     def _qsize(self) -> int:
         return len(self._heap_queue)
 
-    def _put(self, item: T) -> None:
+    def _put(self, item: RichComparableT) -> None:
         heappush(self._heap_queue, item)
 
-    def _get(self) -> T:
+    def _get(self) -> RichComparableT:
         return heappop(self._heap_queue)
 
 

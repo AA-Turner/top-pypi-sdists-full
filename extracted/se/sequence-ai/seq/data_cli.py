@@ -1,8 +1,9 @@
 """
 `seq policy data export` — field data from a deployment's real robots, for fine-tuning.
 
-In one sentence: each robot's Record (`seq robot set <name> record=on`, seq/robot_cli.py) has it, or its workers, keep
-every episode whole - each step's observation as the robot sent it, frames and all, each act's answer, and what the
+What the platform kept is read until its retention ends: from sequence-ai 0.60 it keeps nothing new - a robot's Record
+says its steps may be recorded, by you (`seq robot record <name>`). In one sentence: each robot's Record had it, or its
+workers, keep every episode whole - each step's observation as the robot sent it, frames and all, each act's answer, and what the
 policy kept in episode.state at its end → robots label how an episode went with `policy.label(success=...)` →
 `seq policy data export <name> --format lerobot --out DIR` downloads the kept files through the platform and writes a
 LeRobot v3.0 dataset: a frame for every step a robot observed (policy.observe) - its marked items (sequence_ai.Video,

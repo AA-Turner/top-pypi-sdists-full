@@ -186,77 +186,28 @@ static int value_ci_eq(const Py_UCS4 *value, Py_ssize_t value_len, const char *t
     return 1;
 }
 
-static int is_html_integration(const th_node *node) {
-    if (node->ns == TH_NS_SVG) {
-        return node->atom == TH_TAG_FOREIGNOBJECT || node->atom == TH_TAG_DESC || node->atom == TH_TAG_TITLE;
-    }
-    /* annotation-xml is an HTML integration point only when its encoding attribute is an ASCII
-       case-insensitive match for exactly text/html or application/xhtml+xml. Only foreign nodes
-       reach here after the html case, so a non-svg node is always mathml. */
-    if (node->ns == TH_NS_MATHML /* GCOVR_EXCL_BR_LINE */ && node->atom == TH_TAG_ANNOTATION_XML) {
-        for (Py_ssize_t index = 0; index < node->attr_count; index++) {
-            const th_node_attr *attr = &node->attrs[index];
-            if (attr->name_atom == TH_ATTR_ENCODING && attr->value != NULL &&
-                (value_ci_eq(attr->value, attr->value_len, "text/html") ||
-                 value_ci_eq(attr->value, attr->value_len, "application/xhtml+xml"))) {
-                return 1;
-            }
+/* annotation-xml is an HTML integration point only when its start tag had an encoding attribute that is an ASCII
+   case-insensitive match for exactly text/html or application/xhtml+xml. */
+static int annotation_xml_encoding_is_html(const th_node *node) {
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        TH_WORK_STEP();
+        const th_node_attr *attr = &node->attrs[index];
+        if (attr->name_atom == TH_ATTR_ENCODING && attr->value != NULL &&
+            (value_ci_eq(attr->value, attr->value_len, "text/html") ||
+             value_ci_eq(attr->value, attr->value_len, "application/xhtml+xml"))) {
+            return 1;
         }
     }
     return 0;
 }
 
-/* HTML start tags that break out of foreign content back into HTML parsing. */
-static int is_foreign_breakout(uint16_t atom) {
-    switch (atom) {
-    case TH_TAG_B:
-    case TH_TAG_BIG:
-    case TH_TAG_BLOCKQUOTE:
-    case TH_TAG_BODY:
-    case TH_TAG_BR:
-    case TH_TAG_CENTER:
-    case TH_TAG_CODE:
-    case TH_TAG_DD:
-    case TH_TAG_DIV:
-    case TH_TAG_DL:
-    case TH_TAG_DT:
-    case TH_TAG_EM:
-    case TH_TAG_EMBED:
-    case TH_TAG_H1:
-    case TH_TAG_H2:
-    case TH_TAG_H3:
-    case TH_TAG_H4:
-    case TH_TAG_H5:
-    case TH_TAG_H6:
-    case TH_TAG_HEAD:
-    case TH_TAG_HR:
-    case TH_TAG_I:
-    case TH_TAG_IMG:
-    case TH_TAG_LI:
-    case TH_TAG_LISTING:
-    case TH_TAG_MENU:
-    case TH_TAG_META:
-    case TH_TAG_NOBR:
-    case TH_TAG_OL:
-    case TH_TAG_P:
-    case TH_TAG_PRE:
-    case TH_TAG_RUBY:
-    case TH_TAG_S:
-    case TH_TAG_SMALL:
-    case TH_TAG_SPAN:
-    case TH_TAG_STRONG:
-    case TH_TAG_STRIKE:
-    case TH_TAG_SUB:
-    case TH_TAG_SUP:
-    case TH_TAG_TABLE:
-    case TH_TAG_TT:
-    case TH_TAG_U:
-    case TH_TAG_UL:
-    case TH_TAG_VAR:
-        return 1;
-    default:
-        return 0;
+static int is_html_integration(const th_node *node) {
+    if (node->ns == TH_NS_SVG) {
+        return node->atom == TH_TAG_FOREIGNOBJECT || node->atom == TH_TAG_DESC || node->atom == TH_TAG_TITLE;
     }
+    /* The dispatcher asks for every token, so insert_foreign settled the annotation-xml case from the start tag: a scan
+       of the attributes here costs attributes x tokens. */
+    return node->html_integration;
 }
 
 /* The case-folding buffer for an SVG element name; names longer than this skip
@@ -280,6 +231,8 @@ static th_node *insert_foreign(th_tree *tree, th_token *token, uint8_t ns) {
                   (ns == TH_NS_SVG &&
                    (node->atom == TH_TAG_FOREIGNOBJECT || node->atom == TH_TAG_DESC || node->atom == TH_TAG_TITLE));
     node->tag_flags = special ? TH_TAG_SPECIAL : 0;
+    node->html_integration =
+        ns == TH_NS_MATHML && node->atom == TH_TAG_ANNOTATION_XML && annotation_xml_encoding_is_html(node);
     /* reset_insertion_mode matches the html atom without its namespace, so re-parsing the output can take a foreign
        <html> for the root and open head/body under it */
     tree->reparse_hazard |= node->atom == TH_TAG_HTML;
@@ -306,7 +259,8 @@ static th_node *insert_foreign(th_tree *tree, th_token *token, uint8_t ns) {
                 lower[index] = (char)node->text[index];
             }
             const char *mixed = svg_adjust_name(lower, node->text_len);
-            if (mixed != NULL) {
+            /* a name wider than one byte can truncate onto an ASCII letter; its atom keeps the source spelling */
+            if (mixed != NULL && token->name.kind == PyUnicode_1BYTE_KIND) {
                 Py_ssize_t mlen = (Py_ssize_t)strlen(mixed);
                 Py_UCS4 *adjusted = arena_alloc(tree, mlen * (Py_ssize_t)sizeof(Py_UCS4));
                 if (adjusted != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
@@ -322,22 +276,10 @@ static th_node *insert_foreign(th_tree *tree, th_token *token, uint8_t ns) {
     return node;
 }
 
-static int token_has_attr(const th_token *token, const char *name) {
-    Py_ssize_t nlen = (Py_ssize_t)strlen(name);
-    for (Py_ssize_t index = 0; index < token->attr_count; index++) {
-        const th_buf *aname = &token->attrs[index].name;
-        if (aname->len == nlen && aname->kind == PyUnicode_1BYTE_KIND && memcmp(aname->data, name, (size_t)nlen) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 static void pop_foreign_elements(th_tree *tree) {
-    while (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: the html root keeps the stack nonempty */
+    while (tree->open_len > 1) {
         th_node *cur = current_node(tree);
-        if (cur->ns == TH_NS_HTML || is_mathml_text_integration(cur) || is_html_integration(cur) ||
-            cur == tree->fragment_root) {
+        if (cur->ns == TH_NS_HTML || is_mathml_text_integration(cur) || is_html_integration(cur)) {
             return;
         }
         stack_pop(tree);

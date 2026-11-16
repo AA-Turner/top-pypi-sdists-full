@@ -65,6 +65,7 @@ target_link_libraries(windows-emulator-test PRIVATE
   gtest
   gtest_main
   windows-emulator
+  windows-gdb-stub
   backend-selection
   gpu-bridge-protocol
   vulkan-bridge-marshal
@@ -75,6 +76,10 @@ target_link_libraries(windows-emulator-test PRIVATE
 if (SOGEN_ENABLE_FEX)
   target_compile_definitions(windows-emulator-test PRIVATE SOGEN_ENABLE_FEX=1)
   target_link_libraries(windows-emulator-test PRIVATE fex-emulator)
+endif()
+
+if(SOGEN_ENABLE_SECCOMP)
+  target_compile_definitions(windows-emulator-test PRIVATE SOGEN_ENABLE_SECCOMP=1)
 endif()
 
 if(EMSCRIPTEN)

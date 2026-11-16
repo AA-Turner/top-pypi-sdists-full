@@ -202,7 +202,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .utilities import utils
 from .options_parameters import CMAOptions, cma_default_options
-from . import warnings_and_exceptions as _cma_warnings
+from . import warnings_and_exceptions as _we
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
 from .boundary_handler import BoundNone, BoundPenalty, BoundTransform
@@ -237,7 +237,13 @@ tell_constraints_archives = True
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
-_record_hsig = False
+mean_towards_boundary_factor = False  # next default: -0.95
+'''Drag the mean by `mean_towards_boundary_factor` towards the pre_bound,
+   in the coordinates where the mean is outside the pre-bounds of the
+   `BoundTransform` boundary handler. When the value is negative, this is
+   only applied to integer variables. If `mean_towards_boundary_factor` is
+   small (in particular < 0.2 and > 0), nonconvergence has been
+   observed.'''
 
 use_archives = "not anymore in effect"
 archive_sent_solutions = sys.version_info >= (2,6)
@@ -262,11 +268,83 @@ round_integer_variables_revert_changes = True
    variables are rounded at the end of `ask`. Renamed from
    `ask_phenotype_archive_revert_changes` since v4.3.1.'''
 
+_record_hsig = False
+
 _redistribute_sigma_above = 1e9
-'''when ``..._above > 1`` and `sigma` becomes too large, push variance from `sigma` to `sigma_vec`'''
+'''when ``sigma > ..._above * sigma0`` and ``..._above > 1`` push variance to `sm`'''
+_redistribute_sigma_vec_above = 1e3
+'''when ``min(sigma_vec) > ..._above > 1``, push variance to `sigma`'''
+
+_alleviate_conditioning_condition = 1e12
+'''compute linear transformation and set C=I when cond(C) is above'''
+_alleviate_conditioning_in_coordinates_condition = 1e8
+'''set C to its correlation matrix and change sigma_vec accordingly when cond(C) is above'''
 
 TPA_dimension = 300
 '''use TPA instead of CSA when dimension>=TPA_dimension'''
+
+def _set_popsize_change_sigma_callback(es, old_mueff=None, **kwargs):
+    """Default callback for `set_popsize` for changing `es.sigma` according
+
+    to the change of the effective parent population size mueff. Uses attributes
+    ``.sp.mueff`` and ``.N`` of `es` and sets ``.sigma``.
+
+    See Nishida and Akimoto 2018, (17). The c^2 for (18) is computed by a simple
+    formula fitted to the estimate with default weights::
+
+        res = {}  # use mueff as key
+        for lam in [2, 5, 10, 30, 100, 300, 1000, 3000]:
+            w = cma.recombination_weights.RecombinationWeights(lam)
+            vals = [sum(-aa(sorted(np.random.randn(lam))) * w) for _ in range(10000)]
+            res[w.mueff] = float(np.mean(vals)) / 2
+
+    1.25 is the limit progress coefficient for ``lam to infty`` and optimal
+    positive weights, we use 1.245 here. For finite dimension, both sigma and
+    progress tend to be larger?
+
+    This method was not thoroughly tested (yet).
+    """
+    if old_mueff is None:
+        warnings.warn("`_set_popsize_change_sigma_callback` not effective"
+                      " because old_mueff was `None`")
+    old_c2, c2 = [1.245**2 - (0.5 / (mu-0.5))**0.5 for mu in [old_mueff, es.sp.weights.mueff]]
+    es.sigma *= es.sp.weights.mueff / old_mueff * (
+            es.N - 1 + old_c2 * old_mueff) / (es.N - 1 + c2 * es.sp.weights.mueff)
+
+set_popsize_callbacks = _set_popsize_change_sigma_callback
+'''called at the end of `set_popsize`, can be a list of callables too'''
+
+adapt_sigma_state_attributes = ('_ps_updated_iteration', 'ps', 's')
+'''state attributes that are recovered after reinitialization by `set_popsize`'''
+
+# For the user to be assigned when desired. These are used once in
+# CMAEvolutionStrategy.__init__ to assign the respective class instance attributes
+_c1_dynamic = None         # return new c1 as a function of c1, dim, mueff, lam
+_cc_dynamic = None     # return new cc as a function of cc, c1, dim, mueff, lam
+_cmu_dynamic = None  # return new cmu as a function of cmu, c1, dim, mueff, lam
+c1_dynamic_cc_expo = 0.5  # parameter for cc_from_c1
+'''exponent for the cc change when c1 is changed'''
+def _cc_from_c1(cc, c1, c1_old, dimension, es):
+    """return new cc when c1 changed, where `cc` is the default cc value.
+
+    This function is assigned as a class attribute of `cma.CMAEvolutionStrategy`
+    and called only if ``.c1_dynamic is not None and .cc_dynamic is None`` after
+    `c1` was changed.
+
+    The function can be reassigned, before class instantiation, to change the
+    behavior, for example when no change of `cc` is desired, it may simply
+    return cc like::
+
+        cma.evolution_strategy._cc_from_c1 = lambda cc, *args, **kwargs: cc
+
+    """
+    # return cc  # in case we don't want to change cc
+    if c1_old > 0:
+        cc *= (c1 / c1_old)**c1_dynamic_cc_expo  # this may be "wrong" if c1/c1_old>>1
+    else:
+        cc = c1**0.5  # alternatively we could not change cc here?
+    return Mh.minmax(cc, 1 / dimension / 2, c1**0.5)
+
 
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
@@ -1005,12 +1083,155 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         return self.sp.popsize
 
-    # this is not compatible with python2.5:
-    #     @popsize.setter
-    #     def popsize(self, p):
-    #         """popsize cannot be set (this might change in future)
-    #         """
-    #         raise RuntimeError("popsize cannot be changed")
+    def set_popsize(self, popsize, dimension=None, CMA_recombination_weights=None):
+        """reset popsize and recombination weights and parameters depending on these.
+
+        This method is still experimental and versatile.
+
+        `set_popsize` calls the module variable `set_popsize_callbacks` which
+        may be a `callable` or a `list` of `callable`, for example called like
+        ``callback(self, old_popsize)``. The default changes ``self.sigma``
+        depending on ``self.sp.weights.mueff``, ``old_mueff``, and `dimension`
+        by default ``self.N``.
+
+        The recombination weights option is recomputed based on the
+        `CMA_recombination_weights` parameter, the original option value is
+        discarded.
+
+        Details:
+
+        `.reset_options` may be called before calling `set_popsize`, for example
+        (though unusual) to set `'CMA_mu'`.
+
+        Options ``'maxiter', 'tolstagnation', 'CMA_mirrors'`` depend by default
+        on `popsize` but are not changed for the time being.
+
+        `set_popsize` re-initializes the step-size adaptation class instance via
+        ``self.adapt_sigma.initialize_settings(self, reset=True)`` if possible,
+        otherwise via ``self.adapt_sigma.initialize(self)`` where it preserves
+        the attribute values of attributes given in `global`
+        ``adapt_sigma_state_attributes`` in case the attribute exists.
+
+        >>> import cma
+        >>> 
+        >>> def callback(es):
+        ...     es.set_popsize(10 if es.countiter % 2 else 200)
+        >>> 
+        >>> cma.warnings_and_exceptions.max_warnings["set_popsize never tested"] = 0
+        >>> cma.warnings_and_exceptions.max_warnings["_finalize_reset_params never tested"] = 0
+        >>> es = cma.CMA(5 * [1.5], 2, {'maxiter': 75, 'verbose': -9})
+        >>> es = es.optimize(cma.ff.rastrigin, callback=callback)
+        >>> assert es.popsize in (10, 200), es.popsize
+        >>> assert es.result.fbest < 11
+
+        This is partly a copy-paste from `__init__`.
+    """
+        popsize = int(popsize+1/2)
+        if dimension is None:
+            dimension = self.N
+        if popsize == self.popsize and dimension == self.N:
+            return
+        if _we.deliver_warning(self, "set_popsize never tested"):
+            warnings.warn("`set_popsize` and `_set_popsize_change_sigma_callback2`"
+                        " were never thoroughly tested."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
+        old_popsize = self.popsize
+        old_mueff = self.sp.weights.mueff
+        self.opts['popsize'] = popsize
+        self.opts['popsize_factor'] = 1
+        self.opts['CMA_recombination_weights'] = CMA_recombination_weights
+        self.sp = options_parameters.CMAParameters(dimension, self.opts, verbose=False)
+        assert self.sp.weights.lambda_ == popsize
+        # self.sp.set(self.opts, ccovfac=self.opts['CMA_on'], verbose=False)
+        # assert sp == self.sp.__dict__, (sp, self.sp.__dict__)
+        # assert sp is not self.sp.__dict__, (sp, self.sp.__dict__)
+
+        # TODO: factor out the remaining as `_reset_parameters`? Partly done with _finalize_reset_params.
+
+        # in __init__: adapt_sigma = adapt_sigma(dimension=dimension, popsize=self.sp.popsize)
+        # we could check self.opts['AdaptSigma'] for a refined decision
+        try:
+            self.adapt_sigma.initialize_settings(self, reset=True)
+        except AttributeError:
+            if _we.deliver_warning(self, "no attribute .adapt_sigma.initialize_settings"):
+                warnings.warn("`self.adapt_sigma` of type {0} has no attribute `initialize_settings`"  # noqa: UP030, UP032
+                              .format(type(self.adapt_sigma))
+                              + _we.deliver_warning.message())
+            vars = dict(self.adapt_sigma.__dict__)
+            self.adapt_sigma.initialize(self)
+            for name in adapt_sigma_state_attributes:
+                if name in vars:
+                    setattr(self.adapt_sigma, name, vars[name])
+
+        if len(self.opts['integer_variables']) and not np.isscalar(self['minstd']):
+            old_lower_bound = options_parameters.integer_std_lower_bound(
+                    dimension, old_mueff, len(self.opts['integer_variables']))
+            new_lower_bound = options_parameters.integer_std_lower_bound(
+                    dimension, self.sp.weights.mueff, len(self.opts['integer_variables']))
+            for i in self.opts['integer_variables']:
+                if np.isclose(self.opts['minstd'][i], old_lower_bound):
+                    self.opts['minstd'][i] = new_lower_bound
+
+        self._finalize_reset_params()
+
+        for c in _callable_to_list(set_popsize_callbacks):
+            c(self, old_popsize=old_popsize, old_mueff=old_mueff)
+
+    def _finalize_reset_params(self):
+        """versatile, to be called after ``self.sp`` has been (re-)set.
+
+        Finalize the negative weights of ``self.sp.weights:RecombinationWeights``
+        and reset the lazy update gap of ``self.sm:GaussFullSampler``.
+
+        Parameters can be reset like ``self.sp =
+        options_parameters.CMAParameters(self.N, self.opts, verbose=False)``.
+
+        Details: This code is mainly copy-pasted from `__init__`, however
+        modified such that direct reuse in `__init__` is not immediate. It is
+        only used once and the interface and functionality may change depending
+        on future use cases. It may not be sufficient after ``self.sp`` was
+        reset.
+    """
+        dimension, popsize = self.N, self.sp.popsize
+        if _we.deliver_warning(self, "_finalize_reset_params never tested"):
+            warnings.warn("`_finalize_reset_params` was never thoroughly tested."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
+        # copy-paste from __init__
+        if self.opts['CMA_diagonal']:  # is True or > 0
+            if self.opts['CMA_diagonal'] is True:
+                self.sp.weights.finalize_negative_weights(dimension,
+                                                          self.sp.c1_sep,
+                                                          self.sp.cmu_sep,
+                                                          pos_def=False)
+            # elif self.opts['CMA_diagonal'] == 1:
+            #     raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
+            #     Use either `True` or an iteration number > 1 up to which C should be diagonal.
+            #     Only `True` has linear memory demand.""")
+            else:  # would ideally be done when switching from diagonal to full
+                self.sp.weights.finalize_negative_weights(
+                                dimension, self.sp.c1, self.sp.cmu)
+
+        if not isinstance(self.sm, sampler.GaussStandardConstant):
+            try:
+                # if this works, we are probably fine
+                p = self.sm.parameters(mueff=self.sp.weights.mueff, lam=popsize)
+            except Exception as e:
+                raise NotImplementedError(
+                    "setting the popsize is only implemented for samplers allowing a"  # noqa: UP030, UP032
+                    "\n  method call like ``.parameters(mueff=mueff, lam=lam)``, like"
+                    "\n  `GaussFullSampler`, found type {0} raising {1}"
+                    .format(type(self.sm), e))
+            if isinstance(self.sm, sampler.GaussFullSampler):
+                self.sm.lazy_update_gap = (
+                            # copy-paste from __init__
+                            1. / (self.sp.c1 + self.sp.cmu + 1e-23) / dimension / 10
+                            if self.opts['updatecovwait'] is None
+                            else self.opts['updatecovwait'])
+            self.sp.weights.finalize_negative_weights(dimension,
+                                                      p.get('c1', self.sp.c1),
+                                                      p.get('cmu', self.sp.cmu))
 
     def stop(self, check=True, ignore_list=(), check_in_same_iteration=False,
              get_value=None):
@@ -1042,7 +1263,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...     es.stop(get_value='tolx')  # triggers zero iteration warning
         ...     assert len(w) == 1, [str(wi) for wi in w]
         >>> es = es.optimize(cma.ff.sphere, iterations=4)
-        >>> assert 1e3 < es.stop(get_value='tolx') < 1e4, es.stop(get_value='tolx')
+        >>> assert 1e3 < es.stop(get_value='tolx') < 1.2e4, es.stop(get_value='tolx')
         >>> assert es.stop() == {}
         >>> assert es.stop(get_value='catch 22') is None
 
@@ -1068,8 +1289,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         `options` is for consistency with `fmin2` options and is only
         in effect if ``inopts is None``.
         """
-        _cma_warnings.filterwarning('once',
-                                    category=_cma_warnings.NeverTestedWarning)
+        _we.filterwarning('once', category=_we.NeverTestedWarning)
         if options and inopts is None:
             inopts = options
         del options
@@ -1096,15 +1316,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.N_pheno = len(self.x0)
 
         if utils.is_str(sigma0):
-            raise ValueError("sigma0 must be a scalar, a string like '{0}' is no longer permitted".format(sigma0))
+            raise ValueError("sigma0 must be a scalar, a string like '{0}' is no longer permitted".format(sigma0))  # noqa: UP030, UP032
             # self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
         if np.size(sigma0) != 1 or np.shape(sigma0):
-            raise ValueError('input argument sigma0 was {0} but must be (or evaluate to) a scalar,'
-                             ' use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
+            raise ValueError('input argument sigma0 was {0} but must be (or evaluate to)'  # noqa: UP030, UP032
+                             ' a scalar, use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
                              ' different sigmas in each coordinate are in order.'
                              .format(sigma0))
         self.sigma0 = float(sigma0)
         self.sigma = self.sigma0  # goes to inialize
+        self._sigma_rescaled_by = 1
+        '''factor by which sigma has been rescaled'''
+        self._sigma_old = self.sigma  # not necessary, just making sure
 
         # extract/expand options
         N = self.N_pheno
@@ -1340,6 +1563,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if self.opts['CMA_sampler'] is None:
                 self.sm = sampler.GaussFullSampler(stds * np.ones(N),
                     lazy_update_gap=(
+                        # it would be more consistent to use p['c1'], p['cmu'] as below?
                         1. / (self.sp.c1 + self.sp.cmu + 1e-23) / self.N / 10
                         if self.opts['updatecovwait'] is None
                         else self.opts['updatecovwait']),
@@ -1361,16 +1585,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             " deviations are not supported by the current"
                             " sampler and hence ignored")
                     elif stds[0] != 1:
-                        utils.print_warning("""ignoring scaling factor %f
-    for sample distribution""" % stds[0])
+                        utils.print_warning("ignoring scaling factor %f for sample distribution" % stds[0])  # noqa: UP031
                     self.sm = self.opts['CMA_sampler'](N,
                                 **self.opts['CMA_sampler_options'])
             else:  # CMA_sampler is already initialized as class instance
                 self.sm = self.opts['CMA_sampler']
             if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
-                utils.print_warning("""statistical model sampler did
-    not evaluate to the expected type `%s` but to type `%s`. This is
-    likely to lead to an exception later on. """ % (
+                utils.print_warning("statistical model sampler did not evaluate "  # noqa: UP031
+                                "to the expected type `%s` but to type `%s`. "
+                                "\nThis is likely to lead to an exception later on. " % (
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
@@ -1458,6 +1681,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.median_previous = np.inf
         self.fit.median_got_worse = 0
         self.fit.flatfit_iterations = 0
+
+        # these are user-defined and may be assigned later too
+        self.c1_dynamic = _c1_dynamic
+        self.cc_dynamic = _cc_dynamic
+        self.cmu_dynamic = _cmu_dynamic
+        self.cc_from_c1 = _cc_from_c1
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
 
@@ -1561,7 +1790,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if found:
                 self.sigma_vec._init_(self.N)
                 if s == 0 or not np.isfinite(self.sigma_vec.scaling[i] * sb):
-                    warnings.warn('_stds_into_limits: sigmavec update omitted due to '
+                    warnings.warn('_stds_into_limits: sigmavec update omitted due to '  # noqa: UP030, UP032
                         'an inadmissible value s={0}, scaling[i]={1}, sb={2}, stds={3}'
                         .format(s, self.sigma_vec.scaling[i], sb, self.stds))
                 else:
@@ -1574,8 +1803,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             warnings.warn("Sampling standard deviation i={0}{4} at iteration {1}"
                             " multiplied by {2} to stds[{0}]={3}"
                             .format(i, self.countiter, ss, self.stds[i],
-                                    ' (and {0} others)'.format(len(warning_data) - 1
+                                    ' (and {0} others)'.format(len(warning_data) - 1  # noqa: UP030
                                     if len(warning_data) > 1 else '')))
+        if np.min(self.sigma_vec) > _redistribute_sigma_vec_above > 1:
+            fac = np.min(self.sigma_vec)
+            self.sigma *= fac
+            self.sigma_vec.scaling /= fac  # set min(sigma_vec) back to 1
+            self._sigma_old *= fac
+            self._sigma_rescaled_by *= fac
+
 
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
@@ -1639,7 +1875,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if not np.all(self.pc == 0):
                 warnings.warn("self.pc={0} != 0 may not be compatible with changed C"
                               .format(self.pc))
-        self.sm.update_now(-1)  # make B and D consistent with C
+        try:
+            self.sm.update_now(-1)  # make B and D consistent with C
+        except AttributeError:
+            pass  # sm probably doesn't need to be updated
         self._updateBDfromSM()
 
     # ____________________________________________________________
@@ -1719,10 +1958,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     "sampler attributes `B` and `D` are not present",
                                     "ask", "CMAEvolutionStrategy",
                                     self.countiter, maxwarns=1)
-            warnings.warn("the `gradf` argument to `ask` has not been thoroughly tested,"
-                "\n  consider to use ``es.inject(es.mean - delta * gradf(es.mean)``"
-                " with a large value for delta.",
-                category=_cma_warnings.NeverTestedWarning)
+            if _we.deliver_warning(self, "gradf argument never tested"):
+                warnings.warn("the `gradf` argument to `ask` has not been thoroughly tested,"
+                    "\n  consider to use ``es.inject(es.mean - delta * gradf(es.mean)``"
+                    " with a large value for delta."
+                    + _we.deliver_warning.message(),
+                    category=_we.NeverTestedWarning)
             try:
                 # see Hansen (2011), Injecting external solutions into CMA-ES
                 if not self.gp.islinear:
@@ -1801,13 +2042,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     grad_at_mean = grad_at_mean * gradgp + gradpen
 
                 # DONE: frozen variables break the code (e.g. at grad of map)
-                if self.opts['fixed_variables']:
+                if self.opts['fixed_variables'] and (
+                        _we.deliver_warning(self, "gradient with fixed vars never tested")):
                     warnings.warn("gradient with fixed variables was never tested, consider"
                         "\n  to implement a simple transformation of the objective instead"
-                        "\n  see `cma.fitness_transformations.FixVariables`",
-                        category=_cma_warnings.NeverTestedWarning)
+                        "\n  see `cma.fitness_transformations.FixVariables`."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
                 if len(grad_at_mean) != self.N:
-                    warnings.warn("gradient dimension={0}!={1}=genotype dimension."
+                    warnings.warn("gradient dimension={0}!={1}=genotype dimension."  # noqa: UP030, UP032
                                   "This will lead to an exception soon."
                                   .format(len(grad_at_mean), self.N))
                 v = self.sm.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
@@ -2683,7 +2926,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # fit.bndpen = self.boundary_handler.update(function_values, self)([s.unrepaired for s in solutions])
         fit.fit_plus_pen = np.asarray(fit.bndpen) + function_values
         fit.idx = np.argsort(fit.fit_plus_pen)
-        fit.fit = sorted(function_values)  # was: array(function_values)[fit.idx] which can falsely trigger tolflatfitness
+        fit.fit = [function_values[i] for i in fit.idx] if isinstance(function_values, list) else (
+                    list(np.asarray(function_values)[fit.idx]))
+        fit.fvals = sorted(function_values)  # was: array(function_values)[fit.idx] which can falsely trigger tolflatfitness, sorted becomes slightly slowish when len(.) > 1000
 
         # update output data TODO: this is obsolete!? However: need communicate current best x-value?
         # old: out['recent_x'] = self.gp.pheno(pop[0])
@@ -2777,7 +3022,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     'Set attribute `es.f0` to make initial elitism\n' +
                     'available or use cma.fmin.',
                     'tell', 'CMAEvolutionStrategy', self.countiter)
-            elif fit.fit[0] > self.f0:
+            elif fit.fvals[0] > self.f0:  # TODO maybe should be fit.fit[0] ?
                 x_elit = self.mean0.copy()
                 # self.clip_or_fit_solutions([x_elit], [0]) # just calls repair_genotype
                 self.random_rescale_to_mahalanobis(x_elit)
@@ -2840,6 +3085,39 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
+
+        _finalize_weights = self.countiter <= 1
+        if self.c1_dynamic is not None:
+            if not hasattr(self, '_c1_dynamic_last_value'):
+                self._c1_dynamic_last_value = c1
+            c1 = (self.c1_dynamic(self._c1_dynamic_last_value,
+                                  dimension=self.N, mueff=sp.weights.mueff, es=self)
+                  if callable(self.c1_dynamic) else self.c1_dynamic)
+            if c1 >= 1:
+                warnings.warn("c1 was set to {0} which will lead to an exception" # noqa: UP030, UP032
+                              .format(c1))
+            if self.cc_dynamic is None:
+                cc = self.cc_from_c1(cc, c1, self._c1_dynamic_last_value,
+                                     dimension=self.N, es=self)
+            _finalize_weights = _finalize_weights or (c1 != self._c1_dynamic_last_value)
+            self._c1_dynamic_last_value = c1
+        if self.cc_dynamic is not None:
+            if not hasattr(self, '_cc_dynamic_last_value'):
+                self._cc_dynamic_last_value = cc
+            cc = (self.cc_dynamic(self._cc_dynamic_last_value, c1=c1, 
+                                  dimension=self.N, mueff=sp.weights.mueff, es=self)
+                  if callable(self.cc_dynamic) else self.cc_dynamic)
+            self._cc_dynamic_last_value = cc
+        if self.cmu_dynamic is not None:
+            if not hasattr(self, '_cmu_dynamic_last_value'):
+                self._cmu_dynamic_last_value = cmu
+            cmu = (self.cmu_dynamic(self._cmu_dynamic_last_value,
+                                    c1=c1, dimension=self.N, mueff=sp.weights.mueff, es=self)
+                   if callable(self.cmu_dynamic) else self.cmu_dynamic)
+            _finalize_weights = _finalize_weights or (cmu != self._cmu_dynamic_last_value)
+            self._cmu_dynamic_last_value = cmu
+        if _finalize_weights:
+            sp.weights.finalize_negative_weights(self.N, c1, cmu, pos_def=not flg_diagonal)
 
         # now the real work can start
 
@@ -3025,6 +3303,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         if _redistribute_sigma_above > 1 and (
                 self.sigma > _redistribute_sigma_above * self.sigma0):
+            # TODO: we may want to check whether to push to sigma_vec instead of sm?
             try:
                 alpha = float(self.sigma / max(self.sm.variances)**0.5)
             except Exception:
@@ -3036,26 +3315,46 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     except Exception:
                         pass
                     else:  # change representation / "coordinate system"
-                        self.sigma /= alpha**0.5  # adjust only half
+                        self.sigma /= alpha**0.5  # adjust only half, sm multiplied a variance
                         self._sigma_old /= alpha**0.5  # semibug, fixed Sep 2025
-                        self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+                        self._sigma_rescaled_by /= alpha**0.5
                         self._updateBDfromSM()
 
         # TODO increase sigma in case of a plateau?
 
         # Uncertainty noise measurement is done on an upper level
 
-        if CMAOptions._stationary_sphere:
-            if callable(CMAOptions._stationary_sphere):
-                self.mean *= (CMAOptions._stationary_sphere(self.mean_old) /
-                              CMAOptions._stationary_sphere(self.mean))
-            else:
-                self.mean *= np.sqrt(sum(np.square(self.mean_old)) /
-                                     sum(np.square(self.mean)))
-
+        # move mean onto the phenotype boundary, leads to weird behavior on
+        # 40-D tablet with bound 0.1
+        # mean_towards_boundary_factor=0.1 consistently fails on the 20D
+        # bbob F10 (elli) in [-4, 4] where variables float out-of-bounds
+        # and sigma does not converge
+        # any factor seems to make this worse at least sometimes by a factor 1.5 or so:
+        # fmin2(cma.ff.ellrot, 20 * [1], 1, {'bounds': [-0.1, 5], 'ftarget': 1e-8)
+        if (mean_towards_boundary_factor != 0 and 
+                isinstance(self.boundary_handler, BoundTransform) and
+                (mean_towards_boundary_factor > 0 or
+                        len(self.opts['integer_variables'])) and
+                not self.boundary_handler.is_in_pre_bounds(self.mean)):
+            inb_mean = self.boundary_handler.into_pre_bounds(
+                                self.mean, check_first=False)
+            if mean_towards_boundary_factor > 0:  # all variables
+                if mean_towards_boundary_factor == 1:
+                    self.mean = inb_mean
+                else:
+                    self.mean *= 1 - mean_towards_boundary_factor
+                    self.mean += mean_towards_boundary_factor * inb_mean
+            elif len(self.opts['integer_variables']):  # only integer variables
+                idx = np.asarray(self.opts['integer_variables'])
+                if mean_towards_boundary_factor == -1:
+                    self.mean[idx] = inb_mean[idx]
+                else:
+                    self.mean[idx] *= 1 + mean_towards_boundary_factor  # is < 1
+                    self.mean[idx] -= mean_towards_boundary_factor * inb_mean[idx]
         # move mean into "feasible preimage", leads to weird behavior on
         # 40-D tablet with bound 0.1, not quite explained (constant
         # dragging is problematic, but why doesn't it settle), still a bug?
+        # replaced by mean_towards_boundary_factor code above, was never active?:
         if 11 < 3 and isinstance(self.boundary_handler, BoundTransform) \
                 and not self.boundary_handler.is_in_bounds(self.mean):
             self.mean = array(self.boundary_handler.inverse(
@@ -3640,12 +3939,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except (NotImplementedError):
             return (max(self.D) / min(self.D))**2
 
-    def alleviate_conditioning_in_coordinates(self, condition=1e8):
+    def alleviate_conditioning_in_coordinates(self, condition=None):
         """pass scaling from `C` to `sigma_vec`.
 
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
+        if condition is None:
+            condition = _alleviate_conditioning_in_coordinates_condition
         if (not condition or not np.isfinite(condition)
                 or np.max(self.dC) / np.min(self.dC) < condition):
             return
@@ -3670,7 +3971,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def _tfg(self, x):
         return np.dot(self.gp._tf_matrix_inv, x)
 
-    def alleviate_conditioning(self, condition=1e12):
+    def alleviate_conditioning(self, condition=None):
         """pass conditioning of `C` to linear transformation in `self.gp`.
 
         Argument `condition` defines the limit condition number above
@@ -3688,6 +3989,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         the covariance matrix `C` is set (back) to identity and a
         respective linear transformation is "added" to `self.gp`.
         """
+        if condition is None:
+            condition = _alleviate_conditioning_condition
         # new interface: if sm.condition_number > condition ...
         if not self.gp.isidentity or not condition or self.condition_number < condition:
             return
@@ -3781,7 +4084,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     # ____________________________________________________________
     # ____________________________________________________________
-    def feed_for_resume(self, X, function_values):
+    def feed_for_resume(self, X, function_values, constraints_values=None, check_points=False):
         """Resume a run using the solution history.
 
         CAVEAT: this hasn't been thoroughly tested or in intensive use.
@@ -3799,6 +4102,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
           of popsize.
         `function_values`:
           respective objective function values
+        `constraints_values`:
+          respective constraints values if available (never tested)
+        ``check_points=False``:
+           argument passed to `tell`, by default assume that the original
+           solutions were sampled from `ask` and hence never checked too. As of
+           now, it is not possible to flag only individual solutions when passing
+           `check_points` to `tell`.
 
         Details
         -------
@@ -3852,8 +4162,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.ask()  # a fake ask, mainly for a conditioned calling of
                         # updateBD and secondary to get possibly the same
                         # random state
-            self.tell(X[i * popsize:(i + 1) * popsize],
-                      function_values[i * popsize:(i + 1) * popsize])
+            j = i * popsize
+            jj = j + popsize
+            self.tell2(X[j:jj], function_values[j:jj],
+                       constraints_values=None if constraints_values is None
+                       else constraints_values[j:jj],
+                       check_points=check_points)
 
     # ____________________________________________________________
     # ____________________________________________________________
@@ -3943,8 +4257,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Print if ``iteration_counter % modulo == 0``. Let the line be
         overwritten when ``iteration > overwrite > 0`` unless ``modulo is True``
-        or ``self.stop()``, where `overwrite` defaults to
-        ``.opts['verb_disp_overwrite']``.
+        or ``self.stop()``. By default, `overwrite` equals to
+        ``.opts['verb_disp_overwrite']`` unless ``.opts['verb_disp']`` is
+        integer 1 or `True` which both prevents overwriting.
 
         :See also: `disp_annotation`.
         """
@@ -3952,7 +4267,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             modulo = self.opts['verb_disp']
 
         def do_overwrite():
-            if modulo is True or self.stop():
+            if modulo is True or self.stop() or overwrite is False or (
+                    overwrite is None and modulo == 1 and isinstance(modulo, int)):
                 return False
             overwrite_ = overwrite if overwrite is not None else (
                             self.opts.get('verb_disp_overwrite', 0) * modulo)
@@ -4123,6 +4439,7 @@ class _CMAStopDict(dict):
         self.lastiter = 0  # probably not necessary
         self._get_value = None  # a hack to pass some value
         self._value = None  # in iteration zero value is always None
+        self._signals_read_count = 0  # not in use
         try:
             self.stoplist = d.stoplist  # multiple entries
         except:
@@ -4199,6 +4516,7 @@ class _CMAStopDict(dict):
                 opts.update(d)
                 for key in d:
                     opts.eval(key, {'N': N, 'dim': N})
+                self._signals_read_count += 1
 
         # fitness: generic criterion, user defined w/o default
         self._addstop('ftarget',
@@ -4259,10 +4577,10 @@ class _CMAStopDict(dict):
             # iiinteger: stagnation termination can prevent to find the optimum
         self._addstop('tolxstagnation', es._stoptolxstagnation.stop)
 
-        s = float(es.sigma / es.D.max())
-        self._addstop('tolupsigma', opts['tolupsigma'] and
-                      s > es.sigma0 * opts['tolupsigma'],
-                      s if self._get_value else None)
+        if opts['tolupsigma'] and opts['tolupsigma'] > 1:
+            s = es.sigma / es._sigma_rescaled_by / es.sigma0 / es.D.max()  # dividing finds discrepency
+            self._addstop('tolupsigma', s > opts['tolupsigma'],
+                          float(s) if self._get_value else None)
         try:
             self._addstop('timeout',
                           es.timer.elapsed > opts['timeout'],
@@ -4305,7 +4623,7 @@ class _CMAStopDict(dict):
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
-                if es.fit.fit[0] < es.fit.fit[int(0.75 * len(es.fit.fit))]:
+                if es.fit.fvals[0] < es.fit.fvals[int(0.75 * len(es.fit.fvals))]:
                     es.fit.flatfit_iterations = 0
                 else:
                     # print(es.fit.fit)
@@ -4317,7 +4635,7 @@ class _CMAStopDict(dict):
                         self._addstop('tolflatfitness')
                         if 11 < 3 and max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
                             utils.print_warning(
-                                "flat fitness (f=%f, sigma=%.2e). "
+                                "flat fitness (f=%f, sigma=%.2e). "  # noqa: UP031
                                 "For small sigma, this could indicate numerical convergence. \n"
                                 "Otherwise, please (re)consider how to compute the fitness more elaborately." %
                                 (es.fit.fit[0], es.sigma), iteration=es.countiter)
@@ -4544,9 +4862,14 @@ def fmin2(objective_function, x0, sigma0,
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
-    Return the `tuple` ``(xbest, es)`` where ``es`` is a
-    `CMAEvolutionStrategy` instance, see in particular ``es.result`` and
-    ``es.result_pretty()`` for detailed results.
+    Return the `tuple` ``(x, es)``, where ``es`` is a `CMAEvolutionStrategy`
+    instance and ``x == es.result.xbest`` for unconstrained or bound-constrained
+    optimization and ``x == es.result.xfavorite`` for constrained optimization
+    when either `constraints` were given or ``isinstance(objective_function,
+    ConstrainedFitnessAL)``. For the question of feasiblitity, see Section
+    `Feasible Solution`_ below.
+
+    See also ``es.result`` and ``es.result_pretty()`` for detailed results.
 
 
     Calling Sequences
@@ -4569,7 +4892,7 @@ def fmin2(objective_function, x0, sigma0,
     Less recommended calling patterns are::
 
         es = cma.fmin2(...)[1]  # `es` contains all available information
-        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
+        x = cma.fmin2(...)[0]   # keep only the returned solution
 
     Arguments
     =========
@@ -4700,6 +5023,19 @@ def fmin2(objective_function, x0, sigma0,
     ``cma.CMAOptions('tol')``, or ``cma.CMAOptions('bound')``,
     see also class `CMAOptions`.
 
+    Feasible Solution
+    =================
+    In the constrained optimization case, the constraints penalty coefficients
+    change during the optimization and neither the "best" (penalized) solution
+    nor the best feasible solution are reliable return candidates. The used
+    return value `es.result.xfavorite`, which is usually the current
+    distribution mean, is not guaranteed to be feasible too (while
+    `es.result.best_feasible.x` is feasible when it is not `None`).
+
+    When the `objective_function` was a `ConstrainedFitnessAL` instance, then
+    ``es.objective_function.find_feasible(es)`` returns a feasible solution
+    close to `es.result.xfavorite`.
+
     Details
     =======
     This function is an interface to the class `CMAEvolutionStrategy`. The
@@ -4807,7 +5143,11 @@ def fmin2(objective_function, x0, sigma0,
          callback,
          init_callback,
          constraints=constraints)
-    return res[0], res[-2]
+    es = res[-2]
+    if constraints is not None or isinstance(objective_function,
+                                             _constraints_handler.ConstrainedFitnessAL):
+        return es.result.xfavorite, es
+    return res[0], es
 
 
 all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
@@ -4840,11 +5180,11 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
         res = fmin(...)
         return res[0], res[-2]
 
-    For descriptions of the input arguments see `fmin2`.
+    For descriptions of the input arguments and for constrained optimization, see `fmin2`.
 
     For completness, recovering the output of `fmin` from `fmin2`::
 
-        es = fmin2(...)[1]  # fmin2(...)[0] is es.result.xbest
+        es = fmin2(...)[1]
         return es.result + (es.stop(), es, es.logger)
 
     The best found solution is equally available under::
@@ -5463,13 +5803,13 @@ def fmin_con(objective_function, x0, sigma0,
         _, es_post = fmin2(f_post, es.result.xfavorite, es.sigma,
                            **kwargs_post)
         if es_post.best.f == 0:
-            f = _ifloat(objective_function(es_post.best.x))
+            _f = _ifloat(objective_function(es_post.best.x))
             # we don't know the g-value of best.x, but we know it's feasible
             # and hence g must be negative (or zero)
-            es.best_feasible.update(f, [-1], None, x=es_post.best.x,
+            es.best_feasible.update(_f, [-1], None, x=es_post.best.x,
                         info={  # for historical reasons
                             'x': es_post.best.x,
-                            'f': f,
+                            'f': _f,
                             'g': None  # it's a feasible solution, so we don't really care
                         })
             return es.best_feasible.x, es

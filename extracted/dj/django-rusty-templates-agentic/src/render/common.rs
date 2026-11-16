@@ -1,16 +1,18 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 
 use pyo3::exceptions::{PyAttributeError, PyIndexError, PyKeyError, PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyDict, PyFunction, PyString, PyType};
+use pyo3::types::{PyDict, PyFunction, PyList, PyString, PyTuple, PyType};
+use rustc_hash::FxHashMap;
 
 use dtl_lexer::types::TemplateString;
 
 use super::types::{AsBorrowedContent, Content, ContentString, Context, render_int};
-use super::{Evaluate, Render, RenderResult, Resolve, ResolveFailures, ResolveResult};
-use crate::error::{AnnotatePyErr, RenderError};
+use super::{Render, RenderResult, Resolve, ResolveFailures, ResolveResult};
+use crate::error::{AnnotatePyErr, LookupObject, RenderError};
 use crate::parse::{TagElement, TokenTree};
 use crate::types::Argument;
 use crate::types::ArgumentType;
@@ -22,6 +24,7 @@ use dtl_lexer::types::Variable;
 
 static BASE_CONTEXT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static DIR: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static OBJECT_DIR: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static SIGNATURE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static METHOD_TYPE: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 
@@ -91,8 +94,10 @@ fn resolve_callable<'py>(
     if flags.is_set(intern!(py, "do_not_call_in_templates"))? {
         return Ok(Some(variable));
     }
+    // Django's value for a callable it won't call, or can't call without
+    // arguments, is the engine's `string_if_invalid` as written.
     if flags.is_set(intern!(py, "alters_data"))? {
-        return Ok(None);
+        return Ok(Some(context.invalid_value(py, None)?));
     }
     match context.call_variable(py, &variable) {
         Ok(value) => Ok(Some(value)),
@@ -102,11 +107,13 @@ fn resolve_callable<'py>(
                 .call1((&variable,));
             match signature {
                 Err(signature_error) if signature_error.is_instance_of::<PyValueError>(py) => {
-                    Ok(None)
+                    Ok(Some(context.invalid_value(py, None)?))
                 }
                 Err(signature_error) => Err(signature_error),
                 Ok(signature) => match signature.call_method0("bind") {
-                    Err(bind_error) if bind_error.is_instance_of::<PyTypeError>(py) => Ok(None),
+                    Err(bind_error) if bind_error.is_instance_of::<PyTypeError>(py) => {
+                        Ok(Some(context.invalid_value(py, None)?))
+                    }
                     Err(bind_error) => Err(bind_error),
                     Ok(_) => Err(error),
                 },
@@ -116,20 +123,131 @@ fn resolve_callable<'py>(
     }
 }
 
+/// Most names a thread can keep. Templates repeat a small set of names,
+/// so this is only reached by a process generating templates without end.
+const MAX_PART_NAMES: usize = 1 << 16;
+
+thread_local! {
+    /// Python's interned string for each name looked up on this thread.
+    static PART_NAMES: RefCell<FxHashMap<Box<str>, Py<PyString>>> = RefCell::default();
+}
+
+/// The interned Python string for a variable name or lookup part.
+///
+/// Building a `str` per lookup costs an allocation and a hash each time.
+/// An interned one keeps its hash, and attribute lookups only use the type's
+/// method cache for interned names.
+pub(crate) fn interned_name<'py>(py: Python<'py>, part: &str) -> Bound<'py, PyString> {
+    PART_NAMES.with_borrow_mut(|names| {
+        if let Some(name) = names.get(part) {
+            return name.bind(py).clone();
+        }
+        let name = PyString::intern(py, part);
+        if names.len() < MAX_PART_NAMES {
+            names.insert(part.into(), name.clone().unbind());
+        }
+        name
+    })
+}
+
+/// Whether `variable[key]` can work at all: its type has a mapping or a
+/// sequence item slot, which is where Python stores `__getitem__`.
+fn is_subscriptable(variable: &Bound<'_, PyAny>) -> bool {
+    // SAFETY: `variable` is a valid object and the GIL is held.
+    let mapping = unsafe { pyo3::ffi::PyMapping_Check(variable.as_ptr()) };
+    if mapping != 0 {
+        return true;
+    }
+    // SAFETY: as above.
+    let sequence = unsafe { pyo3::ffi::PySequence_Check(variable.as_ptr()) };
+    sequence != 0
+}
+
+/// `name in dir(variable)`, which Django checks to re-raise an
+/// `AttributeError` from an attribute that exists, such as a property.
+///
+/// With the default `object.__dir__`, `dir()` lists the instance `__dict__`
+/// and every `__dict__` along the type's MRO, so those are checked directly
+/// rather than building and sorting the whole list.
+fn in_dir(variable: &Bound<'_, PyAny>, name: &Bound<'_, PyString>) -> PyResult<bool> {
+    let py = variable.py();
+    let object_dir = OBJECT_DIR.get_or_try_init(py, || {
+        py.get_type::<PyAny>()
+            .getattr(intern!(py, "__dir__"))
+            .map(Bound::unbind)
+    })?;
+    let class = variable.get_type();
+    let default_dir = class
+        .getattr(intern!(py, "__dir__"))
+        .is_ok_and(|dir| dir.is(object_dir.bind(py)));
+    // A proxy such as `SimpleLazyObject` reports another `__class__`, which
+    // `object.__dir__` follows.
+    let own_class = variable
+        .getattr(intern!(py, "__class__"))
+        .is_ok_and(|reported| reported.is(&class));
+    if !default_dir || !own_class {
+        return DIR
+            .import(py, "builtins", "dir")?
+            .call1((variable,))?
+            .contains(name);
+    }
+    if let Ok(Some(attributes)) = variable.getattr_opt(intern!(py, "__dict__"))
+        && let Ok(attributes) = attributes.cast_into::<PyDict>()
+        && attributes.contains(name)?
+    {
+        return Ok(true);
+    }
+    for base in class.mro().iter() {
+        if base.getattr(intern!(py, "__dict__"))?.contains(name)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// `int(part)` for a lookup such as `items.0`, as Django indexes with it:
+/// digits of any script, and underscores between them.
+fn python_index(part: &str) -> Option<isize> {
+    if let Ok(index) = part.parse() {
+        return Some(index);
+    }
+    if !part.starts_with(|first| dtl_lexer::common::decimal_digit(first).is_some()) {
+        return None;
+    }
+    match dtl_lexer::common::python_number(part)? {
+        dtl_lexer::common::Number::Int(index) => num_traits::ToPrimitive::to_isize(&index),
+        dtl_lexer::common::Number::Float(_) => None,
+    }
+}
+
 fn lookup_part<'py>(
     variable: Bound<'py, PyAny>,
     part: &str,
 ) -> PyResult<Option<Bound<'py, PyAny>>> {
     let py = variable.py();
+    // `list["0"]` raises TypeError and an exact list or tuple can have no
+    // attribute named by digits, so Django ends up indexing it. Go there
+    // directly instead of raising and catching two errors and calling dir().
+    if (variable.is_exact_instance_of::<PyList>() || variable.is_exact_instance_of::<PyTuple>())
+        && let Some(index) = python_index(part)
+    {
+        return match variable.get_item(index) {
+            Ok(value) => Ok(Some(value)),
+            Err(error) if error.is_instance_of::<PyIndexError>(py) => Ok(None),
+            Err(error) => Err(error),
+        };
+    }
+    let name = interned_name(py, part);
+    let name = &name;
     // Exact dictionaries need no generic mapping dispatch or KeyError on a
     // miss. Missing keys must still fall through to attributes and integer keys.
     let exact_dict = variable.cast_exact::<PyDict>().ok();
     if let Some(dict) = &exact_dict {
-        if let Some(value) = dict.get_item(part)? {
+        if let Some(value) = dict.get_item(name)? {
             return Ok(Some(value));
         }
-    } else if variable.get_type().hasattr("__getitem__")? {
-        match variable.get_item(part) {
+    } else if is_subscriptable(&variable) {
+        match variable.get_item(name) {
             Ok(value) => return Ok(Some(value)),
             Err(error)
                 if error.is_instance_of::<PyTypeError>(py)
@@ -143,11 +261,15 @@ fn lookup_part<'py>(
     let is_context = if exact_dict.is_some() {
         false
     } else {
+        // A type check, not `isinstance`: for every object that isn't a
+        // context, `isinstance` also reads `__class__`, which was most of the
+        // cost of a lookup. Only an object whose `__class__` claims to be a
+        // context without its type being one would differ.
         let base_context = BASE_CONTEXT.import(py, "django.template.context", "BaseContext")?;
-        variable.is_instance(base_context)?
+        variable.get_type().is_subclass(base_context)?
     };
-    if !is_context || !variable.get_type().hasattr(part)? {
-        match variable.getattr(part) {
+    if !is_context || !variable.get_type().hasattr(name)? {
+        match variable.getattr(name) {
             Ok(value) => return Ok(Some(value)),
             Err(error)
                 if error.is_instance_of::<PyTypeError>(py)
@@ -155,20 +277,14 @@ fn lookup_part<'py>(
             {
                 // A built-in dict has no user-defined property that could
                 // raise AttributeError. Only inspect dir() for other objects.
-                if !is_context
-                    && exact_dict.is_none()
-                    && DIR
-                        .import(py, "builtins", "dir")?
-                        .call1((&variable,))?
-                        .contains(part)?
-                {
+                if !is_context && exact_dict.is_none() && in_dir(&variable, name)? {
                     return Err(error);
                 }
             }
             Err(error) => return Err(error),
         }
     }
-    let Ok(index) = part.parse::<isize>() else {
+    let Some(index) = python_index(part) else {
         return Ok(None);
     };
     match variable.get_item(index) {
@@ -284,7 +400,7 @@ impl Resolve for Variable {
                     return match failures {
                         ResolveFailures::Raise => Err(RenderError::VariableDoesNotExist {
                             key: part.to_string(),
-                            object: variable.str()?.to_string(),
+                            object: LookupObject::new(variable.clone()),
                             key_at: key_at.into(),
                             object_at: Some(object_at.into()),
                         }
@@ -325,11 +441,17 @@ impl Resolve for ForVariable {
     fn resolve<'t, 'py>(
         &self,
         py: Python<'py>,
-        _template: TemplateString<'t>,
+        template: TemplateString<'t>,
         context: &mut Context,
-        _failures: ResolveFailures,
+        failures: ResolveFailures,
     ) -> ResolveResult<'t, 'py> {
+        if context.forloop_rebound() {
+            return Variable::new(self.at).resolve(py, template, context, failures);
+        }
+        let whole = self.variant == ForVariableName::Object;
         if context.formatting_context.is_some()
+            || context.forloop_parent_is_variable(self.parent_count + usize::from(whole))
+            || context.shadowed_loop(self.parent_count, whole)
             || context.loop_dictionary_cached(py, self.parent_count)
         {
             let Some(mut value) = context.resolve_root(py, "forloop")? else {
@@ -366,7 +488,11 @@ impl Resolve for ForVariable {
             return Ok(None);
         }
         let Some(for_loop) = context.get_for_loop(self.parent_count) else {
-            return Ok(Some("{}".as_content()));
+            // The outermost loop's parent is whatever `forloop` was before it.
+            return Ok(Some(match context.forloop_before_loops(py) {
+                Some(value) => Content::Py(value),
+                None => "{}".as_content(),
+            }));
         };
         Ok(Some(match self.variant {
             ForVariableName::Length => Content::Int(for_loop.length().into()),
@@ -388,7 +514,7 @@ impl Resolve for ForVariable {
     }
 }
 
-fn unescape_literal(text: &str) -> Cow<'_, str> {
+pub(crate) fn unescape_literal(text: &str) -> Cow<'_, str> {
     if !text.contains('\\') {
         return Cow::Borrowed(text);
     }
@@ -466,7 +592,21 @@ impl Resolve for Argument {
                 }
             }
             ArgumentType::ForVariable(variable) => {
-                return variable.resolve(py, template, context, failures);
+                match variable.resolve(py, template, context, failures)? {
+                    Some(content) => content,
+                    // Such as `forloop.length` before Django 6.0.
+                    None => {
+                        let key = template.content(variable.at).to_string();
+                        let object = context.display(py);
+                        return Err(RenderError::ArgumentDoesNotExist {
+                            key,
+                            object,
+                            key_at: variable.at.into(),
+                            object_at: None,
+                        }
+                        .into());
+                    }
+                }
             }
             ArgumentType::Float(number) => Content::Float(*number),
             ArgumentType::Int(number) => Content::Int(number.clone()),
@@ -502,24 +642,6 @@ impl Resolve for TagElement {
     }
 }
 
-impl Evaluate for TagElement {
-    fn evaluate(
-        &self,
-        py: Python<'_>,
-        template: TemplateString<'_>,
-        context: &mut Context,
-    ) -> Option<bool> {
-        self.resolve(
-            py,
-            template,
-            context,
-            ResolveFailures::IgnoreVariableDoesNotExist,
-        )
-        .ok()?
-        .evaluate(py, template, context)
-    }
-}
-
 impl Render for TokenTree {
     fn render_into(
         &self,
@@ -533,6 +655,12 @@ impl Render for TokenTree {
             Self::Tag(tag) => return tag.render_into(py, template, context, output),
             Self::Variable(variable) => {
                 if let Some(value) = resolve_output_variable(variable, py, template, context)? {
+                    value.render_into(context, output)?;
+                }
+            }
+            Self::ForVariable(variable) if context.forloop_rebound() => {
+                let variable = Variable::new(variable.at);
+                if let Some(value) = resolve_output_variable(&variable, py, template, context)? {
                     value.render_into(context, output)?;
                 }
             }
@@ -562,6 +690,13 @@ impl Render for TokenTree {
             Self::Tag(tag) => tag.render(py, template, context),
             Self::Variable(variable) => {
                 match resolve_output_variable(variable, py, template, context)? {
+                    Some(value) => value.render(context).map_err(Into::into),
+                    None => Ok(Cow::Borrowed("")),
+                }
+            }
+            Self::ForVariable(variable) if context.forloop_rebound() => {
+                let variable = Variable::new(variable.at);
+                match resolve_output_variable(&variable, py, template, context)? {
                     Some(value) => value.render(context).map_err(Into::into),
                     None => Ok(Cow::Borrowed("")),
                 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapfly-sdk
-Version: 0.12.0
+Version: 1.0.0
 Summary: Scrapfly SDK for Scrapfly
 Home-page: https://github.com/scrapfly/python-sdk
 Author: Scrapfly
@@ -13,16 +13,13 @@ Keywords: scraping,web scraping,data,extraction,scrapfly,sdk,cloud,scrapy
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Internet
-Requires-Python: >=3.6
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: decorator>=4.2.0
@@ -30,7 +27,7 @@ Requires-Dist: requests>=2.25.0
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: loguru>=0.5
 Requires-Dist: urllib3>=1.26.0
-Requires-Dist: backoff>=1.10.0
+Requires-Dist: httpx>=0.27
 Provides-Extra: develop
 Requires-Dist: bumpversion; extra == "develop"
 Requires-Dist: isort; extra == "develop"
@@ -52,19 +49,21 @@ Requires-Dist: pip; extra == "deploy"
 Requires-Dist: colorama; extra == "deploy"
 Requires-Dist: sentry-sdk; extra == "deploy"
 Provides-Extra: scrapy
-Requires-Dist: scrapy>=2.4.0; extra == "scrapy"
+Requires-Dist: scrapy>=2.11.1; extra == "scrapy"
 Provides-Extra: parser
 Requires-Dist: lxml; extra == "parser"
 Requires-Dist: beautifulsoup4; extra == "parser"
 Requires-Dist: soupsieve; extra == "parser"
 Requires-Dist: extruct; extra == "parser"
 Provides-Extra: speedups
-Requires-Dist: brotlipy; extra == "speedups"
+Requires-Dist: brotli>=1.2.0; platform_python_implementation == "CPython" and extra == "speedups"
+Requires-Dist: brotlicffi>=1.2.0.0; platform_python_implementation != "CPython" and extra == "speedups"
 Requires-Dist: msgpack; extra == "speedups"
-Requires-Dist: zstandard; python_version < "3.14" and extra == "speedups"
+Requires-Dist: backports.zstd>=1.0.0; python_version < "3.14" and extra == "speedups"
 Provides-Extra: webhook-server
 Requires-Dist: flask; extra == "webhook-server"
-Requires-Dist: brotlipy; extra == "webhook-server"
+Requires-Dist: brotli>=1.2.0; platform_python_implementation == "CPython" and extra == "webhook-server"
+Requires-Dist: brotlicffi>=1.2.0.0; platform_python_implementation != "CPython" and extra == "webhook-server"
 Requires-Dist: msgpack; extra == "webhook-server"
 Provides-Extra: concurrency
 Provides-Extra: browser
@@ -73,27 +72,28 @@ Provides-Extra: browser-use
 Requires-Dist: playwright>=1.40.0; extra == "browser-use"
 Requires-Dist: browser-use; extra == "browser-use"
 Provides-Extra: all
-Requires-Dist: bumpversion; extra == "all"
-Requires-Dist: lxml; extra == "all"
-Requires-Dist: playwright>=1.40.0; extra == "all"
-Requires-Dist: colorama; extra == "all"
-Requires-Dist: soupsieve; extra == "all"
-Requires-Dist: browser-use; extra == "all"
-Requires-Dist: brotlipy; extra == "all"
+Requires-Dist: flask; extra == "all"
 Requires-Dist: sentry-sdk; extra == "all"
+Requires-Dist: browser-use; extra == "all"
+Requires-Dist: beautifulsoup4; extra == "all"
+Requires-Dist: backports.zstd>=1.0.0; python_version < "3.14" and extra == "all"
+Requires-Dist: pdoc3; extra == "all"
+Requires-Dist: lxml; extra == "all"
 Requires-Dist: pip; extra == "all"
-Requires-Dist: isort; extra == "all"
+Requires-Dist: brotli>=1.2.0; platform_python_implementation == "CPython" and extra == "all"
+Requires-Dist: brotlicffi>=1.2.0.0; platform_python_implementation != "CPython" and extra == "all"
+Requires-Dist: playwright>=1.40.0; extra == "all"
+Requires-Dist: extruct; extra == "all"
+Requires-Dist: msgpack; extra == "all"
+Requires-Dist: wheel; extra == "all"
+Requires-Dist: twine; extra == "all"
+Requires-Dist: soupsieve; extra == "all"
 Requires-Dist: readme_renderer; extra == "all"
 Requires-Dist: setuptools; extra == "all"
-Requires-Dist: extruct; extra == "all"
-Requires-Dist: twine; extra == "all"
-Requires-Dist: scrapy>=2.4.0; extra == "all"
-Requires-Dist: zstandard; python_version < "3.14" and extra == "all"
-Requires-Dist: pdoc3; extra == "all"
-Requires-Dist: wheel; extra == "all"
-Requires-Dist: msgpack; extra == "all"
-Requires-Dist: beautifulsoup4; extra == "all"
-Requires-Dist: flask; extra == "all"
+Requires-Dist: isort; extra == "all"
+Requires-Dist: scrapy>=2.11.1; extra == "all"
+Requires-Dist: bumpversion; extra == "all"
+Requires-Dist: colorama; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -126,6 +126,10 @@ You can also install extra dependencies
 * `pip install "scrapfly-sdk[concurrency]"` kept for compatibility, concurrency needs no extra dependency
 * `pip install "scrapfly-sdk[all]"` Everything!
 
+The `speedups` and `webhook-server` extras install `brotli` (CPython) or `brotlicffi`. Up to 0.12 they installed the
+archived `brotlipy`, which pip does not remove on upgrade and which shadows `brotli` under the same import name:
+run `pip uninstall brotlipy` before upgrading.
+
 For use of built-in HTML parser (via `ScrapeApiResponse.selector` property) additional requirement of either [parsel](https://pypi.org/project/parsel/) or [scrapy](https://pypi.org/project/Scrapy/) is required.
 
 For reference of usage or examples, please checkout the folder `/examples` in this repository.
@@ -135,6 +139,69 @@ This SDK cover the following Scrapfly API endpoints:
 * [Web Scraping API](https://scrapfly.io/docs/onboarding#web-scraping-api)
 * [Extraction API](https://scrapfly.io/docs/onboarding#extraction-api)
 * [Screenshot API](https://scrapfly.io/docs/onboarding#screenshot-api)
+
+## Async client
+
+Added in 1.0.0: `AsyncScrapflyClient` has every method of `ScrapflyClient`, as coroutines, and the streamed ones
+(`scrape_batch`, `crawl_prompt`) as async iterators. Open it with `async with` to reuse connections across calls.
+
+```python
+import asyncio
+from scrapfly import AsyncScrapflyClient, ScrapeConfig
+
+async def main():
+    async with AsyncScrapflyClient(key='__API_KEY__') as scrapfly:
+        api_response = await scrapfly.scrape(ScrapeConfig(url='https://web-scraping.dev/product/1'))
+        print(api_response.content)
+
+        configs = [ScrapeConfig(url=f'https://web-scraping.dev/product/{n}') for n in range(1, 6)]
+        async for result in scrapfly.concurrent_scrape(configs, concurrency=5):
+            print(result)
+
+asyncio.run(main())
+```
+
+Up to 0.12, `ScrapflyClient` runs a call as a coroutine with `async_scrape` (and `async_screenshot`,
+`async_extraction`), and `concurrent_scrape` is an async generator of it. This works on 1.0.0 too:
+
+```python
+import asyncio
+from scrapfly import ScrapflyClient, ScrapeConfig
+
+async def main():
+    scrapfly = ScrapflyClient(key='__API_KEY__')
+    api_response = await scrapfly.async_scrape(ScrapeConfig(url='https://web-scraping.dev/product/1'))
+    print(api_response.content)
+
+    configs = [ScrapeConfig(url=f'https://web-scraping.dev/product/{n}') for n in range(1, 6)]
+    async for result in scrapfly.concurrent_scrape(configs, concurrency=5):
+        print(result)
+
+asyncio.run(main())
+```
+
+## Proxy pools
+
+`proxy_pool` picks the proxy pool of the Web Scraping API and the crawler:
+
+| Constant | Value | What it runs |
+|---|---|---|
+| `ScrapeConfig.PUBLIC_DATACENTER_POOL` | `'public_datacenter_pool'` | datacenter proxies, the default |
+| `ScrapeConfig.PUBLIC_RESIDENTIAL_POOL` | `'public_residential_pool'` | residential proxies |
+| `ScrapeConfig.PUBLIC_TOR_POOL` | `'public_tor_pool'` | the Tor network, the only pool that reaches `.onion` sites |
+
+```python
+from scrapfly import CrawlerConfig, ScrapeConfig
+
+scrape_config = ScrapeConfig(url='https://web-scraping.dev/product/1', proxy_pool=ScrapeConfig.PUBLIC_RESIDENTIAL_POOL)
+crawler_config = CrawlerConfig(url='https://web-scraping.dev/', proxy_pool=ScrapeConfig.PUBLIC_RESIDENTIAL_POOL)
+```
+
+Without `proxy_pool` the SDK sends none. `ScrapeConfig.BASIC`, `ScrapeConfig.UNBLOCKER`,
+`ScrapeConfig.UNBLOCKER_ULTRA` and `ScrapeConfig.AUTO` (added in 1.0.0) name pools the API does not
+accept yet: a request naming one fails with `ERR::PROXY::POOL_NOT_FOUND`. The Screenshot API picks its
+pool itself and ignores the `proxy_pool` of `ScreenshotConfig` (added in 1.0.0). The Cloud Browser keeps
+its own pools, `datacenter`, `residential`, `tor` and `byop`.
 
 ## Unblocker
 
@@ -147,7 +214,7 @@ from scrapfly import ScrapeConfig, ScrapflyClient
 scrapfly = ScrapflyClient(key='__API_KEY__')
 
 api_response = scrapfly.scrape(ScrapeConfig(
-    url='https://amazon.com',
+    url='https://web-scraping.dev/product/1',
     unblocker=True
 ))
 ```
@@ -157,17 +224,15 @@ It is available on the crawler too:
 ```python
 from scrapfly import CrawlerConfig
 
-config = CrawlerConfig(url='https://amazon.com', unblocker=True)
+config = CrawlerConfig(url='https://web-scraping.dev/', unblocker=True)
 ```
 
 ### `asp` is the deprecated alias
 
-`unblocker` was previously named `asp`. `asp` keeps working, indefinitely. Existing code needs no
-change:
+`unblocker` was previously named `asp`. `asp` keeps working: existing code needs no change.
 
 ```python
-ScrapeConfig(url='https://amazon.com', asp=True)      # still supported
-config.unblocker = True                               # same underlying setting as config.asp
+ScrapeConfig(url='https://web-scraping.dev/product/1', asp=True)  # same setting as unblocker=True
 ```
 
 When both names are supplied, an explicitly supplied `asp` wins; `unblocker` applies only when
@@ -250,7 +315,7 @@ scrapfly_reader = ScrapflyReader(
 scrapfly_scrape_config = {
     "unblocker": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare (formerly "asp")
     "render_js": True,  # Enable JavaScript rendering with a cloud headless browser
-    "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residnetial)
+    "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residential)
     "country": "us",  # Select a proxy location
     "auto_scroll": True,  # Auto scroll the page
     "js": "",  # Execute custom JavaScript code by the headless browser
@@ -329,7 +394,7 @@ from langchain_community.document_loaders import ScrapflyLoader
 scrapfly_scrape_config = {
     "unblocker": True,  # Bypass scraping blocking and antibot solutions, like Cloudflare (formerly "asp")
     "render_js": True,  # Enable JavaScript rendering with a cloud headless browser
-    "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residnetial)
+    "proxy_pool": "public_residential_pool",  # Select a proxy pool (datacenter or residential)
     "country": "us",  # Select a proxy location
     "auto_scroll": True,  # Auto scroll the page
     "js": "",  # Execute custom JavaScript code by the headless browser
@@ -366,7 +431,7 @@ asyncio-pool dependency has been dropped
 your current subscription is used.
 
 ```python
-    async for result in scrapfly.concurrent_scrape(concurrency=10, scrape_configs=[ScrapConfig(...), ...]):
+    async for result in scrapfly.concurrent_scrape(concurrency=10, scrape_configs=[ScrapeConfig(...), ...]):
         print(result)
 ```
 

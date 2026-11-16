@@ -114,7 +114,9 @@ env:
   # `uvx --python 3.14 hyperi-ci==X.Y.Z`; drop --python and uv picks the runner's Python, which may only resolve an old release. Unset = latest PyPI.
   # `--python` pins the CLI's OWN interpreter. Without it uvx takes the project's
   # interpreter and silently back-solves to an old hyperi-ci (issue #157).
-  HYPERCI_INSTALL: ${{ vars.HYPERCI_INSTALL_OVERRIDE || 'uvx --python 3.14 --no-cache --refresh hyperi-ci' }}
+  # Third-party deps resolve 7 days back (the supply-chain cooldown). hyperi-ci
+  # and scalo are ours, so they come in at their latest.
+  HYPERCI_INSTALL: ${{ vars.HYPERCI_INSTALL_OVERRIDE || 'uvx --python 3.14 --no-cache --refresh --exclude-newer P7D --exclude-newer-package hyperi-ci=P0D --exclude-newer-package scalo=P0D hyperi-ci' }}
   # The container and release jobs read the same switches the build did, or an
   # unoptimised image ships with no record that it is one. `vars` in a nested
   # workflow are the consumer repo's, so the skip falls back to them as the build's does.
@@ -163,25 +165,9 @@ jobs:
       created: ${{ steps.plan.outputs.created }}
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # Before the checkout, so setup-uv reads no repo `required-version`. The
         # workdir is empty by design, hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -283,25 +269,9 @@ jobs:
     # does not stop that.
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # Before the checkout, so setup-uv reads no repo `required-version`. The
         # workdir is empty by design, hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -453,25 +423,9 @@ jobs:
       image: ${{ steps.build.outputs.image }}
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # Before the checkout, so setup-uv reads no repo `required-version`. The
         # workdir is empty by design, hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -551,25 +505,9 @@ jobs:
       contents: read
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # Before the checkout, so setup-uv reads no repo `required-version`. The
         # workdir is empty by design, hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -683,25 +621,9 @@ jobs:
       issues: write
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # This job never checks out the repo, so the workdir is empty throughout,
         # hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -728,27 +650,15 @@ jobs:
     # At least twice the longest successful run across the fleet (issue #262).
     timeout-minutes: 45
     needs: [container-plan, container, prepare]
-    # Runs iff a release is being published. For a project with no container it is
-    # decoupled from the container outcome (issue #33), so a transient registry
-    # hiccup cannot lose the crate/PyPI/npm + GitHub Release or skip the tag.
+    # Runs iff a release is being published. A project with no container ignores
+    # the container outcome (#33). One that ships a container waits for it,
+    # because the image is the deliverable (#102).
     #
-    # For a project that ships a container, the container IS the deliverable:
-    # dfe-loader v1.18.19 cut its tag and GitHub Release while a Docker Hub 502
-    # failed the build, so `latest` advertised a version GHCR never had (issue
-    # #102). Those projects publish no crate, so blocking here loses nothing #33
-    # protects.
+    # This job holds every publish credential, so it runs no repo code: it
+    # uploads what `prepare` built, and a failed prepare cuts no tag.
     #
-    # On push events this creates the git tag (semantic-release) AND uploads
-    # artefacts. On workflow_dispatch (retroactive) the tag exists and only the
-    # upload runs.
-    #
-    # Nothing here builds, packs or stamps: those run the repo's code, and this
-    # job holds every publish credential, so they happen in `prepare` and this
-    # job uploads what it left. A failed prepare therefore cuts no tag.
-    #
-    # Only an explicit `false` from the plan's resolve reads as "no container": a
-    # plan that dies before resolve leaves the output empty, and that blocks
-    # (issue #764). The merge job skips for a library, so the plan carries it.
+    # Only an explicit `false` from the plan's resolve means "no container": an
+    # empty output blocks (#764).
     if: >-
       ${{ always() && inputs.will-publish == 'true'
           && needs.prepare.result == 'success'
@@ -767,26 +677,10 @@ jobs:
       packages: write
     steps:
       - name: Install uv
-        id: uv_try1
-        continue-on-error: true
         # First, before anything that can fail: every later step, including the
         # failure notice, runs the HYPERCI_INSTALL uvx command, and hosted runners
         # ship no uv. The workdir is empty by design, hence ignore-empty-workdir.
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 1)
-        id: uv_try2
-        if: ${{ steps.uv_try1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: false
-          ignore-empty-workdir: true
-      - name: Install uv (retry 2)
-        if: ${{ steps.uv_try2.outcome == 'failure' }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: hyperi-io/hyperi-ci/.github/actions/setup-uv@main
         with:
           enable-cache: false
           ignore-empty-workdir: true
@@ -1058,24 +952,11 @@ jobs:
         run: ${{ env.HYPERCI_INSTALL }} run release
 
       - name: Commit rendered release artefacts
-        # Commits back VERSION (where git tracks it), the release.stamp_paths files
-        # (stamped in `prepare`, restored by name when prepare ran on this commit)
-        # and CHANGELOG.md (rendered by @semantic-release/changelog), which nothing
-        # owns since @semantic-release/git was dropped (issue #85).
-        #
-        # Runs after the tag exists and adds an untagged commit via the Git Data
-        # API, so no tag points at machine-authored history (the #37 orphaning).
-        #
-        # A tag dispatch (a promoted candidate) checks out the tagged commit, so
-        # --from-tag builds its CHANGELOG entry onto main's own copy, and a
-        # version older than main's commits nothing (issue #350).
-        #
-        # Lands on the branch that released, so a beta release never writes main
-        # (issue #417). A release candidate is cut on main, so it is skipped for
-        # the same reason.
-        #
-        # Non-fatal: once the registry has the release, a failure here must not
-        # turn a shipped release red.
+        # Commits back VERSION, the release.stamp_paths files and CHANGELOG.md as
+        # an untagged commit after the tag, so no tag points at machine-authored
+        # history (#37, #85). It lands on the branch that released (#417), and a
+        # tag dispatch older than main commits nothing (#350). Non-fatal: a
+        # shipped release must not go red here.
         id: releasecommit
         if: steps.publish.outcome == 'success' && inputs.candidate != 'true'
         continue-on-error: true

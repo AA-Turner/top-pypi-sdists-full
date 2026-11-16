@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1776
+Version: 1.4.1792
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -676,7 +676,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.update_ad_campaign()` | Update a campaign |
 | `ad_campaigns.update_ad_campaign_status()` | Pause or resume a campaign |
 | `ad_campaigns.update_ad_group_assets()` | Update ad-group assets |
-| `ad_campaigns.update_ad_keyword()` | Pause or enable a Search keyword |
+| `ad_campaigns.update_ad_keyword()` | Update a Search keyword |
 | `ad_campaigns.update_ad_set()` | Update an ad set |
 | `ad_campaigns.update_ad_set_status()` | Pause or resume a single ad set |
 | `ad_campaigns.update_ad_status()` | Pause or resume a single ad |
@@ -1100,8 +1100,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.list_conversion_destinations()` | List conversion destinations |
 | `conversions.list_custom_conversion_goals()` | List custom conversion goals |
 | `conversions.list_event_destinations()` | List event destinations |
+| `conversions.list_event_names()` | List stored event names |
 | `conversions.list_events()` | List stored events |
 | `conversions.list_forwarding_rules()` | List forwarding rules |
+| `conversions.list_tracking_sites()` | List tracking sites |
 | `conversions.create_ad_conversion_destination()` | Create a conversion destination |
 | `conversions.create_ad_custom_conversion()` | Create custom conversion |
 | `conversions.create_conversion_action()` | Create conversion action |
@@ -1109,6 +1111,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.create_custom_conversion_goal()` | Create a custom conversion goal |
 | `conversions.create_event_destination()` | Add an event destination |
 | `conversions.create_forwarding_rule()` | Add a forwarding rule |
+| `conversions.create_tracking_site()` | Turn on server-side tracking for a website |
 | `conversions.get_ad_conversion_destination()` | Get a conversion destination |
 | `conversions.get_ad_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversion_destination()` | Get a conversion destination |
@@ -1116,16 +1119,20 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.get_conversions_quality()` | Get Event Match Quality |
 | `conversions.get_event()` | Get one stored event and its deliveries |
 | `conversions.get_events_overview()` | Get today's tracking overview |
+| `conversions.get_events_overview_daily()` | Get daily tracking figures |
+| `conversions.get_tracking_site()` | Get a tracking site |
 | `conversions.update_ad_conversion_destination()` | Update a conversion destination |
 | `conversions.update_ad_conversion_goals()` | Update account conversion goals |
 | `conversions.update_conversion_action()` | Update a conversion action's settings |
 | `conversions.update_conversion_destination()` | Update a conversion destination |
 | `conversions.update_custom_conversion_goal()` | Update a custom conversion goal |
 | `conversions.update_forwarding_rule()` | Change a forwarding rule's API secret |
+| `conversions.update_tracking_site()` | Update a tracking site |
 | `conversions.delete_ad_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_event_destination()` | Remove an event destination |
 | `conversions.delete_forwarding_rule()` | Remove a forwarding rule |
+| `conversions.delete_tracking_site()` | Delete a tracking site |
 | `conversions.add_ad_conversion_associations()` | Associate campaigns |
 | `conversions.add_conversion_associations()` | Associate campaigns |
 | `conversions.adjust_conversions()` | Adjust uploaded conversions |
@@ -1134,7 +1141,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.remove_custom_conversion_goal()` | Remove a custom conversion goal |
 | `conversions.restate_event()` | Change a stored event's value |
 | `conversions.retract_event()` | Retract a stored event |
-| `conversions.send_conversions()` | Send conversion events |
+| `conversions.rotate_tracking_site_key()` | Rotate a tracking site's key |
+| `conversions.send_conversions()` | Send conversion events to one destination (legacy) |
 | `conversions.send_events()` | Send events to every destination |
 
 ### Creator Campaigns
@@ -1581,8 +1589,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `sms.list_sms_opt_outs()` | List SMS opt-outs |
 | `sms.list_sms_registrations()` | List carrier registrations |
 | `sms.list_sms_sender_ids()` | List alphanumeric sender IDs |
+| `sms.create_sms_opt_out()` | Record an SMS opt-out |
 | `sms.create_sms_sender_id()` | Create an alphanumeric sender ID |
 | `sms.get_sms_registration()` | Get a carrier registration |
+| `sms.delete_sms_opt_out()` | Remove an SMS opt-out |
 | `sms.delete_sms_sender_id()` | Delete an alphanumeric sender ID |
 | `sms.appeal_sms_registration()` | Appeal a rejected campaign |
 | `sms.deactivate_sms_registration()` | Deactivate a brand/campaign registration |
@@ -1691,6 +1701,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `voice.list_voice_calls()` | List phone calls |
 | `voice.create_sip_trunk()` | Create a SIP trunk |
 | `voice.create_voice_call()` | Place an outbound phone call |
+| `voice.create_voice_web_inbound_session()` | Register a browser to receive calls |
 | `voice.create_voice_web_session()` | Mint a browser softphone session |
 | `voice.get_sip_trunk()` | Get a SIP trunk |
 | `voice.get_voice_call()` | Get a phone call |

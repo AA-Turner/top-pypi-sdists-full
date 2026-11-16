@@ -13,6 +13,8 @@
 
 #include "js/jstypes.h"
 
+#include "core/fuzzing.h"
+
 #ifndef TH_NOINLINE
 #if defined(_MSC_VER)
 #define TH_NOINLINE __declspec(noinline)
@@ -20,6 +22,17 @@
 #define TH_NOINLINE __attribute__((noinline))
 #else
 #define TH_NOINLINE
+#endif
+#endif
+
+#ifndef TH_FORCEINLINE
+/* an unoptimized build keeps the call, so gcov counts each branch once rather than once per inlined call site */
+#if defined(_MSC_VER)
+#define TH_FORCEINLINE __forceinline
+#elif defined(__GNUC__) && defined(__OPTIMIZE__)
+#define TH_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define TH_FORCEINLINE inline
 #endif
 #endif
 
@@ -152,8 +165,30 @@ void jm_lex_rescan_regex(jm_lexer *lx);
    result is JT_TEMPLATE_MIDDLE (another `${`) or JT_TEMPLATE_TAIL (the closing `` ` ``). */
 void jm_lex_rescan_template(jm_lexer *lx);
 
+/* The parser asks this for nearly every token, and LTO's inlining budget does not reliably reach it from another
+   file, so it is forced inline; a debug build keeps it a plain inline function, which the coverage gates need. */
+#if defined(_MSC_VER)
+#define JM_TOKEN_INLINE __forceinline
+#elif defined(__OPTIMIZE__)
+#define JM_TOKEN_INLINE inline __attribute__((always_inline))
+#else
+#define JM_TOKEN_INLINE inline
+#endif
+
 /* Whether the lexer's current value-bearing token text equals the ASCII keyword. */
-int jm_text_eq(const jm_lexer *lx, const char *keyword);
+static JM_TOKEN_INLINE int jm_text_eq(const jm_lexer *lx, const char *keyword) {
+    Py_ssize_t index = 0;
+    for (; keyword[index] != '\0'; index++) {
+        if (index >= lx->text_len || lx->text[index] != (Py_UCS4)(unsigned char)keyword[index]) {
+            return 0;
+        }
+    }
+    return index == lx->text_len;
+}
+
+/* Whether ch may sit in an identifier, as its first code point (leads) or a later one, by the lexer's own
+   classification. */
+int jm_is_ident_char(Py_UCS4 ch, int leads);
 
 /* A short, stable name for a token kind, used by the parser-test dump hook. */
 const char *jm_tok_name(jm_tok kind);
@@ -297,6 +332,17 @@ typedef struct {
                          the key, so an inline must first give the property an explicit key */
     int32_t min_ref;  /* the lowest read node index: parse order is textual order, so a read below
                          the binding's own declarator index runs before it initializes */
+    int32_t ref_stmt; /* the innermost expression, return or throw statement around ref_node, or -1;
+                         with ref_scope it tells whether the one read sits directly in a given statement */
+    /* the nearest function-scope binding of the same name this one shadows, or -1: the binding a `var` redeclaring
+       a catch parameter declares */
+    int32_t shadowed_var;
+    /* Written by the analysis walk and read only for a function declaration it walked whose one read it saw, so
+       jm_sym_new leaves them unset. */
+    int32_t ref_depth; /* how deep, in analysis walk calls from the program root, ref_node sits */
+    int32_t fn_depth;  /* a function declaration: how deep its node sits, */
+    int32_t fn_height; /* how far below that its parameters and body reach, */
+    int32_t fn_scope;  /* and its own scope */
 } jm_sym;
 
 /* A scope node in the lexical scope tree. kind distinguishes a function/block/catch/
@@ -308,8 +354,12 @@ typedef struct {
     int32_t first_sym;    /* head of the chain of symbols declared here (jm_sym.scope == this) */
     int32_t first_child;  /* head of the child-scope list, for an O(scopes) tree walk */
     int32_t next_sibling; /* next scope with the same parent */
+    int32_t sunk;         /* levels this pass's inlines moved the scope's function down, with all it holds */
+    int32_t grown;        /* levels this pass's inlines added below nodes the scope holds */
     int32_t first_stmt;   /* a function scope's first body statement: nothing executes before it,
                              so a var literal declared there dominates every read (-1 elsewhere) */
+    int32_t args_reads;   /* a function scope's free `arguments` reads, each one a read and a write of
+                             every parameter */
 } jm_scope;
 
 /* A parsed program: the node arena, the symbol and scope tables, the root node, and
@@ -346,7 +396,16 @@ typedef struct jm_program {
     int32_t comment_cap;
 
     int shadows_undefined; /* some binding is named `undefined`, so the fold pass must check each read */
+    int never_undefined;   /* a fold found no binding named `undefined`; no pass creates a binding, so none appears */
     int resolved;          /* every identifier carries its symbol from a with/eval-free resolution */
+    int has_regex;         /* a regex literal was parsed: only then can a binding be initialized to one */
+    /* How deep, in walk calls from the program root, a rewrite may leave the tree. The fold, mangle and print walks
+       recurse once per level and are sized for the height the parser's nesting cap admits, but three rewrites turn
+       something that cap never meters into height: the guard fold nests a statement list once per `if(c)return v;`,
+       the logical-chain rotation joins sibling parenthesised groups into one spine, and the single-use function inline
+       hangs a declaration's body under its read. Each stops growing the tree here, nine tenths of the parser's cap on
+       the thread jm_parse ran on. */
+    int32_t rewrite_limit;
 
     int failed;     /* sticky allocation failure: the minifier raises MemoryError instead of printing the tree */
     int *parse_err; /* the parser's error flag while jm_parse runs, else NULL: a failed node allocation stops the
@@ -376,17 +435,23 @@ static inline void jm_node_empty(jm_program *prog, int32_t idx) {
    on allocation failure. Used by the fold pass for a literal it synthesizes. */
 const Py_UCS4 *jm_program_own(jm_program *prog, const Py_UCS4 *buf, Py_ssize_t len);
 
+/* For a fold that has just collapsed a subtree into the literal holding the newest buffer, the older buffers added
+   since mark belong to nodes the collapse unlinked. */
+void jm_program_disown(jm_program *prog, int32_t mark);
+
 /* The ECMA-262 §12.7 StringValue of an IdentifierName: src[0..len) with every `\uXXXX` / `\u{...}`
    escape decoded, so an escaped spelling binds and resolves as its plain form (`abc` == `abc`).
    The common escape-free name is returned as the borrowed source span (no copy); an escaped name is
    decoded into a program-owned buffer. *out_len receives the decoded length. Returns the source span
-   unchanged on allocation failure (the binding may then miss-link, but nothing is corrupted). */
+   unchanged on allocation failure (the binding may then miss-link, but nothing is corrupted), and NULL
+   when an escape is malformed or names a code point an identifier cannot hold at that position. */
 const Py_UCS4 *jm_ident_value(jm_program *prog, const Py_UCS4 *src, Py_ssize_t len, Py_ssize_t *out_len);
 
 /* Decode a string literal (lexeme includes its surrounding quotes) to its ECMA-262 §12.9.4 String
    Value, writing the code points into out (capacity >= len is always enough: no escape expands) and
    returning the value length. A LineContinuation contributes nothing; a legacy octal, hex or unicode
-   escape decodes to its code point. */
+   escape decodes to its code point. Returns -1 for a hex or unicode escape that is malformed or names
+   a value past U+10FFFF: such a literal has no String Value. */
 Py_ssize_t jm_str_decode(const Py_UCS4 *lexeme, Py_ssize_t len, Py_UCS4 *out);
 
 /* Re-encode value[0..len) as the inner (quote-free) body of a string literal delimited by quote,

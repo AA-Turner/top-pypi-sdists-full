@@ -78,8 +78,7 @@ class TimestampedGeoJson(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             L.Control.TimeDimensionCustom = L.Control.TimeDimension.extend({
                 _getDisplayDateFormat: function(date){
@@ -139,10 +138,20 @@ class TimestampedGeoJson(JSCSSMixin, MacroElement):
                     addlastPoint: {{ this.add_last_point|tojson }},
                     duration: {{ this.duration }},
                 }
-            ).addTo({{this._parent.get_name()}});
+            );
+            // Without a duration Leaflet.TimeDimension starts at time 0, which
+            // hides features whose times are all before 1970.
+            {{this.get_name()}}._getFeatureBetweenDates = function(feature, minTime, maxTime) {
+                if (!this._duration) {
+                    minTime = -Infinity;
+                }
+                return L.TimeDimension.Layer.GeoJson.prototype._getFeatureBetweenDates.call(
+                    this, feature, minTime, maxTime
+                );
+            };
+            {{this.get_name()}}.addTo({{this._parent.get_name()}});
         {% endmacro %}
-        """
-    )  # noqa
+        """)  # noqa
 
     default_js = [
         (

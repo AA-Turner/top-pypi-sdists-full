@@ -1,4 +1,4 @@
-from typing import List, Optional, TextIO, Union
+from typing import TextIO
 
 from branca.element import MacroElement
 
@@ -53,8 +53,7 @@ class Timeline(GeoJson):
 
     >>> timeline = Timeline(
     ...     data,
-    ...     get_interval=JsCode(
-    ...         '''
+    ...     get_interval=JsCode('''
     ...         function (quake) {
     ...            // earthquake data only has a time, so we\'ll use that as a "start"
     ...            // and the "end" will be that + some value based on magnitude
@@ -65,8 +64,7 @@ class Timeline(GeoJson):
     ...                end: quake.properties.time + quake.properties.mag * 1800000,
     ...            };
     ...         };
-    ...     '''
-    ...     ),
+    ...     '''),
     ... ).add_to(m)
     >>> TimelineSlider(
     ...     auto_play=False,
@@ -80,8 +78,7 @@ class Timeline(GeoJson):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
           var {{ this.get_name() }}_options = {{ this.options|tojavascript }};
 
@@ -91,8 +88,7 @@ class Timeline(GeoJson):
           );
           {{ this.get_name() }}.addTo({{ this._parent.get_name() }});
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         (
@@ -107,9 +103,9 @@ class Timeline(GeoJson):
 
     def __init__(
         self,
-        data: Union[dict, str, TextIO],
-        get_interval: Optional[JsCode] = None,
-        **kwargs
+        data: dict | str | TextIO,
+        get_interval: JsCode | None = None,
+        **kwargs,
     ):
         super().__init__(data)
         self._name = "Timeline"
@@ -164,8 +160,7 @@ class TimelineSlider(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro header(this,kwargs) %}
             <style>
                 .leaflet-bottom.leaflet-left {
@@ -191,8 +186,7 @@ class TimelineSlider(JSCSSMixin, MacroElement):
           {% endfor %}
 
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         (
@@ -210,14 +204,14 @@ class TimelineSlider(JSCSSMixin, MacroElement):
         # arguments relevant to both interval and timestamp mode
         auto_play: bool = True,
         date_options: str = "YYYY-MM-DD HH:mm:ss",
-        start: Optional[Union[str, int, float]] = None,
-        end: Optional[Union[str, int, float]] = None,
+        start: str | int | float | None = None,
+        end: str | int | float | None = None,
         enable_playback: bool = True,
         enable_keyboard_controls: bool = False,
         show_ticks: bool = True,
         steps: int = 1000,
         playback_duration: int = 10000,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "TimelineSlider"
@@ -242,7 +236,7 @@ class TimelineSlider(JSCSSMixin, MacroElement):
         """
         )
 
-        self.timelines: List[Timeline] = []
+        self.timelines: list[Timeline] = []
         self.options = remove_empty(**kwargs)
 
     def add_timelines(self, *args):

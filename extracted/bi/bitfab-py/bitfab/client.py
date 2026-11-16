@@ -33,7 +33,14 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from bitfab import baml_auto_trace, jev, provider_calls, subtree
+from bitfab import (
+    baml_auto_trace,
+    google_calls,
+    jev,
+    provider_calls,
+    service_calls,
+    subtree,
+)
 from bitfab.baml import run_function_with_baml
 from bitfab.categories import CategoriesClient
 from bitfab.client_patching import node_owns_next_call, node_stream_slot
@@ -55,6 +62,10 @@ from bitfab.http import (
     ApiKeyInput,
     HttpClient,
     flush_traces,
+)
+from bitfab.integration_fixture import (
+    create_integration_fixture_context,
+    has_integration_fixture,
 )
 from bitfab.mock_matching import MATCHER, VariantChain, extend_variant_chain
 from bitfab.mock_override import (
@@ -95,6 +106,7 @@ from bitfab.replay import (  # noqa: F401 - re-export
 from bitfab.replay import replay as _run_replay
 from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
+from bitfab.sandbox import SANDBOX_FIXTURE_PREFIX, SANDBOX_SESSION_KEY, Sandbox
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
 from bitfab.serialize import (
     exceeds_readable_budget,
@@ -139,6 +151,10 @@ _MAX_HUMAN_PAYLOAD_BYTES = MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
 CAPTURE_ENABLED_ENV = "BITFAB_CAPTURE_ENABLED"
 MAX_CAPTURED_SUBTREE_SPANS_ENV = "BITFAB_MAX_CAPTURED_SUBTREE_SPANS"
 
+DISABLED_INTEGRATIONS_ENV = "BITFAB_DISABLED_INTEGRATIONS"
+CONTENT_WITHHELD_KEY = "content_withheld_while_integration_off"
+OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail"})
+KNOWN_INTEGRATIONS = provider_calls.INTEGRATION_NAMES | OFF_BY_DEFAULT_INTEGRATIONS
 _TRUE_ENV_VALUES = frozenset({"1", "true", "yes"})
 _FALSE_ENV_VALUES = frozenset({"0", "false", "no"})
 
@@ -152,6 +168,38 @@ def read_positive_int_env(name: str) -> int | None:
     except ValueError:
         return None
     return value if value > 0 else None
+
+
+def resolve_disabled_integrations(
+    integrations: Mapping[str, bool] | None,
+) -> frozenset[str]:
+    known = KNOWN_INTEGRATIONS
+    in_code = dict(integrations or {})
+    unknown = sorted(set(in_code) - known)
+    if unknown:
+        raise ValueError(
+            f"Bitfab(integrations=...) got {', '.join(unknown)}; "
+            f"known integrations are {', '.join(sorted(known))}."
+        )
+    raw = os.environ.get(DISABLED_INTEGRATIONS_ENV, "")
+    from_env = {name.strip().lower() for name in raw.split(",") if name.strip()}
+    unknown_in_env = sorted(from_env - known)
+    if unknown_in_env:
+        warn_once(
+            f"unknown-disabled-integrations:{','.join(unknown_in_env)}",
+            f"{DISABLED_INTEGRATIONS_ENV} names {', '.join(unknown_in_env)}, "
+            f"which the SDK does not know; ignoring it. Known integrations are "
+            f"{', '.join(sorted(known))}.",
+        )
+    return frozenset(
+        name
+        for name in known
+        if (
+            not in_code[name]
+            if name in in_code
+            else name in from_env or name in OFF_BY_DEFAULT_INTEGRATIONS
+        )
+    )
 
 
 def read_boolean_env(name: str) -> bool | None:
@@ -731,6 +779,12 @@ def _trace_root_span_context() -> SpanContext | None:
     )
 
 
+def _attach_to_trace_root(context: dict[str, Any]) -> None:
+    root = _trace_root_span_context()
+    if root is not None:
+        CurrentSpan(root).add_context(context)
+
+
 def _running_trace_function_keys(stack: list[SpanContext]) -> list[str]:
     keys: list[str] = []
     candidates = list(_enclosing_trace_function_keys.get())
@@ -950,6 +1004,33 @@ class CurrentTrace:
             # Silently ignore - never crash the host app
             pass
 
+    def record_sandbox_state(self, name: str, state: Any) -> None:
+        """Record the state a sandbox starts from when this trace is replayed.
+
+        Stored on the trace's root span. A replay hands it to the sandbox
+        named ``name`` as ``ctx.recorded_state`` in its ``start`` (and a
+        sandbox with no ``start`` starts from it). The first recording per
+        name in a trace is kept, so call it before the run changes that
+        service.
+
+        Args:
+            name: The sandbox's name, such as ``"Payments"``.
+            state: JSON: dicts, lists, strings, numbers, booleans and None.
+
+        Raises:
+            TypeError: When ``state`` is not JSON.
+        """
+        json.dumps(state)
+        try:
+            root = _trace_root_span_context()
+            fixture = f"{SANDBOX_FIXTURE_PREFIX}{name}"
+            if root is not None and not has_integration_fixture(root, fixture):
+                CurrentSpan(root).add_context(
+                    create_integration_fixture_context(fixture, state)
+                )
+        except Exception:
+            pass
+
     def drop(self) -> None:
         """Drop this trace.
 
@@ -1113,6 +1194,9 @@ class _NoOpCurrentTrace:
         pass
 
     def add_context(self, context: dict[str, Any]) -> None:
+        pass
+
+    def record_sandbox_state(self, name: str, state: Any) -> None:
         pass
 
     def drop(self) -> None:
@@ -1316,6 +1400,7 @@ class Bitfab:
         trace_across_threads: bool | None = None,
         max_captured_subtree_spans: int | None = None,
         simulation_plan: bool = True,
+        integrations: Mapping[str, bool] | None = None,
         enabled: bool | None = None,
     ):
         """Initialize the Bitfab client.
@@ -1365,6 +1450,20 @@ class Bitfab:
                 for at most the read timeout, once per client. False behaves
                 exactly like ``BITFAB_DISABLE_SIM_PLAN``: no read, no wait,
                 nothing held back, nothing stripped.
+            integrations: Which client libraries the SDK records calls from
+                inside a trace, by name. Model clients (``openai``,
+                ``openrouter``, ``anthropic``, ``gemini``) are on by default;
+                False turns one off, so its calls run untouched, record no
+                span, and replay cannot mock them, and a model client no
+                Bitfab client has on is never patched. ``gmail`` (Google's
+                Python client) is off by default because mail is sensitive;
+                True records each Gmail API call as a span named for its
+                method. Whatever this says, a Gmail call made during a replay
+                never reaches Google: the Gmail sandbox answers it. None
+                (default) or a name left out: off when
+                ``BITFAB_DISABLED_INTEGRATIONS`` lists it (comma separated);
+                a name given here wins over that variable. Raises ValueError
+                for a name the SDK does not know.
             enabled: Deprecated alias for ``capture_enabled``. Warns once.
         """
         if enabled is not None:
@@ -1385,6 +1484,10 @@ class Bitfab:
         self._capture_enabled_in_code = capture_enabled
         self._capture_enabled_from_env: bool | None = None
         self._strict = strict
+        self._disabled_integrations = resolve_disabled_integrations(integrations)
+        self._patched_integrations = (
+            provider_calls.INTEGRATION_NAMES - self._disabled_integrations
+        )
         self.baml_client = baml_client
         self._llm_auto_traced: dict[Any, Callable[..., Any]] = {}
         self._llm_auto_runs: dict[Any, Callable[..., Any]] = {}
@@ -1427,8 +1530,10 @@ class Bitfab:
         )
         if resolved_trace_across_threads:
             install_thread_propagation()
-        provider_calls.install_import_hook()
+        provider_calls.install_import_hook(self._patched_integrations)
         provider_calls.instrument_loaded_clients()
+        service_calls.register_client(self)
+        google_calls.install()
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
@@ -2246,6 +2351,7 @@ class Bitfab:
         judge_assertions: bool | None = None,
         mock: MockStrategy = "marked",
         mock_override: Union[MockOverrideInput, list[MockOverrideInput]] | None = None,
+        sandboxes: list[Sandbox] | None = None,
         experimental_selective_replay: SelectiveReplayOptions | None = None,
         adapt_inputs: Callable[
             [list[Any], dict[str, Any], AdaptContext], tuple[list[Any], dict[str, Any]]
@@ -2402,6 +2508,12 @@ class Bitfab:
                 registered via
                 :meth:`register_mock_override`, and fire even under
                 ``mock="none"``. The root span is never overridden.
+            sandboxes: Sandboxes that answer calls to outside services during
+                each item, keeping state for the length of the item so a write
+                followed by a read sees the write (see :class:`Sandbox`). A
+                sandbox that matches a call answers it before any mock override
+                or ``mock`` strategy. Built-in sandboxes (the Gmail sandbox)
+                are always on; passing one with the same name replaces it.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them
                 with each trace's assertions and recorded
@@ -2529,6 +2641,7 @@ class Bitfab:
             judge_assertions=judge_assertions,
             mock=mock,
             mock_override=mock_override,
+            sandboxes=sandboxes,
             experimental_selective_replay=experimental_selective_replay,
             adapt_inputs=adapt_inputs,
             db_branch=db_branch,
@@ -3002,6 +3115,25 @@ class Bitfab:
                     output = restore_output(output, output_meta)
                 return output
 
+            def _plan_sandbox(
+                replay_ctx: dict[str, Any] | None,
+                is_root_span: bool,
+                variant: str | None,
+            ) -> tuple[Any, ...] | None:
+                session = (replay_ctx or {}).get(SANDBOX_SESSION_KEY)
+                if session is None or is_root_span:
+                    return None
+                node = SpanNodeMeta(
+                    trace_function_key=trace_function_key,
+                    span_name=span_name,
+                    type=span_type,
+                    variant=variant,
+                )
+                sandbox = session.find(node)
+                if sandbox is None:
+                    return None
+                return ("sandbox", session, sandbox, node)
+
             def _plan_mock_replay(
                 is_root_span: bool, variant: str | None, variant_chain: VariantChain
             ) -> tuple[Any, ...] | None:
@@ -3022,6 +3154,7 @@ class Bitfab:
                 override-chain plan or a base-strategy plan.
                 """
                 replay_ctx = _replay_context.get()
+                sandbox_plan = _plan_sandbox(replay_ctx, is_root_span, variant)
                 call_index, mock_entry = MATCHER.claim(
                     replay_ctx,
                     trace_function_key=trace_function_key,
@@ -3029,6 +3162,8 @@ class Bitfab:
                     is_root_span=is_root_span,
                     variant_chain=variant_chain,
                 )
+                if sandbox_plan is not None:
+                    return sandbox_plan
                 if call_index is None:
                     return None
                 matched_chain = MATCHER.matched_variant_chain(replay_ctx, variant_chain)
@@ -3094,6 +3229,38 @@ class Bitfab:
                 race-free.
                 """
                 kind = plan[0]
+                if kind == "sandbox":
+                    _, session, sandbox, node = plan
+
+                    def no_original_output() -> Any:
+                        raise RuntimeError(
+                            f"The {sandbox.name} sandbox answers from its own "
+                            "state; read the original trace in its start "
+                            "function instead of get_original_output()."
+                        )
+
+                    answered = session.answer(
+                        sandbox,
+                        MockOverrideCtx(
+                            node=node,
+                            inputs=list(args),
+                            kwargs=dict(kwargs),
+                            get_original_output=no_original_output,
+                        ),
+                        _attach_to_trace_root,
+                    )
+                    CurrentSpan(new_stack[-1]).add_context({"sandbox": sandbox.name})
+                    _safe_send_span(
+                        new_stack[-1],
+                        **base_params,
+                        result=answered,
+                        error=None,
+                        ended_at=_get_ended_at(),
+                        mocked=True,
+                        mock_target="output",
+                        mock_source="sandbox",
+                    )
+                    return answered
                 if kind == "overrides":
                     (
                         _,
@@ -4520,7 +4687,7 @@ class Bitfab:
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
             baml_auto_trace.install_import_hook()
             jev.install_import_hook()
-            provider_calls.install_import_hook()
+            provider_calls.install_import_hook(self._patched_integrations)
             body = _without_node_settings(fn)
             roots = subtree.roots_for(body)
             code = getattr(body, "__code__", None)
@@ -5846,7 +6013,8 @@ class Bitfab:
             mock_target: What the mock replaced ("output" for every mock today,
                 since both paths short-circuit the call).
             mock_source: Where the substituted value came from: "recorded" for
-                the original trace's own, "override" for a caller-supplied one.
+                the original trace's own, "override" for a caller-supplied one,
+                "sandbox" for a sandbox's answer.
             runtime: Where the span executed: thread_id and thread_name always,
                 parent_thread_id when the parent span's thread is known, and
                 submit_thread_id/submit_thread_name when the
@@ -5879,6 +6047,8 @@ class Bitfab:
         ):
             span_data[CONTENT_OFF_KEY] = True
             prompt = None
+        elif service_calls.content_withheld.get() is not None:
+            span_data[CONTENT_WITHHELD_KEY] = service_calls.content_withheld.get()
         else:
             span_data.update(
                 self._span_content(raw_args, raw_kwargs, result, on_payload_bytes)

@@ -1,5 +1,8 @@
 name: Geopandas tests
 
+# no permissions by default
+permissions: {}
+
 on:
   schedule:
     - cron: "0 13 * * *"
@@ -11,26 +14,34 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
     - name: Checkout Folium
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
-        # needed to get the correct version number for Folium
         fetch-depth: 0
+        persist-credentials: false
         path: folium
 
     - name: Setup Micromamba env
-      uses: mamba-org/setup-micromamba@v2
+      uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39  # v3.2.1
       with:
         environment-name: TEST
         create-args: >-
-          python=3
+          python=3.13
           --file folium/requirements.txt
 
     - name: Checkout Geopandas
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
+        fetch-depth: 0
+        persist-credentials: false
         repository: geopandas/geopandas
         path: geopandas
 
@@ -46,12 +57,14 @@ jobs:
     - name: Run Geopandas tests
       run: |
         cd geopandas
+        pip install -e .
         coverage run -p -m pytest -r a geopandas/tests/test_explore.py
 
     - name: Upload coverage
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
       with:
         name: coverage-test-geopandas
         path: |
           .coverage*
+        include-hidden-files: true

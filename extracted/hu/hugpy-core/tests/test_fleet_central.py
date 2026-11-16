@@ -182,3 +182,34 @@ def test_a_console_row_says_where_every_copy_is_and_what_the_model_is(monkeypatc
     assert f["framework"] == "gguf" and f["model_max_length"] == 262144 and f["arch"] == "qwen3"
     assert f["effective_gguf"] == "m-Q8.gguf" and f["size_bytes"] == 80           # the proved one first
     assert [v["variation"] for v in f["fleet_variations"]] == ["m-Q8.gguf", "m-Q4.gguf"]
+
+
+def test_video_models_are_what_they_can_render_and_available_only_on_a_connected_host(monkeypatch):
+    """Video chooses by capability (2026-11-15): a model's tasks are what its declared pipeline renders, not its
+    catalog tag, and it is available only when a connected host holds it."""
+    from contextlib import contextmanager
+    from hugpy_core.relay import inference_catalog
+    now = datetime.now(timezone.utc)
+    row = dict(files=1, seen_at=now, content_id=None, basis="size", source_role="central", locations=[],
+               task="text-to-video", arch=None, layers=None, ctx_train=None, expert_count=None,
+               expert_used_count=None, class_names=[], bytes=10, engine="videogen", variation="*")
+    monkeypatch.setattr(fleet_central, "_all_rows", lambda: [
+        dict(row, holder="ae", key="org/i2v", capabilities=["i2v"]),
+        dict(row, holder="ae", key="org/vace", capabilities=["extend", "reference", "t2v", "v2v"]),
+        dict(row, holder="gone", key="org/away", capabilities=["t2v"])])
+    monkeypatch.setattr(fleet_central, "_connected", lambda: {"ae"})
+    table = [dict(model_key="org/i2v::*", primary_task="text-to-video", metadata={}, framework="diffusers"),
+             dict(model_key="org/away", primary_task="text-to-video", metadata={}, framework="diffusers")]
+
+    class Conn:
+        def execute(self, *a):
+            return self
+
+        def fetchall(self):
+            return table
+
+    monkeypatch.setattr(inference_catalog, "_conn", contextmanager(lambda: (yield Conn())))
+    models = inference_catalog.video_models()
+    assert models["org/i2v::*"].tasks == ("image-to-video",) and models["org/i2v::*"].extra["available"] is True
+    assert models["org/vace"].tasks == ("text-to-video", "video-to-video")
+    assert models["org/away"].extra["available"] is False            # held only by a host that is not connected

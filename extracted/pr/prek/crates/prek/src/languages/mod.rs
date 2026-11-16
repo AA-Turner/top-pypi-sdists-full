@@ -2,7 +2,6 @@ use std::ffi::{OsStr, OsString};
 use std::future::Future;
 use std::path::Path;
 use std::process::Stdio;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -16,9 +15,8 @@ use crate::concurrency::run_by_batch;
 use crate::config::Language;
 use crate::fs::PathClean;
 use crate::git::GitCommandExt;
-use crate::hook::{Hook, InstallInfo, InstalledHook, Repo};
+use crate::hook::{Hook, HookEffect, InstallInfo, InstalledHook, Repo};
 use crate::hook_entry::PreparedHookEntry;
-use crate::hooks::{self, HookOutput};
 use crate::process::{Cmd, with_command_env};
 use crate::store::{CacheBucket, Store, ToolBucket};
 
@@ -155,31 +153,8 @@ trait LanguageBackend: Sync {
 #[derive(Debug, Default)]
 pub(crate) struct ExecutionEnvironment {
     path: Option<OsString>,
-    patch: EnvironmentPatch,
-}
-
-#[derive(Debug, Default)]
-struct EnvironmentPatch {
     set: Vec<(OsString, OsString)>,
     remove: Vec<OsString>,
-}
-
-impl EnvironmentPatch {
-    fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
-        self.set
-            .push((key.as_ref().to_os_string(), value.as_ref().to_os_string()));
-    }
-
-    fn remove(&mut self, key: impl AsRef<OsStr>) {
-        self.remove.push(key.as_ref().to_os_string());
-    }
-
-    fn apply(&self, cmd: &mut Cmd) {
-        for key in &self.remove {
-            cmd.env_remove(key);
-        }
-        cmd.envs(self.set.iter().map(|(key, value)| (key, value)));
-    }
 }
 
 impl ExecutionEnvironment {
@@ -189,13 +164,14 @@ impl ExecutionEnvironment {
 
     pub(crate) fn set_path(&mut self, path: impl AsRef<OsStr>) -> &mut Self {
         let path = path.as_ref().to_os_string();
-        self.patch.set(EnvVars::PATH, &path);
+        self.env(EnvVars::PATH, &path);
         self.path = Some(path);
         self
     }
 
     pub(crate) fn env(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> &mut Self {
-        self.patch.set(key, value);
+        self.set
+            .push((key.as_ref().to_os_string(), value.as_ref().to_os_string()));
         self
     }
 
@@ -212,7 +188,7 @@ impl ExecutionEnvironment {
     }
 
     pub(crate) fn env_remove(&mut self, key: impl AsRef<OsStr>) -> &mut Self {
-        self.patch.remove(key);
+        self.remove.push(key.as_ref().to_os_string());
         self
     }
 
@@ -229,7 +205,11 @@ impl ExecutionEnvironment {
             .preserve_current_worktree(cwd)
             .args(args)
             .check(false);
-        self.patch.apply(&mut cmd);
+
+        for key in &self.remove {
+            cmd.env_remove(key);
+        }
+        cmd.envs(self.set.iter().map(|(key, value)| (key, value)));
         cmd.envs(&hook.env);
         Ok(cmd)
     }
@@ -328,8 +308,11 @@ impl Language {
         }
     }
 
-    pub(crate) fn can_modify_files(self) -> bool {
-        !matches!(self, Self::Fail | Self::Pygrep)
+    pub(crate) fn effect(self) -> HookEffect {
+        match self {
+            Self::Fail | Self::Pygrep => HookEffect::ReadOnly,
+            _ => HookEffect::Unknown,
+        }
     }
 
     pub(crate) fn supports_install_env(self) -> bool {
@@ -577,44 +560,14 @@ impl Language {
         self.backend().check_health(info)
     }
 
-    #[instrument(skip_all, fields(hook_id=%hook.id, language=%hook.language))]
-    pub(crate) async fn run<'a, 'p>(
-        &'a self,
-        store: &'a Store,
-        hook: &'a InstalledHook,
-        filenames: &'a [&'p Path],
-        reporter: &'a HookRunReporter,
-    ) -> Result<HookOutput>
-    where
-        'p: 'a,
-    {
-        match hook.repo() {
-            Repo::Meta => {
-                hooks::MetaHooks::from_str(&hook.id)
-                    .unwrap()
-                    .run(store, hook, filenames, reporter)
-                    .await
-            }
-            Repo::Builtin => {
-                hooks::BuiltinHooks::from_str(&hook.id)
-                    .unwrap()
-                    .run(store, hook, filenames, reporter)
-                    .await
-            }
-            // Fast path for hooks implemented in Rust
-            Repo::Remote { .. } if hooks::check_fast_path(hook) => {
-                hooks::run_fast_path(store, hook, filenames, reporter).await
-            }
-            Repo::Remote { .. } | Repo::Local => {
-                let (exit_status, output) =
-                    self.backend().run(store, hook, filenames, reporter).await?;
-                if self.can_modify_files() {
-                    Ok(HookOutput::unknown(exit_status, output))
-                } else {
-                    Ok(HookOutput::unchanged(exit_status, output))
-                }
-            }
-        }
+    pub(crate) async fn run(
+        &self,
+        store: &Store,
+        hook: &InstalledHook,
+        filenames: &[&Path],
+        reporter: &HookRunReporter,
+    ) -> Result<(i32, Vec<u8>)> {
+        self.backend().run(store, hook, filenames, reporter).await
     }
 
     #[instrument(skip_all, fields(hook_id=%hook.id, language=%hook.language))]
@@ -690,9 +643,7 @@ pub(crate) fn resolve_command(
 
     let resolved_binary = which::which_in(candidate, paths, cwd).unwrap_or_else(|_| {
         let candidate = Path::new(candidate);
-        let has_parent = candidate
-            .parent()
-            .is_some_and(|parent| !parent.as_os_str().is_empty());
+        let has_parent = candidate.parent().is_some_and(|parent| !parent.is_empty());
         // `which_in` only returns executable files. Resolve an explicit relative
         // path against `cwd` so its shebang can still be inspected.
         if candidate.is_absolute() || has_parent {

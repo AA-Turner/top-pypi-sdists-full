@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: structlog-sentry
-Version: 2.2.1
+Version: 2.2.2
 Summary: Sentry integration for structlog
-Home-page: https://github.com/kiwicom/structlog-sentry
 License: MIT
+License-File: LICENSE
 Author: Kiwi.com platform
 Author-email: platform@kiwi.com
 Requires-Python: >=3.7,<4.0
@@ -20,9 +20,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: sentry-sdk (>=2.15.0,<3.0.0)
 Requires-Dist: structlog
+Project-URL: Homepage, https://github.com/kiwicom/structlog-sentry
 Project-URL: Repository, https://github.com/kiwicom/structlog-sentry
 Description-Content-Type: text/markdown
 

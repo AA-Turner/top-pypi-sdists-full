@@ -13,10 +13,9 @@
 # under the License.
 
 import re
+import warnings
 
-from debtcollector import removals
 from hacking import core
-
 
 # Guidelines for writing new hacking checks
 #
@@ -77,6 +76,7 @@ def _check_imports(regex, submatch, logical_line):
     m = re.match(regex, logical_line)
     if m and m.group(1) == submatch:
         return True
+    return None
 
 
 def _check_namespace_imports(failure_code, namespace, new_ns, logical_line,
@@ -105,6 +105,7 @@ def _check_namespace_imports(failure_code, namespace, new_ns, logical_line,
             logical_line.replace('import', 'from').replace('.', ' import '),
             logical_line)
         return (0, msg_o or msg)
+    return None
 
 
 @core.off_by_default
@@ -157,11 +158,15 @@ def check_no_eventlet_imports(logical_line):
         yield logical_line.index('eventlet'), msg
 
 
-@removals.remove(message='Use H203 check instead')
 @core.off_by_default
 @core.flake8ext
 def assert_equal_none(logical_line):
     """N536 - Use assertIsNone."""
+    warnings.warn(
+        'Use H203 check instead',
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if assert_equal_none_re.search(logical_line):
         msg = ("N536: Use assertIsNone rather than assertEqual "
                "to check for None values")

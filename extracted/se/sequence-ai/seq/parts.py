@@ -96,11 +96,14 @@ def most_a_copy(listed: list[int]) -> str:
 def seats(spec: Any, bindings: dict) -> str:
     """How a worker seats robots on a copy: a policy whose infer takes a
     batch (@seq.concurrent(sizes=[...])) as many as the largest listed size whose batch answers within the time its
-    robots can wait for an answer (wait_steps at hz), as long as their batches fill at most LOAD_MAX of the time between
-    a robot's asks (its replan step at hz), each size timed by its version's build check, up to most_a_copy; one that
+    robots can wait for an answer (wait_steps at hz), as long as, run together on a simulated clock, at least 95% of
+    their answers are in time and their batches fill at most LOAD_MAX of the time between a robot's asks (its replan
+    step at hz) - one that sets max_wait_for_batch by that wait and its load alone, off the clock - each size timed by
+    its version's build check, up to most_a_copy; one that
     asks at its last valid step, or declares no action_chunk_valid_len, one robot a copy, its robots waiting for every
     answer or nothing saying how long they can; any other one robot a copy - several robots never take turns on one
     copy (the user 10-24: "We just want to do the batching").
+
 
 """
     listed = getattr(spec.concurrency, "sizes", None)
@@ -126,8 +129,9 @@ def seats(spec: Any, bindings: dict) -> str:
         ask = spec.action_chunk_valid_len - steps
         return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that answers "
                 f"within {steps / spec.hz:.3g} s, the {steps} steps a robot plays between asking for an answer and "
-                f"needing it at {spec.hz:g} Hz, as long as their batches fill at most {LOAD_MAX:.0%} of the "
-                f"{ask / spec.hz:.3g} s between a robot's asks (its {ask} steps) - each timed on "
+                f"needing it at {spec.hz:g} Hz, as long as, run together on a simulated clock, at least 95% of their "
+                f"answers are in time and their batches fill at most {LOAD_MAX:.0%} of the {ask / spec.hz:.3g} s "
+                f"between a robot's asks (its {ask} steps) - each timed on "
                 f"{_timing(spec, bindings) or 'nothing'} by its build check{most_a_copy(listed)}")
     return "one robot a copy"
 

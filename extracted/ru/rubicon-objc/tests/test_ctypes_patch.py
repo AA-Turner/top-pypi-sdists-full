@@ -5,6 +5,12 @@ import sys
 
 import pytest
 
+if sys.version_info >= (3, 16):
+    pytest.skip(
+        reason="ctypes_patch not required on Python 3.16+",
+        allow_module_level=True,
+    )
+
 from rubicon.objc import ctypes_patch
 
 
@@ -170,6 +176,22 @@ def test_get_stgdict_of_type_not_a_ctype(tp):
     """Looking up the StgDict of a non-ctypes type is a TypeError."""
     with pytest.raises(TypeError, match="must be a StgDict"):
         ctypes_patch.get_stgdict_of_type(tp)
+
+
+@before_313
+def test_get_stgdict_plain_dict():
+    """A type whose __dict__ is not a mapping proxy is not a StgDict."""
+
+    class PlainDictMeta(type):
+        @property
+        def __dict__(cls):
+            return {"not": "a stgdict"}
+
+    class PlainDictType(metaclass=PlainDictMeta):
+        pass
+
+    with pytest.raises(TypeError, match="must be a StgDict"):
+        ctypes_patch.get_stgdict_of_type(PlainDictType)
 
 
 @since_313

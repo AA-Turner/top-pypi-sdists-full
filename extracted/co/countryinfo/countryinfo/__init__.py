@@ -3,7 +3,7 @@ from countryinfo._filters import filter_countries as filter_countries
 from countryinfo.countryinfo import CountryInfo as CountryInfo
 from countryinfo.exceptions import CountryNotFoundError as CountryNotFoundError
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "CountryInfo",

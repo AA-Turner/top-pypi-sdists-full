@@ -61,6 +61,17 @@ class AckState(StrEnum):
     delivered_to_agent = 'delivered_to_agent'
 
 
+class Action(StrEnum):
+    """
+    What the person should do next; each client words its own line for it.
+    """
+
+    update = 'update'
+    reinstall = 'reinstall'
+    contact_support = 'contact_support'
+    none = 'none'
+
+
 class AddressKind(StrEnum):
     """
     What the route addressed: the scope a recorder names in `probe visuals`.
@@ -122,6 +133,80 @@ class ArtifactScope(StrEnum):
     all = 'all'
 
 
+class AttemptKind(StrEnum):
+    """
+    Which attempt part this is. Each kind has its own merge rule (`part.ATTEMPT_KIND_SELECTION`).
+    """
+
+    start = 'start'
+    progress = 'progress'
+    end = 'end'
+
+
+class AttemptOutcome(StrEnum):
+    """
+    How an attempt ended. A canceled attempt's sample, if any, is `result=error`, `error_reason=canceled`.
+    """
+
+    passed = 'passed'
+    failed = 'failed'
+    error = 'error'
+    dropped = 'dropped'
+    aborted = 'aborted'
+    canceled = 'canceled'
+    ungraded = 'ungraded'
+
+
+class AttemptPhase(StrEnum):
+    """
+    What a running attempt is doing now.
+    """
+
+    queued = 'queued'
+    agent = 'agent'
+    generating = 'generating'
+    tool = 'tool'
+    environment = 'environment'
+    scoring = 'scoring'
+
+
+class AttemptState(StrEnum):
+    """
+    Read at query time from the parts, the producer's lease and the run's epochs; never stored.
+    """
+
+    running = 'running'
+    hung = 'hung'
+    ended = 'ended'
+    abandoned = 'abandoned'
+    superseded = 'superseded'
+
+
+class AttemptStateReason(StrEnum):
+    """
+    Why an attempt reads hung, abandoned or superseded.
+    """
+
+    no_progress = 'no_progress'
+    producer_silent = 'producer_silent'
+    past_limit = 'past_limit'
+    epoch_superseded = 'epoch_superseded'
+    producer_released = 'producer_released'
+    producer_gone = 'producer_gone'
+    run_ended = 'run_ended'
+    retried = 'retried'
+
+
+class Audience(StrEnum):
+    """
+    Who the sentence is written for.
+    """
+
+    person = 'person'
+    agent = 'agent'
+    both = 'both'
+
+
 class Authorship(StrEnum):
     """
     Who composed the text on this write. The WIRE vocabulary.
@@ -129,6 +214,7 @@ class Authorship(StrEnum):
 
     human = 'human'
     agent = 'agent'
+    composed = 'composed'
 
 
 class BackfillState(StrEnum):
@@ -172,6 +258,11 @@ class CursorParameter(StrEnum):
     subprojects_cursor = 'subprojects_cursor'
 
 
+class BundleKind(StrEnum):
+    logs = 'logs'
+    tokens = 'tokens'
+
+
 class Cadence(StrEnum):
     weekdays = 'weekdays'
     mwf = 'mwf'
@@ -204,9 +295,51 @@ class CanvasPaperEdgeType(StrEnum):
     cites = 'cites'
 
 
+class Source(StrEnum):
+    claude_code = 'claude_code'
+    codex = 'codex'
+    pi = 'pi'
+    kimi_code = 'kimi_code'
+    cursor_agent = 'cursor_agent'
+
+
+class CaptureField(StrEnum):
+    """
+    What a sample's capture can hold that a framework may not give: a producer declares the ones it cannot, with
+    why (`Plan.unsupported`), so a reader sees "unsupported, because ..." instead of an empty field.
+    """
+
+    messages = 'messages'
+    tool_call_ids = 'tool_call_ids'
+    tool_call_arguments = 'tool_call_arguments'
+    tool_result_links = 'tool_result_links'
+    reasoning = 'reasoning'
+    environment_files = 'environment_files'
+    gpu_readings = 'gpu_readings'
+
+
 class Mode(StrEnum):
     field_100644 = '100644'
     field_100755 = '100755'
+
+
+class CaptureReasonCode(StrEnum):
+    """
+    Why capture says no. Slow, silent and gone stay apart (the fixture handoff's rule).
+    """
+
+    in_progress = 'in_progress'
+    missing_samples = 'missing_samples'
+    unsealed_step = 'unsealed_step'
+    producer_open = 'producer_open'
+    producer_silent = 'producer_silent'
+    producer_gone = 'producer_gone'
+    not_committed = 'not_committed'
+    completion_unproven = 'completion_unproven'
+    bundle_missing = 'bundle_missing'
+    batch_refused = 'batch_refused'
+    adapter_hooks_missing = 'adapter_hooks_missing'
+    files_not_stored = 'files_not_stored'
 
 
 class CaptureStatus(StrEnum):
@@ -224,6 +357,7 @@ class ChannelError(StrEnum):
     engine_timeout = 'engine_timeout'
     engine_error = 'engine_error'
     sql_budget_exceeded = 'sql_budget_exceeded'
+    engine_filters_unsupported = 'engine_filters_unsupported'
 
 
 class ChartSettingsTier(StrEnum):
@@ -270,13 +404,21 @@ class ClaimDecision(StrEnum):
     deny = 'deny'
 
 
+class ClaimOutcome(StrEnum):
+    created = 'created'
+    existing = 'existing'
+    adopted = 'adopted'
+    upgraded = 'upgraded'
+    linked = 'linked'
+
+
 class AutoUpdate(StrEnum):
     on = 'on'
     off = 'off'
     unknown = 'unknown'
 
 
-class Capture(StrEnum):
+class Capture1(StrEnum):
     installed = 'installed'
     absent = 'absent'
     unknown = 'unknown'
@@ -304,8 +446,8 @@ class ClientKind(StrEnum):
     """
     First-party clients that may report their installed version.
 
-    ADDING A MEMBER IS A THREE-PLACE CHANGE, and the two places that are not
-    this file both fail SILENTLY when they are missed:
+    ADDING A MEMBER IS A FOUR-PLACE CHANGE, and all but the first fail SILENTLY
+    when they are missed:
 
       1. the `client_version_observations.client_kind` CHECK constraint, which
          rejects the write outright (loud, and the only loud one);
@@ -313,7 +455,10 @@ class ClientKind(StrEnum):
          returns null for a kind it does not recognise -- so the row simply
          VANISHES from the UI with no error anywhere;
       3. `_pair_for` in status_router, which decides which manifest entry the
-         kind is compared against.
+         kind is compared against;
+      4. `_CLIENT_KIND_SURFACES` in app/external/analytics/context.py, the
+         `surface` its requests' events carry (it reads `api` without one;
+         test_analytics.py fails).
 
     Because of (2), the database, this enum and the dashboard parser must all
     ship BEFORE any client starts sending a new kind. A client release that
@@ -334,6 +479,16 @@ class ClientMode(StrEnum):
 
     daemon = 'daemon'
     inline = 'inline'
+
+
+class ClientSurface(StrEnum):
+    """
+    Which front door asked for a device approval: the page words its result for it.
+    """
+
+    terminal = 'terminal'
+    desktop = 'desktop'
+    agent = 'agent'
 
 
 class ClientUpdateStatus(StrEnum):
@@ -391,6 +546,60 @@ class CodeUnavailableReason(StrEnum):
     ref_unavailable = 'ref_unavailable'
 
 
+class CommandKind(StrEnum):
+    """
+    What was asked. A producer declares the kinds it can do (a sample producer in `Plan.capabilities`, a run's
+    script on its writer beat, `RunCapabilities`); any other is refused at once. Sample kinds name an attempt
+    (`attempt_key`); run kinds (agentic W&B C.1) name none.
+    """
+
+    cancel = 'cancel'
+    retry = 'retry'
+    watch = 'watch'
+    checkpoint = 'checkpoint'
+    config = 'config'
+    stop = 'stop'
+    custom = 'custom'
+
+
+class WriterRole(StrEnum):
+    launcher = 'launcher'
+    rank = 'rank'
+    owner = 'owner'
+    observer = 'observer'
+
+
+class CommandListPart(StrEnum):
+    """
+    What `GET /v1/runs/{id}/commands?with=` adds to the page. Each costs a read, so a poll asks for none.
+    """
+
+    writer = 'writer'
+
+
+class CommandState(StrEnum):
+    """
+    Where a command is. `expired` and `lost` are decided when read (no sweep job); the first read records them.
+    """
+
+    open = 'open'
+    taken = 'taken'
+    done = 'done'
+    refused = 'refused'
+    expired = 'expired'
+    lost = 'lost'
+
+
+class CommandWriter(StrEnum):
+    """
+    Whether the run's script is there to take a run ask, as the ask's refusal judges it.
+    """
+
+    live = 'live'
+    none = 'none'
+    unreported = 'unreported'
+
+
 class CompanionErrorCode(StrEnum):
     """
     `detail.code` (`error.code` on `/chat/completions`) on every refusal
@@ -425,6 +634,16 @@ class Op(StrEnum):
     field___2 = '>='
 
 
+class ContributionSource(StrEnum):
+    """
+    How `contribution` was taken: the gradient of the framework's own reduction with respect to the detached
+    per-token loss (it reproduces whatever the framework does), or the SDK's reducer from an explicit normalizer.
+    """
+
+    framework_autograd = 'framework_autograd'
+    probe_reducer = 'probe_reducer'
+
+
 class CreatorKind(StrEnum):
     """
     The credential kind that wrote a row. See the module docstring: this is the
@@ -439,6 +658,31 @@ class Role2(StrEnum):
     api = 'api'
     mcp = 'mcp'
     companion = 'companion'
+
+
+class DeletionState(StrEnum):
+    """
+    `session_deletion_requests.state` (0411).
+    """
+
+    pending = 'pending'
+    sweeping = 'sweeping'
+    engine_requested = 'engine_requested'
+    engine_done = 'engine_done'
+    erased = 'erased'
+    cancelled = 'cancelled'
+
+
+class DeliveryStallCause(StrEnum):
+    """
+    Why a client's sender says this run's writes stopped reaching the server.
+    """
+
+    refused = 'refused'
+    login_refused = 'login_refused'
+    stalled = 'stalled'
+    worker_crash_loop = 'worker_crash_loop'
+    unreachable = 'unreachable'
 
 
 class Role3(StrEnum):
@@ -456,6 +700,7 @@ class Status(StrEnum):
     approved = 'approved'
     denied = 'denied'
     onboarding_required = 'onboarding_required'
+    needs_onboarding = 'needs_onboarding'
 
 
 class CaptureSource(StrEnum):
@@ -473,6 +718,23 @@ class Status1(StrEnum):
     expired = 'expired'
     consumed = 'consumed'
     onboarding_required = 'onboarding_required'
+    needs_onboarding = 'needs_onboarding'
+
+
+class Status2(StrEnum):
+    pending = 'pending'
+    approved = 'approved'
+    denied = 'denied'
+    expired = 'expired'
+    onboarding_required = 'onboarding_required'
+
+
+class Agent(StrEnum):
+    claude_code = 'claude_code'
+    codex = 'codex'
+    pi = 'pi'
+    kimi_code = 'kimi_code'
+    cursor_agent = 'cursor_agent'
 
 
 class DirectionOutput(StrEnum):
@@ -480,7 +742,7 @@ class DirectionOutput(StrEnum):
     citer = 'citer'
 
 
-class Status2(StrEnum):
+class Status3(StrEnum):
     retired = 'retired'
     confirmed = 'confirmed'
 
@@ -511,7 +773,76 @@ class DisconnectReason(StrEnum):
     uninstall = 'uninstall'
     repair = 'repair'
     dashboard = 'dashboard'
+    capture_off = 'capture_off'
     unspecified = 'unspecified'
+
+
+class DocsState(StrEnum):
+    """
+    How fresh the answer is. `ok`: the copy is current. `stale`: the last
+    good copy, because the latest refresh failed. `unavailable`: no copy has
+    loaded yet, so there are no sections.
+    """
+
+    ok = 'ok'
+    stale = 'stale'
+    unavailable = 'unavailable'
+
+
+class Dtype(StrEnum):
+    fp32 = 'fp32'
+    bf16 = 'bf16'
+    fp16 = 'fp16'
+
+
+class EditActorKind(StrEnum):
+    """
+    Who made an edit: a person in the dashboard or CLI, a coding agent, the SDK (config, rewind), an import.
+    """
+
+    person = 'person'
+    agent = 'agent'
+    sdk = 'sdk'
+    import_ = 'import'
+
+
+class EditOp(StrEnum):
+    """
+    What an edit does. One list for the server, SDK, CLI, MCP and dashboard (review A4).
+    """
+
+    hide = 'hide'
+    shift_step = 'shift_step'
+    shift_time = 'shift_time'
+    scale = 'scale'
+    rename = 'rename'
+    move_series = 'move_series'
+    set_config = 'set_config'
+    revert = 'revert'
+
+
+class EditPhase(StrEnum):
+    """
+    The last durable step of an apply or an undo, so a retry resumes there instead of guessing.
+    """
+
+    created = 'created'
+    shelved = 'shelved'
+    written = 'written'
+    originals_removed = 'originals_removed'
+    edited_removed = 'edited_removed'
+    restored = 'restored'
+
+
+class EditState(StrEnum):
+    """
+    Where an edit is. Reads of its series carry an `edit_applying` advisory until it is applied or failed.
+    """
+
+    applying = 'applying'
+    applied = 'applied'
+    rolling_back = 'rolling_back'
+    failed = 'failed'
 
 
 class EffortWindow(StrEnum):
@@ -524,6 +855,12 @@ class EffortWindow(StrEnum):
     week = 'week'
     month = 'month'
     all = 'all'
+
+
+class Ending(StrEnum):
+    answer = 'answer'
+    nothing = 'nothing'
+    failed = 'failed'
 
 
 class DisabledFilter(StrEnum):
@@ -545,6 +882,33 @@ class EntityType(StrEnum):
     paper = 'paper'
 
 
+class ExampleProfile(StrEnum):
+    """
+    The install profile the example was started under (D27): `runs` has no chat stages.
+    """
+
+    full = 'full'
+    runs = 'runs'
+
+
+class ExampleStage(StrEnum):
+    """
+    One step of the example, in order. example.md walks the same order, and the agent says one
+    line in the chat for each (plan "Stages: one list, three readers").
+    """
+
+    project = 'project'
+    runs_live = 'runs_live'
+    compare = 'compare'
+    conclusion = 'conclusion'
+    fork = 'fork'
+    chat = 'chat'
+    search = 'search'
+    assistant = 'assistant'
+    new_chat = 'new_chat'
+    finish = 'finish'
+
+
 class Kind1(StrEnum):
     files = 'files'
     runs = 'runs'
@@ -560,6 +924,27 @@ class Nonfinite(StrEnum):
     field_inf = '-inf'
 
 
+class FailureEvidence(StrEnum):
+    """
+    What the cause rests on, strongest first. `none`: say the cause is unknown.
+    """
+
+    exception = 'exception'
+    log_tail = 'log_tail'
+    exit_code = 'exit_code'
+    none = 'none'
+
+
+class FailureGap(StrEnum):
+    """
+    Why part of the answer is absent, so an empty field is never read as "nothing happened".
+    """
+
+    retention = 'retention'
+    log_tail_absent = 'log_tail_absent'
+    log_tail_unreadable = 'log_tail_unreadable'
+
+
 class FeedbackKind(StrEnum):
     looks_right = 'looks_right'
     separate = 'separate'
@@ -573,8 +958,8 @@ class FieldSource(StrEnum):
     """
     Who composed the text now in the row. The STORED vocabulary.
 
-    A superset of `Authorship`: the wire cannot say `lane`, because a client is
-    never the generation lane. Mirrors `entity_overviews.source`, deliberately.
+    The wire cannot say `lane`, because a client is never the generation lane; a library default
+    it sends as `composed` is stored as `lane`. Mirrors `entity_overviews.source`, deliberately.
     """
 
     lane = 'lane'
@@ -594,9 +979,26 @@ class Key(StrEnum):
     metrics = 'metrics'
 
 
+class FinishReason1(StrEnum):
+    """
+    Why generation stopped. `length` feeds a group's truncated fraction.
+    """
+
+    stop = 'stop'
+    length = 'length'
+    abort = 'abort'
+    error = 'error'
+    other = 'other'
+
+
 class Frame(StrEnum):
     normalized = 'normalized'
     local = 'local'
+
+
+class GenerationPhase(StrEnum):
+    prefill = 'prefill'
+    decode = 'decode'
 
 
 class GitHubIntegrationState(StrEnum):
@@ -611,6 +1013,14 @@ class GitHubIntegrationState(StrEnum):
 
 class GitHubSetupFlow(StrEnum):
     integration_detail = 'integration_detail'
+
+
+class GpuUnsupported(StrEnum):
+    """
+    Why a sample can hold no GPU readings at all, known up front (stored as the part's `extras.gpu_unsupported`).
+    """
+
+    engine = 'engine'
 
 
 class Grant(StrEnum):
@@ -646,6 +1056,39 @@ class GraphState(StrEnum):
     ok = 'ok'
     partial = 'partial'
     pending = 'pending'
+
+
+class Grouping(StrEnum):
+    """
+    What one level's groups are, finest first. A level groups strictly coarser than the level before it.
+    """
+
+    micro_batch = 'micro_batch'
+    call = 'call'
+    rank = 'rank'
+    update = 'update'
+    step = 'step'
+
+
+class GuardRule(StrEnum):
+    """
+    The name of each rule the writer guard holds a page's own bytes to (`Violation.rule`).
+    """
+
+    own_script = 'own_script'
+    script_library = 'script_library'
+    handler_attribute = 'handler_attribute'
+    script_url = 'script_url'
+    mark_attribute = 'mark_attribute'
+    contenteditable = 'contenteditable'
+    animated_link = 'animated_link'
+    series_block = 'series_block'
+    module_build = 'module_build'
+    script_attribute = 'script_attribute'
+    script_in_foreign = 'script_in_foreign'
+    code_refused = 'code_refused'
+    script_unclosed = 'script_unclosed'
+    css_layer = 'css_layer'
 
 
 class HierarchyEntityKind(StrEnum):
@@ -712,29 +1155,10 @@ class InheritedKind(StrEnum):
     runs = 'runs'
 
 
-class CaptureSources1Enum(StrEnum):
-    claude_code = 'claude_code'
-    codex = 'codex'
-    pi = 'pi'
-    kimi_code = 'kimi_code'
-    cursor_agent = 'cursor_agent'
-
-
 class Role5(StrEnum):
     api = 'api'
     mcp = 'mcp'
     companion = 'companion'
-
-
-class IntegrationState(StrEnum):
-    """
-    Mirrors the GitHub integration's state vocabulary so the dashboard's
-    integration cards can share one rendering path.
-    """
-
-    not_configured = 'not_configured'
-    available = 'available'
-    connected = 'connected'
 
 
 class IntentEntity(StrEnum):
@@ -757,8 +1181,47 @@ class JobState(StrEnum):
     failed = 'failed'
 
 
+class KeyDropFailure(StrEnum):
+    """
+    Why the CLI could not keep the key (`failure`): W&B refused it, or it could not be written.
+    """
+
+    rejected = 'rejected'
+    save_failed = 'save_failed'
+
+
+class KeyDropOutcome(StrEnum):
+    """
+    What the CLI reports after pickup.
+    """
+
+    saved = 'saved'
+    failed = 'failed'
+
+
+class KeyDropStatus(StrEnum):
+    """
+    Where a drop is. `expired` and `other_account` are never stored: they are how a read sees it.
+    """
+
+    waiting = 'waiting'
+    sent = 'sent'
+    saved = 'saved'
+    failed = 'failed'
+    canceled = 'canceled'
+    expired = 'expired'
+    other_account = 'other_account'
+
+
 class SourceReadContractEnum(StrEnum):
     coverage_v1 = 'coverage-v1'
+
+
+class ExitStatus(StrEnum):
+    completed = 'completed'
+    failed = 'failed'
+    canceled = 'canceled'
+    crashed = 'crashed'
 
 
 class LineageEntityType(StrEnum):
@@ -808,6 +1271,59 @@ class LineageRelation(StrEnum):
     part_of = 'part_of'
 
 
+class LintRule(StrEnum):
+    """
+    The name of each rule the fragment lint holds a page to (`Violation.rule`).
+    """
+
+    empty = 'empty'
+    too_long = 'too_long'
+    fence_echo = 'fence_echo'
+    comment = 'comment'
+    nul_byte = 'nul_byte'
+    title_markup = 'title_markup'
+    style_markup = 'style_markup'
+    cut_short = 'cut_short'
+    unclosed = 'unclosed'
+    no_words = 'no_words'
+    no_article = 'no_article'
+    article_unclosed = 'article_unclosed'
+    duplicate_attribute = 'duplicate_attribute'
+    self_closed_raw = 'self_closed_raw'
+    hand_plot = 'hand_plot'
+    raw_text_in_foreign = 'raw_text_in_foreign'
+    h1 = 'h1'
+    opening_heading = 'opening_heading'
+    masthead = 'masthead'
+    forbidden_tag = 'forbidden_tag'
+    input_type = 'input_type'
+    script_library = 'script_library'
+    script_host = 'script_host'
+    canvas = 'canvas'
+    link = 'link'
+    image_source = 'image_source'
+    external_link = 'external_link'
+    marked_link = 'marked_link'
+    reference = 'reference'
+    beacon = 'beacon'
+    css = 'css'
+    handler_navigation = 'handler_navigation'
+    script_navigation = 'script_navigation'
+    chart_series = 'chart_series'
+    doctype = 'doctype'
+    cdata = 'cdata'
+    processing_instruction = 'processing_instruction'
+
+
+class ListOrder(StrEnum):
+    """
+    `order=` on a listing route that has no order of its own: `recent` is newest first by the route's clock
+    (sessions `last_seen_at`, runs activity, notes `updated_at`, files, datasets and checkpoints `created_at`).
+    """
+
+    recent = 'recent'
+
+
 class LiveError(StrEnum):
     """
     Why a live table was not read, in words a client may see (never an
@@ -828,6 +1344,12 @@ class LiveState(StrEnum):
     auth_required = 'auth_required'
 
 
+class LogSource(StrEnum):
+    bundle = 'bundle'
+    trial_files = 'trial_files'
+    row = 'row'
+
+
 class LogSourceKind(StrEnum):
     """
     Which copy a log read served: the live chunks, or the file the run saved.
@@ -837,10 +1359,57 @@ class LogSourceKind(StrEnum):
     saved = 'saved'
 
 
+class LossRole(StrEnum):
+    """
+    Which model's loss a row or update record belongs to. An actor and a critic train at the same steps on their own
+    update schedules: the role keeps their update 0 apart in every identity, the capture and the rollups.
+    """
+
+    actor = 'actor'
+    critic = 'critic'
+
+
+class MaskEvidence(StrEnum):
+    """
+    The row's mask digest against the trainer bundle's loss mask (`hash_mask`).
+    """
+
+    same_as_bundle = 'same_as_bundle'
+    differs_not_stored = 'differs_not_stored'
+    bundle_not_kept = 'bundle_not_kept'
+
+
 class MatchSource(StrEnum):
     exact = 'exact'
     semantic = 'semantic'
     structured = 'structured'
+
+
+class MessageCode(StrEnum):
+    """
+    The wire `code`s a client may key on. OPEN on the wire: an unknown code still shows its text.
+    """
+
+    client_too_old = 'client_too_old'
+    workspace_required = 'workspace_required'
+    data_refused = 'data_refused'
+    ingest_backlog = 'ingest_backlog'
+    update_recommended = 'update_recommended'
+    maintenance = 'maintenance'
+    incident = 'incident'
+    announcement = 'announcement'
+
+
+class MessageSource(StrEnum):
+    """
+    Who wrote a message. Gym observations arrive as role=user, so `role` alone cannot tell (DESIGN.md).
+    """
+
+    model = 'model'
+    environment = 'environment'
+    tool = 'tool'
+    user = 'user'
+    system = 'system'
 
 
 class MessageState(StrEnum):
@@ -853,6 +1422,18 @@ class MessageState(StrEnum):
     received = 'received'
     delivered = 'delivered'
     expired = 'expired'
+
+
+class MetricAgg(StrEnum):
+    """
+    How a key's series folds (`run.log`'s `agg`); the first declaration per run and key is kept.
+    """
+
+    mean = 'mean'
+    sum = 'sum'
+    min = 'min'
+    max = 'max'
+    count = 'count'
 
 
 class Origin(StrEnum):
@@ -888,6 +1469,11 @@ class MetricGoal(StrEnum):
 
     min = 'min'
     max = 'max'
+
+
+class MetricMode(StrEnum):
+    max = 'max'
+    min = 'min'
 
 
 class Agg(StrEnum):
@@ -957,6 +1543,19 @@ class NoteKind(StrEnum):
     sub_note = 'sub_note'
 
 
+class NoteSource(StrEnum):
+    hint = 'hint'
+    daemon = 'daemon'
+
+
+class NoticeSurface(StrEnum):
+    """
+    A surface with no client version pair that can still be shown notices (plan R13).
+    """
+
+    dashboard = 'dashboard'
+
+
 class OnboardingFlow(StrEnum):
     create_team = 'create_team'
     join_team = 'join_team'
@@ -1009,10 +1608,146 @@ class Job(StrEnum):
     failed = 'failed'
 
 
-class Source(StrEnum):
+class Source1(StrEnum):
     lane = 'lane'
     agent = 'agent'
     human = 'human'
+
+
+class PaneAnchorKind(StrEnum):
+    """
+    What a pane is filed under: a project, or one experiment (served at `/v1/projects/{id}`).
+    """
+
+    project = 'project'
+    experiment = 'experiment'
+
+
+class PaneCheckErrorKind(StrEnum):
+    script = 'script'
+    promise = 'promise'
+    resource = 'resource'
+    navigation = 'navigation'
+
+
+class PaneCheckOnData(StrEnum):
+    """
+    Whether the live state reached the page's `PROBE.onData` handler.
+    """
+
+    delivered = 'delivered'
+    not_listening = 'not_listening'
+    not_run = 'not_run'
+
+
+class PaneCheckReason(StrEnum):
+    """
+    Why a render check was `skipped`: the pane-check service's reasons, then the API's own.
+    """
+
+    timeout = 'timeout'
+    library = 'library'
+    busy = 'busy'
+    crash = 'crash'
+    width = 'width'
+    unavailable = 'unavailable'
+
+
+class PaneCheckState(StrEnum):
+    """
+    A state the render check draws the pane in.
+    """
+
+    wide = 'wide'
+    medium = 'medium'
+    narrow = 'narrow'
+    grow = 'grow'
+    empty = 'empty'
+    live = 'live'
+    controls = 'controls'
+
+
+class PaneCheckStatus(StrEnum):
+    """
+    What the render check at push answered.
+    """
+
+    passed = 'passed'
+    failed = 'failed'
+    skipped = 'skipped'
+
+
+class PanePartialReason(StrEnum):
+    """
+    Why a resolved entry is `partial`.
+    """
+
+    rows = 'rows'
+    cells = 'cells'
+    points = 'points'
+    time = 'time'
+
+
+class PanePreviewMode(StrEnum):
+    """
+    What a push does to its project's canvas preview (`preview/`).
+    """
+
+    auto = 'auto'
+
+
+class PanePreviewState(StrEnum):
+    """
+    A project's canvas preview choice.
+    """
+
+    none = 'none'
+    selected = 'selected'
+    cleared = 'cleared'
+
+
+class PaneRule(StrEnum):
+    """
+    The name of each pane-only rule (`Violation.rule`); the page's own are the lint's and the
+    writer guard's. The page's rules (`page_check.py`) come first.
+    """
+
+    credential = 'credential'
+    not_a_pane_call = 'not_a_pane_call'
+    read_without_literal_id = 'read_without_literal_id'
+    read_without_entry = 'read_without_entry'
+    read_of_other_source = 'read_of_other_source'
+    entry_never_read = 'entry_never_read'
+    run_not_found = 'run_not_found'
+    too_many_panes = 'too_many_panes'
+    failed_in_browser = 'failed_in_browser'
+    daemon_preview_only = 'daemon_preview_only'
+    project_previews_off = 'project_previews_off'
+    not_a_project = 'not_a_project'
+    preview_opted_out = 'preview_opted_out'
+    preview_chosen = 'preview_chosen'
+    pane_taken = 'pane_taken'
+    preview_slug = 'preview_slug'
+
+
+class PaneSourceState(StrEnum):
+    """
+    A resolved entry's `state`.
+    """
+
+    ok = 'ok'
+    partial = 'partial'
+    too_large = 'too_large'
+
+
+class PaneWriterKind(StrEnum):
+    """
+    Who last wrote a pane or a preview choice, from the credential.
+    """
+
+    human = 'human'
+    agent = 'agent'
+    daemon = 'daemon'
 
 
 class PaperExpansion(StrEnum):
@@ -1071,6 +1806,18 @@ class ParentRelation(StrEnum):
     branch = 'branch'
 
 
+class PartRole(StrEnum):
+    """
+    What a part speaks for. One process may send several roles for one attempt, one part each.
+    """
+
+    generator = 'generator'
+    trainer = 'trainer'
+    scorer = 'scorer'
+    harbor = 'harbor'
+    attempt = 'attempt'
+
+
 class PickEvent(StrEnum):
     """
     One `best_picks` row: a pick, or a clear.
@@ -1078,6 +1825,78 @@ class PickEvent(StrEnum):
 
     set = 'set'
     clear = 'clear'
+
+
+class PinAnchorKind(StrEnum):
+    """
+    Where a view lives: the project or one of its experiments.
+    """
+
+    project = 'project'
+    experiment = 'experiment'
+
+
+class PinKind(StrEnum):
+    """
+    What a pin shows: one view kind, the `kind` of its ref.
+    """
+
+    pane = 'pane'
+    metric_chart = 'metric_chart'
+    key_metrics = 'key_metrics'
+    parallel_coordinates = 'parallel_coordinates'
+    visual = 'visual'
+
+
+class PingEvent(StrEnum):
+    asked = 'asked'
+    ended = 'ended'
+    injected = 'injected'
+
+
+class PointBy(StrEnum):
+    """
+    What one series row covers.
+    """
+
+    step = 'step'
+    update = 'update'
+    run = 'run'
+
+
+class PointsCheck(StrEnum):
+    """
+    One step's answer: complete against what was declared, and matching what the trainer reported.
+    """
+
+    reconciled = 'reconciled'
+    unreconciled = 'unreconciled'
+    partial = 'partial'
+    undeclared = 'undeclared'
+    unchecked = 'unchecked'
+
+
+class PointsStore(StrEnum):
+    """
+    Where one project's points live (I24): `clickhouse` alone (a listed project), `dual` (Postgres plus a
+    ClickHouse copy) or `postgres`. Wire values: `GET /v1/projects/{ref}/points-store` serves them.
+    """
+
+    clickhouse = 'clickhouse'
+    dual = 'dual'
+    postgres = 'postgres'
+
+
+class PointsUnavailable(StrEnum):
+    """
+    Why a sample (or one key of it) has no points: never a zero.
+    """
+
+    dropped = 'dropped'
+    never_consumed = 'never_consumed'
+    consumed_not_committed = 'consumed_not_committed'
+    unsupported = 'unsupported'
+    not_recorded = 'not_recorded'
 
 
 class ProjectKind(StrEnum):
@@ -1129,7 +1948,7 @@ class Job3(StrEnum):
     failed = 'failed'
 
 
-class Source4(StrEnum):
+class Source5(StrEnum):
     """
     Who wrote the page: lane, agent or human.
     """
@@ -1200,6 +2019,11 @@ class RecordKind(StrEnum):
     other = 'other'
 
 
+class AllowedMode(StrEnum):
+    agent = 'agent'
+    daemon = 'daemon'
+
+
 class Fn2(StrEnum):
     sum = 'sum'
     mean = 'mean'
@@ -1211,6 +2035,19 @@ class Fn2(StrEnum):
     first = 'first'
     last = 'last'
     count = 'count'
+
+
+class Reducer(StrEnum):
+    """
+    How one level folds the groups below it. On the stored rows (the first level): `sum` is sum(value x weight),
+    `mean` the plain mean of each call's weighted mean, `min` / `max` the rows' own extremes.
+    """
+
+    weighted_mean = 'weighted_mean'
+    mean = 'mean'
+    sum = 'sum'
+    min = 'min'
+    max = 'max'
 
 
 class RefType(StrEnum):
@@ -1235,6 +2072,21 @@ class ReferenceDirection(StrEnum):
 
     outgoing = 'outgoing'
     incoming = 'incoming'
+
+
+class ReferenceRelation(StrEnum):
+    """
+    What a stored project -> project edge says (0401).
+
+    `references` is 0153's lateral "drew on". `part_of` says the project in
+    the path is a part of the other one -- the link that replaces filing a
+    project under a parent. One row per ordered pair: a `part_of` write
+    upgrades a `references` row on the same pair, and a `references` write
+    never downgrades a `part_of` one.
+    """
+
+    references = 'references'
+    part_of = 'part_of'
 
 
 class Refusal(StrEnum):
@@ -1276,6 +2128,13 @@ class Relayout(StrEnum):
     all = 'all'
 
 
+class Representation(StrEnum):
+    legacy = 'legacy'
+    source_backed = 'source_backed'
+    copying = 'copying'
+    copied = 'copied'
+
+
 class ResourceKind(StrEnum):
     """
     Values match the dashboard's SharedResourceKind byte-for-byte.
@@ -1295,14 +2154,13 @@ class Job4(StrEnum):
     failed = 'failed'
 
 
-class RunAlertKind(StrEnum):
+class RollupSource(StrEnum):
     """
-    `run_alerts.kind` -- mirrors its CHECK.
+    What the finest group's value is made from.
     """
 
-    crashed = 'crashed'
-    still_running = 'still_running'
-    flagged_then_stopped = 'flagged_then_stopped'
+    value = 'value'
+    contribution = 'contribution'
 
 
 class RunCodeState(StrEnum):
@@ -1359,7 +2217,85 @@ class ObservedBy(StrEnum):
     node_agent = 'node_agent'
 
 
-class Status3(StrEnum):
+class SQLSource(StrEnum):
+    """
+    Where `POST /v1/sql` reads: the research tables (Postgres), or ClickHouse's RL sample views
+    (app/agents/sql/clickhouse).
+    """
+
+    postgres = 'postgres'
+    samples = 'samples'
+
+
+class SampleErrorReason(StrEnum):
+    """
+    Why an attempt broke. Each adapter maps its framework's exceptions onto these once.
+    """
+
+    engine_abort = 'engine_abort'
+    sandbox = 'sandbox'
+    verifier = 'verifier'
+    reward_fn = 'reward_fn'
+    timeout = 'timeout'
+    oom = 'oom'
+    network = 'network'
+    tool_backend = 'tool_backend'
+    canceled = 'canceled'
+    probe_proxy = 'probe_proxy'
+    group_has_aborted = 'group_has_aborted'
+    unknown = 'unknown'
+
+
+class SampleEventKind(StrEnum):
+    """
+    Miles' trajectory events, for every framework.
+    """
+
+    attempt_start = 'attempt_start'
+    attempt_end = 'attempt_end'
+    generation_start = 'generation_start'
+    generation_end = 'generation_end'
+    tool_start = 'tool_start'
+    tool_end = 'tool_end'
+
+
+class SampleOutcome(StrEnum):
+    """
+    Never written by a producer: a read derives it (`derive_outcome`, DESIGN.md "Outcome").
+    """
+
+    in_flight = 'in_flight'
+    ended = 'ended'
+    generated = 'generated'
+    consumed = 'consumed'
+    trained = 'trained'
+    dropped = 'dropped'
+    eval = 'eval'
+    sft = 'sft'
+    superseded = 'superseded'
+
+
+class SampleResult(StrEnum):
+    """
+    Pytest's words for one rollout. Never `status`: the SQL tool joins samples to runs (DESIGN.md).
+    """
+
+    passed = 'passed'
+    failed = 'failed'
+    error = 'error'
+
+
+class SampleSplit(StrEnum):
+    """
+    Which pass made the attempt: a training rollout, an eval pass, or an SFT example.
+    """
+
+    train = 'train'
+    eval = 'eval'
+    sft = 'sft'
+
+
+class Status4(StrEnum):
     added = 'added'
     modified = 'modified'
     deleted = 'deleted'
@@ -1396,6 +2332,13 @@ class Scope(StrEnum):
     admin = 'admin'
 
 
+class ScorerKind(StrEnum):
+    verifier = 'verifier'
+    reward_model = 'reward_model'
+    teacher = 'teacher'
+    judge = 'judge'
+
+
 class SearchEntityType(StrEnum):
     """
     Entities the exact SQL channel searches (names + slugs).
@@ -1421,6 +2364,16 @@ class SearchRetrieval(StrEnum):
 
     agentic = 'agentic'
     keyword = 'keyword'
+
+
+class SearchSort(StrEnum):
+    """
+    `sort`: RELEVANCE (default, today's order) or RECENT, newest first by when the content was written, applied
+    before the top-k cut in both channels (D16). Engine wire value: `recency`.
+    """
+
+    relevance = 'relevance'
+    recent = 'recent'
 
 
 class SearchState(StrEnum):
@@ -1486,6 +2439,25 @@ class SessionOrder(StrEnum):
     newest = 'newest'
 
 
+class Severity(StrEnum):
+    """
+    How hard the message stops the client: every refusal is `blocking`.
+    """
+
+    blocking = 'blocking'
+    warning = 'warning'
+    info = 'info'
+
+
+class SlowAgainst(StrEnum):
+    """
+    What a slow attempt's elapsed time was compared with.
+    """
+
+    task = 'task'
+    step = 'step'
+
+
 class Fn4(StrEnum):
     ema = 'ema'
     sma = 'sma'
@@ -1516,6 +2488,12 @@ class SourceProvider(StrEnum):
     database = 'database'
     local = 'local'
     other = 'other'
+
+
+class StageState(StrEnum):
+    done = 'done'
+    waiting = 'waiting'
+    person = 'person'
 
 
 class StoredState(StrEnum):
@@ -1578,6 +2556,16 @@ class SummaryState(StrEnum):
     failed = 'failed'
 
 
+class SwitchedBy(StrEnum):
+    """
+    Who turned transcripts off: a person at a terminal, a coding agent (no terminal), the Probe app.
+    """
+
+    person = 'person'
+    agent = 'agent'
+    app = 'app'
+
+
 class SyncState(StrEnum):
     idle = 'idle'
     running = 'running'
@@ -1588,6 +2576,16 @@ class SyncState(StrEnum):
 class Role9(StrEnum):
     system = 'system'
     developer = 'developer'
+
+
+class TailKind(StrEnum):
+    """
+    Where a tail's lines come from, so a reader never takes an output file for the console.
+    """
+
+    console = 'console'
+    live = 'live'
+    output = 'output'
 
 
 class Role10(StrEnum):
@@ -1607,6 +2605,22 @@ class Role12(StrEnum):
     member = 'member'
 
 
+class Tier(StrEnum):
+    """
+    An org's tier. One value per org, on `org_tiers.tier` (absent row == free).
+
+    Mirrors `app.core.plans.Plan` rather than importing it: that enum is the
+    create gate's contract (it rides in the 402 body as `plan` and the dashboard
+    branches on it), and it has only the two members it needs. This one grows --
+    `enterprise` is already in the database CHECK -- so coupling them would mean
+    every tier added here became a change to the refusal contract.
+    """
+
+    free = 'free'
+    paid = 'paid'
+    enterprise = 'enterprise'
+
+
 class TimelineState(StrEnum):
     """
     Freshness verdict on a proxied read, rendered rather than hidden.
@@ -1615,6 +2629,29 @@ class TimelineState(StrEnum):
     ok = 'ok'
     stale = 'stale'
     unavailable = 'unavailable'
+
+
+class TraceSourceName(StrEnum):
+    """
+    The framework whose raw spans a batch carries.
+    """
+
+    mastra = 'mastra'
+    generic = 'generic'
+
+
+class TranscriptState(StrEnum):
+    """
+    One agent's (or the machine's) session transcripts. `off` is a choice, never a fault.
+    """
+
+    on = 'on'
+    off = 'off'
+    awaiting_install = 'awaiting_install'
+    not_paired = 'not_paired'
+    key_refused = 'key_refused'
+    plugin_missing = 'plugin_missing'
+    not_running = 'not_running'
 
 
 class Trigger(StrEnum):
@@ -1641,6 +2678,15 @@ class TriggerClass(StrEnum):
     search = 'search'
     command = 'command'
     window = 'window'
+
+
+class TurnsSource(StrEnum):
+    """
+    Where a sample's turns came from, so a reader can tell the messages as sent from text Probe rebuilt.
+    """
+
+    as_sent = 'as_sent'
+    decoded = 'decoded'
 
 
 class Fn5(StrEnum):
@@ -1673,12 +2719,14 @@ class Fn5(StrEnum):
     cosh = 'cosh'
 
 
-class UnitStatus(StrEnum):
-    pending = 'pending'
-    running = 'running'
-    completed = 'completed'
-    failed = 'failed'
-    dead = 'dead'
+class UpdateLevel(StrEnum):
+    """
+    Which part of the update (or eval pass) a record speaks for.
+    """
+
+    update = 'update'
+    rank = 'rank'
+    micro_batch = 'micro_batch'
 
 
 class Via(StrEnum):
@@ -1745,7 +2793,17 @@ class Fn6(StrEnum):
     median = 'median'
 
 
-class State1(StrEnum):
+class WorkKind(StrEnum):
+    """
+    What a session's linked work item is.
+    """
+
+    project = 'project'
+    experiment = 'experiment'
+    run = 'run'
+
+
+class State2(StrEnum):
     absent = 'absent'
     generating = 'generating'
     fresh = 'fresh'
@@ -1788,14 +2846,7 @@ class Lease(StrEnum):
     gone = 'gone'
 
 
-class ExitStatus(StrEnum):
-    completed = 'completed'
-    failed = 'failed'
-    canceled = 'canceled'
-    crashed = 'crashed'
-
-
-class WriterRole(StrEnum):
+class WriterRoleModel(StrEnum):
     """
     What a lease's process is to the run (SDK reliability 2.8).
     """
@@ -1871,23 +2922,3 @@ class AppSummariesSchemasAnchorType(StrEnum):
     project = 'project'
     run = 'run'
     trial = 'trial'
-
-
-class Source5(StrEnum):
-    claude_code = 'claude_code'
-    codex = 'codex'
-    pi = 'pi'
-    kimi_code = 'kimi_code'
-    cursor_agent = 'cursor_agent'
-
-
-class DocsState(StrEnum):
-    """
-    How fresh the answer is. `ok`: the copy is current. `stale`: the last
-    good copy, because the latest refresh failed. `unavailable`: no copy has
-    loaded yet, so there are no sections.
-    """
-
-    ok = 'ok'
-    stale = 'stale'
-    unavailable = 'unavailable'

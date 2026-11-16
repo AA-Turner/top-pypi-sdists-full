@@ -14,9 +14,10 @@ from unittest import TestCase
 
 from .cogapp import Cog, CogOptions, CogGenerator
 from .cogapp import CogError, CogUsageError, CogGeneratedError, CogUserException
-from .cogapp import usage, __version__, main
+from .cogapp import __version__, main
 from .hashhandler import HashHandler
 from .makefiles import make_files
+from .options import Markers, description
 from .whiteutils import reindent_block
 
 
@@ -466,6 +467,35 @@ class CogTestsInMemory(TestCase):
         infile = reindent_block(infile)
         self.assertEqual(Cog().process_string(infile), reindent_block(outfile))
 
+    def test_unrelated_triple_closing_brackets(self):
+        # Python code with accurate type annotations may have triple closing brackets.
+        # The Python code may be embedded in other files with cog usage,
+        # such as RST files or GitHub workflows. Cog must not error on this input.
+        # The example below is a fully-valid, executable GitHub workflow.
+        infile = """\
+            on:
+              push:
+            jobs:
+              demo:
+                runs-on: ubuntu-latest
+                steps:
+                  - shell: bash
+                    run: |
+                      # [[[cog cog.outl("echo 'hello'") ]]]
+                      echo 'hello'
+                      # [[[end]]]
+                  - shell: python
+                    run: |
+                      def demo() -> tuple[tuple[tuple[str]]]:
+                          # This is what's being tested  ^^^
+                          #
+                          return ((("hello world",),),)
+                      print(demo()[0][0][0])
+        """
+
+        infile = reindent_block(infile)
+        self.assertEqual(Cog().process_string(infile), infile)
+
 
 class CogOptionsTests(TestCase):
     """Test the CogOptions class."""
@@ -512,8 +542,7 @@ class CogOptionsTests(TestCase):
         self.assertEqual(o, p)
 
     def test_markers(self):
-        o = CogOptions()
-        o._parse_markers("a b c")
+        o = Markers.from_arg("a b c")
         self.assertEqual("a", o.begin_spec)
         self.assertEqual("b", o.end_spec)
         self.assertEqual("c", o.end_output)
@@ -561,21 +590,6 @@ class FileStructureTests(TestCase):
             #]]]
             """
         self.is_bad(infile2, "infile.txt(5): Unexpected '[[[cog'")
-
-    def test_start_with_end(self):
-        infile = """\
-            #]]]
-            """
-        self.is_bad(infile, "infile.txt(1): Unexpected ']]]'")
-
-        infile2 = """\
-            #[[[cog
-                cog.outl('hello')
-            #]]]
-            #[[[end]]]
-            #]]]
-            """
-        self.is_bad(infile2, "infile.txt(5): Unexpected ']]]'")
 
     def test_start_with_eoo(self):
         infile = """\
@@ -809,10 +823,10 @@ class ArgumentHandlingTests(TestCaseWithTempDir):
         # Return value 2 means usage problem.
         self.assertEqual(self.cog.main(["argv0", "-j"]), 2)
         output = self.output.getvalue()
-        self.assertIn("option -j not recognized", output)
+        self.assertIn("unrecognized arguments: -j", output)
         with self.assertRaisesRegex(CogUsageError, r"^No files to process$"):
             self.cog.callable_main(["argv0"])
-        with self.assertRaisesRegex(CogUsageError, r"^option -j not recognized$"):
+        with self.assertRaisesRegex(CogUsageError, r"^unrecognized arguments: -j$"):
             self.cog.callable_main(["argv0", "-j"])
 
     def test_no_dash_o_and_at_file(self):
@@ -840,7 +854,8 @@ class ArgumentHandlingTests(TestCaseWithTempDir):
         self.new_cog()
         argv = ["argv0"] + args.split()
         self.assertEqual(self.cog.main(argv), 0)
-        self.assertEqual(usage, self.output.getvalue())
+        output = self.output.getvalue()
+        self.assertRegex(output, f"^{re.escape(description)}.*")
 
     def test_dash_h(self):
         # -h, --help, or -? anywhere on the command line should just print help.
@@ -897,20 +912,24 @@ class ArgumentHandlingTests(TestCaseWithTempDir):
         self.assertFilesSame("test.cog", "test.out")
 
     def test_bad_dash_d(self):
-        with self.assertRaisesRegex(CogUsageError, r"^-D takes a name=value argument$"):
+        with self.assertRaisesRegex(
+            CogUsageError, r"^argument -D: takes a name=value argument$"
+        ):
             self.cog.callable_main(["argv0", "-Dfooey", "cog.txt"])
-        with self.assertRaisesRegex(CogUsageError, r"^-D takes a name=value argument$"):
+        with self.assertRaisesRegex(
+            CogUsageError, r"^argument -D: takes a name=value argument$"
+        ):
             self.cog.callable_main(["argv0", "-D", "fooey", "cog.txt"])
 
     def test_bad_markers(self):
         with self.assertRaisesRegex(
             CogUsageError,
-            r"^--markers requires 3 values separated by spaces, could not parse 'X'$",
+            r"^argument --markers: requires 3 values separated by spaces, could not parse 'X'$",
         ):
             self.cog.callable_main(["argv0", "--markers=X"])
         with self.assertRaisesRegex(
             CogUsageError,
-            r"^--markers requires 3 values separated by spaces, could not parse 'A B C D'$",
+            r"^argument --markers: requires 3 values separated by spaces, could not parse 'A B C D'$",
         ):
             self.cog.callable_main(["argv0", "--markers=A B C D"])
 
@@ -933,7 +952,7 @@ class TestMain(TestCaseWithTempDir):
         ret = main()
         self.assertEqual(ret, 2)
         stderr = sys.stderr.getvalue()
-        self.assertEqual(stderr, "option -Z not recognized\n(for help use --help)\n")
+        self.assertEqual(stderr, "unrecognized arguments: -Z\n(for help use --help)\n")
 
     files = {
         "test.cog": """\
@@ -2493,6 +2512,41 @@ class ChecksumTests(TestCaseWithTempDir):
         make_files(d)
         self.cog.callable_main(["argv0", "-r", "-c", "cog1.txt"])
         self.assertFilesSame("cog1.txt", "cog1.out")
+
+    def test_excise_with_checksum_removes_hash(self):
+        # -x -c must drop the checksum entirely, not leave an empty (sum: ).
+        d = {
+            "cog1.txt": """\
+                //[[[cog
+                cog.outl("This line was generated.")
+                //]]]
+                This line was generated.
+                //[[[end]]] (sum: itsT+1m5lq)
+                This line was not.
+                """,
+            "cog1.out": """\
+                //[[[cog
+                cog.outl("This line was generated.")
+                //]]]
+                //[[[end]]]
+                This line was not.
+                """,
+            "cog1.out2": """\
+                //[[[cog
+                cog.outl("This line was generated.")
+                //]]]
+                This line was generated.
+                //[[[end]]] (sum: itsT+1m5lq)
+                This line was not.
+                """,
+        }
+
+        make_files(d)
+        self.cog.callable_main(["argv0", "-r", "-x", "-c", "cog1.txt"])
+        self.assertFilesSame("cog1.txt", "cog1.out")
+        self.new_cog()
+        self.cog.callable_main(["argv0", "-r", "-c", "cog1.txt"])
+        self.assertFilesSame("cog1.txt", "cog1.out2")
 
     def test_remove_checksum_output(self):
         d = {

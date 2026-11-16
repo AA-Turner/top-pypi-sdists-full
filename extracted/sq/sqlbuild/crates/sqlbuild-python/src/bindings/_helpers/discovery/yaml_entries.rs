@@ -16,8 +16,8 @@ use sqlbuild_model_config::errors::{ConfigError, ErrorClass};
 use crate::bindings::_helpers::model_config::authored_nodes::PyNode;
 use crate::bindings::_helpers::model_config::contract_classes::yaml_entry_classes;
 use crate::bindings::_helpers::model_config::header_metadata::{ContractClasses, audit_tuple};
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::ids::ErrorId;
+use sqlbuild_python_base::records::main::construct::error_class::error_class;
+use sqlbuild_python_base::records::types::ErrorId;
 
 /// The directory whose schema YAML files may declare seeds.
 const SEEDS_DIRECTORY: &str = "seeds";
@@ -349,9 +349,9 @@ pub(crate) fn parse_sources_document<'py>(
             parse_error(py, error, SOURCE_PARSE_ERROR).unwrap_or_else(|error| error)
         })?;
     let referenced: Option<std::collections::BTreeSet<String>> =
-        crate::bindings::_helpers::compile_context::delta::injection()
+        sqlbuild_python_base::compile_context::main::delta::injection::injection()
             .and_then(|injection| injection.source_names.clone());
-    crate::bindings::_helpers::compile_context::delta::record_source_reads(
+    sqlbuild_python_base::compile_context::main::delta::record_source_reads::record_source_reads(
         loaded_sources(&sources).iter().map(String::as_str),
     );
     let mut built: Vec<Bound<'py, PyAny>> = Vec::with_capacity(sources.len());

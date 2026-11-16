@@ -47,20 +47,11 @@ from collections import Counter
 import dataclasses
 
 from ..ast_extension import statement_from_string
+from ._ast_pass_utils import assigned_name
 
 DECODE_FN = "_cute_float4_e2m1fn_x2_to_float32"
 DOT_FN = "_cute_float4_e2m1fn_x16_dot_float32"
 GROUP_BYTES = 8
-
-
-def _assigned_name(stmt: ast.stmt) -> str | None:
-    if (
-        isinstance(stmt, ast.Assign)
-        and len(stmt.targets) == 1
-        and isinstance(stmt.targets[0], ast.Name)
-    ):
-        return stmt.targets[0].id
-    return None
 
 
 def _is_zero_f32(value: ast.expr) -> bool:
@@ -172,7 +163,7 @@ class _Facts:
 def _collect(block: list[ast.stmt], defs: Counter[str]) -> _Facts:
     facts = _Facts({}, {}, {}, {}, {}, {}, set(), {}, [_writes(s) for s in block])
     for position, stmt in enumerate(block):
-        name = _assigned_name(stmt)
+        name = assigned_name(stmt)
         if name is None:
             continue
         assert isinstance(stmt, ast.Assign)
@@ -343,7 +334,7 @@ def _fuse_block(
         return
     new_block: list[ast.stmt] = []
     for stmt in block:
-        name = _assigned_name(stmt)
+        name = assigned_name(stmt)
         if name in removed:
             continue
         if name in replacement:
@@ -356,6 +347,13 @@ def _fuse_block(
 def fuse_fp4_pair_dot(body: list[ast.stmt]) -> list[ast.stmt]:
     """Apply the fusion to every block of ``body`` (mutates in place)."""
     module = ast.Module(body=body, type_ignores=[])
+    if not any(
+        isinstance(node, ast.Name) and node.id == DECODE_FN for node in ast.walk(module)
+    ):
+        # Every matched product reads two decoded halves, so a body without
+        # a decode call has nothing to fuse; skip the name counts and the
+        # per-block fact tables.
+        return body
     reads: Counter[str] = Counter()
     defs: Counter[str] = Counter()
     for node in ast.walk(module):

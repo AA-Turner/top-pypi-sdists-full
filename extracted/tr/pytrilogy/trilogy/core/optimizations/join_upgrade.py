@@ -60,12 +60,17 @@ from trilogy.core.processing.condition_utility import (
     partial_addresses,
 )
 from trilogy.core.processing.join_resolution import OUTER_JOIN_TYPES
+from trilogy.core.processing.utility import unpadded_join_type
 
 
 @dataclass
 class _ProofState:
+    """``cte_keys`` maps a (CTE, key) an INNER join's predicate proves
+    non-null to the last such join's index: it rejects the rows any join
+    before it padded, and none of the rows a later join pads."""
+
     direct: set[str]
-    cte_keys: set[tuple[str, str]] = field(default_factory=set)
+    cte_keys: dict[tuple[str, str], int] = field(default_factory=dict)
     or_groups: list[list[set[str]]] = field(default_factory=list)
 
     def direct_intersects(self, addresses: set[str]) -> bool:
@@ -81,17 +86,30 @@ class _ProofState:
             for group in self.or_groups
         )
 
-    def proves_cte_key(self, cte: CTE | UnionCTE, address: str) -> bool:
-        return address in self.direct or (cte.name, address) in self.cte_keys
+    def proves_after(self, cte: CTE | UnionCTE, address: str, idx: int) -> bool:
+        return self.cte_keys.get((cte.name, address), -1) > idx
 
-    def proves_cte_present(self, cte: CTE | UnionCTE, addresses: set[str]) -> bool:
-        return any((cte.name, address) in self.cte_keys for address in addresses)
+    def proves_cte_key(self, cte: CTE | UnionCTE, address: str, idx: int) -> bool:
+        return address in self.direct or self.proves_after(cte, address, idx)
 
-    def add_cte_key(self, cte: CTE | UnionCTE, address: str) -> bool:
+    def proves_key(
+        self, cte: CTE | UnionCTE, address: str, idx: int, blocked: set[str]
+    ) -> bool:
+        """A blocked partial needs the side-specific proof."""
+        if address in blocked:
+            return self.proves_after(cte, address, idx)
+        return self.proves_cte_key(cte, address, idx)
+
+    def proves_cte_present(
+        self, cte: CTE | UnionCTE, addresses: set[str], idx: int
+    ) -> bool:
+        return any(self.proves_after(cte, address, idx) for address in addresses)
+
+    def add_cte_key(self, cte: CTE | UnionCTE, address: str, idx: int) -> bool:
         key = (cte.name, address)
-        if key in self.cte_keys:
+        if self.cte_keys.get(key, -1) >= idx:
             return False
-        self.cte_keys.add(key)
+        self.cte_keys[key] = idx
         return True
 
 
@@ -174,12 +192,8 @@ def _downgrade(
     idx: int,
     join: Join,
     proofs: _ProofState,
-) -> JoinType | None:
+) -> JoinType:
     """Pick the strictest join that still produces the same surviving rows."""
-    current = join.join_type
-    if current not in OUTER_JOIN_TYPES:
-        return None
-
     pairs = join.pairs or []
     left_ctes = accumulated_left_ctes(cte, idx)
     right_all = output_addresses(join.right)
@@ -216,16 +230,6 @@ def _downgrade(
     left_opaque = {a for lc in left_ctes for a in opaque_binding_addresses(lc)}
     left_only = left_only - left_opaque
 
-    def proves_left_key(c: CTE | UnionCTE, address: str) -> bool:
-        if address in left_block:
-            return (c.name, address) in proofs.cte_keys
-        return proofs.proves_cte_key(c, address)
-
-    def proves_right_key(address: str) -> bool:
-        if address in right_block:
-            return (join.right.name, address) in proofs.cte_keys
-        return proofs.proves_cte_key(join.right, address)
-
     # A side is forced present when the WHERE references a concept that only
     # exists on it, or when every join key is proven non-null for the specific
     # CTE that supplies it. Either rules out NULL-padded rows on that side.
@@ -233,40 +237,30 @@ def _downgrade(
         proofs.direct_intersects(left_only)
         or proofs.side_forced_by_or(left_only)
         or any(
-            proofs.proves_cte_present(left_cte, output_addresses(left_cte))
+            proofs.proves_cte_present(left_cte, output_addresses(left_cte), idx)
             for left_cte in left_ctes
         )
-        or (bool(pairs) and all(proves_left_key(p.node, p.left.address) for p in pairs))
+        or (
+            bool(pairs)
+            and all(
+                proofs.proves_key(p.node, p.left.address, idx, left_block)
+                for p in pairs
+            )
+        )
     )
     right_forced = (
         proofs.direct_intersects(right_only)
         or proofs.side_forced_by_or(right_only)
-        or proofs.proves_cte_present(join.right, right_all)
-        or (bool(pairs) and all(proves_right_key(p.right.address) for p in pairs))
+        or proofs.proves_cte_present(join.right, right_all, idx)
+        or (
+            bool(pairs)
+            and all(
+                proofs.proves_key(join.right, p.right.address, idx, right_block)
+                for p in pairs
+            )
+        )
     )
-
-    if current == JoinType.FULL:
-        if left_forced and right_forced:
-            return JoinType.INNER
-        # A forced left drops left-unmatched rows, the same set LEFT_OUTER
-        # drops. Mirror for the right.
-        if left_forced:
-            return JoinType.LEFT_OUTER
-        if right_forced:
-            return JoinType.RIGHT_OUTER
-        return None
-
-    if current == JoinType.LEFT_OUTER:
-        if right_forced:
-            return JoinType.INNER
-        return None
-
-    if current == JoinType.RIGHT_OUTER:
-        if left_forced:
-            return JoinType.INNER
-        return None
-
-    return None
+    return unpadded_join_type(join.join_type, left_forced, right_forced)
 
 
 def _lineage_proofs(cte: CTE, condition: BoolExpr, proofs: set[str]) -> set[str]:
@@ -291,7 +285,7 @@ def _lineage_proofs(cte: CTE, condition: BoolExpr, proofs: set[str]) -> set[str]
     return out
 
 
-def _add_inner_join_key_proofs(join: Join, proofs: _ProofState) -> bool:
+def _add_inner_join_key_proofs(join: Join, idx: int, proofs: _ProofState) -> bool:
     """Propagate only key non-nullness proven by rendered INNER predicates."""
     changed = False
     for pairs in coalesced_key_groups(join.pairs or []):
@@ -299,15 +293,24 @@ def _add_inner_join_key_proofs(join: Join, proofs: _ProofState) -> bool:
         if len(left_ctes) > 1:
             # Renders as COALESCE(left1, left2, ...) = right, which proves the
             # right key but no individual left key.
-            changed = proofs.add_cte_key(join.right, pairs[0].right.address) or changed
+            right = pairs[0].right.address
+            changed = proofs.add_cte_key(join.right, right, idx) or changed
             continue
 
         pair = pairs[0]
         if pair_matches_nulls(pair, join.modifiers):
             continue
-        changed = proofs.add_cte_key(pair.node, pair.left.address) or changed
-        changed = proofs.add_cte_key(join.right, pair.right.address) or changed
+        changed = proofs.add_cte_key(pair.node, pair.left.address, idx) or changed
+        changed = proofs.add_cte_key(join.right, pair.right.address, idx) or changed
     return changed
+
+
+def _through_grouping(cte: CTE, addresses: set[str]) -> set[str]:
+    """The `addresses` whose NULL isolates this CTE's padded rows: all of
+    them on a plain projection, only the group keys once it aggregates."""
+    if not cte.group_to_grain:
+        return addresses
+    return addresses & set(cte.grain.components) if cte.grain else set()
 
 
 def _sensitive_outputs(cte: CTE) -> bool:
@@ -323,7 +326,7 @@ def _renders_exclusively_from(
     column. A multi-source entry renders as COALESCE, which masks a one-sided
     NULL, so it never carries a rejection back to either producer."""
     sources = set(consumer.source_map.get(address, ()))
-    return bool(sources) and len(sources) == 1 and sources <= producer_keys
+    return len(sources) == 1 and sources <= producer_keys
 
 
 def _inner_pair_rejections(consumer: CTE, producer_keys: set[str]) -> set[str]:
@@ -434,19 +437,10 @@ def _external_forced_map(
                 transferred: set[str] = set()
                 upstream = forced.get(consumer.name, set())
                 if upstream and not _sensitive_outputs(consumer):
-                    group_keys = (
-                        set(consumer.grain.components)
-                        if consumer.group_to_grain and consumer.grain
-                        else None
-                    )
                     transferred = {
                         a
-                        for a in upstream
-                        if (
-                            not consumer.group_to_grain
-                            or (group_keys is not None and a in group_keys)
-                        )
-                        and _renders_exclusively_from(consumer, a, producer_keys)
+                        for a in _through_grouping(consumer, upstream)
+                        if _renders_exclusively_from(consumer, a, producer_keys)
                     }
                 contribution = (entry | transferred) & outputs
                 new = contribution if new is None else (new & contribution)
@@ -501,12 +495,7 @@ class UpgradeJoinOnGuards(OptimizationRule):
                         nodes.setdefault(parent.name, parent)
             self._forced = _external_forced_map(list(nodes.values()), inverse_map)
             self._forced_key = id(inverse_map)
-        external = self._forced.get(cte.name, set())
-        if not external:
-            return set()
-        if cte.group_to_grain:
-            group_keys = set(cte.grain.components) if cte.grain else set()
-            external = external & group_keys
+        external = _through_grouping(cte, self._forced.get(cte.name, set()))
         return {a for a in external if len(set(cte.source_map.get(a, ()))) == 1}
 
     def optimize(
@@ -549,17 +538,17 @@ class UpgradeJoinOnGuards(OptimizationRule):
         while True:
             proof_changed = False
             join_changed = False
-            for join in cte.joins or []:
+            for idx, join in enumerate(cte.joins or []):
                 if isinstance(join, Join) and join.join_type == JoinType.INNER:
                     proof_changed = (
-                        _add_inner_join_key_proofs(join, proofs) or proof_changed
+                        _add_inner_join_key_proofs(join, idx, proofs) or proof_changed
                     )
 
             for idx, join in enumerate(cte.joins or []):
                 if not isinstance(join, Join) or join.join_type not in upgradable:
                     continue
                 target = _downgrade(cte, idx, join, proofs)
-                if target is None or target == join.join_type:
+                if target == join.join_type:
                     continue
                 dropped = {
                     JoinType.INNER: "unmatched",
@@ -573,7 +562,7 @@ class UpgradeJoinOnGuards(OptimizationRule):
                 )
                 join.join_type = target
                 if target == JoinType.INNER:
-                    _add_inner_join_key_proofs(join, proofs)
+                    _add_inner_join_key_proofs(join, idx, proofs)
                 join_changed = True
 
             if not proof_changed and not join_changed:

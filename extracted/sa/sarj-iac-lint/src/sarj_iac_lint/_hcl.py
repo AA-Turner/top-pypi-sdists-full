@@ -30,7 +30,7 @@ _SURROGATE_START = 0xD800
 _SURROGATE_END = 0xDFFF
 
 
-class _InvalidHCLSourceError(ValueError):
+class _InvalidHCLSourceError(ValueError):  # sarj-noqa: SARJ542 -- Unwind invalid HCL to the parser boundary.
     pass
 
 
@@ -353,6 +353,20 @@ def _token_spans(text: str) -> tuple[_Span, ...]:
 
 def tokens(text: str) -> tuple[str, ...]:
     return tuple(text[span.start : span.end] for span in _token_spans(text))
+
+
+def balanced_structure(source: str) -> bool:
+    closers: list[str] = []
+    try:
+        structural = tokens(source)
+    except ValueError:
+        return False
+    for lexeme in structural:
+        if lexeme in {"{", "[", "("}:
+            closers.append({"{": "}", "[": "]", "(": ")"}[lexeme])
+        elif lexeme in {"}", "]", ")"} and (not closers or closers.pop() != lexeme):
+            return False
+    return not closers
 
 
 _OPENERS = frozenset("([{")

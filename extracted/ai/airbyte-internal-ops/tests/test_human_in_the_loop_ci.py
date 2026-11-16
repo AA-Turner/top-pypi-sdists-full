@@ -557,6 +557,11 @@ def test_newsletter_channel_resolution() -> None:
     assert _NEWSLETTER_CHANNELS["AJ"] == ("C0BLUPJ0X0R", "#aj-release-notes")
     assert _NEWSLETTER_CHANNELS["AJ WIP Tracker"] == ("C0C2PHD33RN", "#aj-wip-tracker")
     assert _NEWSLETTER_CHANNELS["DR"] == _NEWSLETTER_CHANNELS["Internal AI"]
+    assert _NEWSLETTER_CHANNELS["mtx"] == ("C0AH48172M6", "#daily-newsletters")
+    assert _NEWSLETTER_CHANNELS["mtx Project"] == (
+        "C09LPHML4QZ",
+        "#proj-mtx-semantic-metric-transforms",
+    )
 
 
 @pytest.mark.unit

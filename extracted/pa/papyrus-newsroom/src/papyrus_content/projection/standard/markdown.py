@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from ...markus_renderer.content_markup import drop_hidden_credits
+from ...url_paths import encoded_path
 from ...authors import absolute_author_url, normalize_authors
 
 FRONT_MATTER = re.compile(r"\A---\n.*?\n---\n?", re.S)
@@ -34,11 +35,11 @@ def md_key(html_key: str) -> str | None:
 
 
 def md_path(html_key: str) -> str | None:
-    """The site path of the Markdown twin of a page key."""
+    """The site path (percent-encoded, like every URL) of the Markdown twin of a page key."""
     key = md_key(html_key)
     if key is None:
         return None
-    return "/" + key
+    return encoded_path("/" + key)
 
 
 def static_twin_key(site_path: str) -> str | None:
@@ -196,3 +197,12 @@ def llms_full_txt(identity, documents, max_bytes: int) -> str:
             break
         parts.append(piece)
     return "".join(parts)
+
+
+def markdown_with_notice(text: str, notice: str) -> str:
+    """``text`` with the publication's ``notice`` (one Markdown quote line) after its first heading, or at the top when it has none."""
+    lines = text.split("\n")
+    for position, line in enumerate(lines):
+        if line.startswith("# "):
+            return "\n".join(lines[: position + 1] + ["", notice] + lines[position + 1 :])
+    return notice + "\n\n" + text

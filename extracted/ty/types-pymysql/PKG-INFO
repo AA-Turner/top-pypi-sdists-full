@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-PyMySQL
-Version: 1.2.4.20261111
+Version: 1.2.4.20261116
 Summary: Typing stubs for PyMySQL
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -32,9 +32,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
-* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.95
+* [ty](https://docs.astral.sh/ty/) 0.0.99
 
 It was generated from typeshed commit
-[`7f0dcd5e88baf0d30047bda21f5954ca10235c19`](https://github.com/python/typeshed/commit/7f0dcd5e88baf0d30047bda21f5954ca10235c19).
+[`8e21ebd653f6cad1ef9e6518bd81833d39c2c863`](https://github.com/python/typeshed/commit/8e21ebd653f6cad1ef9e6518bd81833d39c2c863).

@@ -2,6 +2,7 @@
 
 import operator
 import re
+import warnings
 from functools import wraps
 from typing import (
     Any,
@@ -57,6 +58,18 @@ def _comparator(operator: Comparator) -> Comparator:
         )
         if not isinstance(other, comparable_types):
             return NotImplemented
+        if (
+            getattr(operator, "__name__", None) in ("__eq__", "__ne__")
+            and isinstance(other, (str, bytes, tuple, list))
+        ):
+            warnings.warn(
+                "Equality comparisons between Version and strings, tuples or lists "
+                "are deprecated and will be removed in semver 4; convert strings "
+                "with Version.parse() and tuples with Version(*parts). "
+                "See details in issue #506.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if isinstance(other, (dict, tuple, list)):
             # A collection that cannot construct a comparable version is
             # not a valid comparison operand.  Return NotImplemented
@@ -494,16 +507,14 @@ build='build.10')
             return x
 
         rc1, rc2 = self.prerelease, other.prerelease
-        rccmp = self._nat_cmp(rc1, rc2)
-
-        if not rccmp:
+        if rc1 == rc2:
             return 0
         if not rc1:
-            return 1
+            return 1 if rc2 else 0
         elif not rc2:
             return -1
 
-        return rccmp
+        return self._nat_cmp(rc1, rc2)
 
     def next_version(self, part: str, prerelease_token: str = "rc") -> "Version":
         """

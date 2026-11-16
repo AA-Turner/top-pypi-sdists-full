@@ -4,6 +4,8 @@ problem+cause+fix and exits 1."""
 from __future__ import annotations
 
 import inspect
+import os
+import sys
 from enum import StrEnum
 from math import ceil
 from pathlib import Path
@@ -78,6 +80,22 @@ def _steady_send(flag: bool, ms: int | None) -> int | None:
     if ms is not None:
         return ms
     return STEADY_SEND_DEFAULT_MS if flag else None
+
+
+def _sim_view(non_interactive: bool) -> bool:
+    """Whether `dreamscale sim` opens its viewer window. Not with --non-interactive, and not
+    on Linux without an X display (over SSH): the simulators show frames with OpenCV, whose
+    only window backend is X, and with no display it aborts the process."""
+    if non_interactive:
+        return False
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        typer.echo(
+            "No display (DISPLAY is unset): running without the viewer window. "
+            "Set DISPLAY to show it, or add --output-root <dir> to save a video.",
+            err=True,
+        )
+        return False
+    return True
 
 
 def _keep_warm(model: str, keep_warm: int | None, checkpoint: str | None = None) -> int:
@@ -755,6 +773,7 @@ def sim(
         raise typer.BadParameter(f"missing required option(s): {', '.join(missing)}")
     if max_steps is not None and max_duration is not None:
         raise typer.BadParameter("choose only one episode budget: --max-steps or --max-duration")
+    view = _sim_view(non_interactive)
     if benchmark == "libero":  # the other benchmarks prepare their own simulator runtimes
         from dreamscale import errors
 
@@ -789,7 +808,7 @@ def sim(
         _run(
             run_abc,
             model=model, task_suite=task_suite, task_id=task_id, task_seed=task_seed,
-            max_steps=max_steps, max_duration=max_duration, view=not non_interactive,
+            max_steps=max_steps, max_duration=max_duration, view=view,
             real_time=True, json_output=non_interactive, keep_warm=keep_warm,
             transport=transport.value, region=region, output_root=output_root, **steady,
         )
@@ -810,7 +829,7 @@ def sim(
             task_seed=task_seed,
             max_steps=max_steps,
             max_duration=max_duration,
-            view=not non_interactive,
+            view=view,
             tui=not non_interactive,
             real_time=True,
             json_output=non_interactive,
@@ -836,7 +855,7 @@ def sim(
         max_steps=resolved_max_steps,
         # A time limit counts every tick; a step budget counts what the sim's model counts.
         **({"count_holds": True} if max_duration is not None else {}),
-        view=not non_interactive,
+        view=view,
         tui=not non_interactive,
         real_time=True,
         transport=transport.value,
@@ -1867,6 +1886,16 @@ def train_cancel(
     from dreamscale.train_cmd import run_cancel
 
     _run_train(run_cancel, run_id=run_id, yes=yes)
+
+
+@train_app.command("checkpoint")
+def train_checkpoint(
+    run_id: str = typer.Argument(..., help="Training run ID (tr_…)."),
+) -> None:
+    """Save a deployable checkpoint now; the run keeps training."""
+    from dreamscale.train_cmd import run_checkpoint
+
+    _run_train(run_checkpoint, run_id=run_id)
 
 
 @train_app.command("resume")

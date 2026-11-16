@@ -169,6 +169,9 @@ class DequeCDF(_collections.deque):
         j0 = int(min((len_ or len(self), len(self))))
         data = np.asarray([self[j][i] for j in range(-j0, 0)])
         return np.mean((data < val) + 0.5 * (data == val))
+    def values(self, i):
+        """return all values of the i-th coordinate as a list"""
+        return [v[i] for v in self]
     def cdf1(self, val=0, len_=None):
         """return ECDF at `val` in case this is a `deque` of scalars"""
         j0 = int(min((len_ or len(self), len(self))))
@@ -200,7 +203,8 @@ class LoggerList(list):
                                  color='r', linewidth=0.15)
                 if i == 0:
                     v = np.abs(logger.data)
-                    min_val = max((1e-9, np.min(v[v>0])))
+                    vv = v[v>0]
+                    min_val = max((1e-9, np.min(vv))) if len(vv) else 1e-9
                     if utils.version_diff(matplotlib.__version__, '3.3') >= 0:
                         # a terrible interface change that swallows the new/old parameter and breaks code
                         plt.yscale('symlog', linthresh=min_val)  # see matplotlib.scale.SymmetricalLogScale
@@ -211,7 +215,7 @@ def _log_g(s):
     return s.g + [0]
 def _log_feas_events(s):
     return [i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)
-            ] + [len(s.g) + np.any(np.asarray(s.g) > 0)]
+            ] + [len(s.g) - 0.5 + np.any(np.asarray(s.g) > 0)]
 def _log_lam(s):
     """for active constraints, lam is generally positive because Dg and Df are opposed"""
     v = np.log10(np.maximum(1e-9, np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt))))
@@ -435,7 +439,7 @@ class AugmentedLagrangian(object):
                             labels=['constraint values'],
                             name='outauglagg'))
             self.loggers.append(_Logger(self, callables=[_log_feas_events],
-                            labels=['sign(gi) / 2 + i',  'overall feasibility'],
+                            labels=['sign($g_i$) / 3 + i',  'overall feasibility'],
                             name='outauglagfeas'))
             self.loggers.append(_Logger(self, callables=[_log_lam],
                 labels=['lg(abs(lambda))' if self.lam_opt is None
@@ -821,12 +825,12 @@ class ConstrainedFitnessAL(object):
     >>> es = es.optimize(cfun, callback=cfun.update)
     >>> x = es.result.xfavorite
 
-    The best `x` return value of `cma.fmin2` may not be useful, because
-    the underlying function changes over time. Therefore, we use
-    `es.result.xfavorite`, which is still not guarantied to be a feasible
-    solution. Alternatively, `cfun.best_feas.x` contains the best evaluated
-    feasible solution. However, this is not necessarily expected to be a
-    good solution, see below.
+    The best (penalized) solution `es.result.xbest` may not be useful
+    because the underlying function changes over time. Therefore, we use
+    `es.result.xfavorite` which is still not guaranteed to be feasible.
+    Alternatively, `cfun.best_feas.x` contains the best evaluated feasible
+    solution. However, this may not be a particularly good solution, see
+    `find_feasible` right below.
 
     >>> assert sum((x - [-1, 0, 0])**2) < 1e-9, x
     >>> assert es.countevals < 2200, es.countevals
@@ -991,7 +995,7 @@ class ConstrainedFitnessAL(object):
         return self.F_plus_sum_al_G[-1] - self.foffset
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals'), aggregator=None):  # es: OOOptimizer, find_feasible -> solution
-        """find feasible solution by calling ``es.optimize(self)``.
+        """find feasible solution close to the current incumbent.
 
         Return best ever feasible solution `self.best_feas.x`.
         See also `self.best_feas.info`.

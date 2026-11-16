@@ -1,0 +1,1093 @@
+# Copyright 2021-2026 Zenauth Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Translate a parsed plan condition into a SQLAlchemy boolean expression.
+
+This module routes operands to operators. Operator semantics live in ``_operators``.
+"""
+
+from collections.abc import Callable
+from typing import Any, NoReturn
+
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    String,
+    Time,
+    and_,
+    case,
+    false,
+    literal,
+    not_,
+    null,
+    or_,
+    true,
+)
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql.expression import ColumnElement
+
+from cerbos_sqlalchemy._null_conventions import (
+    EQUALITY_FAMILY,
+    NullAttributeRepresentation,
+    omitted_null_comparison,
+    with_null_conventions,
+)
+from cerbos_sqlalchemy._operators import (
+    FOLDABLE_COLLECTION_OPERATORS,
+    MIRRORED_OPERATORS,
+    OPERATOR_FNS,
+    ORDER_INSENSITIVE_OPERATORS,
+    SYMBOLIC_NUMBERS,
+    UNARY_VALUE_OPERATORS,
+    ConditionalValue,
+    _unknown,
+    arith_over_conditional,
+    cel_literal_equal,
+    require_lowerable,
+    scalar_kind,
+)
+from cerbos_sqlalchemy._plan import (
+    LAMBDA_BINDING_OPERATORS,
+    Expr,
+    Operand,
+    Value,
+    Variable,
+    declared_collection_name,
+    substitute_lambda_operand,
+    substitute_lambda_variable,
+)
+from cerbos_sqlalchemy.collection_storage import (
+    INDEXED_VALUE_REFUSAL,
+    MEMBERSHIP_REFUSAL,
+    CollectionColumn,
+    collection_membership,
+    collection_size,
+    indexed_equality,
+    require_index_position,
+)
+from cerbos_sqlalchemy.errors import UnsupportedPlanError
+
+_BOOLEAN_OPERATORS = frozenset({"and", "or", "not"})
+_MEMBERSHIP_OPERATORS = frozenset({"in", "hasIntersection"})
+
+# Operators whose CEL value is never null: an error, which SQL holds as NULL, must not reach an
+# IS NULL test.
+_NULL_FREE_OPERATORS = frozenset(
+    {
+        "add",
+        "sub",
+        "mult",
+        "div",
+        "mod",
+        "size",
+        "int",
+        "double",
+        "string",
+        "not",
+        "and",
+        "or",
+        "eq",
+        "ne",
+        "lt",
+        "le",
+        "gt",
+        "ge",
+        "in",
+        "contains",
+        "startsWith",
+        "endsWith",
+        "matches",
+        "exists",
+        "exists_one",
+        "all",
+        "hasIntersection",
+    }
+)
+
+
+def _never_null(operand: Operand | None) -> bool:
+    if isinstance(operand, Value):
+        return operand.value is not None
+    if not isinstance(operand, Expr):
+        return False
+    if operand.operator == "if" and len(operand.operands) == 3:
+        return _never_null(operand.operands[1]) and _never_null(operand.operands[2])
+    return operand.operator in _NULL_FREE_OPERATORS
+
+
+_ORDERING_AND_EQUALITY = frozenset({"eq", "ne", "lt", "le", "gt", "ge"})
+
+_BARE_TEMPORAL_REFUSAL = (
+    "Bare temporal attributes compare RFC 3339 strings in CEL; stored timestamps lose "
+    "the original spelling, and a string has no overload against a timestamp; use "
+    "timestamp() on the attribute"
+)
+
+
+_NON_BOOLEAN_TYPES = (String, Integer, Numeric, Date, DateTime, Time)
+
+
+def require_boolean(translated: Any, position: str) -> Any:
+    """Refuse a translation that is not a boolean SQL expression.
+
+    Check every boolean position, not just the root. Otherwise a value that happens
+    to coerce becomes a wrong filter, or SQLAlchemy raises an unpinnable error. See #387.
+    ``InstrumentedAttribute`` is allowed because a bare boolean column is a valid
+    condition. See #388.
+    """
+    if not isinstance(translated, (ColumnElement, InstrumentedAttribute, bool)):
+        raise UnsupportedPlanError(
+            f"the plan's {position} translated to {type(translated).__name__!r}, which "
+            "is not a boolean SQL expression. filter() and map() return a list, so they "
+            "cannot be a condition on their own (only size(filter(...)) has a boolean "
+            "meaning), and an operator override returning an intermediate value must be "
+            "consumed by an enclosing override before the root"
+        )
+    return translated
+
+
+class Translator:
+    def __init__(
+        self,
+        attr_map: dict[str, Any],
+        overrides: dict[str, Callable[[Any, Any], Any]],
+        null_conventions: dict[str, NullAttributeRepresentation],
+        declared_collections: dict[str, CollectionColumn],
+        null_fallback: NullAttributeRepresentation = "omitted",
+    ) -> None:
+        self._attr_map = attr_map
+        # No None values: an operator is overridden exactly when it is a key here.
+        self._overrides = overrides
+        self._null_conventions = null_conventions
+        # The call-level convention, for an attribute with no declaration.
+        self._null_fallback = null_fallback
+        self._declared_collections = declared_collections
+        self._declared_names = frozenset(declared_collections)
+
+    # -- leaves and dispatch ---------------------------------------------------------------
+
+    def _resolve_variable(self, variable: str) -> Any:
+        try:
+            return self._attr_map[variable]
+        except KeyError:
+            if variable in self._declared_names:
+                raise UnsupportedPlanError(
+                    f"{variable} is declared as a collection column, which only size(), "
+                    "an index and membership read: this shape needs a relation for it in "
+                    "the attribute map"
+                )
+            if variable.startswith("request.principal."):
+                raise UnsupportedPlanError(
+                    f"The plan leaves {variable} unresolved: the planner did not fold it into a "
+                    "value, and a principal attribute is not a column"
+                ) from None
+            raise KeyError(
+                f"Attribute does not exist in the attribute column map: {variable}"
+            )
+
+    def _is_explicit_null(self, variable: str) -> bool:
+        return self._null_conventions.get(variable) == "explicit"
+
+    def _is_omitted_null(self, variable: str) -> bool:
+        return self._null_conventions.get(variable, self._null_fallback) == "omitted"
+
+    def _leaf_comparison(
+        self, operator: str, column: Any, variable: Variable, value: Value
+    ) -> Any:
+        """Compare a mapped attribute with a literal, in either source order."""
+        if (
+            operator in ("eq", "ne")
+            and value.value is None
+            and self._is_omitted_null(variable.name)
+        ):
+            return omitted_null_comparison(
+                operator, column, overridden=operator in self._overrides
+            )
+        return self._with_null_conventions(
+            operator,
+            column,
+            value.value,
+            self._is_explicit_null(variable.name),
+            False,
+        )
+
+    def _apply(self, operator: str, left: Any, right: Any) -> Any:
+        """Lower one operator with the caller's override, else the default."""
+        override = self._overrides.get(operator)
+        if operator == "lambda" and isinstance(left, bool):
+            # The planner folds a lambda body it can decide to a bare value: `t.name in []`
+            # arrives as `false`, and the macro around the body needs a SQL expression.
+            left = true() if left else false()
+        if override is not None:
+            return override(left, right)
+        default = OPERATOR_FNS.get(operator)
+        if default is None:
+            raise UnsupportedPlanError(f"Unrecognised operator: {operator}")
+        require_lowerable(operator, left)
+        require_lowerable(operator, right)
+        return default(left, right)
+
+    def _resolve(self, operand: Operand) -> Any:
+        """Resolve a literal, mapped variable, or nested value expression."""
+        if isinstance(operand, Value):
+            return operand.value
+        if isinstance(operand, Variable):
+            return self._resolve_variable(operand.name)
+        entries = self._struct_literal(operand)
+        if entries is not None:
+            return entries
+        return self.value(operand)
+
+    # -- collection macros over a literal list ---------------------------------------------
+
+    def _fold_value_list_macro(
+        self, operator: str, elements: Any, lambda_operand: Operand
+    ) -> Any:
+        """Fold ``exists``/``all`` over a literal list into an OR/AND of its bodies.
+
+        The planner unrolls lists of up to 10 elements itself and sends larger ones
+        as-is (cerbos/cerbos#2570). Folding them here gives the same translation.
+        """
+        if operator not in FOLDABLE_COLLECTION_OPERATORS:
+            raise UnsupportedPlanError(
+                f"{operator} over a literal collection value is not supported. "
+                "Only exists(), all() and exists_one() can be folded into a flat filter."
+            )
+        if not isinstance(elements, list):
+            raise UnsupportedPlanError(
+                f"{operator} over a literal collection requires a list value"
+            )
+
+        if not isinstance(lambda_operand, Expr) or lambda_operand.operator != "lambda":
+            raise UnsupportedPlanError(
+                f"Second operand of {operator} must be a lambda expression"
+            )
+        lambda_operands = lambda_operand.operands
+        if len(lambda_operands) != 2:
+            raise UnsupportedPlanError(
+                f"{operator} over a literal collection supports single-variable "
+                "lambdas only"
+            )
+        body, variable = lambda_operands
+        if not isinstance(variable, Variable) or not variable.name:
+            raise UnsupportedPlanError("Lambda variable must have a name")
+
+        predicates = [
+            self.predicate(substitute_lambda_variable(body, variable.name, element))
+            for element in elements
+        ]
+        return _combine_macro(operator, predicates)
+
+    def _try_fold_value_list_macro(
+        self, operator: str, operands: tuple[Operand, ...]
+    ) -> Any:
+        """Return the folded predicate for a macro over a literal list, else None."""
+        if operator not in LAMBDA_BINDING_OPERATORS or len(operands) != 2:
+            return None
+        collection, lambda_operand = operands
+        if isinstance(collection, Expr) and collection.operator == "list":
+            return self._fold_constructed_list_macro(
+                operator, collection.operands, lambda_operand
+            )
+        if not isinstance(collection, Value):
+            return None
+        return self._fold_value_list_macro(operator, collection.value, lambda_operand)
+
+    def _fold_constructed_list_macro(
+        self, operator: str, elements: tuple[Operand, ...], lambda_operand: Operand
+    ) -> Any:
+        """Fold ``exists``/``all`` over a list built from attributes, e.g. ``[a, b]``.
+
+        Building the list evaluates every element first, so one that raises makes
+        the whole macro raise, even beside a witness: the fold is guarded on that.
+        """
+        if operator not in FOLDABLE_COLLECTION_OPERATORS:
+            raise UnsupportedPlanError(
+                f"{operator} over a constructed list is not supported. Only exists(), "
+                "all() and exists_one() can be folded into a flat filter."
+            )
+        if (
+            not isinstance(lambda_operand, Expr)
+            or lambda_operand.operator != "lambda"
+            or len(lambda_operand.operands) != 2
+            or not isinstance(lambda_operand.operands[1], Variable)
+        ):
+            raise UnsupportedPlanError(
+                f"Second operand of {operator} must be a single-variable lambda"
+            )
+        body, variable = lambda_operand.operands
+        guards = self._element_guards(elements)
+        predicates = [
+            require_boolean(
+                self.predicate(substitute_lambda_operand(body, variable.name, element)),
+                f"{operator!r} body",
+            )
+            for element in elements
+        ]
+        folded = _combine_macro(operator, predicates)
+        return case((and_(*guards), folded)) if guards else folded
+
+    def _element_guards(self, elements: tuple[Operand, ...]) -> list[Any]:
+        """SQL conditions under which no element of a constructed list raises in CEL.
+
+        A NULL omitted attribute is missing, and an expression yielding NULL read one
+        (or met CEL's no-overload error on an explicit null). An explicit-null
+        attribute is a value, so it needs no guard.
+        """
+        guards = []
+        for element in elements:
+            if isinstance(element, Value):
+                continue
+            if isinstance(element, Variable):
+                if not self._is_omitted_null(element.name):
+                    continue
+                translated = self._resolve_variable(element.name)
+            else:
+                if element.operator in ("struct", "list"):
+                    raise UnsupportedPlanError(
+                        f"a constructed list element built by {element.operator!r} is a "
+                        "map or list, and SQL has no value to hold it"
+                    )
+                if element.operator in ("if", "index"):
+                    # Either may yield a null value, which a NULL cannot tell from an error.
+                    raise UnsupportedPlanError(
+                        f"a constructed list element computed by {element.operator!r} "
+                        "may be a null value, and SQL NULL cannot tell that from the "
+                        "error that makes CEL deny the whole list"
+                    )
+                translated = self.value(element)
+            if isinstance(translated, (ColumnElement, InstrumentedAttribute)):
+                guards.append(translated.isnot(None))
+            elif not isinstance(translated, (str, bool, int, float, type(None))):
+                raise UnsupportedPlanError(
+                    "a constructed list element must be a scalar attribute or "
+                    f"expression, got {type(translated).__name__!r}"
+                )
+        return guards
+
+    # -- membership over a constructed haystack --------------------------------------------
+
+    def _structural_membership(self, operands: tuple[Operand, ...]) -> Any:
+        """Translate ``in`` over a list built in the plan, else None.
+
+        ``x in [a, b]`` is ``x == a || x == b``, guarded as list construction raises;
+        ``x in (c ? A : B)`` is taken per branch; ``x in A + B`` is ``x in A || x in B``.
+        Two literals fold.
+        """
+        if len(operands) != 2:
+            return None
+        needle, haystack = operands
+        if isinstance(needle, Value) and isinstance(haystack, Value):
+            if isinstance(haystack.value, list):
+                return (
+                    true()
+                    if any(
+                        cel_literal_equal(needle.value, member)
+                        for member in haystack.value
+                    )
+                    else false()
+                )
+            if isinstance(haystack.value, dict):
+                return true() if needle.value in haystack.value else false()
+            raise UnsupportedPlanError("in requires a list or map on its right")
+        if not isinstance(haystack, Expr):
+            return None
+        if haystack.operator == "list":
+            guards = self._element_guards((needle, *haystack.operands))
+            predicates = [
+                self.predicate(Expr("eq", (needle, element)))
+                for element in haystack.operands
+            ]
+            membership = or_(*predicates) if predicates else false()
+            return case((and_(*guards), membership)) if guards else membership
+        if haystack.operator == "if" and len(haystack.operands) == 3:
+            condition, then_list, else_list = haystack.operands
+            return self.predicate(
+                Expr(
+                    "if",
+                    (
+                        condition,
+                        Expr("in", (needle, then_list)),
+                        Expr("in", (needle, else_list)),
+                    ),
+                )
+            )
+        if haystack.operator == "map":
+            mapped = self._mapped_literal_list(haystack)
+            if mapped is not None:
+                return self._structural_membership((needle, mapped))
+        if haystack.operator == "add" and len(haystack.operands) == 2:
+            for part in haystack.operands:
+                if isinstance(part, Value) and not isinstance(part.value, list):
+                    raise UnsupportedPlanError("in requires a list on its right")
+            guards = self._element_guards((needle,))
+            membership = or_(
+                *(
+                    require_boolean(
+                        self.predicate(Expr("in", (needle, part))), "'in' operand"
+                    )
+                    for part in haystack.operands
+                )
+            )
+            return case((and_(*guards), membership)) if guards else membership
+        return None
+
+    def _literal_list_lambda(
+        self, expression: Expr
+    ) -> tuple[list[Any], Operand, str] | None:
+        """``(elements, body, variable)`` of a macro over a literal list, else None."""
+        if len(expression.operands) != 2:
+            return None
+        collection, lambda_operand = expression.operands
+        if not isinstance(collection, Value) or not isinstance(collection.value, list):
+            return None
+        if (
+            not isinstance(lambda_operand, Expr)
+            or lambda_operand.operator != "lambda"
+            or len(lambda_operand.operands) != 2
+            or not isinstance(lambda_operand.operands[1], Variable)
+            or not lambda_operand.operands[1].name
+        ):
+            raise UnsupportedPlanError(
+                f"Second operand of {expression.operator} must be a single-variable "
+                "lambda"
+            )
+        body, variable = lambda_operand.operands
+        return collection.value, body, variable.name
+
+    def _mapped_literal_list(self, expression: Expr) -> Expr | None:
+        """``map()`` over a literal list as the list its bodies build, else None.
+
+        Both evaluate every body first, so one that raises makes the whole list raise.
+        """
+        parts = self._literal_list_lambda(expression)
+        if parts is None:
+            return None
+        elements, body, variable = parts
+        return Expr(
+            "list",
+            tuple(
+                substitute_lambda_variable(body, variable, element)
+                for element in elements
+            ),
+        )
+
+    def _filtered_count(self, expression: Expr) -> Any:
+        """``size(filter(literal list, body))``, else None.
+
+        ``filter()`` evaluates the body over every element, so a body that raises
+        raises the whole count: the count is UNKNOWN where any body is.
+        """
+        parts = self._literal_list_lambda(expression)
+        if parts is None:
+            return None
+        elements, body, variable = parts
+        predicates = [
+            _as_sql_boolean(
+                self.predicate(substitute_lambda_variable(body, variable, element))
+            )
+            for element in elements
+        ]
+        count = sum(
+            (case((predicate, 1), else_=0) for predicate in predicates),
+            literal(0, Integer),
+        )
+        if not predicates:
+            return count
+        return case(
+            (or_(*(predicate.is_(None) for predicate in predicates)), null()),
+            else_=count,
+        )
+
+    # -- a map literal read at an attribute key --------------------------------------------
+
+    @staticmethod
+    def _struct_literal(operand: Operand) -> dict[str, Any] | None:
+        """Return a ``struct(set-field(k, v)...)`` literal as a dict, else None."""
+        if not isinstance(operand, Expr) or operand.operator != "struct":
+            return None
+        entries: dict[str, Any] = {}
+        for field in operand.operands:
+            if (
+                not isinstance(field, Expr)
+                or field.operator != "set-field"
+                or len(field.operands) != 2
+                or not all(isinstance(o, Value) for o in field.operands)
+            ):
+                raise UnsupportedPlanError(
+                    "a map literal is read by key only when every key and value is a "
+                    "literal"
+                )
+            key, value = field.operands
+            entries[key.value] = value.value
+        return entries
+
+    def _map_literal_lookup(self, operator: str, operands: tuple[Operand, ...]) -> Any:
+        """Translate ``{...}[key] == literal`` (or ``!=``), else None.
+
+        The keys whose value answers the comparison are the matching rows; a key
+        outside the map raises in CEL, so the comparison is UNKNOWN there.
+        """
+        if len(operands) != 2:
+            return None
+        for position in (0, 1):
+            lookup = operands[position]
+            if (
+                isinstance(lookup, Expr)
+                and lookup.operator == "index"
+                and len(lookup.operands) == 2
+            ):
+                entries = self._struct_literal(lookup.operands[0])
+                if entries is not None:
+                    break
+        else:
+            return None
+        other = operands[1 - position]
+        if operator not in ("eq", "ne") or not isinstance(other, Value):
+            raise UnsupportedPlanError(
+                "a map literal read at an attribute key is lowered only for == and != "
+                "against a literal"
+            )
+        if isinstance(other.value, (list, dict)):
+            raise UnsupportedPlanError(
+                "a map literal read at an attribute key is compared only with a "
+                "scalar literal"
+            )
+        key = self._resolve(lookup.operands[1])
+        require_lowerable(operator, key)
+        matching = [
+            k
+            for k, v in entries.items()
+            if cel_literal_equal(v, other.value) == (operator == "eq")
+        ]
+        if not isinstance(key, (ColumnElement, InstrumentedAttribute)):
+            if key not in entries:
+                raise UnsupportedPlanError("the map literal has no entry for that key")
+            return true() if key in matching else false()
+        return case(
+            (OPERATOR_FNS["in"](key, list(entries)), OPERATOR_FNS["in"](key, matching))
+        )
+
+    # -- bare temporal attributes ----------------------------------------------------------
+
+    def refuse_bare_temporal(self, operand: Operand) -> None:
+        """Refuse a ``DateTime`` attribute read outside ``timestamp()``.
+
+        CEL reads it as the RFC 3339 string the application sent, which a stored
+        timestamp no longer spells, and a string has no overload against a timestamp.
+        Comparing it with a null literal is still answered by the column's presence.
+        """
+        if not isinstance(operand, Expr):
+            return
+        if operand.operator != "timestamp":
+            null_comparison = operand.operator in ("eq", "ne") and any(
+                isinstance(child, Value) and child.value is None
+                for child in operand.operands
+            )
+            for child in operand.operands:
+                if (
+                    isinstance(child, Variable)
+                    and not null_comparison
+                    and isinstance(
+                        getattr(self._attr_map.get(child.name), "type", None), DateTime
+                    )
+                ):
+                    raise UnsupportedPlanError(_BARE_TEMPORAL_REFUSAL)
+        for child in operand.operands:
+            self.refuse_bare_temporal(child)
+
+    # -- declared collection storage -------------------------------------------------------
+
+    def _declared_collection(self, expression: Expr) -> CollectionColumn | None:
+        """Return the declared storage ``expression`` reads via ``size``/``index``, else None."""
+        name = declared_collection_name(expression, self._declared_names)
+        return None if name is None else self._declared_collections[name]
+
+    def _declared_index(self, operand: Operand) -> tuple[CollectionColumn, int] | None:
+        """Return ``(storage, position)`` if ``operand`` indexes a declared collection."""
+        if not isinstance(operand, Expr) or operand.operator != "index":
+            return None
+        declared = self._declared_collection(operand)
+        if declared is None:
+            return None
+        if len(operand.operands) != 2 or not isinstance(operand.operands[1], Value):
+            # A dynamic index cannot be checked, so refuse it.
+            require_index_position(None)
+        return declared, require_index_position(operand.operands[1].value)
+
+    def _reads_declared_index(self, operands: tuple[Operand, ...]) -> bool:
+        return any(self._declared_index(child) is not None for child in operands)
+
+    def _indexed_comparison(self, operator: str, operands: tuple[Operand, ...]) -> Any:
+        """Translate ``collection[i] == literal`` or ``!=``, and refuse anything else.
+
+        Other comparisons would lose the element's JSON type and CEL's index error.
+        """
+        indexed = [self._declared_index(child) for child in operands]
+        position = next(i for i, found in enumerate(indexed) if found is not None)
+        declared, index = indexed[position]
+        others = [child for i, child in enumerate(operands) if i != position]
+        if (
+            operator not in ("eq", "ne")
+            or len(others) != 1
+            or not isinstance(others[0], Value)
+        ):
+            raise UnsupportedPlanError(INDEXED_VALUE_REFUSAL)
+        equality = indexed_equality(declared, index, others[0].value)
+        # NOT keeps UNKNOWN for an absent element, so the row is still denied.
+        return not_(equality) if operator == "ne" else equality
+
+    def _declared_collection_value(
+        self, expression: Expr, declared: CollectionColumn
+    ) -> Any:
+        """Return ``size()`` of a declared collection, or refuse an element read as a value."""
+        if expression.operator == "index":
+            # Validate the position first, so a bad index gets its own error.
+            self._declared_index(expression)
+            raise UnsupportedPlanError(
+                f"{INDEXED_VALUE_REFUSAL}; nested value expressions cannot preserve "
+                "element types and index errors"
+            )
+        if len(expression.operands) != 1:
+            raise UnsupportedPlanError(
+                f"size takes 1 operand, got {len(expression.operands)}"
+            )
+        return collection_size(declared)
+
+    def _storage_only_collection(self, operand: Operand) -> CollectionColumn | None:
+        """Return the declared storage of an attribute absent from ``attr_map``, else None.
+
+        If ``attr_map`` also maps it, membership keeps using ``attr_map``, so declaring
+        storage for ``size()`` does not change membership.
+        """
+        if (
+            isinstance(operand, Variable)
+            and operand.name in self._declared_collections
+            and operand.name not in self._attr_map
+        ):
+            return self._declared_collections[operand.name]
+        return None
+
+    def _declared_membership(self, operator: str, operands: tuple[Operand, ...]) -> Any:
+        """Translate ``in``/``hasIntersection`` over a declared collection, else None.
+
+        Only scalar literals are accepted. A column needle cannot be typed against a
+        JSON element, so it is refused.
+        """
+        if operator not in _MEMBERSHIP_OPERATORS or len(operands) != 2:
+            return None
+        declared = [self._storage_only_collection(operand) for operand in operands]
+        if not any(found is not None for found in declared):
+            return None
+        if operator == "in":
+            needle, _collection = operands
+            if declared[1] is None or not isinstance(needle, Value):
+                raise UnsupportedPlanError(MEMBERSHIP_REFUSAL)
+            if isinstance(needle.value, (list, dict)):
+                raise UnsupportedPlanError(MEMBERSHIP_REFUSAL)
+            return collection_membership(declared[1], [needle.value])
+        # hasIntersection keeps source order, so the collection may be either side.
+        position = 0 if declared[0] is not None else 1
+        values = operands[1 - position]
+        if not isinstance(values, Value) or not isinstance(values.value, list):
+            raise UnsupportedPlanError(MEMBERSHIP_REFUSAL)
+        if any(isinstance(value, (list, dict)) for value in values.value):
+            raise UnsupportedPlanError(MEMBERSHIP_REFUSAL)
+        return collection_membership(declared[position], values.value)
+
+    @staticmethod
+    def _refuse_undeclared_index(collection: Operand | None) -> NoReturn:
+        if isinstance(collection, Variable):
+            raise UnsupportedPlanError(
+                f"Index storage shape is undeclared for '{collection.name}': declare it "
+                'in collection_columns with storage "json" or "pgArray"; a relation has '
+                "no positional order"
+            )
+        raise UnsupportedPlanError(
+            "Index access requires a collection attribute declared in "
+            "collection_columns; a computed collection has no storage to read"
+        )
+
+    # -- value positions -------------------------------------------------------------------
+
+    def _ternary(self, operands: tuple[Operand, ...]) -> Any:
+        """Translate ``if(cond, then, else)``.
+
+        The CASE has no ELSE, so an UNKNOWN condition yields NULL rather than the
+        else-branch. CEL denies that row, and NULL keeps it excluded under NOT.
+
+        Branches of two different types stay a ConditionalValue as well, so the
+        comparison is taken per branch: a branch of the other operand's type
+        compares, and the other is CEL's type-mismatch answer. A CASE would take
+        its first branch's type and compare the other branch by coercion.
+        """
+        condition = self.predicate(operands[0])
+        then_value = self._resolve(operands[1])
+        else_value = self._resolve(operands[2])
+        then_kind, else_kind = scalar_kind(then_value), scalar_kind(else_value)
+        if (
+            isinstance(then_value, SYMBOLIC_NUMBERS)
+            or isinstance(else_value, SYMBOLIC_NUMBERS)
+            # A list or map literal branch is folded per branch by its consumer.
+            or isinstance(then_value, (list, dict))
+            or isinstance(else_value, (list, dict))
+            or (then_kind and else_kind and then_kind != else_kind)
+        ):
+            return ConditionalValue(condition, then_value, else_value)
+        return case((condition, then_value), (not_(condition), else_value))
+
+    def _binary_value(self, operator: str, operands: tuple[Operand, ...]) -> Any:
+        """Apply a binary value operator to operands in source order."""
+        left = self._resolve(operands[0])
+        right = self._resolve(operands[1])
+        if not (
+            isinstance(left, SYMBOLIC_NUMBERS) or isinstance(right, SYMBOLIC_NUMBERS)
+        ):
+            return self._apply(operator, left, right)
+        if operator == "mod":
+            # CEL's % is integer-only and attribute values are doubles, so CEL
+            # errors here. Folding with Python's % would allow rows CEL denies.
+            raise UnsupportedPlanError(
+                "modulus over a division whose denominator may be zero is not "
+                "supported: CEL's % is integer-only and attribute values are "
+                "always doubles, so the condition can never be satisfied by the PDP"
+            )
+        return arith_over_conditional(
+            lambda a, b: self._apply(operator, a, b), left, right
+        )
+
+    def value(self, expression: Expr) -> Any:
+        """Translate a node in a value position."""
+        operator = expression.operator
+        operands = expression.operands
+        if operator == "if":
+            return self._ternary(operands)
+
+        # Declared storage wins over overrides: it names the attribute, an override
+        # only the operator.
+        if self._reads_declared_index(operands):
+            return self._indexed_comparison(operator, operands)
+        declared = self._declared_collection(expression)
+        if declared is not None:
+            return self._declared_collection_value(expression, declared)
+        if operator == "index" and "index" not in self._overrides:
+            self._refuse_undeclared_index(operands[0] if operands else None)
+        membership = self._declared_membership(operator, operands)
+        if membership is not None:
+            return membership
+
+        if operator in EQUALITY_FAMILY and len(operands) == 2 and _all_leaves(operands):
+            # Lambda bodies arrive here. Apply the same NULL conventions as at the root.
+            return self.predicate(expression)
+
+        # e.g. an `and(...)` or `has(...)` lambda body.
+        if operator in _BOOLEAN_OPERATORS or operator == "has":
+            return self.predicate(expression)
+
+        folded = self._try_fold_value_list_macro(operator, operands)
+        if folded is not None:
+            return folded
+
+        if operator in ("string", "int", "double") and any(
+            isinstance(o, Variable) and o.name in self._declared_names for o in operands
+        ):
+            raise UnsupportedPlanError(
+                f"{operator}() over a declared collection is a CEL no-overload error"
+            )
+
+        if operator == "list":
+            raise UnsupportedPlanError(
+                "a list constructed from attributes is lowered only as the range of "
+                "exists()/all() or the right operand of in: SQL has no list value"
+            )
+
+        if (
+            operator == "size"
+            and len(operands) == 1
+            and isinstance(operands[0], Expr)
+            and operands[0].operator == "filter"
+        ):
+            count = self._filtered_count(operands[0])
+            if count is not None:
+                return count
+
+        if (
+            operator == "size"
+            and len(operands) == 1
+            and isinstance(operands[0], Expr)
+            and operands[0].operator == "map"
+        ):
+            raise UnsupportedPlanError(
+                "size() over map() is not lowered: SQL has no list value to count, and a "
+                "projection that errors on an element denies the whole row"
+            )
+
+        if operator == "hierarchy":
+            target = self._resolve(operands[0])
+            delimiter = self._resolve(operands[1]) if len(operands) == 2 else None
+            return self._apply(operator, target, delimiter)
+
+        if operator in UNARY_VALUE_OPERATORS:
+            return self._apply(operator, self._resolve(operands[0]), None)
+
+        if len(operands) < 2:
+            raise UnsupportedPlanError(f"Unrecognised unary operator: {operator}")
+
+        return self._binary_value(operator, operands)
+
+    # -- boolean positions -----------------------------------------------------------------
+
+    def predicate(self, operand: Operand) -> Any:
+        """Translate a node in a boolean position."""
+        if isinstance(operand, Variable):
+            if operand.name in self._declared_names:
+                # A list where CEL needs a boolean is a type error too.
+                return null()
+            column = self._resolve_variable(operand.name)
+            if isinstance(getattr(column, "type", None), _NON_BOOLEAN_TYPES):
+                # A column of another type is a CEL type error: one UNKNOWN, which
+                # AND and OR absorb as CEL's && and || absorb the error.
+                return null()
+            return column
+        if isinstance(operand, Value):
+            return operand.value
+
+        operator = operand.operator
+        operands = operand.operands
+
+        if operator in _BOOLEAN_OPERATORS:
+            if operator != "not" and not operands:
+                # and_() / or_() with no arguments render an empty clause that
+                # .where() drops, returning every row. See #498.
+                raise UnsupportedPlanError(
+                    f"{operator!r} with no operands has no SQL rendering: SQLAlchemy "
+                    "emits an empty clause that .where() drops, which would return "
+                    "every row"
+                )
+            branches = [
+                require_boolean(self.predicate(o), f"{operator!r} operand")
+                for o in operands
+            ]
+            if operator == "and":
+                return and_(*branches)
+            if operator == "or":
+                return or_(*branches)
+            return not_(*branches)
+        if operator == "has" and "has" not in self._overrides:
+            return self._presence(operands)
+        if operator == "if":
+            return self.value(operand)
+        if operator == "dyn" and len(operands) == 1:
+            return self.predicate(operands[0])
+        if operator == "index" or self._declared_collection(operand) is not None:
+            return self.value(operand)
+
+        # Fold before override dispatch: overrides handle relations and columns,
+        # never literal lists.
+        folded = self._try_fold_value_list_macro(operator, operands)
+        if folded is not None:
+            return folded
+
+        if operator in ("eq", "ne", "lt", "le", "gt", "ge"):
+            lookup = self._map_literal_lookup(operator, operands)
+            if lookup is not None:
+                return lookup
+        if operator == "in":
+            structural = self._structural_membership(operands)
+            if structural is not None:
+                return structural
+            needle, haystack = operands if len(operands) == 2 else (None, None)
+            if (
+                _never_null(needle)
+                and isinstance(haystack, Value)
+                and isinstance(haystack.value, list)
+                and None in haystack.value
+            ):
+                kept = [member for member in haystack.value if member is not None]
+                if not kept:
+                    return case((self._resolve(needle).isnot(None), false()))
+                operands = (needle, Value(kept))
+
+        if self._reads_declared_index(operands):
+            return self._indexed_comparison(operator, operands)
+        membership = self._declared_membership(operator, operands)
+        if membership is not None:
+            return membership
+
+        has_nested_expression = not _all_leaves(operands)
+
+        # Anything but `leaf op leaf` goes straight to an override, e.g. size(tags).
+        override = self._overrides.get(operator)
+        if override is not None and (has_nested_expression or len(operands) != 2):
+            resolved = [self._resolve(o) for o in operands]
+            if len(resolved) == 1:
+                resolved.append(None)
+            return override(*resolved)
+
+        if len(operands) == 2 and has_nested_expression:
+            left = self._resolve(operands[0])
+            right = self._resolve(operands[1])
+            return self._apply(operator, left, right)
+
+        # Two leaves in source order: `1 < R.attr.x` arrives value-first.
+        left_operand, right_operand = operands
+        if isinstance(left_operand, Variable) and isinstance(right_operand, Variable):
+            return self._field_to_field(operator, left_operand, right_operand)
+        if isinstance(left_operand, Value) and isinstance(right_operand, Value):
+            return self._apply(operator, left_operand.value, right_operand.value)
+        if isinstance(left_operand, Value):
+            return self._value_first(operator, left_operand, right_operand)
+        return self._column_first(operator, left_operand, right_operand)
+
+    def _presence(self, operands: tuple[Operand, ...]) -> Any:
+        """``has(x)``, the presence test the planner emits from Cerbos 0.57.0.
+
+        Presence is a property of the caller's null convention, not of the column: an
+        attribute sent as an explicit null is present on every row, and one omitted when
+        its column is NULL is present exactly when the column is not NULL. ``has()`` never
+        errors on a missing value, so ``IS NOT NULL`` is two-valued and its negation exact.
+
+        The one error ``has()`` raises is selecting through a missing parent:
+        ``has(parent.x)`` on a parentless row denies under both polarities, while a
+        mapped expression for ``parent.x`` is NULL there and its negation selects the row.
+        The attribute map cannot say whether a mapped prefix can be absent, so a reference
+        below one, at any depth, is refused unless an ``operator_override_fns`` entry for
+        ``has`` answers it: ``parent.inner`` need not be mapped for ``has(parent.inner.x)``
+        to select through a missing ``parent``.
+        """
+        (operand,) = operands if len(operands) == 1 else (None,)
+        if not isinstance(operand, Variable):
+            raise UnsupportedPlanError("has requires exactly one attribute reference")
+        name = operand.name
+        segments = name.split(".")
+        prefixes = [".".join(segments[:end]) for end in range(len(segments) - 1, 0, -1)]
+        prefix = next(
+            (p for p in prefixes if p.startswith("request.") and p in self._attr_map),
+            None,
+        )
+        if prefix is not None:
+            raise UnsupportedPlanError(
+                f"Cannot translate has({name}): {prefix} is itself mapped, so it can be "
+                "absent, and a has() through a missing parent is an error CEL denies under "
+                "both polarities, which IS NULL over the mapped expression would select; "
+                "supply an operator_override_fns entry for 'has'"
+            )
+        column = self._resolve_variable(name)
+        if not isinstance(column, (ColumnElement, InstrumentedAttribute)):
+            raise UnsupportedPlanError(
+                f"Cannot translate has({name}): it is not mapped to a column"
+            )
+        if self._is_omitted_null(name):
+            return column.is_not(None)
+        return true()
+
+    def _with_null_conventions(
+        self,
+        operator: str,
+        left: Any,
+        right: Any,
+        left_explicit: bool,
+        right_explicit: bool,
+    ) -> Any:
+        return with_null_conventions(
+            operator,
+            left,
+            right,
+            left_explicit,
+            right_explicit,
+            plain=self._apply(operator, left, right),
+            overridden=operator in self._overrides,
+        )
+
+    def _field_to_field(self, operator: str, left: Variable, right: Variable) -> Any:
+        """Compare two columns, e.g. ``R.attr.a == R.attr.b``."""
+        left_column = self._resolve_variable(left.name)
+        right_column = self._resolve_variable(right.name)
+        if operator == "in" and _is_plain_column(right_column):
+            return _unknown()
+        if operator in _ORDERING_AND_EQUALITY and any(
+            isinstance(getattr(column, "type", None), DateTime)
+            for column in (left_column, right_column)
+        ):
+            raise UnsupportedPlanError(
+                "Bare temporal attributes compare RFC 3339 strings in CEL; stored "
+                "timestamps lose the original spelling; use timestamp() on both operands"
+            )
+        # Mixed conventions cannot be rendered: the explicit side needs a definite
+        # answer for NULL and the omitted side needs UNKNOWN. Either choice is wrong.
+        left_explicit = self._is_explicit_null(left.name)
+        right_explicit = self._is_explicit_null(right.name)
+        if left_explicit != right_explicit and operator in ("eq", "ne"):
+            raise UnsupportedPlanError(
+                f"Cannot translate `{operator}` between two columns under mixed "
+                "null conventions: cannot compare an attribute declared "
+                "explicit-null with one on the omitted convention: the omitted "
+                "side is UNKNOWN for a NULL column while the declared side is "
+                "definite, and no single predicate is both. Declare "
+                "attribute_null_representation for both attributes, or for "
+                "neither."
+            )
+        return self._with_null_conventions(
+            operator, left_column, right_column, left_explicit, right_explicit
+        )
+
+    def _value_first(self, operator: str, value: Value, variable: Variable) -> Any:
+        column = self._resolve_variable(variable.name)
+        if operator == "in" and _is_plain_column(column):
+            # `in` over a scalar is a CEL no-overload error.
+            return _unknown()
+        if operator in MIRRORED_OPERATORS:
+            return self._apply(MIRRORED_OPERATORS[operator], column, value.value)
+        if operator in ORDER_INSENSITIVE_OPERATORS:
+            return self._leaf_comparison(operator, column, variable, value)
+        # Receiver-style: the value is the receiver, e.g. `"abc".contains(x)`.
+        return self._apply(operator, value.value, column)
+
+    def _column_first(self, operator: str, variable: Variable, value: Value) -> Any:
+        column = self._resolve_variable(variable.name)
+        return self._leaf_comparison(operator, column, variable, value)
+
+
+def _is_plain_column(value: Any) -> bool:
+    return isinstance(value, (ColumnElement, InstrumentedAttribute))
+
+
+def _as_sql_boolean(predicate: Any) -> Any:
+    """A folded Python bool as SQL, so it can be tested for NULL and counted."""
+    if isinstance(predicate, bool):
+        return true() if predicate else false()
+    return predicate
+
+
+def _combine_macro(operator: str, predicates: list[Any]) -> Any:
+    """Fold the per-element bodies of ``exists``, ``all`` or ``exists_one``.
+
+    ``exists`` and ``all`` are OR and AND, which absorb an erroring body beside a
+    deciding one as CEL does. ``exists_one`` counts the bodies that hold, and CEL
+    raises if any body raises, so the count is UNKNOWN where any body is.
+    """
+    if operator == "exists":
+        return or_(*predicates) if predicates else false()
+    if operator == "all":
+        return and_(*predicates) if predicates else true()
+    if operator != "exists_one":
+        raise UnsupportedPlanError(
+            f"{operator} over a literal collection is not supported. Only exists(), "
+            "all() and exists_one() can be folded into a flat filter."
+        )
+    if not predicates:
+        return false()
+    booleans = [_as_sql_boolean(predicate) for predicate in predicates]
+    count = sum(
+        (case((predicate, 1), else_=0) for predicate in booleans), literal(0, Integer)
+    )
+    return case(
+        (or_(*(predicate.is_(None) for predicate in booleans)), null()),
+        else_=count == 1,
+    )
+
+
+def _all_leaves(operands: tuple[Operand, ...]) -> bool:
+    return all(isinstance(operand, (Variable, Value)) for operand in operands)

@@ -316,10 +316,17 @@ class AdCampaignsResource:
         )
         return self._client._post("/v1/ads/keywords", data=payload)
 
-    def update_ad_keyword(self, keyword_id: str, status: str) -> dict[str, Any]:
-        """Pause or enable a Search keyword"""
+    def update_ad_keyword(
+        self,
+        keyword_id: str,
+        *,
+        status: str | None = None,
+        cpc_bid: float | None = None,
+    ) -> dict[str, Any]:
+        """Update a Search keyword"""
         payload = self._build_payload(
             status=status,
+            cpc_bid=cpc_bid,
         )
         return self._client._patch(f"/v1/ads/keywords/{keyword_id}", data=payload)
 
@@ -1612,6 +1619,7 @@ class AdCampaignsResource:
         campaign_type: str | None = None,
         location_targeting_type: Any | None = None,
         asset_group: Any | None = None,
+        merchant_center: dict[str, Any] | None = None,
         demand_gen: Any | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
@@ -1736,6 +1744,7 @@ class AdCampaignsResource:
             campaign_type=campaign_type,
             location_targeting_type=location_targeting_type,
             asset_group=asset_group,
+            merchant_center=merchant_center,
             demand_gen=demand_gen,
             keywords=keywords,
             negative_keywords=negative_keywords,
@@ -2040,10 +2049,17 @@ class AdCampaignsResource:
         )
         return await self._client._apost("/v1/ads/keywords", data=payload)
 
-    async def aupdate_ad_keyword(self, keyword_id: str, status: str) -> dict[str, Any]:
-        """Pause or enable a Search keyword (async)"""
+    async def aupdate_ad_keyword(
+        self,
+        keyword_id: str,
+        *,
+        status: str | None = None,
+        cpc_bid: float | None = None,
+    ) -> dict[str, Any]:
+        """Update a Search keyword (async)"""
         payload = self._build_payload(
             status=status,
+            cpc_bid=cpc_bid,
         )
         return await self._client._apatch(
             f"/v1/ads/keywords/{keyword_id}", data=payload
@@ -3358,6 +3374,7 @@ class AdCampaignsResource:
         campaign_type: str | None = None,
         location_targeting_type: Any | None = None,
         asset_group: Any | None = None,
+        merchant_center: dict[str, Any] | None = None,
         demand_gen: Any | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
@@ -3482,6 +3499,7 @@ class AdCampaignsResource:
             campaign_type=campaign_type,
             location_targeting_type=location_targeting_type,
             asset_group=asset_group,
+            merchant_center=merchant_center,
             demand_gen=demand_gen,
             keywords=keywords,
             negative_keywords=negative_keywords,

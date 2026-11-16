@@ -1,36 +1,26 @@
-"""Tests for turbohtml.extract.boilerplate, the per-paragraph good/bad classifier over the main-content scoring."""
-
 from __future__ import annotations
 
-import gc
 from typing import TYPE_CHECKING, Final
 
 import pytest
 
-import turbohtml
-from turbohtml._html import _boilerplate
 from turbohtml.extract import Extraction, Paragraph, boilerplate
 
 if TYPE_CHECKING:
-    from types import ModuleType
+    from traced_bytes import RetainedBytes
 
 
-_PROSE = (
+_PROSE: Final[str] = (
     "A comet is an icy small body that, when it passes close to the Sun, warms up and releases gases, "
     "forming a glowing coma around it."
 )
-_PAGE = (
+_PAGE: Final[str] = (
     "<html lang=en><head><title>Comets</title></head><body>"
     "<ul><li><a href='/'>Home</a></li><li><a href='/science'>Science</a></li></ul>"
     f"<article><h1>Comets</h1><p>{_PROSE}</p><p>{_PROSE}</p><p>Short.</p>"
     "<p>See <a href='/a'>this piece</a> and <a href='/b'>that piece</a> too</p></article>"
     "<footer><p>Copyright notice, all rights reserved here.</p></footer></body></html>"
 )
-
-
-def _classified(page: str, options: Extraction | None = None) -> dict[str, bool]:
-    paragraphs = boilerplate(page) if options is None else boilerplate(page, options)
-    return {paragraph.text: paragraph.is_boilerplate for paragraph in paragraphs}
 
 
 @pytest.mark.parametrize(
@@ -46,6 +36,11 @@ def _classified(page: str, options: Extraction | None = None) -> dict[str, bool]
 )
 def test_boilerplate_default_classification(text: str, *, expected: bool) -> None:
     assert _classified(_PAGE)[text] is expected
+
+
+def _classified(page: str, options: Extraction | None = None) -> dict[str, bool]:
+    paragraphs = boilerplate(page) if options is None else boilerplate(page, options)
+    return {paragraph.text: paragraph.is_boilerplate for paragraph in paragraphs}
 
 
 def test_boilerplate_preserves_document_order() -> None:
@@ -141,18 +136,10 @@ def test_extraction_rejects_invalid_thresholds(options: dict[str, float], messag
 
 # Thresholds the binding takes as (min_length, max_link_density, keep_headings). Wide open, so only the segmentation
 # decides the answer; a test that cares about one threshold passes its own.
-_OPEN = (0, 1.0, True)
-_ARTICLE = "<article><h2>brief</h2><p>ordinary prose long enough for this to score as the article body</p></article>"
-
-
-def _classify(
-    markup: str, thresholds: tuple[int, float, bool] = _OPEN, *, content: bool = True
-) -> list[tuple[str, bool, bool]]:
-    """Run the binding over markup, passing the scored content body unless the caller withholds it."""
-    document = turbohtml.parse(markup)
-    root = document.root
-    assert root is not None  # a parsed document always has an <html> root, though the type admits None
-    return _boilerplate(root, document.main_content() if content else None, *thresholds)
+_OPEN: Final[tuple[int, float, bool]] = (0, 1.0, True)
+_ARTICLE: Final[str] = (
+    "<article><h2>brief</h2><p>ordinary prose long enough for this to score as the article body</p></article>"
+)
 
 
 @pytest.mark.parametrize(
@@ -175,6 +162,11 @@ def _classify(
 def test_every_unit_tag_becomes_a_paragraph(tag: str, wrapper: str) -> None:
     markup = wrapper.format(f"<{tag}>text of the unit</{tag}>")
     assert [row[0] for row in _classify(markup)] == ["text of the unit"]
+
+
+def _classify(markup: str, thresholds: tuple[int, float, bool] = _OPEN) -> list[tuple[str, bool, bool]]:
+    options = Extraction(min_length=thresholds[0], max_link_density=thresholds[1], keep_headings=thresholds[2])
+    return [(unit.text, unit.is_boilerplate, unit.is_heading) for unit in boilerplate(markup, options)]
 
 
 @pytest.mark.parametrize(
@@ -216,10 +208,6 @@ def test_the_text_is_whitespace_collapsed(markup: str, expected: str) -> None:
     assert _classify(markup)[0][0] == expected
 
 
-def test_a_unit_outside_the_content_body_is_boilerplate() -> None:
-    assert _classify("<p>orphan</p>", content=False)[0][1] is True
-
-
 def test_a_link_dense_unit_is_boilerplate() -> None:
     markup = "<article><p><a href='/x'>all of it is a link</a></p></article>"
     assert _classify(markup, (0, 0.5, True))[0][1] is True
@@ -248,26 +236,6 @@ def test_a_heading_faces_the_floor_when_headings_are_not_kept() -> None:
     assert _classify(_ARTICLE, (25, 1.0, False))[0][1] is True
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        pytest.param(("notanelement", None, 0, 1.0, True), id="root-is-not-an-element"),
-        pytest.param((None, 0, 1.0, True), id="too-few-arguments"),
-    ],
-)
-def test_the_binding_rejects_bad_arguments(args: tuple[object, ...]) -> None:
-    with pytest.raises(TypeError):
-        _boilerplate(*args)  # ty: ignore[invalid-argument-type]  # the argument check is the point
-
-
-def test_the_binding_rejects_a_content_that_is_not_an_element() -> None:
-    document = turbohtml.parse("<p>x</p>")
-    root = document.root
-    assert root is not None
-    with pytest.raises(TypeError):
-        _boilerplate(root, "notanelement", 0, 1.0, True)  # ruff:ignore[boolean-positional-value-in-call]  # ty: ignore[invalid-argument-type]  # positional-only C binding
-
-
 def test_the_public_entry_point_still_answers_paragraphs() -> None:
     found = boilerplate("<article><p>a paragraph long enough to clear the default floor</p></article>", Extraction())
     assert [(unit.text, unit.is_boilerplate, unit.is_heading) for unit in found] == [
@@ -276,12 +244,15 @@ def test_the_public_entry_point_still_answers_paragraphs() -> None:
 
 
 @pytest.mark.parametrize(
-    "wrapper", [pytest.param("", id="direct"), pytest.param("span", id="span"), pytest.param("b", id="bold")]
+    "content",
+    [
+        pytest.param('<a href="/comet">comet</a>', id="direct"),
+        pytest.param('<span><a href="/comet">comet</a></span>', id="span"),
+        pytest.param('<b><a href="/comet">comet</a></b>', id="bold"),
+    ],
 )
-def test_boilerplate_keeps_text_after_snapshot_release(wrapper: str) -> None:
+def test_boilerplate_keeps_text_after_snapshot_release(content: str) -> None:
     prose: Final = "A comet passes near the Sun, warms up and releases gas, forming a glowing coma around it."
-    linked: Final = '<a href="/comet">comet</a>'
-    content: Final = f"<{wrapper}>{linked}</{wrapper}>" if wrapper else linked
     page: Final = f"<article><p>{prose}</p><p>Read about this {content} today.</p></article>"
     assert [paragraph.text for paragraph in boilerplate(page)] == [prose, "Read about this comet today."]
 
@@ -293,19 +264,11 @@ def test_boilerplate_classifies_owned_text() -> None:
     ]
 
 
-def test_boilerplate_releases_text_snapshots() -> None:
-    # PyPy lacks tracemalloc and reclaims objects on a different schedule.
-    tracing: Final[ModuleType] = pytest.importorskip("tracemalloc")
-    page: Final = "<article><p>" + "A comet passes near the Sun. " * 256 + '<a href="/more">more</a></p></article>'
-    tracing.start()
-    try:
-        for _ in range(128):
-            boilerplate(page)
-        gc.collect()
-        before: Final = tracing.get_traced_memory()[0]
-        for _ in range(128):
-            boilerplate(page)
-        gc.collect()
-        assert tracing.get_traced_memory()[0] - before < 256 * 1024
-    finally:
-        tracing.stop()
+def test_boilerplate_releases_text_snapshots(retained_bytes: RetainedBytes) -> None:
+    page: Final = f'<article><p>{"A comet passes near the Sun. " * 256}<a href="/more">more</a></p></article>'
+    for _ in range(128):
+        boilerplate(page)
+    before: Final = retained_bytes()
+    for _ in range(128):
+        boilerplate(page)
+    assert retained_bytes() - before < 256 * 1024

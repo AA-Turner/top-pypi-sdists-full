@@ -103,6 +103,7 @@ PyObject *turbohtml_css_escape_identifier(PyObject *module, PyObject *arg);
    and XPath parsers raise on a malformed expression (METH_O); turbohtml._selectors
    registers it on import. */
 PyObject *turbohtml_register_selector_error(PyObject *module, PyObject *type);
+PyObject *turbohtml_register_xpath_depth_error(PyObject *module, PyObject *type);
 
 /* Implemented in linkify.c. The scan methods find URL/email spans in text runs;
    _linkify_apply snapshots targets and rewrites them around callback invocations. */
@@ -152,12 +153,18 @@ PyObject *turbohtml_url_percent_encode(PyObject *module, PyObject *args);
 PyObject *turbohtml_url_percent_decode(PyObject *module, PyObject *arg);
 
 /* Implemented in url/url.c. th_url_join resolves a (possibly relative) reference against a base URL, the RFC 3986 5.3
-   reference transform urllib.parse.urljoin runs; base_url() and the extraction methods call it directly, and
-   _url_join(base, target) exposes it to the extract_links shim. Both arguments are borrowed str references; returns a
-   new reference, NULL with a ValueError set when a component cannot be split (an unbalanced IPv6 bracket). */
+   reference transform urllib.parse.urljoin runs; the feed xml:base reader calls it, and _url_join(base, target) exposes
+   it to Python. Both arguments are borrowed str references; returns a new reference, NULL with a ValueError set when a
+   component cannot be split (an unbalanced IPv6 bracket). th_url_join_link is th_url_join for a link a browser follows:
+   under a special scheme other than file it skips the slashes past the two that open the authority, as the WHATWG URL
+   parser does, so the host is read after them instead of as a path on the base's host. clean.c's extract_links fallback
+   calls it, and _url_join_link(base, target) exposes it to Node.resolve_links. The document base, meta refresh and
+   structured data use th_url_document_join (url.h), which runs the same link join. */
 PyObject *th_url_join(PyObject *base, PyObject *target);
+PyObject *th_url_join_link(PyObject *base, PyObject *target);
 PyObject *th_url_join_c14n_raw(const Py_UCS4 *base, Py_ssize_t base_len, PyObject *target);
 PyObject *turbohtml_url_join(PyObject *module, PyObject *args);
+PyObject *turbohtml_url_join_link(PyObject *module, PyObject *args);
 
 /* _url_is_tracker(key): whether a lowercased query-parameter name names a referral rather than content, so a
    crawl-oriented cleaner drops it. Matches METH_O. */
@@ -298,7 +305,12 @@ PyObject *turbohtml_register_feed(PyObject *module, PyObject *args);
 /* Implemented in dom/document.c, the URL-resolution routine base_url() runs, shared with the extraction methods so
    their base_url reuses it rather than reinventing RFC 3986 resolution. th_url_resolve joins a (possibly relative)
    target onto a base and percent-encodes the result; th_document_base_url resolves the document's <base href> against a
-   fallback. Both return a new reference, NULL with a ValueError set when a component cannot be split. */
+   fallback. Both return a new reference, NULL with a ValueError set when a component cannot be split.
+   TH_BASE_URL_MAX bounds the base URL, in code points, that a document sets through <base href> or xml:base. Every
+   relative URL in the document is joined onto that base, so an unbounded base makes the output grow with its length
+   times the link count. A longer base counts as one that fails to parse and is ignored. The caller's own URL is not
+   limited. */
+#define TH_BASE_URL_MAX 2048
 PyObject *th_url_resolve(PyObject *base, PyObject *target);
 PyObject *th_document_base_url(PyObject *self, PyObject *fallback);
 
@@ -341,6 +353,9 @@ PyObject *turbohtml_tokenize_states(PyObject *module, PyObject *args);
 PyObject *turbohtml_parse_tree(PyObject *module, PyObject *args);
 PyObject *turbohtml_parse_fragment(PyObject *module, PyObject *args);
 PyObject *turbohtml_parse_only(PyObject *module, PyObject *arg);
+
+/* Implemented in dom/node.c: the document minify behind turbohtml.clean.minify. */
+PyObject *turbohtml_minify_document(PyObject *module, PyObject *args);
 
 /* Implemented in query/xslt.c. _xslt_compile builds immutable stylesheet state;
    _xslt_transform applies it with source-specific execution state. */
@@ -391,6 +406,16 @@ int th_fuzz_register(PyObject *module);
 /* Implemented in validate/schema.c: read the byte after a fresh schema arena allocation of `size` bytes, which the
    crash self-test expects ASan to report. */
 char th_fuzz_schema_arena_overread(size_t size);
+#endif
+
+#ifdef TH_WORK_STEPS
+/* Implemented in core/work_steps.c: the calling thread's loop-step total, which only ever grows. */
+PyObject *turbohtml_work_steps(PyObject *module, PyObject *ignored);
+#endif
+
+#ifdef TH_COVERAGE_FLUSH
+/* Implemented in core/coverage_flush.c: write this process's gcov counters to the .gcda files now and zero them. */
+PyObject *turbohtml_coverage_flush(PyObject *module, PyObject *ignored);
 #endif
 
 /* Implemented in validate/conformance.c, the HTML5 authoring-conformance checker behind

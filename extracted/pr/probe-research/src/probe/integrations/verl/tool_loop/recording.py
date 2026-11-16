@@ -13,6 +13,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
+from probe.sdk.hardware.trace import GpuTrace
+
 from .executor import run_in_executor
 from .reasoning import split_reasoning
 from .stamps import FILES_FIELD, FINISH_FIELD, HANDLE_FIELD, read_stamp, to_stamp
@@ -55,6 +57,7 @@ class LoopRecording:
         self.agent_data: Any = None
         self.turns: list[ModelTurn] = []
         self.is_cut = False
+        self._gpu_trace = GpuTrace()
         self._dropped: list[str] = []
 
     @contextmanager
@@ -76,6 +79,9 @@ class LoopRecording:
 
     def keep_dropped(self, blocks: list[str]) -> None:
         self._dropped.extend(blocks)
+
+    def record_gpu_trace(self, trace: Mapping) -> None:
+        self._gpu_trace.extend(trace)
 
     def take_dropped(self) -> list[str]:
         dropped, self._dropped = self._dropped, []
@@ -114,6 +120,12 @@ class LoopRecording:
             for call_id, name, error in failed:
                 self.capture.record_tool_run(call_id, name, is_ok=False, error=error)
         payload = await run_in_executor(self.capture.export)
+        if self._gpu_trace.readings:
+            payload["gpu_readings"] = self._gpu_trace.readings
+        if self._gpu_trace.dropped:
+            payload.setdefault("extras", {})["gpu_dropped_readings"] = self._gpu_trace.dropped
+        if self._gpu_trace.is_incomplete:
+            payload.setdefault("extras", {})["gpu_incomplete"] = True
         if self._is_past_length():
             payload[FINISH_FIELD] = LENGTH
         return to_stamp(payload)

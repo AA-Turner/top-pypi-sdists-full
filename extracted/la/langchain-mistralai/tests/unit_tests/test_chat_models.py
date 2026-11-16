@@ -1,13 +1,22 @@
 """Test MistralAI Chat API wrapper."""
 
 import os
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator, Iterator
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.exceptions import (
+    ModelAPIError,
+    ModelAuthenticationError,
+    ModelError,
+    ModelInvalidRequestError,
+    ModelNotFoundError,
+    ModelPermissionDeniedError,
+    ModelRateLimitError,
+)
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -27,16 +36,24 @@ if TYPE_CHECKING:
 from langchain_mistralai._compat import _convert_to_v1_from_mistral
 from langchain_mistralai.chat_models import (  # type: ignore[import]
     ChatMistralAI,
+    _araise_on_error,
     _convert_chunk_to_message_chunk,
     _convert_message_to_mistral_chat_message,
     _convert_mistral_chat_message_to_message,
     _convert_tool_call_id_to_mistral_compatible,
     _format_message_content,
     _is_valid_mistral_tool_call_id,
+    _raise_on_error,
     _sanitize_chat_completions_content,
 )
 
 os.environ["MISTRAL_API_KEY"] = "foo"
+
+
+def _error_response(status_code: int) -> httpx.Response:
+    """Build a response with the given status for the error handlers."""
+    request = httpx.Request("POST", "https://api.mistral.ai/v1/chat/completions")
+    return httpx.Response(status_code, request=request, content=b'{"message": "boom"}')
 
 
 def test_sanitize_chat_completions_text_blocks_strips_id() -> None:
@@ -1094,3 +1111,253 @@ def test_metadata_versions() -> None:
     versions = llm.metadata["lc_versions"]
     assert "langchain-core" in versions
     assert "langchain-mistralai" in versions
+
+
+@pytest.mark.parametrize(
+    ("status_code", "model_error_type", "is_retryable"),
+    [
+        (400, ModelInvalidRequestError, False),
+        (401, ModelAuthenticationError, False),
+        (403, ModelPermissionDeniedError, False),
+        (404, ModelNotFoundError, False),
+        (422, ModelInvalidRequestError, False),
+        (429, ModelRateLimitError, True),
+        (500, ModelAPIError, True),
+        (503, ModelAPIError, True),
+    ],
+)
+def test_error_classification(
+    status_code: int,
+    model_error_type: type[ModelError],
+    *,
+    is_retryable: bool,
+) -> None:
+    """Errors are raised as both `httpx.HTTPStatusError` and the LangChain type."""
+    response = _error_response(status_code)
+
+    with pytest.raises(httpx.HTTPStatusError) as exc_info:
+        _raise_on_error(response)
+
+    assert isinstance(exc_info.value, model_error_type)
+    assert exc_info.value.is_retryable is is_retryable
+    assert exc_info.value.response.status_code == status_code
+
+
+async def test_error_classification_async() -> None:
+    """The async response handler classifies errors the same way."""
+    with pytest.raises(httpx.HTTPStatusError) as exc_info:
+        await _araise_on_error(_error_response(429))
+
+    assert isinstance(exc_info.value, ModelRateLimitError)
+
+
+def test_unclassified_status_stays_a_plain_status_error() -> None:
+    """Status codes outside the taxonomy keep the previous behavior."""
+    with pytest.raises(httpx.HTTPStatusError) as exc_info:
+        _raise_on_error(_error_response(409))
+
+    assert not isinstance(exc_info.value, ModelError)
+
+
+def test_success_response_does_not_raise() -> None:
+    """A non-error response is left alone."""
+    _raise_on_error(_error_response(200))
+
+
+# --- LangSmith gateway ---
+
+
+@pytest.fixture
+def _gateway_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in (
+        "LANGSMITH_GATEWAY",
+        "LANGSMITH_GATEWAY_API_KEY",
+        "LANGSMITH_API_KEY",
+        "MISTRAL_BASE_URL",
+        "MISTRAL_API_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`LANGSMITH_GATEWAY` routes to the gateway with the gateway key."""
+    monkeypatch.setenv("LANGSMITH_GATEWAY", "true")
+    monkeypatch.setenv("LANGSMITH_GATEWAY_API_KEY", "gateway-key")
+    llm = ChatMistralAI(model_name="mistral-small")
+    assert llm.endpoint == "https://gateway.smith.langchain.com/mistral/v1"
+    assert llm.mistral_api_key is not None
+    assert llm.mistral_api_key.get_secret_value() == "gateway-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the gateway, the provider key and default URL are used."""
+    monkeypatch.setenv("LANGSMITH_GATEWAY_API_KEY", "gateway-key")
+    monkeypatch.setenv("MISTRAL_API_KEY", "provider-key")
+    llm = ChatMistralAI(model_name="mistral-small")
+    assert llm.endpoint == "https://api.mistral.ai/v1"
+    assert llm.mistral_api_key is not None
+    assert llm.mistral_api_key.get_secret_value() == "provider-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_provider_env_base_url_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider base URL env var wins over `LANGSMITH_GATEWAY`."""
+    monkeypatch.setenv("LANGSMITH_GATEWAY", "true")
+    monkeypatch.setenv("MISTRAL_BASE_URL", "https://proxy.example.com/v1")
+    monkeypatch.setenv("MISTRAL_API_KEY", "provider-key")
+    llm = ChatMistralAI(model_name="mistral-small")
+    assert llm.endpoint == "https://proxy.example.com/v1"
+    assert llm.mistral_api_key is not None
+    assert llm.mistral_api_key.get_secret_value() == "provider-key"
+
+
+@pytest.mark.usefixtures("_gateway_env")
+def test_langsmith_gateway_context_overrides_explicit_values() -> None:
+    """`langsmith_gateway` overrides an explicit base URL and API key."""
+    gateway = pytest.importorskip("langchain_core.utils._gateway")
+    if not hasattr(gateway, "langsmith_gateway"):
+        pytest.skip("Requires a langchain-core release with `langsmith_gateway`.")
+    with gateway.langsmith_gateway(api_key="service-key"):
+        llm = ChatMistralAI(
+            model_name="mistral-small",
+            base_url="https://other.example.com/v1",
+            api_key=SecretStr("user-key"),
+        )
+    assert llm.endpoint == "https://gateway.smith.langchain.com/mistral/v1"
+    assert llm.mistral_api_key is not None
+    assert llm.mistral_api_key.get_secret_value() == "service-key"
+
+
+def _make_delta_chunk(content: Any, finish_reason: str | None = None) -> dict:
+    return {
+        "id": "abc123",
+        "model": "mistral-large-latest",
+        "choices": [
+            {"index": 0, "delta": {"content": content}, "finish_reason": finish_reason}
+        ],
+    }
+
+
+_REASONING_STREAM = [
+    {
+        "id": "abc123",
+        "model": "mistral-large-latest",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": ""},
+                "finish_reason": None,
+            }
+        ],
+    },
+    _make_delta_chunk(
+        [{"type": "thinking", "thinking": [{"type": "text", "text": "User says"}]}]
+    ),
+    _make_delta_chunk(
+        [{"type": "thinking", "thinking": [{"type": "text", "text": " hello."}]}]
+    ),
+    _make_delta_chunk(
+        [
+            {"type": "thinking", "thinking": []},
+            {"type": "text", "text": "Hello! How"},
+        ]
+    ),
+    _make_delta_chunk(" can I help you"),
+    _make_delta_chunk(" today?", finish_reason="stop"),
+]
+
+
+def mock_reasoning_stream(*args: Any, **kwargs: Any) -> Iterator[dict]:
+    return iter([dict(c) for c in _REASONING_STREAM])
+
+
+async def mock_reasoning_astream(*args: Any, **kwargs: Any) -> AsyncGenerator:
+    async def it() -> AsyncGenerator:
+        for c in _REASONING_STREAM:
+            yield dict(c)
+
+    return it()
+
+
+def _check_reasoning_stream(chunks: list[AIMessageChunk]) -> None:
+    assert all(c.content for c in chunks[:-1])
+    full = chunks[0]
+    for c in chunks[1:]:
+        full += c
+    assert isinstance(full, AIMessageChunk)
+    text_blocks = [b for b in full.content_blocks if b["type"] == "text"]
+    assert len(text_blocks) == 1
+    assert text_blocks[0]["text"] == "Hello! How can I help you today?"
+    reasoning_blocks = [b for b in full.content_blocks if b["type"] == "reasoning"]
+    assert len(reasoning_blocks) == 1
+    assert reasoning_blocks[0].get("reasoning") == "User says hello."
+    assert full.text == "Hello! How can I help you today?"
+    assert full.chunk_position == "last"
+
+
+@pytest.mark.parametrize("output_version", [None, "v1"])
+@patch(
+    "langchain_mistralai.chat_models.ChatMistralAI.completion_with_retry",
+    new=mock_reasoning_stream,
+)
+def test_stream_reasoning_then_text(output_version: str | None) -> None:
+    llm = ChatMistralAI(output_version=output_version)
+    chunks = [cast("AIMessageChunk", c) for c in llm.stream("Hello")]
+    _check_reasoning_stream(chunks)
+
+
+@pytest.mark.parametrize("output_version", [None, "v1"])
+@patch(
+    "langchain_mistralai.chat_models.acompletion_with_retry",
+    new=mock_reasoning_astream,
+)
+async def test_astream_reasoning_then_text(output_version: str | None) -> None:
+    llm = ChatMistralAI(output_version=output_version)
+    chunks = [cast("AIMessageChunk", c) async for c in llm.astream("Hello")]
+    _check_reasoning_stream(chunks)
+
+
+@patch(
+    "langchain_mistralai.chat_models.ChatMistralAI.completion_with_retry",
+    new=mock_chat_stream,
+)
+def test_stream_string_content_stays_string() -> None:
+    llm = ChatMistralAI()
+    full: AIMessageChunk | None = None
+    for chunk in llm.stream("Hello"):
+        full = chunk if full is None else full + chunk  # type: ignore[assignment]
+    assert full is not None
+    assert full.content == "Hello how can I help?"
+
+
+def test_reasoning_effort_omitted_by_default() -> None:
+    llm = ChatMistralAI()
+    assert "reasoning_effort" not in llm._default_params
+
+
+def test_reasoning_effort_in_default_params() -> None:
+    llm = ChatMistralAI(reasoning_effort="high")
+    assert llm._default_params["reasoning_effort"] == "high"
+
+
+def test_reasoning_effort_passed_to_client() -> None:
+    llm = ChatMistralAI(reasoning_effort="high")
+    with patch.object(
+        ChatMistralAI,
+        "completion_with_retry",
+        return_value={
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "Hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        },
+    ) as mock_completion:
+        llm.invoke("Hello")
+    assert mock_completion.call_args.kwargs["reasoning_effort"] == "high"

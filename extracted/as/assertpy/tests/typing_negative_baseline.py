@@ -10,7 +10,7 @@ rather than a type error: green, and the relation it existed for was never check
 
 The rejections fall into families, and the split is the useful reading: the argument does not fit
 (`invalid-argument-type` / `arg-type` / `reportArgumentType`), the method is not there
-(`unresolved-attribute` / `attr-defined` / `reportAttributeAccessIssue`), the keyword does not exist,
+(`missing-attribute` / `attr-defined` / `reportAttributeAccessIssue`), the keyword does not exist,
 and the argument is missing.  `ty` sometimes answers `no-matching-overload` where the others name the
 argument: same family, different route through an overload set.
 
@@ -46,7 +46,7 @@ _CLASS_INFO_MEMBER: dict[str, frozenset[str]] = {
 }
 
 _MISSING: dict[str, frozenset[str]] = {
-    "ty": frozenset({"unresolved-attribute"}),
+    "ty": frozenset({"missing-attribute"}),
     "mypy": frozenset({"attr-defined"}),
     "pyright": frozenset({"reportAttributeAccessIssue"}),
     "pyrefly": frozenset({"missing-attribute"}),
@@ -81,14 +81,14 @@ _PREDICATE_OVER_THE_SUBJECT: dict[str, frozenset[str]] = {
 }
 
 _NO_EXPECTATION_YET: dict[str, frozenset[str]] = {
-    "ty": frozenset({"call-non-callable"}),
+    "ty": frozenset({"not-callable"}),
     "mypy": frozenset(),
     "pyright": frozenset({"reportCallIssue"}),
     "pyrefly": frozenset({"not-callable"}),
 }
 
 _NOT_CALLABLE: dict[str, frozenset[str]] = {
-    "ty": frozenset({"call-non-callable"}),
+    "ty": frozenset({"not-callable"}),
     "mypy": frozenset({"operator"}),
     "pyright": frozenset({"reportCallIssue"}),
     "pyrefly": frozenset({"not-callable"}),
@@ -280,13 +280,13 @@ CAUGHT: dict[str, dict[str, frozenset[str]]] = {
     # the negation twins carry only what reaches a verdict, so the fourteen names that transform,
     # configure or describe are now refused statically as well as at run time
     "negation-allows-a-non-negatable-name": {
-        "ty": frozenset({"unresolved-attribute"}),
+        "ty": frozenset({"missing-attribute"}),
         "mypy": frozenset({"attr-defined"}),
         "pyright": frozenset({"reportAttributeAccessIssue"}),
         "pyrefly": frozenset({"missing-attribute"}),
     },
     "umbrella-negation-allows-a-non-negatable-name": {
-        "ty": frozenset({"unresolved-attribute"}),
+        "ty": frozenset({"missing-attribute"}),
         "mypy": frozenset({"attr-defined"}),
         "pyright": frozenset({"reportAttributeAccessIssue"}),
         "pyrefly": frozenset({"missing-attribute"}),

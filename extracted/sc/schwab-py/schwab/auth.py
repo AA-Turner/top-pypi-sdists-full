@@ -300,7 +300,7 @@ def client_from_login_flow(api_key, app_secret, callback_url, token_path,
                             'https://127.0.0.1:{}/schwab-py-internal/status'.format(
                                 callback_port), verify=False)
                 break
-            except httpx.ConnectError as e:
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
                 pass
 
             time.sleep(0.1)
@@ -310,6 +310,19 @@ def client_from_login_flow(api_key, app_secret, callback_url, token_path,
 
         print()
         print('***********************************************************************')
+        print()
+        print('╭───────╮ ╭─────────╮ ╭─────────╮ ╭───────╮ ╭─╮     ╭─╮ ╭─────────╮ ╭─────╮ ╭───────╮ ╭─╮     ╭─╮ ╭─╮')
+        print('│ ╭───╮ │ ╰───╮ ╭───╯ ╰───╮ ╭───╯ │ ╭─────╯ │ ╰───╮ │ │ ╰───╮ ╭───╯ ╰─╮ ╭─╯ │ ╭───╮ │ │ ╰───╮ │ │ │ │')
+        print('│ ╰───╯ │     │ │         │ │     │ ╰───╮   │ ╭─╮ ╰─╯ │     │ │       │ │   │ │   │ │ │ ╭─╮ ╰─╯ │ │ │')
+        print('│ ╭───╮ │     │ │         │ │     │ ╭───╯   │ │ ╰─╮   │     │ │       │ │   │ │   │ │ │ │ ╰─╮   │ ╰─╯')
+        print('│ │   │ │     │ │         │ │     │ ╰─────╮ │ │   ╰─╮ │     │ │     ╭─╯ ╰─╮ │ ╰───╯ │ │ │   ╰─╮ │ ╭─╮')
+        print('╰─╯   ╰─╯     ╰─╯         ╰─╯     ╰───────╯ ╰─╯     ╰─╯     ╰─╯     ╰─────╯ ╰───────╯ ╰─╯     ╰─╯ ╰─╯')
+        print()
+        print('schwab-py 2.0 is on the way, bringing new features and')
+        print('improvements alongside some library interface changes.')
+        print('See the transition plan and migration notes at:')
+        print('https://schwab-py.readthedocs.io/en/latest/v2.html')
+        print('To stay on the 1.x line, pin "schwab-py<2.0".')
         print()
         print('This is the browser-assisted login and token creation flow for')
         print('schwab-py. This flow automatically opens the login page on your')

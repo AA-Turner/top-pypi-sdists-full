@@ -1,3 +1,4 @@
+#include "core/work_steps.h"
 #include "serialize/internal.h"
 #include "serialize/c14n_writers.h"
 
@@ -7,18 +8,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char C14N_XML[] = "http://www.w3.org/XML/1998/namespace";
+static const Py_UCS4 C14N_XML[] = U"http://www.w3.org/XML/1998/namespace";
 #define C14N_STACK_ATTRS 32
+/* Comparing two namespace URIs as text reads at most the shorter one. Past this length a comparison goes through
+   c14n_xml_uris instead, so the text of a long URI is read once per call and not once per attribute or element. */
+#define C14N_LONG_URI 128
 
 static int c14n_xml_1_1_inherits_xml_attribute(const char *name, Py_ssize_t len) {
     return (len == 8 && (memcmp(name + 4, "lang", 4) == 0 || memcmp(name + 4, "base", 4) == 0)) ||
            (len == 9 && memcmp(name + 4, "space", 5) == 0);
 }
 
-static int c14n_prefix_forced(const th_c14n_opts *opts, const char *prefix) {
+static int c14n_prefix_forced(const th_c14n_opts *opts, const char *prefix, Py_ssize_t prefix_len) {
+    if (prefix_len == 0) {
+        prefix = "#default";
+        prefix_len = 8;
+    }
     int forced = 0;
     for (Py_ssize_t index = 0; index < opts->inclusive_count && !forced; index++) {
-        forced = strcmp(opts->inclusive[index], prefix) == 0;
+        forced = strncmp(opts->inclusive[index], prefix, (size_t)prefix_len) == 0 &&
+                 opts->inclusive[index][prefix_len] == '\0';
     }
     return forced;
 }
@@ -32,6 +41,7 @@ typedef struct {
     Py_ssize_t prefix_len;
     const Py_UCS4 *uri;
     Py_ssize_t uri_len;
+    const th_node *owner; /* the element that carries the declaration */
 } c14n_xml_ns;
 
 typedef struct {
@@ -40,209 +50,532 @@ typedef struct {
     const char *local;
     Py_ssize_t local_len;
     const Py_UCS4 *uri;
-    const char *ascii_uri;
     Py_ssize_t uri_len;
+    Py_ssize_t uri_rank; /* c14n_xml_uri_rank when uri_len exceeds C14N_LONG_URI, -1 otherwise */
     const Py_UCS4 *value;
     Py_ssize_t value_len;
+    Py_ssize_t position; /* order gathered: the element's own attributes, then the nearest ancestor's first */
 } c14n_xml_attr;
 
-static int c14n_xml_ns_index(const c14n_xml_ns *namespaces, Py_ssize_t count, const char *prefix,
-                             Py_ssize_t prefix_len) {
-    for (Py_ssize_t index = 0; index < count; index++) {
-        if (namespaces[index].prefix_len == prefix_len &&
-            memcmp(namespaces[index].prefix, prefix, (size_t)prefix_len) == 0) {
-            return (int)index;
+typedef struct {
+    const Py_UCS4 *uri;
+    Py_ssize_t uri_len;
+    Py_ssize_t rank; /* in code point order, equal URIs share one */
+} c14n_xml_uri;
+
+/* The declarations of long URIs in reach of the subtree, ranked by URI text. It is built at the first comparison of
+   two long URIs, so a subtree without one never lists its declarations. */
+typedef struct {
+    th_tree *tree;
+    th_node *apex;
+    c14n_xml_uri *items; /* by address once built, for c14n_xml_uri_rank */
+    Py_ssize_t count;
+    Py_ssize_t capacity;
+    int built;
+    int failed;
+} c14n_xml_uris;
+
+static int c14n_xml_uri_cmp_text(const void *left, const void *right) {
+    const c14n_xml_uri *first = left;
+    const c14n_xml_uri *second = right;
+    Py_ssize_t common = first->uri_len < second->uri_len ? first->uri_len : second->uri_len;
+    for (Py_ssize_t index = 0; index < common; index++) {
+        TH_WORK_STEP();
+        if (first->uri[index] != second->uri[index]) {
+            return first->uri[index] < second->uri[index] ? -1 : 1;
         }
     }
-    return -1;
+    return (first->uri_len > second->uri_len) - (first->uri_len < second->uri_len);
 }
 
-static int c14n_xml_absolute_uri(const Py_UCS4 *uri, Py_ssize_t len) {
-    if (len == 0) {
-        return 1;
-    }
-    if (len >= 4 && uri[0] == 'u' && uri[1] == 'r' && uri[2] == 'n' && uri[3] == ':') {
-        return 1;
-    }
-    if (len >= 5 && uri[0] == 'h' && uri[1] == 't' && uri[2] == 't' && uri[3] == 'p' &&
-        (uri[4] == ':' || (len >= 6 && uri[4] == 's' && uri[5] == ':'))) {
-        return 1;
-    }
-    Py_UCS4 first = uri[0] | 0x20;
-    if (first < 'a' || first > 'z') {
+/* A declaration is known by where its value is stored. */
+static int c14n_xml_uri_cmp_address(const void *left, const void *right) {
+    uintptr_t first = (uintptr_t)((const c14n_xml_uri *)left)->uri;
+    uintptr_t second = (uintptr_t)((const c14n_xml_uri *)right)->uri;
+    return (first > second) - (first < second);
+}
+
+static int c14n_xml_uris_add(c14n_xml_uris *uris, const th_node *node) {
+    TH_WORK_STEP();
+    if (node->type != TH_NODE_ELEMENT) {
         return 0;
     }
-    for (Py_ssize_t index = 1; index < len; index++) {
-        Py_UCS4 character = uri[index] | 0x20;
-        if (character == ':') {
-            return 1;
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        const th_node_attr *attr = &node->attrs[index];
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(uris->tree, attr->name_atom, &name_len);
+        if (attr->value_len <= C14N_LONG_URI || !c14n_name_is_nsdecl(name, name_len)) {
+            continue;
         }
-        if ((character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '+' &&
-            character != '-' && character != '.') {
-            return 0;
+        if (uris->count == uris->capacity) {
+            Py_ssize_t capacity = uris->capacity > 0 ? 2 * uris->capacity : 16;
+            c14n_xml_uri *items = PyMem_Realloc(uris->items, (size_t)capacity * sizeof(c14n_xml_uri));
+            if (items == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            uris->items = items;
+            uris->capacity = capacity;
+        }
+        uris->items[uris->count++] = (c14n_xml_uri){attr->value, attr->value_len, 0};
+    }
+    return 0;
+}
+
+static int c14n_xml_uris_list(c14n_xml_uris *uris) {
+    for (const th_node *ancestor = uris->apex->parent; ancestor != NULL; ancestor = ancestor->parent) {
+        if (c14n_xml_uris_add(uris, ancestor) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                               /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    for (th_node *node = uris->apex; node != NULL; node = preorder_next(node, uris->apex)) {
+        if (c14n_xml_uris_add(uris, node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                           /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
     return 0;
 }
 
-static Py_ssize_t c14n_xml_ns_collect(th_tree *tree, const th_node *node, const th_node *apex,
-                                      c14n_xml_ns *namespaces) {
-    Py_ssize_t count = 0;
-    for (const th_node *ancestor = node; ancestor != NULL; ancestor = ancestor->parent) {
-        if (ancestor->type != TH_NODE_ELEMENT) {
+static void c14n_xml_uris_build(c14n_xml_uris *uris) {
+    uris->built = 1;
+    if (c14n_xml_uris_list(uris) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        uris->failed = 1;               /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;                         /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* a comparison reads no further than the shorter URI, which a declaration in the input paid for */
+    qsort(uris->items, (size_t)uris->count, sizeof(c14n_xml_uri), c14n_xml_uri_cmp_text);
+    for (Py_ssize_t index = 1; index < uris->count; index++) {
+        c14n_xml_uri *item = &uris->items[index];
+        item->rank = item[-1].rank + (c14n_xml_uri_cmp_text(item - 1, item) != 0);
+    }
+    qsort(uris->items, (size_t)uris->count, sizeof(c14n_xml_uri), c14n_xml_uri_cmp_address);
+}
+
+/* The rank of a declared URI longer than C14N_LONG_URI. Every such declaration in reach is listed, so the search
+   always ends on it. */
+static Py_ssize_t c14n_xml_uri_rank(c14n_xml_uris *uris, const Py_UCS4 *uri) {
+    if (!uris->built) {
+        c14n_xml_uris_build(uris);
+    }
+    if (uris->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return 0;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t low = 0;
+    Py_ssize_t high = uris->count;
+    while (low < high) {
+        Py_ssize_t middle = low + (high - low) / 2;
+        if ((uintptr_t)uris->items[middle].uri < (uintptr_t)uri) {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
+    return uris->items[low].rank;
+}
+
+/* One distinct prefix the walk has met, in a declaration or in a name. `binding` is its innermost
+   in-scope c14n_xml_binding and `use` the innermost open element's c14n_xml_use of it, each -1 when
+   there is none, so neither answer costs a scan of the declarations in scope. `forced` marks a prefix
+   rendered wherever it is in scope: every prefix in inclusive mode, an InclusiveNamespaces PrefixList
+   member in exclusive mode. */
+typedef struct {
+    const char *name;
+    Py_ssize_t name_len;
+    char *owned; /* the name's storage when a tag name introduced it, NULL when an attribute name holds it */
+    uint64_t hash;
+    Py_ssize_t binding;
+    Py_ssize_t use;
+    int forced;
+} c14n_xml_prefix;
+
+/* One xmlns declaration in scope, popped when the element that carries it closes. */
+typedef struct {
+    c14n_xml_ns ns;
+    Py_ssize_t prefix;   /* index into the scope's prefixes */
+    Py_ssize_t shadowed; /* the binding of the same prefix this one hides until it closes, or -1 */
+    Py_ssize_t outer;    /* the binding of the prefix on the nearest written ancestor of ns.owner, or -1 */
+    Py_ssize_t uri_rank; /* c14n_xml_uri_rank of a long ns.uri, -1 until an attribute needs it */
+} c14n_xml_binding;
+
+/* An element whose name XML cannot spell, which the canonical form leaves out as serialize(xml) does, while the walk
+   is inside it. Its children render the declarations of the left-out run as their own and, below a left-out apex,
+   stand in for the apex. */
+typedef struct {
+    const th_node *node;
+    Py_ssize_t chain; /* index of the first binding of the left-out run that ends at node */
+    int apex;
+} c14n_xml_left_out;
+
+/* One open element's visible use of a prefix. Exclusive canonicalization declares a namespace on an
+   element only when the nearest output ancestor that visibly uses the prefix has it bound otherwise. */
+typedef struct {
+    Py_ssize_t prefix;  /* index into the scope's prefixes */
+    Py_ssize_t binding; /* what the prefix is bound to on the using element, or -1 */
+    Py_ssize_t outer;   /* the nearest using ancestor's use of the same prefix, or -1 */
+    const th_node *owner;
+} c14n_xml_use;
+
+/* The namespace scope of the element being written, kept on the walk: an element pushes its own
+   declarations and uses as it opens and pops them as it closes, so its cost follows its own attributes
+   and not the declarations it inherits. Deriving the scope from the ancestors for every element made a
+   root with N declarations and N children cost O(N^3). */
+typedef struct {
+    const th_c14n_opts *opts;
+    c14n_xml_uris *uris;
+    c14n_xml_prefix *prefixes;
+    Py_ssize_t prefixes_len, prefixes_cap;
+    Py_ssize_t *slots; /* open addressing over the prefix name: an index into prefixes plus one, 0 when free */
+    Py_ssize_t slots_cap;
+    c14n_xml_binding *bindings;
+    Py_ssize_t bindings_len, bindings_cap;
+    c14n_xml_use *uses;
+    Py_ssize_t uses_len, uses_cap;
+    char *tag_prefix; /* reusable buffer holding a tag name's prefix as UTF-8 */
+    Py_ssize_t tag_prefix_cap;
+    uint64_t hash_seed;           /* per-walk salt so chosen prefixes cannot flood one slot */
+    c14n_xml_left_out *left_outs; /* the left-out elements the walk is inside, innermost last */
+    Py_ssize_t left_outs_len, left_outs_cap;
+    Py_ssize_t copied; /* code points of declarations written on an element that does not carry them */
+} c14n_xml_scope;
+
+/* Salted FNV-1a under a splitmix64 finalizer, the hash the XML parser keys its own prefix table with. */
+static uint64_t c14n_xml_prefix_hash(const c14n_xml_scope *scope, const char *name, Py_ssize_t name_len) {
+    uint64_t hash = scope->hash_seed ^ UINT64_C(14695981039346656037);
+    for (Py_ssize_t offset = 0; offset < name_len; offset++) {
+        hash = (hash ^ (unsigned char)name[offset]) * UINT64_C(1099511628211);
+    }
+    hash = (hash ^ (hash >> 30)) * UINT64_C(0xBF58476D1CE4E5B9);
+    hash = (hash ^ (hash >> 27)) * UINT64_C(0x94D049BB133111EB);
+    return hash ^ (hash >> 31);
+}
+
+/* The slot holding prefix [name, name+name_len), or the free slot it would take. */
+static Py_ssize_t c14n_xml_prefix_slot(const c14n_xml_scope *scope, uint64_t hash, const char *name,
+                                       Py_ssize_t name_len) {
+    Py_ssize_t slot = (Py_ssize_t)(hash & (uint64_t)(scope->slots_cap - 1));
+    /* One step per lookup, not per probe: how far a probe runs depends on the per-process hash salt, so
+       counting probes would make the work-step tests pass or fail with PYTHONHASHSEED. */
+    TH_WORK_STEP();
+    while (scope->slots[slot] != 0) {
+        const c14n_xml_prefix *known = &scope->prefixes[scope->slots[slot] - 1];
+        if (known->name_len == name_len && memcmp(known->name, name, (size_t)name_len) == 0) {
+            return slot;
+        }
+        slot = (slot + 1) & (scope->slots_cap - 1);
+    }
+    return slot;
+}
+
+/* The record of prefix [name, name+name_len), or NULL when the walk has not met it. */
+static const c14n_xml_prefix *c14n_xml_prefix_find(const c14n_xml_scope *scope, const char *name, Py_ssize_t name_len) {
+    if (scope->slots_cap == 0) {
+        return NULL;
+    }
+    Py_ssize_t slot = c14n_xml_prefix_slot(scope, c14n_xml_prefix_hash(scope, name, name_len), name, name_len);
+    return scope->slots[slot] == 0 ? NULL : &scope->prefixes[scope->slots[slot] - 1];
+}
+
+/* Double the slot table and re-slot every record by its stored hash. */
+static int c14n_xml_slots_grow(c14n_xml_scope *scope) {
+    size_t cap;
+    size_t bytes;
+    size_t needed = ((size_t)scope->prefixes_len + 1) * 2;
+    int grew = th_grow_cap(needed, (size_t)scope->slots_cap, 64, sizeof(Py_ssize_t), &cap, &bytes);
+    if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+        return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    }
+    Py_ssize_t *slots = PyMem_Calloc(1, bytes);
+    if (slots == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t index = 0; index < scope->prefixes_len; index++) {
+        size_t slot = (size_t)scope->prefixes[index].hash & (cap - 1);
+        while (slots[slot] != 0) {
+            slot = (slot + 1) & (cap - 1);
+        }
+        slots[slot] = index + 1;
+    }
+    PyMem_Free(scope->slots);
+    scope->slots = slots;
+    scope->slots_cap = (Py_ssize_t)cap;
+    return 0;
+}
+
+/* The index of the record of prefix [name, name+name_len), entered on first sight, or -1 on allocation
+   failure. The table grows before one more record would pass a load factor of 1/2, which keeps probing
+   amortized O(1). `transient` says the name lives in the scope's tag buffer, so a new record copies it. */
+static Py_ssize_t c14n_xml_prefix_intern(c14n_xml_scope *scope, const char *name, Py_ssize_t name_len, int transient) {
+    if ((scope->prefixes_len + 1) * 2 > scope->slots_cap) {
+        if (c14n_xml_slots_grow(scope) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;                        /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    uint64_t hash = c14n_xml_prefix_hash(scope, name, name_len);
+    Py_ssize_t slot = c14n_xml_prefix_slot(scope, hash, name, name_len);
+    if (scope->slots[slot] != 0) {
+        return scope->slots[slot] - 1;
+    }
+    c14n_xml_prefix *prefixes =
+        ser_reserve(scope->prefixes, scope->prefixes_len, &scope->prefixes_cap, sizeof(c14n_xml_prefix));
+    if (prefixes == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    scope->prefixes = prefixes;
+    char *owned = NULL;
+    if (transient) {
+        owned = PyMem_Malloc((size_t)name_len);
+        if (owned == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        memcpy(owned, name, (size_t)name_len);
+        name = owned;
+    }
+    int forced = !scope->opts->exclusive || c14n_prefix_forced(scope->opts, name, name_len);
+    scope->prefixes[scope->prefixes_len] = (c14n_xml_prefix){name, name_len, owned, hash, -1, -1, forced};
+    scope->slots[slot] = ++scope->prefixes_len;
+    return scope->prefixes_len - 1;
+}
+
+/* Enter the xmlns declarations `element` carries. The apex's ancestors are entered innermost first,
+   so `inherited` keeps only the prefixes nothing nearer has bound; the walk never pops those. `chain`
+   is the first binding of the left-out run element is written in place of or belongs to, so the
+   binding a declaration hides there does not count as the one its written ancestor has. */
+static int c14n_xml_scope_declare(c14n_xml_scope *scope, th_tree *tree, const th_node *element, int inherited,
+                                  Py_ssize_t chain) {
+    for (Py_ssize_t index = 0; index < element->attr_count; index++) {
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(tree, element->attrs[index].name_atom, &name_len);
+        if (!c14n_name_is_nsdecl(name, name_len)) {
             continue;
         }
-        for (Py_ssize_t index = 0; index < ancestor->attr_count; index++) {
-            Py_ssize_t name_len;
-            const char *name = th_attr_name(tree, ancestor->attrs[index].name_atom, &name_len);
-            if (!c14n_name_is_nsdecl(name, name_len)) {
-                continue;
-            }
-            const char *prefix = name_len == 5 ? "" : name + 6;
-            Py_ssize_t prefix_len = name_len == 5 ? 0 : name_len - 6;
-            if (prefix_len == 3 && memcmp(prefix, "xml", 3) == 0) {
-                continue;
-            }
-            if (c14n_xml_ns_index(namespaces, count, prefix, prefix_len) < 0) {
-                if ((node == apex || ancestor == node) &&
-                    !c14n_xml_absolute_uri(ancestor->attrs[index].value, ancestor->attrs[index].value_len)) {
-                    PyErr_SetString(PyExc_ValueError, "relative namespace URI cannot be canonicalized");
-                    return -1;
-                }
-                namespaces[count++] =
-                    (c14n_xml_ns){prefix, prefix_len, ancestor->attrs[index].value, ancestor->attrs[index].value_len};
-            }
+        const char *prefix = name_len == 5 ? "" : name + 6;
+        Py_ssize_t prefix_len = name_len == 5 ? 0 : name_len - 6;
+        if (prefix_len == 3 && memcmp(prefix, "xml", 3) == 0) {
+            continue;
         }
+        Py_ssize_t record = c14n_xml_prefix_intern(scope, prefix, prefix_len, 0);
+        if (record < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;    /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (inherited && scope->prefixes[record].binding >= 0) {
+            continue;
+        }
+        c14n_xml_binding *bindings =
+            ser_reserve(scope->bindings, scope->bindings_len, &scope->bindings_cap, sizeof(c14n_xml_binding));
+        if (bindings == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        scope->bindings = bindings;
+        c14n_xml_binding *binding = &scope->bindings[scope->bindings_len];
+        binding->ns =
+            (c14n_xml_ns){prefix, prefix_len, element->attrs[index].value, element->attrs[index].value_len, element};
+        binding->prefix = record;
+        binding->shadowed = scope->prefixes[record].binding;
+        binding->outer = binding->shadowed >= chain ? scope->bindings[binding->shadowed].outer : binding->shadowed;
+        binding->uri_rank = -1;
+        scope->prefixes[record].binding = scope->bindings_len++;
     }
-    return count;
+    return 0;
 }
 
-static int c14n_xml_uri_equal(const c14n_xml_ns *left, const c14n_xml_ns *right) {
-    return left->uri_len == right->uri_len &&
-           memcmp(left->uri, right->uri, (size_t)left->uri_len * sizeof(Py_UCS4)) == 0;
+/* Record that `node` visibly uses prefix [name, name+name_len), with the binding the prefix has there.
+   A forced prefix is rendered without regard to its use, so it keeps no record; neither does a use
+   under the same binding as the nearest one, which a descendant would compare alike and which covers
+   the element's own second use of a prefix. */
+static int c14n_xml_scope_use(c14n_xml_scope *scope, const th_node *node, const char *name, Py_ssize_t name_len,
+                              int transient) {
+    Py_ssize_t record = c14n_xml_prefix_intern(scope, name, name_len, transient);
+    if (record < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;    /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    c14n_xml_prefix *prefix = &scope->prefixes[record];
+    if (prefix->forced || (prefix->use >= 0 && scope->uses[prefix->use].binding == prefix->binding)) {
+        return 0;
+    }
+    c14n_xml_use *uses = ser_reserve(scope->uses, scope->uses_len, &scope->uses_cap, sizeof(c14n_xml_use));
+    if (uses == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    scope->uses = uses;
+    scope->uses[scope->uses_len] = (c14n_xml_use){record, prefix->binding, prefix->use, node};
+    prefix->use = scope->uses_len++;
+    return 0;
 }
 
-static int c14n_xml_prefix_eq_tag(const c14n_xml_ns *namespace, const th_node *node) {
-    Py_ssize_t index = 0;
-    Py_ssize_t byte = 0;
-    while (index < node->text_len && node->text[index] != ':') {
-        Py_UCS4 character = node->text[index++];
-        if (character < 0x80) {
-            if (byte >= namespace->prefix_len || (unsigned char)namespace->prefix[byte] != character) {
-                return 0;
+/* Record the prefixes `node` visibly uses: the one its tag name carries, or the default namespace for
+   an unprefixed name, and the one each attribute name carries. A tag name is stored as code points, so
+   its prefix is first written out as the UTF-8 that attribute names, and so prefixes, are kept in. */
+static int c14n_xml_scope_uses(c14n_xml_scope *scope, th_tree *tree, const th_node *node) {
+    Py_ssize_t colon = 0;
+    while (colon < node->text_len && node->text[colon] != ':') {
+        colon++;
+    }
+    if (colon == node->text_len) {
+        if (c14n_xml_scope_use(scope, node, "", 0, 0) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure only */
+            return -1;                                       /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    } else { /* a written name is a QName, so a colon in it is never first */
+        if (colon * 4 > scope->tag_prefix_cap) {
+            char *grown = PyMem_Realloc(scope->tag_prefix, (size_t)colon * 4);
+            if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
             }
-            byte++;
-        } else {
-            unsigned char encoded[4];
-            Py_ssize_t length;
-            if (character < 0x800) {
-                encoded[0] = (unsigned char)(0xC0 | (character >> 6));
-                encoded[1] = (unsigned char)(0x80 | (character & 0x3F));
-                length = 2;
+            scope->tag_prefix = grown;
+            scope->tag_prefix_cap = colon * 4;
+        }
+        unsigned char *encoded = (unsigned char *)scope->tag_prefix;
+        Py_ssize_t byte = 0;
+        for (Py_ssize_t index = 0; index < colon; index++) {
+            Py_UCS4 character = node->text[index];
+            if (character < 0x80) {
+                encoded[byte++] = (unsigned char)character;
+            } else if (character < 0x800) {
+                encoded[byte++] = (unsigned char)(0xC0 | (character >> 6));
+                encoded[byte++] = (unsigned char)(0x80 | (character & 0x3F));
             } else if (character < 0x10000) {
-                encoded[0] = (unsigned char)(0xE0 | (character >> 12));
-                encoded[1] = (unsigned char)(0x80 | ((character >> 6) & 0x3F));
-                encoded[2] = (unsigned char)(0x80 | (character & 0x3F));
-                length = 3;
+                encoded[byte++] = (unsigned char)(0xE0 | (character >> 12));
+                encoded[byte++] = (unsigned char)(0x80 | ((character >> 6) & 0x3F));
+                encoded[byte++] = (unsigned char)(0x80 | (character & 0x3F));
             } else {
-                encoded[0] = (unsigned char)(0xF0 | (character >> 18));
-                encoded[1] = (unsigned char)(0x80 | ((character >> 12) & 0x3F));
-                encoded[2] = (unsigned char)(0x80 | ((character >> 6) & 0x3F));
-                encoded[3] = (unsigned char)(0x80 | (character & 0x3F));
-                length = 4;
-            }
-            if (byte + length > namespace->prefix_len ||
-                memcmp(namespace->prefix + byte, encoded, (size_t)length) != 0) {
-                return 0;
-            }
-            byte += length;
-        }
-    }
-    return index < node->text_len && byte == namespace->prefix_len;
-}
-
-static int c14n_xml_prefix_used(th_tree *tree, const th_node *node, const c14n_xml_ns *namespace) {
-    if (namespace->prefix_len == 0) {
-        for (Py_ssize_t index = 0; index < node->text_len; index++) {
-            if (node->text[index] == ':') {
-                return 0;
+                encoded[byte++] = (unsigned char)(0xF0 | (character >> 18));
+                encoded[byte++] = (unsigned char)(0x80 | ((character >> 12) & 0x3F));
+                encoded[byte++] = (unsigned char)(0x80 | ((character >> 6) & 0x3F));
+                encoded[byte++] = (unsigned char)(0x80 | (character & 0x3F));
             }
         }
-        return 1;
-    }
-    if (c14n_xml_prefix_eq_tag(namespace, node)) {
-        return 1;
+        int used = c14n_xml_scope_use(scope, node, scope->tag_prefix, byte, 1);
+        if (used < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;  /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
     }
     for (Py_ssize_t index = 0; index < node->attr_count; index++) {
         Py_ssize_t name_len;
         const char *name = th_attr_name(tree, node->attrs[index].name_atom, &name_len);
-        if (name_len > namespace->prefix_len && name[namespace->prefix_len] == ':' &&
-            memcmp(name, namespace->prefix, (size_t)namespace->prefix_len) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static int c14n_xml_ns_binding(th_tree *tree, const th_node *node, const c14n_xml_ns *namespace, c14n_xml_ns *binding) {
-    for (const th_node *ancestor = node; ancestor != NULL; ancestor = ancestor->parent) {
-        if (ancestor->type != TH_NODE_ELEMENT) {
-            continue;
-        }
-        for (Py_ssize_t index = 0; index < ancestor->attr_count; index++) {
-            Py_ssize_t name_len;
-            const char *name = th_attr_name(tree, ancestor->attrs[index].name_atom, &name_len);
-            if (!c14n_name_is_nsdecl(name, name_len)) {
+        for (Py_ssize_t offset = 1; offset < name_len; offset++) {
+            if (name[offset] != ':') {
                 continue;
             }
-            const char *prefix = name_len == 5 ? "" : name + 6;
-            Py_ssize_t prefix_len = name_len == 5 ? 0 : name_len - 6;
-            if (prefix_len == namespace->prefix_len && memcmp(prefix, namespace->prefix, (size_t)prefix_len) == 0) {
-                *binding =
-                    (c14n_xml_ns){prefix, prefix_len, ancestor->attrs[index].value, ancestor->attrs[index].value_len};
-                return 1;
+            if (c14n_xml_scope_use(scope, node, name, offset, 0) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return -1;                                              /* GCOVR_EXCL_LINE: allocation-failure path */
             }
         }
     }
     return 0;
 }
 
-static int c14n_xml_ns_render(th_tree *tree, const th_node *node, const th_node *apex, const th_c14n_opts *opts,
-                              const c14n_xml_ns *namespace) {
+/* Pop what `node` declared and used as it closes, restoring what each entry hid. */
+static void c14n_xml_scope_close(c14n_xml_scope *scope, const th_node *node) {
+    while (scope->bindings_len > 0 && scope->bindings[scope->bindings_len - 1].ns.owner == node) {
+        TH_WORK_STEP();
+        const c14n_xml_binding *closing = &scope->bindings[--scope->bindings_len];
+        scope->prefixes[closing->prefix].binding = closing->shadowed;
+    }
+    while (scope->uses_len > 0 && scope->uses[scope->uses_len - 1].owner == node) {
+        TH_WORK_STEP();
+        const c14n_xml_use *closing = &scope->uses[--scope->uses_len];
+        scope->prefixes[closing->prefix].use = closing->outer;
+    }
+}
+
+static void c14n_xml_scope_free(c14n_xml_scope *scope) {
+    for (Py_ssize_t index = 0; index < scope->prefixes_len; index++) {
+        PyMem_Free(scope->prefixes[index].owned);
+    }
+    PyMem_Free(scope->prefixes);
+    PyMem_Free(scope->slots);
+    PyMem_Free(scope->bindings);
+    PyMem_Free(scope->uses);
+    PyMem_Free(scope->tag_prefix);
+    PyMem_Free(scope->left_outs);
+}
+
+static int c14n_xml_uri_equal(c14n_xml_uris *uris, const c14n_xml_ns *left, const c14n_xml_ns *right) {
+    if (left->uri_len != right->uri_len) {
+        return 0;
+    }
+    if (left->uri_len > C14N_LONG_URI) {
+        return c14n_xml_uri_rank(uris, left->uri) == c14n_xml_uri_rank(uris, right->uri);
+    }
+    TH_WORK_STEPS_ADD(left->uri_len);
+    return memcmp(left->uri, right->uri, (size_t)left->uri_len * sizeof(Py_UCS4)) == 0;
+}
+
+/* Whether an element declares `namespace`. `has_ancestor` says an output ancestor answers for the
+   prefix (the parent for a forced prefix, the nearest visible user otherwise) and `inherited` is what
+   that ancestor has it bound to, NULL when unbound; a binding the ancestor already carries is omitted. */
+static int c14n_xml_ns_render(c14n_xml_uris *uris, const c14n_xml_ns *namespace, int has_ancestor,
+                              const c14n_xml_ns *inherited) {
     int reset_default = 0;
-    if (opts->exclusive) {
-        int forced = c14n_prefix_forced(opts, namespace->prefix_len == 0 ? "#default" : namespace->prefix);
-        if (!c14n_xml_prefix_used(tree, node, namespace) && !forced) {
+    if (has_ancestor) {
+        if (inherited != NULL ? c14n_xml_uri_equal(uris, namespace, inherited) : namespace->uri_len == 0) {
             return 0;
         }
-        for (const th_node *ancestor = node == apex ? NULL : node->parent; ancestor != NULL;
-             ancestor = ancestor->parent) {
-            if (ancestor->type != TH_NODE_ELEMENT) { /* GCOVR_EXCL_BR_LINE: parsed XML has only element ancestors */
-                continue;                            /* GCOVR_EXCL_LINE: parsed XML has only element ancestors here */
-            }
-            if (c14n_xml_prefix_used(tree, ancestor, namespace) || forced) {
-                c14n_xml_ns binding;
-                int has_binding = c14n_xml_ns_binding(tree, ancestor, namespace, &binding);
-                if ((has_binding && c14n_xml_uri_equal(namespace, &binding)) ||
-                    (!has_binding && namespace->uri_len == 0)) {
-                    return 0;
-                }
-                reset_default = has_binding && binding.uri_len > 0;
-                break;
-            }
-            if (ancestor == apex) {
-                break;
-            }
-        }
-    } else if (node != apex) {
-        c14n_xml_ns binding;
-        int has_binding = c14n_xml_ns_binding(tree, node->parent, namespace, &binding);
-        if ((has_binding && c14n_xml_uri_equal(namespace, &binding)) || (!has_binding && namespace->uri_len == 0)) {
-            return 0;
-        }
-        reset_default = has_binding && binding.uri_len > 0;
+        reset_default = inherited != NULL && inherited->uri_len > 0;
     }
     return namespace->prefix_len > 0 || namespace->uri_len > 0 || reset_default;
+}
+
+static int c14n_xml_relative_uri(const c14n_xml_ns *namespace) {
+    if (c14n_absolute_uri(namespace->uri, namespace->uri_len)) {
+        return 0;
+    }
+    PyErr_SetString(PyExc_ValueError, "relative namespace URI cannot be canonicalized");
+    return 1;
+}
+
+/* Gather the declarations `node` writes from the scope it has just entered: `own_bindings` and
+   `own_uses` are where its entries start, `own_bindings` reaching back over the left-out run node is
+   written in place of. The apex has no output ancestor, so it answers for every binding in scope;
+   below it a forced prefix can only differ from the parent's where the element or that run declares
+   it, and a visibly used one only where the element recorded a use. Returns the count, or -1 with
+   ValueError set for a relative namespace URI. */
+static Py_ssize_t c14n_xml_ns_collect(const c14n_xml_scope *scope, int is_apex, Py_ssize_t own_bindings,
+                                      Py_ssize_t own_uses, c14n_xml_ns *namespaces) {
+    Py_ssize_t count = 0;
+    if (is_apex) {
+        for (Py_ssize_t index = 0; index < scope->prefixes_len; index++) {
+            TH_WORK_STEP();
+            const c14n_xml_prefix *prefix = &scope->prefixes[index];
+            if (prefix->binding < 0) {
+                continue;
+            }
+            const c14n_xml_ns *namespace = &scope->bindings[prefix->binding].ns;
+            if (c14n_xml_relative_uri(namespace)) {
+                return -1;
+            }
+            if (prefix->forced && c14n_xml_ns_render(scope->uris, namespace, 0, NULL)) {
+                namespaces[count++] = *namespace;
+            }
+        }
+    } else {
+        for (Py_ssize_t index = own_bindings; index < scope->bindings_len; index++) {
+            TH_WORK_STEP();
+            const c14n_xml_binding *binding = &scope->bindings[index];
+            if (c14n_xml_relative_uri(&binding->ns)) {
+                return -1;
+            }
+            if (scope->prefixes[binding->prefix].binding != index) {
+                continue; /* a nearer declaration in the left-out run, or node's own, hides it */
+            }
+            const c14n_xml_ns *inherited = binding->outer < 0 ? NULL : &scope->bindings[binding->outer].ns;
+            if (scope->prefixes[binding->prefix].forced &&
+                c14n_xml_ns_render(scope->uris, &binding->ns, 1, inherited)) {
+                namespaces[count++] = binding->ns;
+            }
+        }
+    }
+    for (Py_ssize_t index = own_uses; index < scope->uses_len; index++) {
+        TH_WORK_STEP();
+        const c14n_xml_use *use = &scope->uses[index];
+        if (use->binding < 0) {
+            continue;
+        }
+        const c14n_xml_use *outer = use->outer < 0 ? NULL : &scope->uses[use->outer];
+        const c14n_xml_ns *inherited = outer == NULL || outer->binding < 0 ? NULL : &scope->bindings[outer->binding].ns;
+        if (c14n_xml_ns_render(scope->uris, &scope->bindings[use->binding].ns, outer != NULL, inherited)) {
+            namespaces[count++] = scope->bindings[use->binding].ns;
+        }
+    }
+    return count;
 }
 
 static int c14n_xml_ns_cmp(const void *left, const void *right) {
@@ -254,69 +587,108 @@ static int c14n_xml_ns_cmp(const void *left, const void *right) {
 }
 
 static c14n_xml_attr c14n_xml_make_attr(const char *name, Py_ssize_t name_len, const Py_UCS4 *value,
-                                        Py_ssize_t value_len, const c14n_xml_ns *namespaces, Py_ssize_t ns_count) {
-    c14n_xml_attr attr = {name, name_len, name, name_len, NULL, "", 0, value, value_len};
+                                        Py_ssize_t value_len, c14n_xml_scope *scope, Py_ssize_t position) {
+    c14n_xml_attr attr = {name, name_len, name, name_len, NULL, 0, -1, value, value_len, position};
     const char *colon = memchr(name, ':', (size_t)name_len);
     if (colon != NULL) {
         Py_ssize_t prefix_len = colon - name;
         attr.local = colon + 1;
         attr.local_len = name_len - prefix_len - 1;
         if (prefix_len == 3 && memcmp(name, "xml", 3) == 0) {
-            attr.ascii_uri = C14N_XML;
-            attr.uri_len = (Py_ssize_t)sizeof(C14N_XML) - 1;
+            attr.uri = C14N_XML;
+            attr.uri_len = (Py_ssize_t)(sizeof(C14N_XML) / sizeof(Py_UCS4)) - 1;
         } else {
-            int index = c14n_xml_ns_index(namespaces, ns_count, name, prefix_len);
-            if (index >= 0) { /* GCOVR_EXCL_BR_LINE: XML parser rejects undeclared attribute prefixes */
-                attr.uri = namespaces[index].uri;
-                attr.uri_len = namespaces[index].uri_len;
+            const c14n_xml_prefix *prefix = c14n_xml_prefix_find(scope, name, prefix_len);
+            if (prefix != NULL && prefix->binding >= 0) {
+                c14n_xml_binding *binding = &scope->bindings[prefix->binding];
+                attr.uri = binding->ns.uri;
+                attr.uri_len = binding->ns.uri_len;
+                if (attr.uri_len > C14N_LONG_URI) {
+                    if (binding->uri_rank < 0) {
+                        binding->uri_rank = c14n_xml_uri_rank(scope->uris, attr.uri);
+                    }
+                    attr.uri_rank = binding->uri_rank;
+                }
             }
         }
     }
     return attr;
 }
 
-static Py_UCS4 c14n_xml_uri_char(const c14n_xml_attr *attr, Py_ssize_t index) {
-    return attr->uri != NULL ? attr->uri[index] : (unsigned char)attr->ascii_uri[index];
-}
-
 static int c14n_xml_attr_cmp(const void *left, const void *right) {
     const c14n_xml_attr *first = left;
     const c14n_xml_attr *second = right;
     Py_ssize_t common = first->uri_len < second->uri_len ? first->uri_len : second->uri_len;
-    for (Py_ssize_t index = 0; index < common; index++) {
-        Py_UCS4 left_char = c14n_xml_uri_char(first, index);
-        Py_UCS4 right_char = c14n_xml_uri_char(second, index);
-        if (left_char != right_char) {
-            return left_char < right_char ? -1 : 1;
+    if (common > C14N_LONG_URI) {
+        if (first->uri_rank != second->uri_rank) {
+            return first->uri_rank < second->uri_rank ? -1 : 1;
         }
-    }
-    if (first->uri_len != second->uri_len) {
-        return first->uri_len < second->uri_len ? -1 : 1;
+    } else {
+        for (Py_ssize_t index = 0; index < common; index++) {
+            TH_WORK_STEP();
+            if (first->uri[index] != second->uri[index]) {
+                return first->uri[index] < second->uri[index] ? -1 : 1;
+            }
+        }
+        if (first->uri_len != second->uri_len) {
+            return first->uri_len < second->uri_len ? -1 : 1;
+        }
     }
     common = first->local_len < second->local_len ? first->local_len : second->local_len;
     int order = memcmp(first->local, second->local, (size_t)common);
-    return order != 0 ? order : (first->local_len > second->local_len) - (first->local_len < second->local_len);
+    if (order == 0) {
+        order = (first->local_len > second->local_len) - (first->local_len < second->local_len);
+    }
+    /* qsort is not stable, so attributes that tie in the canonical order are kept in the order gathered here */
+    return order != 0 ? order : (first->position > second->position) - (first->position < second->position);
 }
 
-static int c14n_xml_already_has(const c14n_xml_attr *attrs, Py_ssize_t count, const char *name, Py_ssize_t name_len) {
-    for (Py_ssize_t index = 0; index < count; index++) {
-        if (attrs[index].name_len == name_len && memcmp(attrs[index].name, name, (size_t)name_len) == 0) {
-            return 1;
+/* By qualified name and then by the order gathered, so the attribute that wins a name leads the ones it shadows. */
+static int c14n_xml_attr_name_cmp(const void *left, const void *right) {
+    const c14n_xml_attr *first = left;
+    const c14n_xml_attr *second = right;
+    TH_WORK_STEP();
+    Py_ssize_t common = first->name_len < second->name_len ? first->name_len : second->name_len;
+    int order = memcmp(first->name, second->name, (size_t)common);
+    if (order == 0) {
+        order = (first->name_len > second->name_len) - (first->name_len < second->name_len);
+    }
+    return order != 0 ? order : (first->position > second->position) - (first->position < second->position);
+}
+
+/* Drop each inherited xml: attribute that the apex or a nearer ancestor already supplies. attrs holds the apex's own
+   attributes, which all stay, and then every inheritable one, nearest ancestor first. Looking each one up among those
+   gathered before it costs the square of their number, so they are sorted by name instead and only the first of a name
+   is kept. */
+static Py_ssize_t c14n_xml_drop_shadowed(c14n_xml_attr *attrs, Py_ssize_t own, Py_ssize_t count) {
+    qsort(attrs, (size_t)count, sizeof(c14n_xml_attr), c14n_xml_attr_name_cmp);
+    Py_ssize_t kept = 1;
+    for (Py_ssize_t index = 1; index < count; index++) {
+        if (attrs[index].position < own || attrs[index].name_len != attrs[index - 1].name_len ||
+            memcmp(attrs[index].name, attrs[index - 1].name, (size_t)attrs[index].name_len) != 0) {
+            attrs[kept++] = attrs[index];
         }
     }
-    return 0;
+    return kept;
 }
 
-static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_node *apex, const th_c14n_opts *opts) {
+/* `own_bindings` is where node's bindings start, or the left-out run's when node is written in its place. */
+static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, int is_apex, Py_ssize_t own_bindings,
+                              const th_c14n_opts *opts, c14n_xml_scope *scope) {
     sbuf_putc(out, '<');
     sbuf_put_ucs4(out, node->text, node->text_len);
 
-    Py_ssize_t namespace_capacity = 0;
-    for (const th_node *ancestor = node; ancestor != NULL; ancestor = ancestor->parent) {
-        if (ancestor->type == TH_NODE_ELEMENT) {
-            namespace_capacity += ancestor->attr_count;
-        }
+    Py_ssize_t own_uses = scope->uses_len;
+    int entered = c14n_xml_scope_declare(scope, tree, node, 0, own_bindings);
+    if (opts->exclusive && entered == 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        entered = c14n_xml_scope_uses(scope, tree, node);
     }
+    if (entered < 0) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t namespace_capacity =
+        is_apex ? scope->prefixes_len : scope->bindings_len - own_bindings + scope->uses_len - own_uses;
     c14n_xml_ns stack_namespaces[C14N_STACK_ATTRS];
     c14n_xml_ns *namespaces = namespace_capacity <= C14N_STACK_ATTRS
                                   ? stack_namespaces
@@ -325,7 +697,7 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
         out->failed = 1;      /* GCOVR_EXCL_LINE: allocation-failure path */
         return;               /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    Py_ssize_t ns_count = c14n_xml_ns_collect(tree, node, apex, namespaces);
+    Py_ssize_t ns_count = c14n_xml_ns_collect(scope, is_apex, own_bindings, own_uses, namespaces);
     if (ns_count < 0) {
         if (namespaces != stack_namespaces) {
             PyMem_Free(namespaces);
@@ -336,23 +708,41 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
     if (ns_count > 1) {
         qsort(namespaces, (size_t)ns_count, sizeof(c14n_xml_ns), c14n_xml_ns_cmp);
     }
+    Py_ssize_t clone_start = ser_clone_start(out, node);
+    /* a clone that cannot declare a prefix writes no attribute, so none uses an undeclared one */
+    int clone_full = 0;
     for (Py_ssize_t index = 0; index < ns_count; index++) {
-        if (!c14n_xml_ns_render(tree, node, apex, opts, &namespaces[index])) {
-            continue;
+        const c14n_xml_ns *namespace = &namespaces[index];
+        if (clone_start >= 0 && !ser_clone_attr_fits(out, clone_start, namespace->prefix_len + namespace->uri_len)) {
+            clone_full = 1;
+            break;
         }
+        int copy = namespace->owner != node;
+        if (copy && !c14n_ns_copy_funded(out, scope->copied, namespace->prefix_len + namespace->uri_len + 10)) {
+            if (namespaces != stack_namespaces) {
+                PyMem_Free(namespaces);
+            }
+            out->failed = 1;
+            return;
+        }
+        Py_ssize_t start = out->len;
         sbuf_puts(out, " xmlns");
-        if (namespaces[index].prefix_len > 0) {
+        if (namespace->prefix_len > 0) {
             sbuf_putc(out, ':');
-            sbuf_put_utf8(out, namespaces[index].prefix, namespaces[index].prefix_len);
+            sbuf_put_utf8(out, namespace->prefix, namespace->prefix_len);
         }
         sbuf_puts(out, "=\"");
-        c14n_put_attr(out, namespaces[index].uri, namespaces[index].uri_len);
+        c14n_put_attr(out, namespace->uri, namespace->uri_len);
         sbuf_putc(out, '"');
+        if (copy) {
+            scope->copied += out->len - start; /* what was written: escaping can lengthen the URI */
+        }
     }
 
     Py_ssize_t attr_capacity = node->attr_count;
-    if (node == apex && !opts->exclusive) {
+    if (is_apex && !opts->exclusive) {
         for (const th_node *ancestor = node->parent; ancestor != NULL; ancestor = ancestor->parent) {
+            TH_WORK_STEP();
             if (ancestor->type == TH_NODE_ELEMENT) {
                 attr_capacity += ancestor->attr_count;
             }
@@ -374,12 +764,15 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
         Py_ssize_t name_len;
         const char *name = th_attr_name(tree, node->attrs[index].name_atom, &name_len);
         if (!c14n_name_is_nsdecl(name, name_len)) {
-            attrs[count++] = c14n_xml_make_attr(name, name_len, node->attrs[index].value, node->attrs[index].value_len,
-                                                namespaces, ns_count);
+            attrs[count] = c14n_xml_make_attr(name, name_len, node->attrs[index].value, node->attrs[index].value_len,
+                                              scope, count);
+            count++;
         }
     }
-    if (node == apex && !opts->exclusive) {
+    if (is_apex && !opts->exclusive) {
+        Py_ssize_t own = count;
         for (const th_node *ancestor = node->parent; ancestor != NULL; ancestor = ancestor->parent) {
+            TH_WORK_STEP();
             if (ancestor->type != TH_NODE_ELEMENT) {
                 continue;
             }
@@ -391,15 +784,17 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
                     (opts->version == 1 && !c14n_xml_1_1_inherits_xml_attribute(name, name_len))) {
                     continue;
                 }
-                if (!c14n_xml_already_has(attrs, count, name, name_len)) {
-                    attrs[count++] = c14n_xml_make_attr(name, name_len, ancestor->attrs[index].value,
-                                                        ancestor->attrs[index].value_len, namespaces, ns_count);
-                }
+                attrs[count] = c14n_xml_make_attr(name, name_len, ancestor->attrs[index].value,
+                                                  ancestor->attrs[index].value_len, scope, count);
+                count++;
             }
+        }
+        if (count > own) {
+            count = c14n_xml_drop_shadowed(attrs, own, count);
         }
     }
     Py_UCS4 *fixed_base = NULL;
-    if (node == apex && opts->version == 1 && needs_base_fixup) {
+    if (is_apex && opts->version == 1 && needs_base_fixup) {
         Py_ssize_t base_len;
         if (c14n_base_fixup(tree, node, &fixed_base, &base_len) < 0) {
             if (attrs != stack_attrs) {
@@ -426,12 +821,18 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
         qsort(attrs, (size_t)count, sizeof(c14n_xml_attr), c14n_xml_attr_cmp);
     }
     for (Py_ssize_t index = 0; index < count; index++) {
+        Py_ssize_t cost = attrs[index].name_len + attrs[index].value_len;
+        if (clone_start >= 0 && (clone_full || !ser_clone_attr_fits(out, clone_start, cost))) {
+            break;
+        }
+        TH_WORK_STEPS_ADD(cost);
         sbuf_putc(out, ' ');
         sbuf_put_utf8(out, attrs[index].name, attrs[index].name_len);
         sbuf_puts(out, "=\"");
         c14n_put_attr(out, attrs[index].value, attrs[index].value_len);
         sbuf_putc(out, '"');
     }
+    ser_clone_settle(out, clone_start);
     if (attrs != stack_attrs) {
         PyMem_Free(attrs);
     }
@@ -452,18 +853,54 @@ static void c14n_xml_open_tag(sbuf *out, th_tree *tree, th_node *node, const th_
 #define C14N_NOINLINE
 #endif
 
+static const c14n_xml_left_out *c14n_xml_left_out_of(const c14n_xml_scope *scope, const th_node *element) {
+    return scope->left_outs_len > 0 && scope->left_outs[scope->left_outs_len - 1].node == element
+               ? &scope->left_outs[scope->left_outs_len - 1]
+               : NULL;
+}
+
+/* Enter element, which the canonical form leaves out, with its declarations in scope for its children. */
+static int c14n_xml_left_out_push(c14n_xml_scope *scope, th_tree *tree, const th_node *element, int is_apex,
+                                  Py_ssize_t chain) {
+    c14n_xml_left_out *left_outs =
+        ser_reserve(scope->left_outs, scope->left_outs_len, &scope->left_outs_cap, sizeof(c14n_xml_left_out));
+    if (left_outs == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;           /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    scope->left_outs = left_outs;
+    scope->left_outs[scope->left_outs_len++] = (c14n_xml_left_out){element, chain, is_apex};
+    return c14n_xml_scope_declare(scope, tree, element, 0, chain);
+}
+
 static C14N_NOINLINE th_node *c14n_xml_step(sbuf *out, th_tree *tree, th_node *node, const th_node *apex,
-                                            const th_c14n_opts *opts) {
+                                            const th_c14n_opts *opts, c14n_xml_scope *scope) {
     th_node *descend = NULL;
     switch ((enum th_node_type)node->type) { /* GCOVR_EXCL_BR_LINE: node types are exhaustive */
-    case TH_NODE_ELEMENT:
-        c14n_xml_open_tag(out, tree, node, apex, opts);
+    case TH_NODE_ELEMENT: {
+        /* a child of a left-out element is written in its place: below a left-out apex it is an apex itself */
+        const c14n_xml_left_out *parent = c14n_xml_left_out_of(scope, node->parent);
+        int is_apex = node == apex || (parent != NULL && parent->apex);
+        Py_ssize_t own_bindings = parent != NULL ? parent->chain : scope->bindings_len;
+        if (!ser_xml_element_name_wellformed(node)) { /* an XML tree gives no element an atom */
+            if (node->first_child == NULL) {
+                break;
+            }
+            if (c14n_xml_left_out_push(scope, tree, node, is_apex, own_bindings) < 0) { /* GCOVR_EXCL_BR_LINE: OOM */
+                out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+                return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            descend = node->first_child;
+            break;
+        }
+        c14n_xml_open_tag(out, tree, node, is_apex, own_bindings, opts, scope);
         if (node->first_child != NULL) {
             descend = node->first_child;
         } else {
             c14n_close_tag(out, node);
+            c14n_xml_scope_close(scope, node);
         }
         break;
+    }
     case TH_NODE_TEXT:
     case TH_NODE_CDATA:
         if (need_text(tree, node) == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: lazy text OOM */
@@ -497,18 +934,53 @@ static C14N_NOINLINE th_node *c14n_xml_step(sbuf *out, th_tree *tree, th_node *n
             return node->next_sibling;
         }
         node = node->parent;
-        if (node->type == TH_NODE_ELEMENT) { /* GCOVR_EXCL_BR_LINE: parsed XML subtree parents are elements */
+        if (c14n_xml_left_out_of(scope, node) != NULL) {
+            scope->left_outs_len--;
+        } else if (node->type == TH_NODE_ELEMENT) { /* GCOVR_EXCL_BR_LINE: parsed XML subtree parents are elements */
             c14n_close_tag(out, node);
         }
+        c14n_xml_scope_close(scope, node);
     }
     return NULL;
 }
 
 static void c14n_xml_subtree(sbuf *out, th_tree *tree, th_node *apex, const th_c14n_opts *opts) {
-    th_node *node = apex;
-    while (node != NULL) {
-        node = c14n_xml_step(out, tree, node, apex, opts);
+    c14n_xml_scope scope;
+    memset(&scope, 0, sizeof(scope));
+    c14n_xml_uris uris = {tree, apex, NULL, 0, 0, 0, 0};
+    scope.opts = opts;
+    scope.uris = &uris;
+    /* Salt the prefix hash with Python's randomized bytes hash, as the XML parser salts its own tables,
+       so chosen prefixes cannot be precomputed to collide into one slot and restore the scans. */
+    PyObject *salt = PyBytes_FromStringAndSize("turbohtml:c14n-prefix", 21);
+    if (salt == NULL) {  /* GCOVR_EXCL_BR_LINE: bytes allocation cannot be forced from a test */
+        out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;          /* GCOVR_EXCL_LINE: allocation-failure path */
     }
+    scope.hash_seed = (uint64_t)PyObject_Hash(salt);
+    Py_DECREF(salt);
+    for (const th_node *ancestor = apex->parent; ancestor != NULL; ancestor = ancestor->parent) {
+        TH_WORK_STEP();
+        if (ancestor->type != TH_NODE_ELEMENT) {
+            continue;
+        }
+        if (c14n_xml_scope_declare(&scope, tree, ancestor, 1, 0) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            out->failed = 1;                                            /* GCOVR_EXCL_LINE: allocation-failure path */
+            break;                                                      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    /* a failed element leaves its scope half entered, so the walk ends with it */
+    th_node *node = apex;
+    while (node != NULL && !out->failed) {
+        node = c14n_xml_step(out, tree, node, apex, opts, &scope);
+    }
+    c14n_xml_scope_free(&scope);
+    PyMem_Free(uris.items);
+    if (uris.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        /* GCOVR_EXCL_START: allocation-failure path */
+        out->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* GCOVR_EXCL_STOP */
 }
 
 static void c14n_xml_document(sbuf *out, th_tree *tree, th_node *doc, const th_c14n_opts *opts) {
@@ -540,7 +1012,7 @@ static void c14n_xml_document(sbuf *out, th_tree *tree, th_node *doc, const th_c
 }
 
 Py_UCS4 *th_node_canonicalize_xml(th_tree *tree, th_node *node, const th_c14n_opts *opts, Py_ssize_t *out_len) {
-    sbuf out = {NULL, 0, 0, 0};
+    sbuf out = {NULL, 0, 0, 0, 0};
     if (node->type == TH_NODE_DOCUMENT) {
         sbuf_presize_for_c14n(&out, tree);
         c14n_xml_document(&out, tree, node, opts);

@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Iterator
 
 from ._core.names import segment
 
@@ -121,6 +121,7 @@ __all__ = [
     "Teleop",
 
     "record",
+    "read_record",
     "Recorder",
 
     "Video",
@@ -278,7 +279,7 @@ def connect(
                 default writes one line to stderr ("queued for a seat: position 2 — …"), never to stdout.
                 Like a cold start, a full deployment is waited out by an act() (within `startup_timeout_s`, polled
                 no faster than the key's rate limit allows). `reason` is
-                why there is no slot: "gpu_busy" (the platform), "gpu_limit_reached" (your account's GPUs),
+                why there is no slot: "gpu_busy" (the platform), "gpu_limit_reached" (your account's GPU cards),
                 "deployment_full" (the deployment's max_gpus). Closing the policy gives the slot back at once.
     on_stale    called as (stale) the moment the answer the robot plays runs out with no answer after it in hand -
                 the arm has nothing valid left to play - from a thread of the SDK's, once a stretch: hold or stop the
@@ -401,33 +402,53 @@ def teleop(policy: Any = None, *, key: str | None = None, operator: str | None =
         gateway.close()
 
 
-def record(policy: str, *, key: str | None = None, base_url: str | None = None,
+def record(robot: str | None = None, *, key: str | None = None, base_url: str | None = None,
            timeout_s: float | None = None) -> Recorder:
     """
-    Your own recorder of a policy's steps: every step each of its robots runs, straight from the workers that served it,
-    for you to write wherever you keep your data - the platform keeps none of it.
+    Your own recorder of a robot's steps: every step it runs, straight from the workers that serve it, for you to write
+    wherever you keep your data - the platform keeps none of it. `seq robot record <name>` writes them to a file.
 
-        with sequence_ai.record("pick_user", key=RECORD_KEY_user) as rec_user:
+        with sequence_ai.record("arm_1_user") as rec_user:
             for item_user in rec_user.steps():      # one act ("step"), a label, an episode's end, or a gap
                 my_bucket_user.write(item_user)
 
-    policy      the deployment, as connect() names it; record must be on: `seq policy set <name> record=on`
-    key         a record key of the policy (`seq record add --policy <name>`): it reads this policy's steps and opens
-                nothing else; defaults to $SEQUENCES_API_KEY
+    robot       the robot's name; its Record must be on (the console, by its name, or `seq robot set <name> record=on`).
+                With that robot's own key, it may be left out: that key reads its own robot alone
+    key         your account's key, or the robot's own; defaults to $SEQUENCES_API_KEY, then your `seq login` sign-in
     base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
     timeout_s   how long the platform's answer and each worker's opening may take: 10 s unset
 
-    Each worker keeps its newest minute (60 s, 32 MiB at most) in its memory for you, nothing on disk: a recorder away
-    longer is told how many records it lost (a "gap" item). One that must have no gap keeps capture on as well. Conflict
-    while record is off (details.reason "record_off"); Forbidden for a key that is no record key of the policy.
+    Each worker keeps the newest minute of the steps it records (60 s), 32 MiB at most for all its robots together - less
+    than a minute of each where it serves several -, in its memory, nothing on disk: a recorder away longer is told how
+    many records it lost (a "gap" item). While the robot is not connected (`.connected` False), the
+    recorder waits for it, asking the platform every 10 s. Conflict while its Record is off (details.reason
+    "record_off") - at the start, or from steps() once it is turned off; NotFound for no robot of that name; Forbidden
+    for another robot's key. read_record() reads back a file this writes.
     """
     resolved = _resolve_base_url(base_url)
-    gateway = Transport(api_key=key, base_url=resolved, timeout_s=timeout_s or 10.0)
+
+
+
+
+
+
+    gateway = Transport(api_key=key, base_url=resolved, timeout_s=timeout_s or 10.0, login=True)
     try:
-        return Recorder(gateway, policy, timeout_s=timeout_s or 10.0)
+        return Recorder(gateway, robot, timeout_s=timeout_s or 10.0)
     except BaseException:
         gateway.close()
         raise
+
+
+def read_record(path: str) -> Iterator[dict[str, Any]]:
+    """
+    The items a recording file holds - what `seq robot record` wrote - in order, each as Recorder.steps() gave it: one
+    msgpack map after another, which any msgpack reader reads too (its first map the file's header, "kind"
+    "recording"). Read a chunk at a time, so a file of hours is never held whole.
+    """
+    from ._core import recorder as _recorder
+
+    return _recorder.read(path)
 
 
 def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s: float | None,
@@ -550,7 +571,7 @@ def models(
 
 def account(*, api_key: str | None = None, base_url: str | None = None) -> dict[str, Any]:
     """
-    With a full key, your whole account: what this month has spent, current usage and limits, and its GPUs —
+    With a full key, your whole account: what this month has spent, current usage and limits, and its GPU cards —
     what `seq account` prints. With a robot key, only the one deployment it is for (below).
 
     Billing is postpaid: usage is billed at the month's end, the plan's monthly credit spent first, up to the

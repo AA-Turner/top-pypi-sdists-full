@@ -5,9 +5,10 @@ The minifier rewrites a color to its shortest equivalent form: a keyword to a sh
 hash to a shorter keyword (``#000080`` -> ``navy``). Rather than hand-pick a direction per color, this derives both maps
 from the authoritative named-color list in `CSS Color 4 §6.1 <https://www.w3.org/TR/css-color-4/#named-colors>`__ (plus
 ``transparent`` from §6.2): for each color it computes the shortest hash form, then keeps whichever of keyword or hash
-is strictly shorter. Deriving the maps keeps them complete (every §6.1 color is covered) and value-safe: a name that
-§6.1 does not define, such as the X11-only ``lightslateblue``, is never emitted, so an invalid keyword is never
-rewritten into a valid color.
+is strictly shorter.
+
+Deriving the maps keeps them complete (every §6.1 color is covered) and value-safe: a name that §6.1 does not define,
+such as the X11-only ``lightslateblue``, is never emitted, so an invalid keyword is never rewritten into a valid color.
 
 The emitted header is shaped like ``tld_table.h``: the keyword table is sorted by keyword with a 256-entry first-byte
 index for a bucketed scan; the hash table is sorted by hash string for a binary search, since every hash shares the
@@ -20,12 +21,13 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final
 
 # The CSS Color 4 §6.1 named colors, each mapped to its six-digit sRGB value (the spec gives these as the normative
 # definition of every keyword). British ``grey`` spellings alias their ``gray`` twins; ``rebeccapurple`` is the Color 4
 # addition. ``transparent`` (§6.2) is handled separately below since it is the only keyword with a non-opaque value.
-_NAMED_COLORS: Final[dict[str, str]] = {
+_NAMED_COLORS: Final[MappingProxyType[str, str]] = MappingProxyType({
     "aliceblue": "f0f8ff",
     "antiquewhite": "faebd7",
     "aqua": "00ffff",
@@ -174,21 +176,21 @@ _NAMED_COLORS: Final[dict[str, str]] = {
     "whitesmoke": "f5f5f5",
     "yellow": "ffff00",
     "yellowgreen": "9acd32",
-}
+})
 
 # transparent is rgba(0,0,0,0); its four-digit hash #0000 is shorter than the keyword (CSS Color 4 §6.2).
 _TRANSPARENT_HASH: Final[str] = "#0000"
 
 
 def _shortest_hash(rgb: str) -> str:
-    """Collapse a six-digit sRGB value to ``#rgb`` when each channel is a doubled nibble, else keep ``#rrggbb``."""
+    # Collapse a six-digit sRGB value to ``#rgb`` when each channel is a doubled nibble, else keep ``#rrggbb``.
     if rgb[0] == rgb[1] and rgb[2] == rgb[3] and rgb[4] == rgb[5]:
         return f"#{rgb[0]}{rgb[2]}{rgb[4]}"
     return f"#{rgb}"
 
 
 def _build_maps() -> tuple[dict[str, str], dict[str, str]]:
-    """Return (keyword -> shorter hash, hash -> shorter keyword), derived from the named-color table."""
+    # Return (keyword -> shorter hash, hash -> shorter keyword), derived from the named-color table.
     name_to_hex: dict[str, str] = {"transparent": _TRANSPARENT_HASH}
     hex_to_name: dict[str, str] = {}
     for name, rgb in _NAMED_COLORS.items():
@@ -223,7 +225,7 @@ def _first_byte_index(keys: list[str]) -> str:
 
 
 def generate(out_path: Path) -> None:
-    """Write the generated CSS-color-table C header to *out_path*."""
+    # Write the generated CSS-color-table C header to *out_path*.
     name_to_hex, hex_to_name = _build_maps()
     by_name = sorted(name_to_hex.items())
     by_hex = sorted(hex_to_name.items())
@@ -262,6 +264,6 @@ def generate(out_path: Path) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        msg = "usage: generate_css_colors.py OUTPUT_HEADER"
-        raise SystemExit(msg)
+        _MSG = "usage: generate_css_colors.py OUTPUT_HEADER"
+        raise SystemExit(_MSG)
     generate(Path(sys.argv[1]))

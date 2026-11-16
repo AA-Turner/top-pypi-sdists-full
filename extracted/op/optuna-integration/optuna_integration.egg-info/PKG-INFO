@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-integration
-Version: 5.0.0
+Version: 5.1.0
 Summary: Integration libraries of Optuna.
 Project-URL: repository, https://github.com/optuna/optuna-integration
 Classifier: Development Status :: 5 - Production/Stable
@@ -8,7 +8,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,7 +19,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: optuna
@@ -28,7 +27,7 @@ Provides-Extra: document
 Requires-Dist: mlflow; extra == "document"
 Requires-Dist: pandas; extra == "document"
 Requires-Dist: scikit-learn>=0.24.2; extra == "document"
-Requires-Dist: scipy>=1.9.2; python_version >= "3.9" and extra == "document"
+Requires-Dist: scipy>=1.9.2; extra == "document"
 Requires-Dist: sphinx; extra == "document"
 Requires-Dist: sphinx-notfound-page; extra == "document"
 Requires-Dist: sphinx_rtd_theme; extra == "document"
@@ -84,12 +83,12 @@ Requires-Dist: wandb; extra == "wandb"
 Provides-Extra: xgboost
 Requires-Dist: xgboost; extra == "xgboost"
 Provides-Extra: trackio
-Requires-Dist: trackio; python_version >= "3.10" and extra == "trackio"
+Requires-Dist: trackio; extra == "trackio"
 Dynamic: license-file
 
 # Optuna-Integration
 
-[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org)
 [![pypi](https://img.shields.io/pypi/v/optuna-integration.svg)](https://pypi.python.org/pypi/optuna-integration)
 [![conda](https://img.shields.io/conda/vn/conda-forge/optuna-integration.svg)](https://anaconda.org/conda-forge/optuna-integration)
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/optuna/optuna-integration)
@@ -123,7 +122,7 @@ $ conda install -c conda-forge optuna-integration
 > ```
 
 > [!NOTE]
-> Optuna-Integration supports from Python 3.9 to Python 3.13.
+> Optuna-Integration supports from Python 3.10 to Python 3.13.
 > Optuna Docker image is also provided at [DockerHub](https://hub.docker.com/r/optuna/optuna).
 
 ## Integration Modules

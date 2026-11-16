@@ -15,9 +15,15 @@ class MyClass(PrivateAttrBase):
         return self._private_attr1
 ```
 """
-from typing_extensions import Any, TypeVar, Callable, TypedDict, Sequence, Generic, Optional, cast, Iterator
+from typing_extensions import Any, TypeVar, Callable, TypedDict, Sequence, Generic,\
+    Optional, cast, Iterator, Protocol
 from types import FunctionType
 import sys
+
+if sys.version_info < (3, 15):
+    from typing_extensions import sentinel
+
+_MISSING = sentinel("_MISSING")
 
 # define the dict that must have a key "__private_attrs__" and value must be the sequence of strings
 class _PrivateAttrDict(TypedDict):
@@ -92,15 +98,16 @@ class PrivateWrapProxy(Generic[_TVar, _T]):
         def my_method(self): ...
     ```
     """
-    def __init__(self, decorator: Callable[[_TVar], _T], orig: _PrivateWrap[Any]|None = None, /) -> None: ...
+    def __init__(self, decorator: Callable[[_TVar], _T], orig: _PrivateWrap[Any]|_MISSING = _MISSING, /) -> None: ...
     def __call__(self, func: _TVar | _PrivateWrap[_TVar], /) -> _PrivateWrap[_T]: ...
 
 class PrivateAttrType(type):
     "metaclass for private attributes"
     def __new__(cls, name: str, bases: tuple,
                 attrs: _PrivateAttrDict, /, *,
-                private_func: Callable[[int, str], str]|None = None,
-                use_parents: bool = False) -> PrivateAttrType: ...
+                private_func: Callable[[int, str], str]|_MISSING = _MISSING,
+                use_parents: bool = False,
+                **kwargs) -> PrivateAttrType: ...
 
 class PrivateAttrBase(metaclass=PrivateAttrType):
     "The class to help creating private attribute. It does not have any special behavior."
@@ -141,6 +148,32 @@ class PrivateClassSuper:
     def __getattr__(self, name: str) -> Any: ...
 
 
+class PrivateObjSuper:
+    """
+    Read-only cross-class access to a parent class's per-instance private attribute.
+
+    Usage: ``PrivateObjSuper(now_class, parent_class, obj).name``
+
+    - now_class: the type whose code is currently running (the code owner).
+    - parent_class: a parent type of ``now_class`` (not ``now_class`` itself).
+      The value is read from this class's per-instance storage.
+    - obj: an instance of ``now_class``. A further subclass instance is fine.
+
+    Both classes must be private-attribute types (instances of
+    ``PrivateAttrType`` or a registered metaclass). The running code must belong
+    to ``now_class`` at attribute-access time. The stored object is returned
+    as-is for a normal instance. When ``obj`` itself is a class and the stored
+    value defines ``__get__``, that ``__get__(None, obj)`` is called.
+
+    This is the instance-storage counterpart of :class:`PrivateSuper`. It does
+    not read class-level attributes, does not fall back to an ancestor's
+    instance storage, and does not accept keyword arguments. Assignment and
+    deletion are not supported.
+    """
+    def __init__(self, now_class: type, parent_class: type, obj: Any, /) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
+
 def ensure_type(typ: type, /) -> None:
     """function for custom metaclass to ensure the type is a private attributes class.
     def ensure_type(type: type) -> None:
@@ -156,7 +189,11 @@ def ensure_metaclass(typ: type, /) -> None:
     """
     ...
 
-def create_new(func: Callable[..., Any] | None = None, /) -> Callable[..., Any]:
+class _SlotWrapper(Protocol):
+    """Protocol for slot wrapper that allows 0 or 1 positional-only arguments."""
+    def __call__(self, callback: Callable[..., Any] | _MISSING = _MISSING, /) -> Callable[..., Any]: ...
+
+def create_new(func: Callable[..., Any] | _MISSING = _MISSING, /) -> Callable[..., Any]:
     """
     function to register the type with new automatically:
 
@@ -182,7 +219,7 @@ def create_new(func: Callable[..., Any] | None = None, /) -> Callable[..., Any]:
     """
     ...
 
-def create_meta_slot(name: str, /):
+def create_meta_slot(name: str, /) -> _SlotWrapper:
     """
     function to create the final slot for metaclass:
 
@@ -210,10 +247,10 @@ def create_meta_slot(name: str, /):
             ...
     ```
     """
-    def create_register_type_slot_wrapper(callback: Callable[..., Any] | None = None) -> Callable[..., Any]: ...
+    def create_register_type_slot_wrapper(callback: Callable[..., Any] | _MISSING = _MISSING, /) -> Callable[..., Any]: ...
     return create_register_type_slot_wrapper
 
-def create_slot(name: str, /):
+def create_slot(name: str, /) -> _SlotWrapper:
     """
     function to create the final slot for private class:
 
@@ -236,5 +273,5 @@ def create_slot(name: str, /):
 
     ```
     """
-    def create_private_type_slot_wrapper(func: Callable[..., Any] | None = None) -> Callable[..., Any]: ...
+    def create_private_type_slot_wrapper(func: Callable[..., Any] | _MISSING = _MISSING, /) -> Callable[..., Any]: ...
     return create_private_type_slot_wrapper

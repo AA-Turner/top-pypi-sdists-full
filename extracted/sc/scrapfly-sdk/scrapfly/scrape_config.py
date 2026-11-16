@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 from enum import Enum
-from urllib.parse import urlencode, quote_plus
+from urllib.parse import urlencode
 from base64 import urlsafe_b64encode
 from typing import Literal, Optional, List, Dict, Iterable, Union, Set
 from requests.structures import CaseInsensitiveDict
@@ -35,10 +35,10 @@ _UNSET = _Unset()
 def _resolve_unblocker(asp, unblocker) -> bool:
     """Collapse the `asp` / `unblocker` pair into the single stored value.
 
-    `unblocker` is the customer-facing name; `asp` is the permanently supported
-    deprecated alias. An explicitly supplied `asp` always wins, `unblocker`
-    applies only when `asp` was not supplied. Never OR them: an explicit
-    `False` on either name must be able to turn the feature off.
+    `unblocker` is the customer-facing name; `asp` is its deprecated alias. An
+    explicitly supplied `asp` always wins, `unblocker` applies only when `asp`
+    was not supplied. Never OR them: an explicit `False` on either name must be
+    able to turn the feature off.
 
     `None` counts as NOT supplied, alongside the `_UNSET` sentinel. Two reasons,
     and they agree:
@@ -119,9 +119,18 @@ class ScrapeConfigError(Exception):
 
 class ScrapeConfig(BaseApiConfig):
 
+    # Proxy pools, sent as `proxy_pool`: datacenter proxies (the default),
+    # residential proxies, and the Tor network, the only pool that reaches .onion sites.
     PUBLIC_DATACENTER_POOL = 'public_datacenter_pool'
     PUBLIC_RESIDENTIAL_POOL = 'public_residential_pool'
     PUBLIC_TOR_POOL = 'public_tor_pool'
+
+    # Pool names the API does not accept yet: a request naming one fails with
+    # ERR::PROXY::POOL_NOT_FOUND.
+    BASIC = 'basic'
+    UNBLOCKER = 'unblocker'
+    UNBLOCKER_ULTRA = 'unblocker_ultra'
+    AUTO = 'auto'
 
     url: str
     retry: bool = True
@@ -132,7 +141,7 @@ class ScrapeConfig(BaseApiConfig):
     cache_clear:bool = False
     ssl:bool = False
     dns:bool = False
-    asp:bool = False  # deprecated alias of `unblocker`, permanently supported
+    asp:bool = False  # deprecated alias of `unblocker`
     # NOTE: `unblocker` is deliberately absent from this block. It is a
     # property defined below; a class attribute or annotation here would
     # shadow the descriptor and break `cfg.unblocker = True`.
@@ -157,7 +166,7 @@ class ScrapeConfig(BaseApiConfig):
     rendering_wait: int = None
     rendering_stage: Literal["complete", "domcontentloaded"] = "complete"
     wait_for_selector: Optional[str] = None
-    session_sticky_proxy:bool = True
+    session_sticky_proxy:Optional[bool] = None
     screenshots:Optional[Dict]=None
     screenshot_flags: Optional[List[ScreenshotFlag]] = None,
     webhook:Optional[str]=None
@@ -207,7 +216,7 @@ class ScrapeConfig(BaseApiConfig):
         wait_for_selector: Optional[str] = None,
         screenshots:Optional[Dict]=None,
         screenshot_flags: Optional[List[ScreenshotFlag]] = None,
-        session_sticky_proxy:bool = True,
+        session_sticky_proxy:Optional[bool] = None,
         webhook:Optional[str] = None,
         timeout:Optional[int] = None, # in milliseconds
         js_scenario:Optional[List] = None,
@@ -454,7 +463,7 @@ class ScrapeConfig(BaseApiConfig):
             params['extraction_template'] = 'ephemeral:' + urlsafe_b64encode(self.extraction_ephemeral_template.encode('utf-8')).decode('utf-8')
 
         if self.extraction_prompt:
-            params['extraction_prompt'] = quote_plus(self.extraction_prompt)
+            params['extraction_prompt'] = self.extraction_prompt
 
         if self.extraction_model:
             params['extraction_model'] = self.extraction_model
@@ -465,10 +474,12 @@ class ScrapeConfig(BaseApiConfig):
         if self.session:
             params['session'] = self.session
 
+            # None leaves stickiness to the API, which defaults it to true
+            # when a session is set.
             if self.session_sticky_proxy is not None:
                 params['session_sticky_proxy'] = self._bool_to_http(self.session_sticky_proxy)
         else:
-            if self.session_sticky_proxy:
+            if self.session_sticky_proxy is not None:
                 logging.warning('Params "session_sticky_proxy" is ignored. Works only if session is enabled')
 
         if self.debug is True:
@@ -508,6 +519,8 @@ class ScrapeConfig(BaseApiConfig):
             else:
                 headers[name] = value
 
+        # The export carries the pool the order ran on and its Unblocker flag: both replay
+        # unchanged, since the API accepts only the public pools and a customer's own.
         return ScrapeConfig(
             url=data['url'],
             retry=data['retry'],
@@ -637,7 +650,7 @@ class ScrapeConfig(BaseApiConfig):
         screenshot_flags = scrape_config_dict.get('screenshot_flags', [])
         screenshot_flags = [ScreenshotFlag(flag) for flag in screenshot_flags] if screenshot_flags else None
 
-        session_sticky_proxy = scrape_config_dict.get('session_sticky_proxy', True)
+        session_sticky_proxy = scrape_config_dict.get('session_sticky_proxy', None)
         webhook = scrape_config_dict.get('webhook', None)
         timeout = scrape_config_dict.get('timeout', None)
         js_scenario = scrape_config_dict.get('js_scenario', None)

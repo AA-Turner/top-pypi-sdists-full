@@ -12,7 +12,7 @@ import typing
 import uuid
 
 import anyio
-import httpx
+import httpx2
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.metrics import Counter, Histogram, _Gauge
@@ -190,7 +190,7 @@ def _is_connection_error(error: BaseException) -> bool:
     return isinstance(
         error,
         (
-            httpx.HTTPError,
+            httpx2.HTTPError,
             OSError,
             RedisConnectionError,
             RedisTimeoutError,
@@ -666,7 +666,7 @@ class Outpost:
         self,
         redis_url: str,
         *,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         telemetry: bool = True,
         confirm_timeout: float = CONFIRM_TIMEOUT,
     ) -> None:
@@ -703,6 +703,7 @@ class Outpost:
         self._pull_interval = PULL_INTERVAL
         self._pulling: anyio.Event | None = None
         self._relaying: anyio.Event | None = None
+        self._flushing: dict[anyio.CancelScope, float] = {}
         self._pull_retry_at = 0.0
         self._read_state: AsyncScript | None = None
         self._redis_available = False
@@ -794,7 +795,7 @@ class Outpost:
             pass
         try:
             try:
-                await self.flush()
+                await self._in_flight()
                 # Their last exports land in the outbox, which the shared Redis takes
                 # before it closes.
                 await self._shutdown_telemetry()
@@ -1034,7 +1035,20 @@ class Outpost:
 
     async def flush(self, *, timeout: float = 30.0) -> None:
         """Wait for the pull and the fetches in flight: a serverless function must not
-        freeze in the middle of them."""
+        freeze in the middle of them. A newer flush that outlasts this one releases it,
+        since it waits for the same work."""
+        deadline = anyio.current_time() + timeout
+        for older, until in self._flushing.items():
+            if until <= deadline:
+                older.cancel()
+        with anyio.CancelScope() as scope:
+            self._flushing[scope] = deadline
+            try:
+                await self._in_flight(timeout)
+            finally:
+                del self._flushing[scope]
+
+    async def _in_flight(self, timeout: float = 30.0) -> None:
         with anyio.fail_after(timeout):
             if self._pulling is not None:
                 await self._pulling.wait()
@@ -1386,7 +1400,7 @@ class Outpost:
                             "/v1/outpost/meter-usage",
                             json={"identities": requested},
                         )
-                    except (httpx.HTTPStatusError, httpx.TransportError) as error:
+                    except (httpx2.HTTPStatusError, httpx2.TransportError) as error:
                         response = getattr(error, "response", None)
                         if response is not None and (
                             response.is_client_error and response.status_code != 429
@@ -1702,7 +1716,7 @@ class Outpost:
                     changes: Changes = await self._request(
                         "GET", "/v1/outpost/changes", params=params
                     )
-                except httpx.HTTPStatusError as error:
+                except httpx2.HTTPStatusError as error:
                     # Only a rate limit clears on its own: any other 4xx would repeat forever.
                     if (
                         error.response.is_client_error
@@ -1912,7 +1926,7 @@ class Outpost:
                                 "ids": batch,
                             },
                         )
-                except (httpx.HTTPError, TimeoutError):
+                except (httpx2.HTTPError, TimeoutError):
                     return confirmation, False
                 confirmation.confirmed.setdefault(bucket_start, []).extend(
                     answer["ids"]

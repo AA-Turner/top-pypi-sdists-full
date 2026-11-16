@@ -6,18 +6,18 @@ use pyo3::types::PyString;
 use sqlbuild_core::constants::COLUMN_MIGRATION_TABLE_NAME;
 use sqlbuild_core::constants::MIGRATION_TABLE_NAME;
 use sqlbuild_core::constants::OLD_NAME_VIEW_TABLE_NAME;
+use sqlbuild_python_base::records::main::construct::new_plain_error::new_plain_error;
 use sqlbuild_state::events::constants::{
     COLUMN_MIGRATION_COLUMNS, MIGRATION_COLUMNS, OLD_NAME_VIEW_COLUMNS,
 };
 use sqlbuild_state::events::models::EventOrder;
 
-use crate::bindings::_helpers::boundary::python_calls::call_with;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::ErrorId;
 use crate::bindings::_helpers::state_rows::constants::{COLUMN_KIND, MODEL_KIND, OLD_NAME_KIND};
 use crate::bindings::_helpers::state_rows::models::{EventTable, EventTableLayout};
 use crate::bindings::_helpers::state_rows::timestamps::presumed_utc;
+use sqlbuild_python_base::boundary::main::call_with::call_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::ErrorId;
 
 /// The layout of the state table `kind` names: `model`, `column` or `old_name`.
 pub(crate) fn layout(kind: &str) -> PyResult<EventTableLayout> {
@@ -57,10 +57,7 @@ pub(crate) fn layout(kind: &str) -> PyResult<EventTableLayout> {
 
 /// `MigrationStateError(message)`.
 pub(crate) fn state_error(py: Python<'_>, message: &str) -> PyErr {
-    match error_class(py, ErrorId::MigrationState).and_then(|class| class.call1((message,))) {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_plain_error(py, ErrorId::MigrationState, message)
 }
 
 /// The adapter-qualified name of `layout`'s table in one schema.

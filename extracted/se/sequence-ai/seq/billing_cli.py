@@ -221,7 +221,8 @@ def billing_plan(plan: str | None = None, *, base_url: str | None = None, echo: 
                 _say(echo, name + "agreed per account: volume prices, a monthly limit and limits agreed for your fleet")
                 continue
             _say(echo, name + f"{whole(p.get('monthly_fee_usd'))}/month, {whole(p.get('monthly_free_credit_usd'))} "
-                              f"free credit a month, {p.get('max_policies', '—')} policies, {p.get('max_gpus', '—')} GPUs")
+                              f"free credit a month, {p.get('max_policies', '—')} policies, "
+                              f"{p.get('max_gpus', '—')} GPU cards")
         return out
     out = _call("POST", "/v1/billing/plan", base_url, {"plan": plan}, person=True) or {}
     if out.get("url"):

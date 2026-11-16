@@ -61,7 +61,7 @@ typedef struct {
     th_buf name;
     th_buf value;
     int has_value;      /* 0 for a valueless attribute (maps to None in Python) */
-    uint32_t name_hash; /* FNV-1a of the name, for O(1) duplicate detection */
+    uint32_t name_hash; /* hash of the name in the duplicate index's current mode, set when the index probes it */
 } th_attr;
 
 /* Source span of one attribute, allocated only while capture_locations is on. */
@@ -81,13 +81,14 @@ typedef struct {
     Py_ssize_t src_start;
     Py_ssize_t src_len;
     th_buf name; /* tag name (lowercased) or DOCTYPE name */
-    /* The tree builder interns name to an atom once per tag token and caches it
-       here, so the insertion-mode dispatch and insert_element read a field
-       instead of re-interning the same name. Set by the builder, not the
-       tokenizer; meaningful only for start/end tags. */
+    /* The machine interns name to an atom (data/tag_atom.h) once per tag token
+       and caches it here with its category flags, so the tree builder, the
+       Tokenizer and the rewriter read a field instead of re-interning the same
+       name. Meaningful only for start/end tags. */
     uint16_t atom;
     uint8_t tag_flags;
-    th_buf text; /* TEXT run or COMMENT data */
+    uint64_t name_key; /* name packed by th_tag_key, 0 for one it does not pack; set with atom */
+    th_buf text;       /* TEXT run or COMMENT data */
     th_attr *attrs;
     th_attr_loc *attr_locs;
     Py_ssize_t attr_count;
@@ -102,8 +103,9 @@ typedef struct {
     int force_quirks;
     /* Verbatim source span: the input slice [src_off, src_off + src_span) the
        token came from. Set for a TH_CHARREF (the raw reference text) always, and
-       for a markup token when capture_source is on (the raw tag/comment/doctype
-       source). has_source gates whether Token.source resolves a string. */
+       when capture_source is on for a markup token (the raw tag/comment/doctype
+       source) and for the text of a CDATA section (the section, delimiters
+       included). has_source gates whether Token.source resolves a string. */
     Py_ssize_t src_off;
     Py_ssize_t src_span;
     int has_source;
@@ -235,6 +237,11 @@ void th_tok_reset(th_tokenizer *self);
    survive th_tok_reset because they are configuration rather than input state. */
 void th_tok_set_options(th_tokenizer *self, int resolve_references, int capture_source, int capture_attributes);
 
+/* Turn capture_attributes on or off for the tags that follow, leaving the other options alone. The public tokenizer
+   flips it between tokens: tree construction reads a start tag's attributes in foreign content, so the machine keeps
+   them there even for a caller who asked for none. */
+void th_tok_capture_attributes(th_tokenizer *self, int on);
+
 /* Record the granular source spans parse5's sourceCodeLocationInfo exposes: each
    tag's end position (past its '>') and each attribute's name/value span. Off by
    default and, like the other options, survives th_tok_reset. When off the state
@@ -258,9 +265,14 @@ void th_tok_widen_input(th_tokenizer *self, int kind);
    construction, which the state machine itself does not perform. */
 void th_tok_switch(th_tokenizer *self, enum th_initial_state state);
 
+/* The content model the tokenizer reads its next code point in: TH_INIT_RCDATA, TH_INIT_RAWTEXT, TH_INIT_SCRIPT_DATA
+   or TH_INIT_PLAINTEXT inside raw text, at any point of it, else TH_INIT_DATA. *end_tag is the name of the start tag
+   that switched it, which the end tag leaving raw text has to repeat. */
+enum th_initial_state th_tok_content_model(const th_tokenizer *self, const th_buf **end_tag);
+
 /* Tell the tokenizer whether <![CDATA[ opens a real CDATA section (the
    adjusted current node is a foreign element) or a bogus comment. The tree
-   builder updates this before pulling each token. */
+   builder and the streaming rewriter update this before pulling each token. */
 void th_tok_set_cdata(th_tokenizer *self, int allowed);
 
 /* Append code points read from a unicode object's storage. An allocation
@@ -274,8 +286,14 @@ void th_tok_feed(th_tokenizer *self, int kind, const void *data, Py_ssize_t leng
    the machine; streaming feed() copies. */
 void th_tok_borrow_input(th_tokenizer *self, int kind, const void *data, Py_ssize_t length);
 
+/* Start reading the input at code point `pos`, which sits at line:col, in the data state. */
+void th_tok_seek(th_tokenizer *self, Py_ssize_t pos, Py_ssize_t line, Py_ssize_t col);
+
 /* The storage backing slice tokens: sets *kind, returns the base pointer. */
 const void *th_tok_input_data(const th_tokenizer *self, int *kind);
+
+/* The input index of the next code point to read: just past the '>' of the tag token th_tok_next last returned. */
+Py_ssize_t th_tok_position(const th_tokenizer *self);
 
 /* Transfer the owned input buffer to the caller after a one-shot fed parse. */
 void *th_tok_take_input(th_tokenizer *self, int *kind, Py_ssize_t *length);

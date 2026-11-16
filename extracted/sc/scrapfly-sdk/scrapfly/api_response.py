@@ -1,19 +1,18 @@
 import base64
 import hashlib
 import hmac
+import importlib
 import re
 import logging
 import shutil
+import sys
+import warnings
+import zlib
 
 from base64 import b64decode
 from contextlib import suppress
 from datetime import datetime
-from functools import partial
-
-try:
-    from functools import cached_property
-except ImportError:
-    from .polyfill.cached_property import cached_property
+from functools import cached_property, partial
 
 from http.cookiejar import Cookie
 from http.cookies import SimpleCookie
@@ -22,8 +21,9 @@ from json import JSONDecoder, loads
 
 from dateutil.parser import parse
 from requests import Request, Response, HTTPError
-from typing import List, Dict, Optional, Iterable, Union, TextIO, Tuple, Callable
+from typing import List, Dict, Literal, Optional, Iterable, Iterator, Union, TextIO, Tuple, Callable
 
+import urllib3
 from requests.structures import CaseInsensitiveDict
 
 from .scrape_config import ScrapeConfig
@@ -33,6 +33,7 @@ from .errors import ErrorFactory, ScreenshotAPIError, ExtractionAPIError, Encode
     ApiHttpServerError, UpstreamHttpError, HttpError, \
     ExtraUsageForbidden, WebhookSignatureMissMatch, ContentError, api_error_args
 from .frozen_dict import FrozenDict
+from .transport import without_key
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,155 @@ def _bounded(chunks: Iterable[bytes], limit: int) -> bytes:
     return bytes(out)
 
 
+def _zlib_chunks(content: bytes, wbits: int) -> Iterator[bytes]:
+    decoder = zlib.decompressobj(wbits)
+
+    # Sliced: unconsumed_tail copies the input left on every call.
+    for at in range(0, len(content), _DECOMPRESS_CHUNK):
+        if decoder.eof:
+            raise ValueError('trailing data after the compressed stream')
+
+        data = content[at:at + _DECOMPRESS_CHUNK]
+
+        while data:
+            yield decoder.decompress(data, _DECOMPRESS_CHUNK)
+            data = decoder.unconsumed_tail
+
+    yield decoder.flush()
+
+    if not decoder.eof or decoder.unused_data:
+        raise ValueError('truncated compressed stream or trailing data after it')
+
+
+def _brotli_decoder():
+    """A brotlicffi or brotli Decompressor, the first that caps its output if any does."""
+    decoders = []
+
+    # A brotlipy left behind by an upgrade shadows Google's brotli.
+    for name in ('brotlicffi', 'brotli'):
+        with suppress(ImportError):
+            decoders.append(importlib.import_module(name).Decompressor())
+
+    if not decoders:
+        raise ImportError('decoding brotli needs brotli (CPython) or brotlicffi: pip install "scrapfly-sdk[speedups]"')
+
+    return next((decoder for decoder in decoders if hasattr(decoder, 'can_accept_more_data')), decoders[0])
+
+
+def _brotli_chunks(decoder, content: bytes) -> Iterator[bytes]:
+    # Google's brotli holds output past the last input: drained once a call returns nothing.
+    for at in range(0, len(content), _DECOMPRESS_CHUNK):
+        if decoder.is_finished():
+            raise ValueError('trailing data after the brotli stream')
+
+        data = content[at:at + _DECOMPRESS_CHUNK]
+
+        while True:
+            out = decoder.process(data, output_buffer_limit=_DECOMPRESS_CHUNK)
+            data = b''
+
+            if not out:
+                break
+
+            yield out
+
+    # brotlicffi 1.2.0.x keeps trailing bytes without raising.
+    if not decoder.is_finished() or not decoder.can_accept_more_data():
+        raise ValueError('truncated brotli stream or trailing data after it')
+
+
+def _zstd_chunks(decoder, content: bytes) -> Iterator[bytes]:
+    for at in range(0, len(content), _DECOMPRESS_CHUNK):
+        if decoder.eof:
+            raise ValueError('trailing data after the zstd frame')
+
+        data = content[at:at + _DECOMPRESS_CHUNK]
+
+        while True:
+            yield decoder.decompress(data, max_length=_DECOMPRESS_CHUNK)
+            data = b''
+
+            if decoder.eof or decoder.needs_input:
+                break
+
+    if not decoder.eof or decoder.unused_data:
+        raise ValueError('truncated zstd frame or trailing data after it')
+
+
+_ZSTD_MAGIC = b'\x28\xb5\x2f\xfd'
+
+
+def _zstd_module():
+    """compression.zstd on Python 3.14, backports.zstd below it, None when neither imports."""
+    try:
+        if sys.version_info >= (3, 14):
+            from compression import zstd
+        else:
+            from backports import zstd
+    except ImportError:
+        return None
+
+    return zstd
+
+
+def _zstandard_frame_size(zstandard, content: bytes) -> int:
+    """The size of the zstd frame `content` starts with, read from its frame and block headers."""
+    if not content.startswith(_ZSTD_MAGIC):
+        raise ValueError('not a zstd frame')
+
+    try:
+        parameters = zstandard.get_frame_parameters(content)
+        at = zstandard.frame_header_size(content)
+    except zstandard.ZstdError as error:
+        raise ValueError('truncated zstd frame header') from error
+
+    while True:
+        if at + 3 > len(content):
+            raise ValueError('truncated zstd frame')
+
+        header = int.from_bytes(content[at:at + 3], 'little')
+        last_block = header & 1
+        block_type = (header >> 1) & 3
+        block_size = header >> 3
+
+        if block_type == 3:
+            raise ValueError('reserved zstd block type')
+
+        # An RLE block holds the one byte it repeats.
+        if block_type == 1:
+            block_size = 1
+
+        at += 3 + block_size
+
+        if at > len(content):
+            raise ValueError('truncated zstd frame')
+
+        if last_block:
+            break
+
+    if parameters.has_checksum:
+        at += 4
+
+    if at > len(content):
+        raise ValueError('truncated zstd frame')
+
+    return at
+
+
+def _zstandard_chunks(content: bytes) -> Iterator[bytes]:
+    """The one zstd frame of `content` decoded by zstandard, at most _DECOMPRESS_CHUNK bytes at a time."""
+    try:
+        import zstandard
+    except ImportError:
+        raise ImportError('decoding zstd needs Python 3.14, backports.zstd or zstandard: '
+                          'pip install "scrapfly-sdk[speedups]"') from None
+
+    if _zstandard_frame_size(zstandard, content) != len(content):
+        raise ValueError('trailing data after the zstd frame')
+
+    yield from zstandard.ZstdDecompressor().read_to_iter(content, read_size=_DECOMPRESS_CHUNK, write_size=_DECOMPRESS_CHUNK)
+
+
 def decompress(content: bytes, content_encoding: Optional[str], limit: int = MAX_DECOMPRESSED_SIZE) -> bytes:
     """
     Reverse the Content-Encoding applied to a webhook body.
@@ -94,57 +244,38 @@ def decompress(content: bytes, content_encoding: Optional[str], limit: int = MAX
     """
     encoding = (content_encoding or '').lower()
 
-    if encoding in ('', 'none', 'identity'):
+    if encoding in ('', 'none', 'identity') or not content:
         return content
 
+    # One member, as Scrapfly sends: GzipFile parses member headers in Python, slowly.
     if encoding in ('gzip', 'gz'):
-        import gzip
-
-        with gzip.GzipFile(fileobj=BytesIO(content)) as decoder:
-            return _bounded(iter(lambda: decoder.read(_DECOMPRESS_CHUNK), b''), limit)
+        return _bounded(_zlib_chunks(content, 16 + zlib.MAX_WBITS), limit)
 
     if encoding == 'deflate':
-        import zlib
-
-        decoder = zlib.decompressobj()
-
-        def deflate_chunks():
-            data = content
-            while data:
-                yield decoder.decompress(data, _DECOMPRESS_CHUNK)
-                data = decoder.unconsumed_tail
-
-            yield decoder.flush()
-
-        return _bounded(deflate_chunks(), limit)
+        return _bounded(_zlib_chunks(content, zlib.MAX_WBITS), limit)
 
     if encoding in ('brotli', 'br'):
-        try:
-            import brotlicffi as brotli
-        except ImportError:
-            import brotli
+        decoder = _brotli_decoder()
 
-        decoder = brotli.Decompressor()
+        # brotlipy and brotli < 1.2 cannot cap one call: decode as before, with a warning.
+        if not hasattr(decoder, 'can_accept_more_data'):
+            warnings.warn('%s cannot cap its output, so a brotli body is not bounded until it is decoded: '
+                          'pip uninstall brotlipy, then install brotli>=1.2.0 or brotlicffi>=1.2.0.0'
+                          % type(decoder).__module__)
+            step = decoder.process if hasattr(decoder, 'process') else decoder.decompress
 
-        return _bounded(
-            (decoder.decompress(content[at:at + _DECOMPRESS_CHUNK]) for at in range(0, len(content), _DECOMPRESS_CHUNK)),
-            limit,
-        )
+            return _bounded((step(content[at:at + _DECOMPRESS_CHUNK]) for at in range(0, len(content), _DECOMPRESS_CHUNK)), limit)
+
+        return _bounded(_brotli_chunks(decoder, content), limit)
 
     if encoding == 'zstd':
-        try:
-            from compression import zstd as _zstd  # Python 3.14+
+        zstd = _zstd_module()
 
-            decoder = _zstd.ZstdDecompressor()
-        except ImportError:
-            import zstandard
+        # zstandard when neither standard module imports: its block headers checked first, then read in capped chunks.
+        if zstd is None:
+            return _bounded(_zstandard_chunks(content), limit)
 
-            decoder = zstandard.ZstdDecompressor().decompressobj()
-
-        return _bounded(
-            (decoder.decompress(content[at:at + _DECOMPRESS_CHUNK]) for at in range(0, len(content), _DECOMPRESS_CHUNK)),
-            limit,
-        )
+        return _bounded(_zstd_chunks(zstd.ZstdDecompressor(), content), limit)
 
     raise ValueError('unsupported webhook content encoding: %s' % content_encoding)
 
@@ -294,6 +425,23 @@ class ApiResponse:
         self.request = request
         self.response = response
 
+    def decompress(self) -> bytes:
+        """The body, with a Content-Encoding the HTTP client left in place undone."""
+        content = self.response.content
+        content_encoding = self.response.headers.get('content-encoding', '').lower()
+
+        # urllib3 inflated these already: a second pass corrupts some bodies.
+        if content_encoding in urllib3.response.HTTPResponse.CONTENT_DECODERS:
+            return content
+
+        try:
+            return decompress(content, content_encoding, MAX_DECOMPRESSED_SIZE)
+        except WebhookBodyTooLarge:
+            raise
+        except Exception:
+            # The client advertises only what it decodes: a body that does not decode was decoded already.
+            return content
+
     @property
     def headers(self) -> CaseInsensitiveDict:
         return self.response.headers
@@ -379,13 +527,73 @@ class ApiResponse:
                 args.update(request=e.request, response=e.response, api_response=self)
 
                 if e.response.status_code >= 500:
-                    raise ApiHttpServerError(**args) from e
+                    raise ApiHttpServerError(**args) from without_key(e)
 
                 # respect raise_on_upstream_error with screenshot and extraction only
                 if error_class in (ScreenshotAPIError, ExtractionAPIError) and not raise_on_upstream_error:
                     return
 
-                raise error_class(**args) from e
+                raise error_class(**args) from without_key(e)
+
+
+def error_without_envelope(response: Response) -> FrozenDict:
+    """What an error answer with no API envelope (a proxy's 502 page) says, in the envelope's fields."""
+    message = response.reason or 'HTTP %d' % response.status_code
+
+    if response.headers.get('content-type', '').startswith('text/'):
+        text = response.text.strip()
+
+        if text:
+            message = text[:200]
+
+    return FrozenDict({'http_code': response.status_code, 'reason': response.reason or '', 'message': message})
+
+
+def raise_for_an_error_without_envelope(api_response: ApiResponse, error_class) -> None:
+    """Raise the typed error of an error answer that carries no API envelope; one with an envelope is the base class's."""
+    if 'error_id' in api_response.result:
+        return
+
+    try:
+        api_response.response.raise_for_status()
+    except HTTPError as error:
+        args = api_error_args(api_response.result, http_status_code=error.response.status_code)
+        args.update(request=error.request, response=error.response, api_response=api_response)
+
+        if error.response.status_code >= 500:
+            raise ApiHttpServerError(**args) from without_key(error)
+
+        raise error_class(**args) from without_key(error)
+
+
+class LargeObjectApiResponse(ApiResponse):
+    """The clob or blob a scrape result points to: the scraped page itself, never an API envelope."""
+
+    def __init__(self, request: Request, response: Response, format: Literal['clob', 'blob'], body_handler: 'ResponseBodyHandler'):
+        super().__init__(request, response)
+        self.format = format
+        self.error = None
+        # Only an error answer is an API envelope.
+        self.result = {}
+
+        if not response.ok and body_handler.support(headers=response.headers):
+            with suppress(EncoderError):
+                self.result = body_handler(content=response.content, content_type=response.headers['content-type'])
+
+    def raise_for_result(self, raise_on_upstream_error: bool = True, error_class=ApiHttpClientError):
+        super().raise_for_result(raise_on_upstream_error=raise_on_upstream_error, error_class=error_class)
+        # An error answer without an envelope (a proxy's 502 page) is not the page either.
+        self.response.raise_for_status()
+
+    @property
+    def content(self) -> Union[str, BytesIO]:
+        content = self.decompress()
+
+        return content.decode('utf-8') if self.format == 'clob' else BytesIO(content)
+
+    @property
+    def content_format(self) -> Literal['text', 'binary']:
+        return 'text' if self.format == 'clob' else 'binary'
 
 
 class ScrapeApiResponse(ApiResponse):
@@ -714,6 +922,10 @@ class ScreenshotApiResponse(ApiResponse):
         self.screenshot_config = screenshot_config
         self.result = self.handle_api_result(api_result)
 
+        # An error answer without an envelope is not an image.
+        if not response.ok and 'error_id' not in self.result:
+            self.result = error_without_envelope(response)
+
     @property
     def image(self) -> Optional[str]:
         binary = self.result.get('result', None)
@@ -765,6 +977,7 @@ class ScreenshotApiResponse(ApiResponse):
 
     def raise_for_result(self, raise_on_upstream_error=True, error_class=ScreenshotAPIError):
         super().raise_for_result(raise_on_upstream_error=raise_on_upstream_error, error_class=error_class)
+        raise_for_an_error_without_envelope(self, error_class)
 
 
 class ExtractionApiResponse(ApiResponse):
@@ -772,6 +985,10 @@ class ExtractionApiResponse(ApiResponse):
         super().__init__(request, response)
         self.extraction_config = extraction_config
         self.result = self.handle_api_result(api_result)
+
+        # An error answer without an envelope is not a result.
+        if not response.ok and 'error_id' not in self.result:
+            self.result = error_without_envelope(response)
 
     @property
     def extraction_result(self) -> Optional[Dict]:
@@ -805,10 +1022,10 @@ class ExtractionApiResponse(ApiResponse):
 
     @property
     def error(self) -> Optional[Dict]:
-        if self.extraction_result is None:
-            return self.result
+        if 'result' in self.result:
+            return None
 
-        return None
+        return self.result
 
     def _is_api_error(self, api_result: Dict) -> bool:
         if api_result is None:
@@ -824,3 +1041,4 @@ class ExtractionApiResponse(ApiResponse):
 
     def raise_for_result(self, raise_on_upstream_error=True, error_class=ExtractionAPIError):
         super().raise_for_result(raise_on_upstream_error=raise_on_upstream_error, error_class=error_class)
+        raise_for_an_error_without_envelope(self, error_class)

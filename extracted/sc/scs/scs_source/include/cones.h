@@ -20,6 +20,21 @@ extern "C" {
 #endif
 #endif
 
+/* Workspace for the eigendecomposition of one matrix cone at a time (cones.c):
+ * one per thread of the PSD projection. */
+typedef struct SCS_PSD_WORK ScsPsdWork;
+#ifdef USE_LAPACK
+struct SCS_PSD_WORK {
+  scs_float *Xs, *Z, *e, *work;
+  scs_float *gamma; /* PSD diagonal-congruence factors */
+  scs_complex_float *cXs, *cZ, *cwork;
+  blas_int *isuppz, *iwork;
+  /* work-array sizes, those of psd_tw[0] in every thread (lcwork is 0 in a
+   * thread with no complex block) */
+  blas_int lwork, lcwork, liwork;
+};
+#endif
+
 /* private data to help cone projection step */
 struct SCS_CONE_WORK {
   /*
@@ -37,8 +52,6 @@ struct SCS_CONE_WORK {
    * congruence X -> DXD). enforce_cone_boundaries fits this form for
    * PSD blocks instead of collapsing them to one value. */
   scs_int *cone_boundaries_psd_n;
-  /* scratch for PSD diagonal-congruence factors, length max PSD dim */
-  scs_float *psd_gamma;
   scs_int scaled_cones; /* boolean, whether the cones have been scaled */
   scs_float *s;         /* used for Moreau decomposition in projection */
   scs_int m;            /* total length of cone */
@@ -46,13 +59,17 @@ struct SCS_CONE_WORK {
   scs_float box_t_warm_start;
   scs_float *r_box_inv; /* precomputed 1/r_box[j] for box cone Newton */
 
-#ifdef USE_LAPACK
-  /* workspace for eigenvector decompositions: */
-  scs_float *Xs, *Z, *e, *work, *rwork;
-  scs_complex_float *cXs, *cZ, *cwork;
-  blas_int *isuppz, *iwork;
-  blas_int lwork, lcwork, lrwork, liwork;
-#endif
+  /* Eigendecomposition workspaces (with LAPACK), one per thread: psd_tw[0]
+   * serves every matrix cone, psd_tw[t] the PSD blocks of list t. */
+  ScsPsdWork *psd_tw;
+  /* PSD blocks: block b < ssize is real block b, else complex block b - ssize,
+   * at offset psd_off[b] from the first PSD entry (psd_len entries in all).
+   * List t of psd_nthreads is psd_blk[psd_tptr[t]] ..
+   * psd_blk[psd_tptr[t + 1] - 1], the blocks of one thread (a smaller team
+   * shares the lists out). psd_nthreads is 1 for a serial projection, one
+   * list with all blocks in order, and 0 without PSD blocks. */
+  scs_int psd_nthreads, psd_len;
+  scs_int *psd_blk, *psd_tptr, *psd_off;
 
 #ifdef USE_SPECTRAL_CONES
   /* if the projection onto the logarithmic cone should be warmstarted*/
@@ -98,6 +115,7 @@ void SCS(set_r_y)(const ScsConeWork *c, scs_float scale, scs_float *r_y);
 void SCS(enforce_cone_boundaries)(const ScsConeWork *c, scs_float *vec,
                                   scs_float (*f)(const scs_float *, scs_int),
                                   scs_int psd_rank1);
+void SCS(reset_cone_cache)(ScsConeWork *c);
 
 #ifdef __cplusplus
 }

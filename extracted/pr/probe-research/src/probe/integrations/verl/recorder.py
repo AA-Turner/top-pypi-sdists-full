@@ -64,6 +64,7 @@ class VerlRecorder:
             try:
                 parts = self._get_mapper().map_train(rows, step)
                 taken = self._samples.log(parts, step=step)
+                self._record_hardware(rows, parts)
             except Exception:
                 self._failed.add(step)
                 raise
@@ -87,6 +88,7 @@ class VerlRecorder:
             try:
                 parts = self._get_mapper().map_dropped(rows, step, reason)
                 self._samples.log(parts, step=step)
+                self._record_hardware(rows, parts)
             except Exception:
                 self._failed.add(step)
                 raise
@@ -123,6 +125,7 @@ class VerlRecorder:
             try:
                 parts = self._get_mapper().map_eval(rows, step)
                 self._samples.log(parts, step=step)
+                self._record_hardware(rows, parts)
             except Exception:
                 self._failed.add(step)
                 raise
@@ -144,6 +147,13 @@ class VerlRecorder:
             return max(self._sealed) if self._sealed else None
 
     # -- inside ------------------------------------------------------------------------------------------
+    def _record_hardware(self, rows, parts) -> None:
+        generators = [part for part in parts if part.get("role") == "generator"]
+        for row, part in zip(rows, generators, strict=True):
+            readings = row.rollout.get("gpu_readings") if isinstance(row.rollout, Mapping) else None
+            if readings:
+                self._samples.log_hardware(part["key"], readings)
+
     def _get_mapper(self) -> RowMapper:
         if self.mapper is None:
             self.mapper = RowMapper()

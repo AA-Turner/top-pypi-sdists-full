@@ -12,12 +12,12 @@ use sqlbuild_config::dbt_profile::models::{
     ConnectionKey, ConnectionSource, DbtInitConfig, NormalizedProfile, ProfileEntry, ProfileValue,
 };
 use sqlbuild_host::entries::models::ThirdPartyHost;
+use sqlbuild_python_base::native_host::main::host_error::host_error;
 
-use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
-use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::new_record_with;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::ids::RecordId;
+use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::types::RecordId;
 
 const INIT_TOML_OPTIONS: (&[&str], &[&str]) = (
     &[
@@ -35,11 +35,7 @@ const INIT_TOML_OPTIONS: (&[&str], &[&str]) = (
 );
 
 pub(crate) fn raised(py: Python<'_>, error: DbtProfileError) -> PyErr {
-    match host::entry(py, ThirdPartyHost::DbtProfileError).and_then(|class| class.call1((error.0,)))
-    {
-        Ok(instance) => PyErr::from_value(instance),
-        Err(failure) => failure,
-    }
+    host_error(py, ThirdPartyHost::DbtProfileError, &error.0)
 }
 
 fn profile_value(value: &Bound<'_, PyAny>) -> PyResult<ProfileValue> {

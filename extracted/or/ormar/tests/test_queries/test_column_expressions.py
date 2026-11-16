@@ -7,6 +7,7 @@ import ormar
 from ormar import F
 from ormar.exceptions import QueryDefinitionError
 from ormar.queryset.templates import template_cache_for
+from ormar.queryset.write_statements import UpdateWrite
 from tests.lifespan import init_tests
 from tests.settings import create_config
 
@@ -233,9 +234,11 @@ async def test_update_with_expressions(slots):
 async def test_literal_types_get_their_own_statement(slots):
     template_cache_for(model_cls=Slot).clear()
     qs = Slot.objects.filter(name="free")
-    as_int = qs.build_write_template(kind="update", values={"price": F("price") + 1})
+    as_int = qs.build_write_template(
+        statement=UpdateWrite, values={"price": F("price") + 1}
+    )
     as_float = qs.build_write_template(
-        kind="update", values={"price": F("price") + 1.5}
+        statement=UpdateWrite, values={"price": F("price") + 1.5}
     )
     assert as_int.statement is not as_float.statement
     await qs.update(price=Slot.price + 1)
@@ -249,7 +252,7 @@ async def test_expression_statements_are_shared_by_shape(slots):
     qs = Slot.objects.filter(id=1)
 
     def update(value):
-        return qs.build_write_template(kind="update", values={"taken": value})
+        return qs.build_write_template(statement=UpdateWrite, values={"taken": value})
 
     plus_one, plus_five = update(F("taken") + 1), update(F("taken") + 5)
     assert plus_one.statement is plus_five.statement
@@ -304,21 +307,14 @@ async def test_expressions_reference_non_relation_fields(slots):
     for kwargs in [{"owner": F("taken")}, {"taken": F("owner")}]:
         with pytest.raises(QueryDefinitionError):
             await Slot.objects.filter(id=1).update(**kwargs)
-    for kwargs in [{"taken": F("owner__score")}, {"taken": Slot.owner.id + 1}]:
-        with pytest.raises(QueryDefinitionError, match="not support .* yet"):
-            await Slot.objects.filter(id=1).update(**kwargs)
-    for related_filter, path in [
-        (Slot.objects.filter(owner__score__lt=F("owner__limit")), "owner__score__lt"),
-        (Slot.objects.filter(taken__lt=F("owner__score")), "owner__score"),
-        (
-            Slot.objects.exclude(ormar.or_(taken__lt=F("zone__budget"), id=1)),
-            "zone__budget",
-        ),
+    for related_filter in [
+        Slot.objects.filter(owner__score__lt=F("owner__limit")),
+        Slot.objects.filter(taken__lt=F("owner__score")),
+        Slot.objects.exclude(ormar.or_(taken__lt=F("zone__budget"), id=1)),
     ]:
-        with pytest.raises(QueryDefinitionError, match=f"related models \\('{path}'"):
-            await related_filter.update(taken=1)
-        with pytest.raises(QueryDefinitionError, match=f"related models \\('{path}'"):
-            await related_filter.delete()
+        matched = await related_filter.count()
+        assert await related_filter.update(capacity=F("capacity") + 1) == matched
+        assert await related_filter.delete() == matched
 
 
 def test_expression_operands():
@@ -389,17 +385,18 @@ async def test_through_model_filters_join_the_through_table(linked):
 
 
 @pytest.mark.asyncio
-async def test_through_model_filters_are_rejected_where_not_joined(linked):
-    for through_filter, path in [
-        (Tag.objects.filter(link__weight__gt=3), "link__weight__gt"),
-        (Tag.objects.filter(score__lt=F("link__weight")), "link__weight"),
+async def test_through_model_filters_in_updates_and_deletes(linked):
+    for through_filter in [
+        Tag.objects.filter(link__weight__gt=3),
+        Tag.objects.filter(score__lt=F("link__weight")),
     ]:
-        with pytest.raises(QueryDefinitionError, match=f"related models \\('{path}'"):
-            await through_filter.update(score=0)
-        with pytest.raises(QueryDefinitionError, match=f"related models \\('{path}'"):
-            await through_filter.delete()
         with pytest.raises(QueryDefinitionError, match="many to many"):
             await Event.objects.prefetch_related(
                 ormar.Prefetch("tags", queryset=through_filter)
             ).all()
-    assert await Tag.objects.count() == 2
+    by_weight = Tag.objects.filter(link__weight__gt=3)
+    assert [tag.score for tag in await by_weight.all()] == [1]
+    assert await by_weight.update(cap=7) == 1
+    assert await Tag.objects.filter(cap=7).values_list("score", flatten=True) == [1]
+    assert await Tag.objects.filter(score__lt=F("link__weight")).delete() == 1
+    assert await Tag.objects.values_list("score", flatten=True) == [5]

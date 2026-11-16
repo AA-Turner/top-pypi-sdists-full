@@ -1,6 +1,6 @@
 # Info
 PROJECT = "oapi-sdk-python"
-VERSION = "1.7.5"
+VERSION = "1.8.0"
 
 # Domain
 FEISHU_DOMAIN = "https://open.feishu.cn"
@@ -32,6 +32,7 @@ UTF_8 = "UTF-8"
 OAUTH_TOKEN_URI = "/oauth/v3/token"
 GRANT_TYPE_AUTHORIZATION_CODE = "authorization_code"
 GRANT_TYPE_REFRESH_TOKEN = "refresh_token"
+GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials"
 GRANT_TYPE_JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 CLIENT_ASSERTION_TYPE_JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 

@@ -321,7 +321,7 @@ jobs:
               inputs.cpython-versions
               && inputs.cpython-versions
               ||
-              '["3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]'
+              '["3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "3.15t"]'
             )
           }}
         pip-version: >-
@@ -434,6 +434,7 @@ jobs:
             VM-${{ matrix.runner-vm }},
             Py-${{ steps.python-install.outputs.python-version }},
             Pip-${{ matrix.pip-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   pypy:
     name: ${{ matrix.runner-vm }} / ${{ matrix.python-version }} / ${{ matrix.pip-version }}
@@ -540,6 +541,7 @@ jobs:
           fail_ci_if_error: >-
             ${{ fromJSON(needs.pre-setup.outputs.is-upstream-repository) }}
           run_command: send-notifications
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   zizmor:
     name: 🌈 zizmor

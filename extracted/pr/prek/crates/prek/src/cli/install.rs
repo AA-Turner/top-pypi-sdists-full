@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -9,9 +10,8 @@ use owo_colors::OwoColorize;
 use prek_consts::CONFIG_FILENAMES;
 use same_file::is_same_file;
 
-use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
+use crate::cli::reporter::HookInitReporter;
 use crate::cli::run;
-use crate::cli::run::InstallCache;
 use crate::cli::run::{SelectorSource, Selectors};
 use crate::cli::{ExitStatus, HookType};
 use crate::config::load_config;
@@ -22,6 +22,23 @@ use crate::store::Store;
 use crate::workspace::{Error as WorkspaceError, HookInitFilters, Project, Workspace};
 use crate::{git, warn_user};
 
+/// A validated command prefix, quoted for the generated POSIX shell script.
+#[derive(Debug, Clone)]
+pub(crate) struct HookCommand(String);
+
+impl FromStr for HookCommand {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        let args = shlex::split(value).context("unbalanced quotes or trailing escape")?;
+        if args.first().is_none_or(String::is_empty) {
+            anyhow::bail!("command cannot be empty");
+        }
+
+        Ok(Self(shlex::try_join(args.iter().map(String::as_str))?))
+    }
+}
+
 #[allow(clippy::fn_params_excessive_bools)]
 pub(crate) async fn install(
     store: &Store,
@@ -30,6 +47,7 @@ pub(crate) async fn install(
     includes: Vec<String>,
     skips: Vec<String>,
     hook_types: Vec<HookType>,
+    hook_command: Option<&HookCommand>,
     prepare_hooks: bool,
     force: bool,
     allow_missing_config: bool,
@@ -124,6 +142,7 @@ pub(crate) async fn install(
             config.clone(),
             selectors.as_ref(),
             hook_type,
+            hook_command,
             &hooks_path,
             force,
             allow_missing_config,
@@ -153,11 +172,11 @@ pub(crate) async fn prepare_hooks(
     let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
     let reporter = HookInitReporter::new(printer);
-    let _lock = store.lock_async().await?;
+    let store = store.lock().await?;
 
     let hooks = workspace
         .init_hooks(
-            store,
+            &store,
             HookInitFilters::new(Some(&selectors), None),
             Some(&reporter),
         )
@@ -169,10 +188,7 @@ pub(crate) async fn prepare_hooks(
         .map(Arc::new)
         .collect();
 
-    let reporter = HookInstallReporter::new(printer);
-    let mut install_cache = InstallCache::new();
-    run::install_hooks(filtered_hooks, store, &reporter, &mut install_cache).await?;
-    reporter.on_complete();
+    run::install_hooks(filtered_hooks, &store, printer).await?;
 
     Ok(ExitStatus::Success)
 }
@@ -222,6 +238,7 @@ async fn install_hook_script(
     config: Option<PathBuf>,
     selectors: Option<&Selectors>,
     hook_type: HookType,
+    hook_command: Option<&HookCommand>,
     hooks_path: &Path,
     overwrite: bool,
     skip_on_missing_config: bool,
@@ -269,7 +286,7 @@ async fn install_hook_script(
     // Add include/skip selectors.
     if let Some(selectors) = selectors {
         for include in selectors.includes() {
-            args.push(include.as_normalized_flag());
+            args.push(shlex::try_quote(&include.as_normalized_flag())?.into_owned());
         }
 
         // Find any skip selectors from environment variables.
@@ -287,8 +304,8 @@ async fn install_hook_script(
         }
 
         for skip in selectors.skips() {
-            if matches!(skip.source(), SelectorSource::CliFlag(_)) {
-                args.push(skip.as_normalized_flag());
+            if let SelectorSource::CliFlag(flag) = skip.source() {
+                args.push(format!("{flag}={}", shlex::try_quote(&skip.to_string())?));
             }
         }
     }
@@ -305,15 +322,21 @@ async fn install_hook_script(
     // If neither is available, don't pass a config path (let prek find it). In this case,
     // we're different with `pre-commit` which always sets `--config=.pre-commit-config.yaml`.
     if let Some(config) = config {
-        args.push(format!(r#"--config="{}""#, config.display()));
+        args.push(format!(
+            "--config={}",
+            shlex::try_quote(&config.display().to_string())?
+        ));
 
         write!(hint, " with specified config `{}`", config.display().cyan())?;
     } else if let Some(project) = project {
         let git_root = git::root()?;
         let project_path = project.path();
         let relative_path = project_path.strip_prefix(git_root).unwrap_or(project_path);
-        if !relative_path.as_os_str().is_empty() {
-            args.push(format!(r#"--cd="{}""#, relative_path.display()));
+        if !relative_path.is_empty() {
+            args.push(format!(
+                "--cd={}",
+                shlex::try_quote(&relative_path.display().to_string())?
+            ));
         }
 
         // Show workspace path if it's not the root project.
@@ -333,12 +356,32 @@ async fn install_hook_script(
         args.push("--skip-on-missing-config".to_string());
     }
 
-    let prek = std::env::current_exe()?;
-    let prek = prek.simplified_display().to_string();
-    let hook_script = HOOK_TMPL
-        .replace("[CUR_SCRIPT_VERSION]", &CUR_SCRIPT_VERSION.to_string())
-        .replace("[PREK_PATH]", &format!(r#""{prek}""#))
-        .replace("[PREK_ARGS]", &args.join(" "));
+    let (setup, command) = if let Some(command) = hook_command {
+        (String::new(), command.0.as_str())
+    } else {
+        let prek = std::env::current_exe()?.simplified_display().to_string();
+        let setup = indoc::formatdoc! {r#"
+            PREK="{prek}"
+
+            # Check if the full path to prek is executable, otherwise fallback to PATH
+            if [ ! -x "$PREK" ]; then
+                PREK="prek"
+            fi
+        "#};
+        (setup, r#""$PREK""#)
+    };
+    let hook_script = indoc::formatdoc! {r#"
+        #!/bin/sh
+        # File generated by prek: https://github.com/j178/prek
+        # ID: {SCRIPT_ID}
+
+        HERE="$(cd "$(dirname "$0")" && pwd)"
+        {setup}
+        exec {command} hook-impl --hook-dir="$HERE" --script-version={CUR_SCRIPT_VERSION} {args} -- "$@"
+
+        "#,
+        args = args.join(" "),
+    };
 
     fs_err::OpenOptions::new()
         .write(true)
@@ -369,34 +412,12 @@ async fn install_hook_script(
 /// requires re-installation.
 pub(crate) static CUR_SCRIPT_VERSION: usize = 4;
 
-static HOOK_TMPL: &str = r#"#!/bin/sh
-# File generated by prek: https://github.com/j178/prek
-# ID: 182c10f181da4464a3eec51b83331688
+const SCRIPT_ID: &str = "182c10f181da4464a3eec51b83331688";
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
-PREK=[PREK_PATH]
-
-# Check if the full path to prek is executable, otherwise fallback to PATH
-if [ ! -x "$PREK" ]; then
-    PREK="prek"
-fi
-
-exec "$PREK" hook-impl --hook-dir "$HERE" --script-version [CUR_SCRIPT_VERSION] [PREK_ARGS] -- "$@"
-
-"#;
-
-static PRIOR_HASHES: &[&str] = &[];
-
-// Use a different hash for each change to the script.
-// Use a different hash from `pre-commit` since our script is different.
-static CURRENT_HASH: &str = "182c10f181da4464a3eec51b83331688";
-
-/// Checks if the script contains any of the hashes that `prek` has used in the past.
+/// Checks if the script was generated by prek.
 fn is_our_script(hook_path: &Path) -> std::io::Result<bool> {
     let content = fs_err::read_to_string(hook_path)?;
-    Ok(std::iter::once(CURRENT_HASH)
-        .chain(PRIOR_HASHES.iter().copied())
-        .any(|hash| content.contains(hash)))
+    Ok(content.contains(SCRIPT_ID))
 }
 
 pub(crate) async fn uninstall(
@@ -504,6 +525,7 @@ pub(crate) async fn init_template_dir(
     directory: PathBuf,
     config: Option<PathBuf>,
     hook_types: Vec<HookType>,
+    hook_command: Option<&HookCommand>,
     requires_config: bool,
     refresh: bool,
     printer: Printer,
@@ -515,6 +537,7 @@ pub(crate) async fn init_template_dir(
         vec![],
         vec![],
         hook_types,
+        hook_command,
         false,
         true,
         !requires_config,

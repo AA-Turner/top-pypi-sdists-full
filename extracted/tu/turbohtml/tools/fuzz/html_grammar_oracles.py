@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+from itertools import product
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast
 
 from turbohtml import Element, Node, Text, parse_fragment
@@ -13,12 +15,44 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+def html_sibling_generate(rng: random.Random) -> str:
+    # Bound siblings and choose terminal text without recursion.
+    return (
+        f"{rng.choice(_TAGS)}:{rng.choice(_ATTRIBUTES)}:{rng.choice(tuple(_QUOTES))}:"
+        f"{rng.randint(1, 4)}:{rng.choice(tuple(_LEAVES))}"
+    )
+
+
+def html_sibling_seeds() -> list[str]:
+    # Sweep structural, attribute and terminal productions.
+    return [
+        f"{tag}:{attribute}:{quote}:{count}:{leaf}"
+        for tag, attribute, quote, count, leaf in product(_TAGS, _ATTRIBUTES, _QUOTES, range(1, 5), _LEAVES)
+    ]
+
+
+def html_sibling_controls() -> dict[str, bool]:
+    # Require multiplicity and literal attribute/text decoding.
+    return {
+        "dropped identical sibling": html_sibling_check(
+            "span:title:bare:2:empty", lambda node: "" if node.previous_sibling is None else node.serialize()
+        )
+        is not None,
+        "changed attribute": html_sibling_check("span:title:bare:1:empty", lambda _node: '<span title="wrong"></span>')
+        is not None,
+        "encoded text": html_sibling_check(
+            "span:title:bare:1:named", lambda node: node.serialize().replace("&amp;", "&amp;amp;")
+        )
+        is not None,
+    }
+
+
 def html_sibling_check(
     case: str,
     serialize: Callable[[Node], str] = Node.serialize,
     read: Callable[[str], Element] = parse_fragment,
 ) -> str | None:
-    """Compare generated literals before and after serialization."""
+    # Compare generated literals before and after serialization.
     if (match := _CASE.fullmatch(case)) is None:
         raise UnsupportedHtmlSiblingCaseError(case)
     tag, attribute, quote, count, leaf = match.groups()
@@ -47,6 +81,11 @@ def html_sibling_check(
     )
 
 
+class UnsupportedHtmlSiblingCaseError(ValueError):
+    # Separate malformed programs from failures of valid generated trees.
+    ...
+
+
 def _snapshot(root: Element) -> str:
     records: Final[
         list[tuple[str, str, str] | tuple[str, str, tuple[tuple[str, str | list[str] | None], ...], str]]
@@ -62,56 +101,25 @@ def _snapshot(root: Element) -> str:
     return json.dumps(records)
 
 
-def html_sibling_generate(rng: random.Random) -> str:
-    """Bound siblings and choose terminal text without recursion."""
-    return (
-        f"{rng.choice(_TAGS)}:{rng.choice(_ATTRIBUTES)}:{rng.choice(tuple(_QUOTES))}:"
-        f"{rng.randint(1, 4)}:{rng.choice(tuple(_LEAVES))}"
-    )
-
-
-def html_sibling_seeds() -> list[str]:
-    """Sweep structural, attribute and terminal productions."""
-    return [
-        f"{tag}:{attribute}:{quote}:{count}:{leaf}"
-        for tag in _TAGS
-        for attribute in _ATTRIBUTES
-        for quote in _QUOTES
-        for count in range(1, 5)
-        for leaf in _LEAVES
-    ]
-
-
-def html_sibling_controls() -> dict[str, bool]:
-    """Require multiplicity and literal attribute/text decoding."""
-    return {
-        "dropped identical sibling": html_sibling_check(
-            "span:title:bare:2:empty", lambda node: "" if node.previous_sibling is None else node.serialize()
-        )
-        is not None,
-        "changed attribute": html_sibling_check("span:title:bare:1:empty", lambda _node: '<span title="wrong"></span>')
-        is not None,
-        "encoded text": html_sibling_check(
-            "span:title:bare:1:named", lambda node: node.serialize().replace("&amp;", "&amp;amp;")
-        )
-        is not None,
-    }
-
-
-class UnsupportedHtmlSiblingCaseError(ValueError):
-    """Separate malformed programs from failures of valid generated trees."""
-
-
-_CASE: Final = re.compile(r"(span|em|code):(title|data-x):(single|double|bare):([1-4]):(empty|plain|named|numeric)")
-_TAGS: Final = ("span", "em", "code")
-_ATTRIBUTES: Final = ("title", "data-x")
-_QUOTES: Final = {"single": "'", "double": '"', "bare": ""}
-_LEAVES: Final = {
+_CASE: Final[re.Pattern[str]] = re.compile(
+    r"""
+    (?P<tag>span|em|code):                      # the element holding the attribute
+    (?P<attribute>title|data-x):                # the attribute name
+    (?P<quote>single|double|bare):              # the quote style of the value
+    (?P<count>[1-4]):                           # a digit from 1 to 4
+    (?P<leaf>empty|plain|named|numeric)         # the kind of character reference
+    """,
+    re.VERBOSE,
+)
+_TAGS: Final[tuple[str, ...]] = ("span", "em", "code")
+_ATTRIBUTES: Final[tuple[str, ...]] = ("title", "data-x")
+_QUOTES: Final[MappingProxyType[str, str]] = MappingProxyType({"single": "'", "double": '"', "bare": ""})
+_LEAVES: Final[MappingProxyType[str, tuple[str, str, str, str]]] = MappingProxyType({
     "empty": ("", "", "Token", "Token"),
     "plain": ("MiXeD", "MiXeD", "Token", "Token"),
     "named": ("&amp;&lt;&gt;", "&<>", "&quot;&apos;&amp;", "\"'&"),
     "numeric": ("&#65;&#x42;&#67;", "ABC", "&#x26;&#34;", '&"'),
-}
+})
 
 __all__ = [
     "UnsupportedHtmlSiblingCaseError",

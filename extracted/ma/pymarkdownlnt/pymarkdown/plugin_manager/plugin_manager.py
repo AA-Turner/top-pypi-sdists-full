@@ -18,7 +18,7 @@ from pymarkdown.extensions.pragma_token import (
     GeneralPragmaDisableStart,
     PragmaExtension,
 )
-from pymarkdown.general.main_presentation import MainPresentation
+from pymarkdown.general.base_presentation import BasePresentation
 from pymarkdown.general.parser_helper import ParserHelper
 from pymarkdown.plugin_manager.bad_plugin_error import BadPluginError
 from pymarkdown.plugin_manager.fix_line_record import FixLineRecord
@@ -54,7 +54,7 @@ class PluginManager:
 
     def __init__(
         self,
-        presentation: MainPresentation,
+        presentation: BasePresentation,
     ) -> None:
         """
         Initialize an instance of the PluginManager class.
@@ -453,6 +453,7 @@ class PluginManager:
             else ""
         )
         rule_id = scan_failure.rule_id.upper()
+        rule_url = self.__all_ids[rule_id.lower()].plugin_url
 
         adjusted_failure = PluginScanFailure(
             scan_failure.scan_file,
@@ -463,6 +464,7 @@ class PluginManager:
             scan_failure.rule_description,
             extra_info,
             False,
+            rule_url=rule_url,
         )
         self.__presentation.print_scan_failure(adjusted_failure)
         self.number_of_scan_failures += 1
@@ -476,7 +478,9 @@ class PluginManager:
         self.__presentation.print_pragma_failure(scan_file, line_number, pragma_error)
         self.number_of_pragma_failures += 1
 
-    def compile_pragmas(self, scan_file: str, pragma_lines: Dict[int, str]) -> None:
+    def compile_pragmas(
+        self, scan_file: str, pragma_lines: Dict[int, str], is_document_fix: bool
+    ) -> None:
         """
         Go through the list of extracted pragmas and compile them.
         """
@@ -484,6 +488,7 @@ class PluginManager:
         active_general_pragmas: Dict[str, GeneralPragmaDisableStart] = {}
 
         self.__pragma_line_numbers = []
+        lpf = None if is_document_fix else self.log_pragma_failure
         for next_line_number in pragma_lines:
             PragmaExtension.compile_single_pragma(
                 scan_file,
@@ -494,7 +499,7 @@ class PluginManager:
                 self.__document_pragma_ranges,
                 self.__general_pragma_ranges,
                 active_general_pragmas,
-                self.log_pragma_failure,
+                lpf,
                 self.__pragma_line_numbers,
             )
         PragmaExtension.end(active_general_pragmas, self.__general_pragma_ranges)
@@ -907,6 +912,10 @@ class PluginManager:
             properties,
         ):
             self.__enabled_plugins.append(plugin_object)
+
+    def get_all_ids(self) -> Dict[str, FoundPlugin]:
+        """Get a map of all the Rule Plugins ids, and their matching object."""
+        return self.__all_ids
 
     def __register_plugins(
         self,

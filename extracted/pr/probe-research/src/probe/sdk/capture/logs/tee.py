@@ -25,6 +25,7 @@ from .logs import (
     _ready_path,
     _rotate_path,
     _stopped_path,
+    _write_all,
     copy_winsize,
     get_late_path,
     live_dir,
@@ -411,6 +412,28 @@ class InProcessTee:
             self._saved = {}
             tee.finish()
             raise
+
+    def write_to_terminal(self, data: bytes) -> bool:
+        """``data`` straight to the original stderr, never into the log (Probe's own status lines, such as
+        a waiting finish's). False once the tee no longer holds stderr (stopped, or its helper died): it is
+        the original again, so a plain print is right. True otherwise, even when the terminal is gone: a
+        print would land in the log."""
+        with self._lock:  # a check and a dup only: a SIGTERM close takes this lock, so no write waits under it
+            saved = self._saved.get(2)
+            if not self._is_teeing or saved is None:
+                return False
+            try:
+                fd = os.dup(saved)  # ours to write after a stop closes `saved`
+            except OSError:
+                return True
+        try:
+            _flush_python_streams()  # best effort: the helper forwards earlier output at its own pace
+            _write_all(fd, data)
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
+        return True
 
     def _restore(self) -> None:
         with self._lock:

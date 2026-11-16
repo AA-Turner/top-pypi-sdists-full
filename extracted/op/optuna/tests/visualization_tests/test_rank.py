@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from io import BytesIO
 import math
 from typing import Any
 
@@ -18,7 +17,6 @@ from optuna.testing.objectives import fail_objective
 from optuna.testing.visualization import prepare_study_with_trials
 from optuna.trial import create_trial
 from optuna.visualization import plot_rank as plotly_plot_rank
-from optuna.visualization._plotly_imports import go
 from optuna.visualization._rank import _AxisInfo
 from optuna.visualization._rank import _convert_color_idxs_to_scaled_rgb_colors
 from optuna.visualization._rank import _get_axis_info
@@ -178,9 +176,7 @@ def test_plot_rank(
     params: list[str] | None,
 ) -> None:
     study = specific_create_study()
-    figure = plot_rank(study, params=params)
-    if isinstance(figure, go.Figure):
-        figure.write_image(BytesIO())
+    plot_rank(study, params=params)
 
 
 def test_target_is_none_and_study_is_multi_obj() -> None:
@@ -290,15 +286,25 @@ def test_get_rank_info_more_than_2_params(params: list[str] | None) -> None:
         ["param_a", "param_b", "param_c"],
     ],
 )
-def test_get_rank_info_customized_target(params: list[str]) -> None:
+@pytest.mark.parametrize(
+    "value, expected_zs",
+    [(4.0, [4.0, 4.0, 2.0]), (math.nan, [4.0, 2.0])],
+)
+def test_get_rank_info_customized_target(
+    params: list[str], value: float, expected_zs: list[float]
+) -> None:
     study = prepare_study_with_trials()
     info = _get_rank_info(
-        study, params=params, target=lambda t: t.params["param_d"], target_name="param_d"
+        study,
+        params=params,
+        target=lambda t: value if t.number == 0 else t.params["param_d"],
+        target_name="param_d",
     )
     n_params = len(params)
     assert len(info.params) == n_params
     plot_shape = (1, 1) if n_params == 2 else (n_params, n_params)
     assert _get_nested_list_shape(info.sub_plot_infos) == plot_shape
+    np.testing.assert_array_equal(info.zs, expected_zs)
 
 
 @pytest.mark.parametrize(

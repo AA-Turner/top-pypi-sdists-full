@@ -24,7 +24,7 @@ class AnalyticsProperty(AppwriteModel):
     enabled : bool
         Whether tracking is currently active.
     allowedorigins : List[Any]
-        List of origins allowed to send tracking events. Use [&quot;*&quot;] to allow all.
+        List of origins allowed to send tracking events. Use [&quot;*&quot;] to allow all. Managed by Appwrite for a property linked to a site, following the site&#039;s production domains.
     type : AnalyticsPropertyType
         Kind of product this property tracks. Decides which dashboard panels apply.
     identifyusers : bool

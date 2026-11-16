@@ -1,8 +1,6 @@
 //! The facts cross-file validation reads, taken from Python's `DiscoveredProjectInputs`.
 
-use crate::bindings::_helpers::compile_context::delta::injection;
 use crate::bindings::_helpers::discovery::model_file_record::{ModelFileTexts, NativeModelFile};
-use crate::bindings::_helpers::records::fields::{field as native_field, path_stem};
 use pyo3::FromPyObject;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
@@ -13,6 +11,9 @@ use sqlbuild_discovery::project_validation::models::{
     NodeFact, NodeKind, ProjectFacts, SchemaFileFact, ScopedDeclarationsFact, SeedEntryFact,
     SeedFileFact, SourceFact, SourceFileFact, TestBlockFact, TestFileFact,
 };
+use sqlbuild_python_base::compile_context::main::delta::injection::injection;
+use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_base::records::main::fields::path_stem::path_stem;
 
 const CSV_MODULE: &str = "csv";
 /// `DeclarationKind.AUDIT`: a generic audit file.

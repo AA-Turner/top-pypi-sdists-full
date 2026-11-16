@@ -19,9 +19,13 @@ from .wire import (
     MAX_INLINE_TEXT_BYTES,
     MAX_LOG_BYTES,
     TASK_FIELDS,
+    TASK_LABEL_CLEANERS,
+    TASK_LABEL_FIELDS,
     TOKEN_INPUTS,
     cap_error_message,
+    cap_failure_reason,
     cut_tail,
+    fit_sampling,
     fit_turns,
     replace_nul_text,
     get_default_seal_step,
@@ -119,6 +123,8 @@ class PartPreparer:
         scrub_part(part, self._scrub)
         self._check_turn_capture(part)
         cap_error_message(part)
+        cap_failure_reason(part)
+        fit_sampling(part)
         if log_text is not None:
             ref = self._bundles.append(
                 BundleKind.LOGS, part.get("seal_step"), part.pop("log_text").encode("utf-8")
@@ -141,11 +147,15 @@ class PartPreparer:
                 self._warn_stripped(names)
 
     def _take_task(self, part: dict, blobs: list[PendingBlob]) -> dict | None:
-        """The task's own fields (prompt, label, dataset, full reward) come off the part; the first
-        time this process meets a (task_key, scenario) they become one `tasks` item."""
+        """The task's own fields (prompt, label, dataset, full reward, name) come off the part; the first
+        time this process meets a (task_key, scenario) they become one `tasks` item. A name or description
+        alone never does: it waits for the part with the prompt, which a start part lacks (SkyRL)."""
         fields = {name: part.pop(name) for name in TASK_FIELDS if name in part}
+        for name, clean in TASK_LABEL_CLEANERS.items():  # any caller's label, not only an integration's
+            if name in fields and (value := clean(fields.pop(name))) is not None:
+                fields[name] = value
         task_key = part.get("task_key")
-        if not fields or not isinstance(task_key, str):
+        if not fields.keys() - set(TASK_LABEL_FIELDS) or not isinstance(task_key, str):
             return None
         scenario = part.get("scenario") or {}
         identity = (task_key, json.dumps(scenario, sort_keys=True, default=str))

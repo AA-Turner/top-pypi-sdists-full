@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.109
+Version: 0.9.111
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://graphify.com
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.graphify.com
 Project-URL: Repository, https://github.com/Graphify-Labs/graphify
 Project-URL: Issues, https://github.com/Graphify-Labs/graphify/issues
 Keywords: claude,claude-code,codex,opencode,kilo,cursor,gemini,aider,kiro,pi,devin,knowledge-graph,rag,graphrag,obsidian,community-detection,tree-sitter,leiden,llm
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-MIT
@@ -59,8 +59,7 @@ Provides-Extra: watch
 Requires-Dist: watchdog; extra == "watch"
 Provides-Extra: svg
 Requires-Dist: matplotlib; extra == "svg"
-Requires-Dist: pillow>=13.0.0; python_version >= "3.11" and extra == "svg"
-Requires-Dist: pillow>=12.3.0; python_version < "3.11" and extra == "svg"
+Requires-Dist: pillow>=13.0.0; extra == "svg"
 Requires-Dist: numpy>=2.0; python_version >= "3.13" and extra == "svg"
 Provides-Extra: leiden
 Requires-Dist: graspologic; python_version < "3.13" and extra == "leiden"
@@ -135,8 +134,7 @@ Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "all"
 Requires-Dist: av<19,>=11; python_version >= "3.11" and extra == "all"
 Requires-Dist: yt-dlp>=2026.7.4; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: pillow>=13.0.0; python_version >= "3.11" and extra == "all"
-Requires-Dist: pillow>=12.3.0; python_version < "3.11" and extra == "all"
+Requires-Dist: pillow>=13.0.0; extra == "all"
 Requires-Dist: numpy>=2.0; python_version >= "3.13" and extra == "all"
 Requires-Dist: openai; extra == "all"
 Requires-Dist: tiktoken; extra == "all"

@@ -95,6 +95,16 @@ void secp256k1_default_error_callback_fn(const char* str, void* data) {
 }
 """
 
+# the shared context's illegal callback, as cffi's `extern "Python"`:
+# cffi compiles its C into the extension, where `ffi.callback` would
+# allocate memory both writable and executable at run time, which iOS
+# refuses. It is declared in the cdef alone, being no C a compiler
+# reads, and only for a static build: cffi refuses it in ABI mode, where
+# `context.py` takes `ffi.callback` instead
+ILLEGAL_CALLBACK_DECLARATION = """
+extern "Python" void btclib_secp256k1_record_illegal(const char *, void *);
+"""
+
 # what this package's own C below shares: the headers it
 # includes and the export mark. The export is spelled out because this
 # file includes no upstream header to take `SECP256K1_API` from: a mingw
@@ -355,6 +365,95 @@ def _pin_architectures(flags: str, architectures: list[str]) -> str:
     return shlex.join(pinned)
 
 
+def _ffi_backend(system: str) -> list[Any]:
+    """Return the backend `cffi.FFI` is built with, as its arguments.
+
+    An iOS wheel is built by a macOS interpreter that cibuildwheel's
+    cross environment makes report iOS. The cffi that environment
+    installs is the iOS wheel, whose `_cffi_backend` that interpreter
+    cannot import. cffi's ctypes backend is Python, and the C it emits
+    for this module's cdef is the same, byte for byte, as the C the
+    compiled backend emits.
+
+    Args:
+        system: the platform being built for, as `platform.system()`
+            spells it.
+
+    Returns:
+        `[CTypesBackend()]` for iOS, else no argument, which is the
+        compiled backend.
+    """
+    if system != "iOS":
+        return []
+    from cffi.backend_ctypes import CTypesBackend  # noqa: PLC0415
+
+    return [CTypesBackend()]
+
+
+def _ios_cmake_options(
+    system: str, target: str, deployment_target: str | None
+) -> list[str]:
+    """Return the CMake options aiming the vendored build at iOS.
+
+    cibuildwheel builds an iOS wheel on macOS, and CMake configures for
+    the machine it runs on unless it is told the system, the SDK, the
+    architecture and the deployment target.
+
+    Args:
+        system: the platform being built for, as `platform.system()`
+            spells it.
+        target: the platform tag, `sysconfig.get_platform()`, as
+            `ios-13.0-arm64-iphonesimulator`: its last two fields are the
+            architecture and the SDK.
+        deployment_target: the iOS version to build for, or None for
+            the compiler's default.
+
+    Returns:
+        No option where the build is not for iOS.
+
+    Raises:
+        RuntimeError: where `target` is not four fields joined by `-`, or
+            one of them is empty.
+    """
+    if system != "iOS":
+        return []
+    fields = target.split("-")
+    if len(fields) != 4 or not all(fields):
+        msg = f"an iOS platform tag has four fields, not {target!r}"
+        raise RuntimeError(msg)
+    _, _, arch, sdk = fields
+    options = [
+        "-DCMAKE_SYSTEM_NAME=iOS",
+        f"-DCMAKE_OSX_SYSROOT={sdk}",
+        f"-DCMAKE_OSX_ARCHITECTURES={arch}",
+    ]
+    if deployment_target:
+        options.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}")
+    return options
+
+
+def _python_library(system: str, ldversion: str) -> list[str]:
+    """Return the `-l` option linking the glue against libpython.
+
+    An Android extension names libpython among the libraries it needs:
+    setuptools links it there too (`build_ext.get_libraries`), whose
+    comment gives the reason, that Android loads the libraries the
+    executable depends on as `RTLD_LOCAL`. cibuildwheel's Android
+    `LDFLAGS` carry `-Wl,--no-undefined`, so a glue linked without it
+    fails on every Python symbol. The `-L` that finds it is in those
+    `LDFLAGS` too.
+
+    Args:
+        system: the platform being built for, as `platform.system()`
+            spells it.
+        ldversion: the interpreter's `LDVERSION`, as `3.14` or `3.14t`.
+
+    Returns:
+        No option where the build is not for Android.
+    """
+    return [f"-lpython{ldversion}"] if system == "Android" else []
+
+
 def _cmake_build_type(env: Mapping[str, str]) -> str:
     """Read the vendored library's CMake build type.
 
@@ -392,6 +491,11 @@ def _hardening_options(
       Mach-O file has no `relro`, `now` or marking to read back, and
       Apple's compiler rejects `-mbranch-protection` for an x86_64
       target.
+    - Android: Linux's compile flags, and no link flag. The NDK toolchain
+      links the glue with a `GNU_RELRO` segment and `BIND_NOW` by
+      default. The aarch64 extension is marked for BTI. The x86_64 one
+      is not marked for IBT and SHSTK, for the reason `start_files_mark`
+      in `.github/scripts/verify_wheel_contents.py` gives.
     - Windows, MSVC: `/GS` and `/guard:cf`, linked with `/GUARD:CF`.
     - Windows, cross-compiled with mingw-w64: no compile flag, because
       the stack protector would link a `libssp` DLL; the DLL is linked
@@ -411,13 +515,13 @@ def _hardening_options(
             return [], ["-Wl,--dynamicbase", "-Wl,--nxcompat", "-Wl,--high-entropy-va"]
         return ["/GS", "/guard:cf"], ["/GUARD:CF"]
     cflags = ["-fstack-protector-strong", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=2"]
-    if system != "Linux":
+    if system not in {"Linux", "Android"}:
         return cflags, []
     if machine.lower() in {"x86_64", "amd64"}:
         cflags.append("-fcf-protection=full")
     elif machine.lower() in {"aarch64", "arm64"}:
         cflags.append("-mbranch-protection=standard")
-    return cflags, ["-Wl,-z,relro", "-Wl,-z,now"]
+    return cflags, ["-Wl,-z,relro", "-Wl,-z,now"] if system == "Linux" else []
 
 
 def _link_command(  # noqa: PLR0913, PLR0917
@@ -559,7 +663,7 @@ class FFIExtension:
         build_dir = pathlib.Path(build_dir)
 
         self.build_c()
-        ffi = cffi.FFI()
+        ffi = cffi.FFI(*_ffi_backend(platform.system()))
         header, definitions = self.generate_def()
         ffi.cdef(definitions)
 
@@ -725,9 +829,14 @@ class FFIExtension:
         # under the default build type -- build_c's own note beside the
         # configure has the reason, and what a caller naming another
         # type trades away (btclib-org/btclib-secp256k1#522)
+        #
+        # An iOS extension is linked by the same ld64, from a compile
+        # whose interpreter CFLAGS carry -g too, so it takes the macOS
+        # flags and the mtime pin below
+        apple = platform.system() in {"Darwin", "iOS"}
         build_path_flags = (
             ["-fdebug-compilation-dir=."]
-            if platform.system() == "Darwin"
+            if apple
             else [f"-ffile-prefix-map={build_dir.resolve()}=."]
         )
         sysconfig_cflags = get_config_var("CFLAGS") or ""
@@ -767,13 +876,16 @@ class FFIExtension:
             hardening_link,
             [str(o_filename)],
             [f"-L{libs_dir}" for libs_dir in self.library_dirs],
-            [f"-l{lib}" for lib in self.libraries],
-            ["-Wl,-oso_prefix,."] if platform.system() == "Darwin" else [],
+            [
+                *(f"-l{lib}" for lib in self.libraries),
+                *_python_library(self.platform, get_config_var("LDVERSION")),
+            ],
+            ["-Wl,-oso_prefix,."] if apple else [],
             str(so_filename),
         )
 
         subprocess.run(compile_command, cwd=build_dir, check=True)
-        if platform.system() == "Darwin":
+        if apple:
             # ld64 attaches a debug map to the binary it links whenever
             # the compile carries -g, as this interpreter's own CFLAGS
             # always does above where no CFLAGS in the environment
@@ -841,8 +953,9 @@ class VendoredCMakeExtension(FFIExtension):
     What `Secp256k1CFFIExtension` and `Secp256k1ZkpCFFIExtension` do not
     share is which submodule is read, which of its CMake modules are
     turned on, and which of its headers the cdef comes from -- the three
-    arguments `configure` below takes -- and the C of this package's own
-    that `own_source` names. Everything else is a property of
+    arguments `configure` below takes -- the C of this package's own
+    that `own_source` names, and the `extern "Python"` declarations of
+    `extern_python`. Everything else is a property of
     building this shape of upstream CMake project, once per submodule,
     and lives here so that it is written once: the architecture and
     deployment-target options, the callback stubs, the choice among the
@@ -856,6 +969,9 @@ class VendoredCMakeExtension(FFIExtension):
     # that declares none
     own_source = ""
     own_declarations = ""
+    # what a static build's cdef declares `extern "Python"`, after the
+    # preprocessed headers: empty for an extension that declares none
+    extern_python = ""
 
     def configure(
         self,
@@ -942,8 +1058,9 @@ class VendoredCMakeExtension(FFIExtension):
         sysconfig.get_platform() is where setuptools reads its own target
         from, so deriving this from it keeps the two in agreement by
         construction; on POSIX it also follows the _PYTHON_HOST_PLATFORM
-        that a cross-compiling cibuildwheel sets, so an arm64 macOS wheel
-        built on an Intel runner is built for arm64 throughout.
+        that cibuildwheel sets, and that test.yml's build-dynamic sets for
+        its macOS wheel, so a universal2 interpreter building an arm64
+        wheel builds for arm64 throughout.
 
         Linux has no equivalent option to set: a 32-bit interpreter on a
         64-bit host would need the -m32 of a multilib toolchain, which is
@@ -1108,6 +1225,14 @@ class VendoredCMakeExtension(FFIExtension):
             "-DSECP256K1_INSTALL=OFF",
             *self.target_architecture_options(),
             *self.macos_deployment_target_options(),
+            # the deployment target cibuildwheel exports, as for macOS
+            # above, or else the interpreter's own
+            *_ios_cmake_options(
+                platform.system(),
+                get_platform(),
+                os.environ.get("IPHONEOS_DEPLOYMENT_TARGET")
+                or get_config_var("IPHONEOS_DEPLOYMENT_TARGET"),
+            ),
         ]
         # not in that list, and deliberately: SECP256K1_ASM,
         # SECP256K1_ECMULT_WINDOW_SIZE and SECP256K1_ECMULT_GEN_KB are
@@ -1116,10 +1241,11 @@ class VendoredCMakeExtension(FFIExtension):
         # what upstream recommends for a desktop. ASM asks the build
         # machine a question too -- AUTO is a compile check, and it falls
         # back to OFF in silence where that check fails -- but it cannot
-        # be pinned in one line: the mingw cell cross-compiles, and the
-        # macOS universal2 one compiles two architectures in a single
-        # pass, which is the `x86_64;arm64` target_architecture_options
-        # names above. Pinning an architecture here would contradict it.
+        # be pinned in one line: the mingw cell cross-compiles, and a
+        # macOS build for universal2 compiles two architectures in a
+        # single pass, which is the `x86_64;arm64`
+        # target_architecture_options names above. Pinning an
+        # architecture here would contradict it.
         # #211 records the values, and why they are left alone
         #
         # Also not in that list: anything pinning the mtime of an object
@@ -1178,6 +1304,8 @@ class VendoredCMakeExtension(FFIExtension):
         then expands the `__attribute__ ((...))` that cffi's parser cannot
         read. Raises RuntimeError if the preprocessing fails, a partial
         cdef being a wrapper that compiles and declares the wrong thing.
+        A static build's cdef then ends with `extern_python`, and a
+        dynamic one's does not, as `ILLEGAL_CALLBACK_DECLARATION` says.
 
         The pattern allows whitespace between `#` and `include`: every
         header of the primary submodule spells it `#include`, but three
@@ -1213,6 +1341,8 @@ class VendoredCMakeExtension(FFIExtension):
             definitions = definitions.replace("\r", "\n")
         if p.returncode != 0:
             raise RuntimeError(f"header preprocessing failed: {p.returncode}")
+        if self.static:
+            definitions += self.extern_python
         return ffi_header, definitions
 
 
@@ -1223,6 +1353,7 @@ class Secp256k1CFFIExtension(VendoredCMakeExtension):
     own_declarations = (
         ECDH_HASH_FUNCTION_XY_DECLARATION + LABEL_LOOKUP_SORTED_DECLARATION
     )
+    extern_python = ILLEGAL_CALLBACK_DECLARATION
 
     def __init__(self) -> None:
         """Name the sources, the headers and where the build output goes."""

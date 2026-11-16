@@ -54,6 +54,19 @@ def _build_where(where: Mapping[str, Any] | Iterable[str] | None) -> list[str] |
     return [item.replace("=", ":", 1) if ":" not in item else item for item in where]
 
 
+def _build_sample_query(*, task_id: str | None = None, where: Any = None, include: Iterable[str] | None = None,
+                        **values: Any) -> dict[str, Any]:
+    """The filters every sample read shares, as the routes take them (`include=rewound` is `include_rewound`)."""
+    wanted = list(include or ())
+    return _build_query(
+        **values,
+        task=task_id,
+        where=_build_where(where),
+        include=[item for item in wanted if item != "rewound"],
+        include_rewound=True if "rewound" in wanted else None,
+    )
+
+
 def _get_contract():
     """The sample contract's models, imported on first typed read (about 80 ms)."""
     from .....generated import samples
@@ -90,25 +103,31 @@ class SampleReadsMixin:
         """`GET /v1/runs/{id}/samples`: a page of sample rows (`SampleList`), the response cut to
         4 KiB. ``include``: `dropped`, and `rewound` for the abandoned branch; ``stale_after``: the
         in-flight rows silent this long (`10m`); ``grep``: text in the response, turns or log tail."""
-        wanted = list(include or ())
-        query = _build_query(
-            step=step,
-            step_from=step_from,
-            step_to=step_to,
-            split=split,
-            result=result,
-            outcome=outcome,
-            reward=reward,
-            task=task_id,
-            where=_build_where(where),
-            include=[item for item in wanted if item != "rewound"],
-            include_rewound=True if "rewound" in wanted else None,
-            stale_after=stale_after,
-            grep=grep,
-            cursor=cursor,
-            limit=limit,
+        query = _build_sample_query(
+            step=step, step_from=step_from, step_to=step_to, split=split, result=result, outcome=outcome,
+            reward=reward, task_id=task_id, where=where, include=include, stale_after=stale_after, grep=grep,
+            cursor=cursor, limit=limit,
         )
         return self.transport.get(f"/v1/runs/{_quote(run_id)}/samples", params=query)
+
+    def export_samples(
+        self,
+        run_id: str,
+        *,
+        export_format: str = "probe",
+        cursor: str | None = None,
+        **filters: Any,
+    ) -> dict:
+        """`GET /v1/runs/{id}/samples/export`: a page of the run's samples whole (`SampleExportPage`: `items`,
+        `next_cursor`, `skipped`), up to 100, ``export_format`` `probe` (list rows with complete turns) or `atif`
+        (ATIF trajectories). ``filters`` are `list_samples`'s; the population is the list's. A server older than
+        the route answers 404 (`NotFoundError`)."""
+        query = _build_sample_query(cursor=cursor, **filters)
+        query["format"] = export_format
+        return self.transport.get(f"/v1/runs/{_quote(run_id)}/samples/export", params=query)
+
+    def get_sample_hardware(self, sample_id: str) -> dict:
+        return self.transport.get(f"/v1/samples/{_quote(sample_id)}/hardware")
 
     def get_sample(self, sample_id: str) -> dict:
         """`GET /v1/samples/{id}`: one merged sample, its text whole (`SampleOut`)."""
@@ -219,6 +238,12 @@ class SampleReadsMixin:
 
 class SamplesResource(Resource):
     """`client.samples`: the sample reads as the contract's models (`probe.generated.samples`)."""
+
+    def get_hardware(self, sample_id: str):
+        """Recorded serving GPU observations for exactly this sample."""
+        from probe.generated.samples.hardware import SampleHardware
+
+        return self._to_model(SampleHardware, self._client.get_sample_hardware(sample_id))
 
     __slots__ = ()
 

@@ -31,7 +31,7 @@ class CancelOwnedTaskWithoutJoin(Rule):
     id = "cancel-owned-task-without-join"
     code = "SARJ536"
     documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
-        default_level=Severity.WARNING,
+        default_level=Severity.ERROR,
         summary="Join a cancelled locally owned task before releasing its lifecycle.",
         rationale="Task.cancel requests cancellation without waiting for the child to finish; an async lifespan can release resources while its child still runs cancellation cleanup.",
         remediation="Await the owned task or an appropriate gather/TaskGroup settlement before releasing resources. Preserve cancellation of the owner and choose an explicit policy for unexpected child errors and repeated cancellation.",
@@ -80,7 +80,7 @@ class CancelOwnedTaskWithoutJoin(Rule):
         diagnostics: list[Diagnostic] = []
         reported: set[ast.Name] = set()
         for call in context.nodes(ast.Call):
-            binding = _unjoined_child(proof, call)
+            binding = unjoined_lifespan_child(proof, call)
             if binding is None or binding in reported or context.suppressions.is_suppressed(call.lineno, self.code):
                 continue
             reported.add(binding)
@@ -90,14 +90,14 @@ class CancelOwnedTaskWithoutJoin(Rule):
                     line=call.lineno,
                     col=call.col_offset + 1,
                     code=self.code,
-                    severity=Severity.WARNING,
+                    severity=Severity.ERROR,
                     message="cancel() does not settle this lifespan-owned task; join its completion before releasing the lifecycle's resources",
                 )
             )
         return diagnostics
 
 
-def _unjoined_child(proof: AsyncApiProof, call: ast.Call) -> ast.Name | None:
+def unjoined_lifespan_child(proof: AsyncApiProof, call: ast.Call) -> ast.Name | None:
     receiver = method_receiver(call, frozenset({"cancel"}))
     owner = proof.provenance.scope(call)
     if receiver is None or not isinstance(owner, ast.AsyncFunctionDef) or len(owner.decorator_list) != 1:

@@ -1,8 +1,9 @@
 """Miles' running samples as live samples (front door; DESIGN.md): `LIVE`, this process's tries; the module wraps the
 Ray setup hook installs (`wrap_rollout_common`, `wrap_session_tracer`, `install_rid_stamp`, `wrap_rollout_inputs`);
-the refusal texts."""
+the refusal texts; a try's GPU readings (`gpu.py`)."""
 
 from probe.integrations.miles.live.engines import CURRENT, EngineAborter, RidStamp
+from probe.integrations.miles.live.gpu import GpuBinding, GpuTraces, take_reply_trace, take_session_trace
 from probe.integrations.miles.live.generate import ProbeGenerate, is_live_on, wrap_generate, wrap_rollout_common
 from probe.integrations.miles.live.live import (
     AGENT_REFUSAL,
@@ -25,6 +26,8 @@ __all__ = [
     "LIVE",
     "NOT_STAMPED_REFUSAL",
     "EngineAborter",
+    "GpuBinding",
+    "GpuTraces",
     "LiveRollouts",
     "ProbeGenerate",
     "RidStamp",
@@ -33,6 +36,8 @@ __all__ = [
     "SessionWatcher",
     "install_rid_stamp",
     "is_live_on",
+    "take_reply_trace",
+    "take_session_trace",
     "to_turns",
     "wrap_generate",
     "wrap_rollout_common",

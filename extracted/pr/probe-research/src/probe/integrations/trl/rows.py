@@ -16,8 +16,11 @@ from typing import Any, NamedTuple
 from probe.generated.samples import CaptureField, TurnsSource
 from probe.sdk.run.samples.rollout import REASONING_KEYS, to_tool_call
 
-#: A dataset column naming the task; else the prompt's hash is the key (`prompt:<sha256[:16]>`).
-TASK_COLUMN = "task_id"
+from ..task_label import TASK_DESCRIPTION_FIELD, TASK_ID_FIELD, TASK_NAME_FIELD, get_task_label
+
+#: A dataset column naming the task; else the prompt's hash is the key (`prompt:<sha256[:16]>`). `task_name` /
+#: `task_description` columns label it (`task_label/task_label.py`).
+TASK_COLUMN = TASK_ID_FIELD
 #: A dataset column holding the task's scenario: an object of named values, or that object as JSON text.
 SCENARIO_COLUMN = "scenario"
 #: Dataset columns read as the task's reference answer, first found (GSM `answer`, math `solution`).
@@ -37,6 +40,10 @@ SOURCES = {"system": "system", "assistant": "model", "tool": "tool", "function":
 #: The capture fields a trainer that runs no tools cannot fill (`plan(unsupported=)`).
 TOOL_FIELDS = (CaptureField.TOOL_CALL_IDS, CaptureField.TOOL_CALL_ARGUMENTS, CaptureField.TOOL_RESULT_LINKS,
                CaptureField.ENVIRONMENT_FILES)
+
+#: Why a TRL trainer that generates gives no per-call GPU readings (`gpu_readings`, D8 of miles-rollout-gpu).
+NO_SERVING_GPU = ("TRL generates inside the trainer (or its own vLLM server), where Probe reads no GPU readings per "
+                  "model call: the run's GPU charts cover its devices")
 
 #: `extras` key: replies whose tool results could not be linked to their calls by TRL's order (a name differed).
 UNLINKED_TOOL_TURNS = "unlinked_tool_turns"
@@ -123,18 +130,19 @@ class RowReader:
         """The dataset columns `read_task` reads; a scenario callable may read any, so then all of ``dataset``'s."""
         if callable(self._scenario):
             return [str(name) for name in getattr(dataset, "column_names", None) or ()]
-        return [TASK_COLUMN, SCENARIO_COLUMN, *LABEL_COLUMNS, IMAGE_COLUMN, IMAGES_COLUMN, *self._columns]
+        return [TASK_COLUMN, TASK_NAME_FIELD, TASK_DESCRIPTION_FIELD, SCENARIO_COLUMN, *LABEL_COLUMNS, IMAGE_COLUMN,
+                IMAGES_COLUMN, *self._columns]
 
     def read_task(self, row: Mapping[str, Any] | None, prompt: Any) -> dict:
-        """``{task_key, scenario[, label]}`` for one row; a missing row keys the task by its prompt. The row's images
-        join the scenario as file pointers (`image`, `image_1`, ...: `{"sha256"}`), so one question asked of two
-        images is two tasks, and one image is the same task in every run."""
+        """``{task_key, scenario[, label, name, description]}`` for one row; a missing row keys the task by its
+        prompt. The row's images join the scenario as file pointers (`image`, `image_1`, ...: `{"sha256"}`), so one
+        question asked of two images is two tasks, and one image is the same task in every run."""
         row = row if isinstance(row, Mapping) else {}
         named = row.get(TASK_COLUMN)
         key = str(named) if isinstance(named, (str, int)) and str(named) else make_prompt_key(prompt)
         if len(key) > MAX_TASK_KEY_CHARS:  # the contract refuses a longer key: keep it unique, not cut
             key = "task:" + hashlib.sha256(key.encode("utf-8")).hexdigest()
-        task: dict[str, Any] = {"task_key": key, "scenario": self._get_scenario(row, prompt)}
+        task: dict[str, Any] = {"task_key": key, "scenario": self._get_scenario(row, prompt), **get_task_label(row)}
         label = _get_label(row)
         if label is not None:
             task["label"] = label

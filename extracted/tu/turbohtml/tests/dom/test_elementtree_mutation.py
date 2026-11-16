@@ -4,10 +4,13 @@ from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
-from turbohtml import Element, Text, etree, parse
+from turbohtml import Element, Text, etree, parse, parse_xml
+from turbohtml.etree import document_fromstring, fragment_fromstring, fromstring, strip_elements, strip_tags, tostring
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
+
+    from work_steps import WorkSteps
 
     from turbohtml.etree import ElementView
 
@@ -24,7 +27,43 @@ if TYPE_CHECKING:
 )
 def test_element_tree_insert(tree: ElementView, incoming: ElementView, index: int, expected: str) -> None:
     tree.insert(index, incoming)
-    assert etree.tostring(tree, encoding="unicode") == expected
+    assert tostring(tree, encoding="unicode") == expected
+
+
+@pytest.mark.parametrize("index", [pytest.param(-1, id="from-end"), pytest.param(0, id="first")])
+def test_element_tree_insert_into_childless(incoming: ElementView, index: int) -> None:
+    empty: Final = etree.fromstring("<div>start</div>")
+    empty.insert(index, incoming)
+    assert etree.tostring(empty, encoding="unicode") == "<div>start<strong>N</strong>tail</div>"
+
+
+@pytest.mark.parametrize(
+    ("index", "expected"),
+    [
+        pytest.param(0, "<ul><li>d</li><li>c</li><li>b</li><li>a</li></ul>", id="front-reverses"),
+        pytest.param(-1, "<ul><li>a</li><li>b</li><li>c</li><li>d</li></ul>", id="before-last-restores"),
+    ],
+)
+def test_element_tree_insert_moving_each_child_near_either_end_orders_them(index: int, expected: str) -> None:
+    listing = etree.fromstring("<ul><li>a</li><li>b</li><li>c</li><li>d</li></ul>")
+    for item in list(listing):
+        listing.insert(index, item)
+    assert etree.tostring(listing, encoding="unicode") == expected
+
+
+@pytest.mark.parametrize("index", [pytest.param(1, id="second"), pytest.param(-2, id="second-from-end")])
+def test_element_tree_insert_near_either_end_stays_linear(index: int, work_steps: WorkSteps) -> None:
+    def move_each(size: int) -> Callable[[], object]:
+        listing = etree.fromstring(f"<ol>{'<li>i</li>' * size}</ol>")
+        items = list(listing)
+
+        def move_all() -> None:
+            for item in items:
+                listing.insert(index, item)
+
+        return move_all
+
+    work_steps.assert_linear(move_each, (500, 2000))
 
 
 @pytest.mark.parametrize(
@@ -59,7 +98,7 @@ def test_element_tree_moves_element_with_tail(
     expected: str,
 ) -> None:
     operation(tree, incoming)
-    assert etree.tostring(tree, encoding="unicode") == expected
+    assert tostring(tree, encoding="unicode") == expected
 
 
 @pytest.mark.parametrize(
@@ -72,17 +111,25 @@ def test_element_tree_moves_element_with_tail(
 def test_element_tree_clear(tree: ElementView, expected: str, *, keep_tail: bool) -> None:
     tree[0].set("class", "one two")
     tree[0].clear(keep_tail=keep_tail)
-    assert etree.tostring(tree, encoding="unicode") == expected
+    assert tostring(tree, encoding="unicode") == expected
+
+
+def test_element_tree_clear_removes_many_attributes_linearly(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(lambda count: _attributed_element(count).clear, (1_000, 4_000))
+
+
+def _attributed_element(count: int) -> ElementView:
+    return fromstring(f"<p {' '.join(f'k{index}' for index in range(count))}></p>")
 
 
 def test_element_tree_unwrap_keeps_text(tree: ElementView) -> None:
     tree[0].drop_tag()
-    assert etree.tostring(tree, encoding="unicode") == "<div>startAone<b>B</b>two</div>"
+    assert tostring(tree, encoding="unicode") == "<div>startAone<b>B</b>two</div>"
 
 
 def test_element_tree_tag_setter_changes_serialized_name(tree: ElementView) -> None:
     tree[0].tag = "strong"
-    assert etree.tostring(tree, encoding="unicode") == "<div>start<strong>A</strong>one<b>B</b>two</div>"
+    assert tostring(tree, encoding="unicode") == "<div>start<strong>A</strong>one<b>B</b>two</div>"
 
 
 def test_element_tree_unwrap_requires_parent() -> None:
@@ -99,19 +146,19 @@ def test_element_tree_text_setter_replaces_adjacent_nodes() -> None:
     node: Final = Element("p", children=[Text("one"), Text("two"), Element("b")])
     view: Final = etree.ElementView(node)
     view.text = "new"
-    assert etree.tostring(view, encoding="unicode") == "<p>new<b/></p>"
+    assert tostring(view, encoding="unicode") == "<p>new<b/></p>"
 
 
 def test_element_tree_text_setter_removes_leading_text(tree: ElementView) -> None:
     tree.text = None
-    assert etree.tostring(tree, encoding="unicode") == "<div><a>A</a>one<b>B</b>two</div>"
+    assert tostring(tree, encoding="unicode") == "<div><a>A</a>one<b>B</b>two</div>"
 
 
 def test_element_tree_tail_setter_replaces_adjacent_nodes() -> None:
     node: Final = Element("p", children=[Element("b"), Text("one"), Text("two")])
     view: Final = etree.ElementView(node)
     view[0].tail = "new"
-    assert etree.tostring(view, encoding="unicode") == "<p><b/>new</p>"
+    assert tostring(view, encoding="unicode") == "<p><b/>new</p>"
 
 
 @pytest.mark.parametrize(
@@ -122,9 +169,9 @@ def test_element_tree_tail_setter_replaces_adjacent_nodes() -> None:
     ],
 )
 def test_element_tree_document_root_ignores_outside_content(operation: Callable[[ElementView], None]) -> None:
-    tree: Final = etree.document_fromstring("<p>text</p>")
+    tree: Final = document_fromstring("<p>text</p>")
     operation(tree)
-    assert etree.tostring(tree, encoding="unicode") == "<html><body><p>text</p></body></html>"
+    assert tostring(tree, encoding="unicode") == "<html><body><p>text</p></body></html>"
 
 
 def test_element_tree_detaches_document_root() -> None:
@@ -133,19 +180,82 @@ def test_element_tree_detaches_document_root() -> None:
     assert root is not None
     tree: Final = etree.ElementView(root)
     tree.drop_tree()
-    assert (document.root, tree.getparent(), etree.tostring(tree, encoding="unicode")) == (
+    assert (document.root, tree.getparent(), tostring(tree, encoding="unicode")) == (
         None,
         None,
         "<html><head/><body><p>text</p></body></html>",
     )
 
 
-@pytest.mark.parametrize(
-    "function", [pytest.param(etree.strip_tags, id="unwrap"), pytest.param(etree.strip_elements, id="remove")]
-)
-def test_element_tree_empty_strip_filter_retains_content(tree: ElementView, function: Callable[..., None]) -> None:
+@pytest.mark.parametrize("function", [pytest.param(strip_tags, id="unwrap"), pytest.param(strip_elements, id="remove")])
+def test_element_tree_empty_strip_filter_retains_content(
+    tree: ElementView, function: Callable[[ElementView, *tuple[str | Iterable[str] | None, ...]], None]
+) -> None:
     function(tree)
-    assert etree.tostring(tree, encoding="unicode") == "<div>start<a>A</a>one<b>B</b>two</div>"
+    assert tostring(tree, encoding="unicode") == "<div>start<a>A</a>one<b>B</b>two</div>"
+
+
+def test_element_tree_strip_elements_leaves_nested_match_in_removed_subtree() -> None:
+    tree: Final = etree.fromstring("<div><b>one<i>two</i>three</b>four<i>five</i>six</div>")
+    outer: Final = tree[0]
+    etree.strip_elements(tree, "b", "i")
+    assert (etree.tostring(tree, encoding="unicode"), etree.tostring(outer, encoding="unicode")) == (
+        "<div/>",
+        "<b>one<i>two</i>three</b>",
+    )
+
+
+def test_element_tree_strip_elements_leaves_template_content() -> None:
+    tree: Final = etree.fromstring("<div><template><b>kept</b></template><b>gone</b></div>")
+    etree.strip_elements(tree, "b")
+    assert etree.tostring(tree, encoding="unicode") == "<div><template><b>kept</b></template></div>"
+
+
+def test_element_tree_strip_elements_stops_at_tail_holder() -> None:
+    tree: Final = etree.fromstring("<div><p><b>bold</b></p>tail</div>")
+    removed: Final = tree[0]
+    tree.remove(removed)  # parks the element and its tail under a holder that getparent() does not climb past
+    holder: Final = removed.node.parent
+    assert isinstance(holder, Element)
+    etree.strip_elements(etree.ElementView(holder), "b")
+    assert etree.tostring(removed, encoding="unicode") == "<p><b>bold</b></p>tail"
+
+
+def test_element_tree_strip_elements_stops_at_tail_holder_below_root() -> None:
+    tree: Final = etree.fromstring("<div><p><b>bold</b></p>tail</div>")
+    removed: Final = tree[0]
+    tree.remove(removed)
+    holder: Final = removed.node.parent
+    assert isinstance(holder, Element)
+    outer: Final = etree.fromstring("<main><i>z</i></main>")
+    outer.append(etree.ElementView(holder))
+    etree.strip_elements(outer, "b")
+    assert etree.tostring(removed, encoding="unicode") == "<p><b>bold</b></p>tail"
+
+
+def test_element_tree_getparent_of_a_detached_element_is_none() -> None:
+    assert etree.ElementView(Element("p")).getparent() is None
+
+
+def test_element_tree_strip_elements_star_removes_every_element() -> None:
+    tree: Final = etree.fromstring("<div>a<b>x</b>c<i>y</i></div>")
+    etree.strip_elements(tree, "*")
+    assert etree.tostring(tree, encoding="unicode") == "<div>a</div>"
+
+
+def test_element_tree_strip_elements_stays_linear(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(_match_per_level, (700, 2_800))
+
+
+def _match_per_level(depth: int) -> Callable[[], None]:
+    root: Final = parse_xml(f"<r>{'<s><m/>' * depth}{'</s>' * depth}</r>").root
+    assert root is not None
+    tree: Final = etree.ElementView(root)
+
+    def strip() -> None:
+        etree.strip_elements(tree, "m")
+
+    return strip
 
 
 @pytest.mark.parametrize(
@@ -182,11 +292,65 @@ def test_element_tree_rejects_non_element(
         operation(tree, cast("ElementView", "text"))
 
 
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<div><i>a</i>1<i>b</i>2<i>c</i>3</div>", "<div>123</div>", id="tail-each"),
+        pytest.param("<div><i>a</i><i>b</i><i>c</i>3</div>", "<div>3</div>", id="tail-last"),
+    ],
+)
+def test_element_tree_drop_tree_leaves_each_tail_in_parent(markup: str, expected: str) -> None:
+    tree: Final = etree.fromstring(markup)
+    dropped: Final = list(tree)
+    for element in reversed(dropped):
+        element.drop_tree()
+    assert ([element.tail for element in dropped], etree.tostring(tree, encoding="unicode")) == ([None] * 3, expected)
+
+
+def test_element_tree_repeated_drop_tree_stays_linear(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(_repeated_drops, (1_000, 4_000))
+
+
+def _repeated_drops(count: int) -> Callable[[], None]:
+    tree: Final = etree.fromstring(f"<div>{'<i>a</i>t' * count}</div>")
+    elements: Final = tree.findall(".//i")
+
+    def drop() -> None:
+        for element in reversed(elements):
+            element.drop_tree()
+
+    return drop
+
+
 @pytest.fixture
 def tree() -> ElementView:
-    return etree.fromstring("<div>start<a>A</a>one<b>B</b>two</div>")
+    return fromstring("<div>start<a>A</a>one<b>B</b>two</div>")
 
 
 @pytest.fixture
 def incoming() -> ElementView:
-    return etree.fragment_fromstring("<strong>N</strong>tail")
+    return fragment_fromstring("<strong>N</strong>tail")
+
+
+@pytest.mark.parametrize(
+    ("attribute", "path", "expected"),
+    [
+        pytest.param("text", "p/text()", "price: 10 EUR", id="text"),
+        pytest.param("tail", "text()", "after: 10 EUR", id="tail"),
+    ],
+)
+def test_element_tree_text_setter_keeps_one_text_node(attribute: str, path: str, expected: str) -> None:
+    tree: Final = fragment_fromstring("<div><p>price: </p>after: </div>")
+    for more in ("1", "0", " EUR"):
+        setattr(tree[0], attribute, getattr(tree[0], attribute) + more)
+    texts: Final = tree.xpath(path)
+    assert isinstance(texts, list)
+    assert [str(value) for value in texts] == [expected]  # XPath sees one text node, as lxml does
+
+
+def test_element_tree_text_setter_writes_into_the_held_text_node() -> None:
+    tree: Final = fragment_fromstring("<div>one<b></b></div>")
+    held: Final = tree.node.children[0]
+    assert isinstance(held, Text)
+    tree.text = "two"
+    assert (held.data, held.parent) == ("two", tree.node)

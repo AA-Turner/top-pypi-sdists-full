@@ -40,10 +40,10 @@ from python_multipart.multipart import (
 from .compat import parametrize, parametrize_class
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from typing import Any, TypedDict
 
-    from python_multipart.multipart import FileConfig
+    from python_multipart.multipart import FileConfig, MultipartCallbacks
 
     class TestParams(TypedDict):
         name: str
@@ -272,6 +272,14 @@ class TestParseOptionsHeader(unittest.TestCase):
         self.assertEqual(t, b"application/json")
         self.assertEqual(p, {b"par": b"val"})
 
+    def test_tabs_around_param_are_trimmed(self) -> None:
+        _, p = parse_options_header(b"application/json;\t par \t=\t val\t")
+        self.assertEqual(p, {b"par": b"val"})
+
+    def test_non_breaking_space_is_not_trimmed(self) -> None:
+        _, p = parse_options_header(b"form-data; name=voil\xc3\xa0")
+        self.assertEqual(p, {b"name": b"voil\xc3\xa0"})
+
     def test_multiple_params(self) -> None:
         t, p = parse_options_header(b"application/json;par=val;asdf=foo")
         self.assertEqual(t, b"application/json")
@@ -472,6 +480,19 @@ class TestQuerystringParser(unittest.TestCase):
 
         self.assert_fields((b"foo", b"bar"), (b"asdf", b"baz"))
 
+    def test_field_start_events_across_chunks(self) -> None:
+        data = b"a=1&b=&&c&=2&d=x=y&"
+        chunkings = [[data[:split], data[split:]] for split in range(len(data) + 1)]
+        chunkings.append([data[i : i + 1] for i in range(len(data))])
+        for chunks in chunkings:
+            self.reset()
+            starts: list[int] = []
+            self.p.set_callback("field_start", lambda: starts.append(len(self.f)))
+            for chunk in chunks:
+                self.assertEqual(self.p.write(chunk), len(chunk))
+            self.assert_fields((b"a", b"1"), (b"b", b""), (b"c", b""), (b"", b"2"), (b"d", b"x=y"))
+            self.assertEqual(starts, [0, 1, 2, 3, 4])
+
     def test_streaming_simple(self) -> None:
         self.p.write(b"foo=bar&")
         self.assert_fields((b"foo", b"bar"), finalize=False)
@@ -510,6 +531,11 @@ class TestQuerystringParser(unittest.TestCase):
         # Note: len = 8, only 7 bytes processed
         self.p.write(b"a=123456")
         self.assert_fields((b"a", b"12345"))
+
+    def test_max_size_truncates_after_separator(self) -> None:
+        self.p.max_size = 4
+        self.assertEqual(self.p.write(b"a=1&b=2"), 4)
+        self.assert_fields((b"a", b"1"))
 
     def test_invalid_max_size(self) -> None:
         with self.assertRaises(ValueError):
@@ -821,6 +847,7 @@ single_byte_tests = [
     "almost_match_boundary_without_final_hyphen",
     "single_field_single_file",
     "crlf_dense_part_data",
+    "boundary_padding",
 ]
 
 EPILOGUE_TEST_HEAD = (
@@ -902,6 +929,77 @@ def test_multipart_opening_boundary_max_size() -> None:
     assert parser.write(data[max_size:]) == len(data) - max_size
     parser.finalize()
     assert events == ["begin", "end"]
+
+
+def test_multipart_events_do_not_depend_on_chunk_boundaries() -> None:
+    data = (
+        b"--boundary\r\n"
+        b'Content-Disposition: form-data; name="a"\r\n'
+        b"X-Empty:\r\n"
+        b"\r\n"
+        b"first\r\n"
+        b"--boundary\r\n"
+        b"\r\n"
+        b"second\r\n"
+        b"--boundary--\r\n"
+    )
+
+    def parse(chunks: list[bytes]) -> list[tuple[str, bytes]]:
+        events: list[tuple[str, bytes]] = []
+
+        def on_data(name: str) -> Callable[[bytes, int, int], None]:
+            return lambda data, start, end: events.append((name, data[start:end]))
+
+        def on_event(name: str) -> Callable[[], None]:
+            return lambda: events.append((name, b""))
+
+        callbacks: MultipartCallbacks = {
+            "on_part_begin": on_event("part_begin"),
+            "on_part_data": on_data("part_data"),
+            "on_part_end": on_event("part_end"),
+            "on_header_begin": on_event("header_begin"),
+            "on_header_field": on_data("header_field"),
+            "on_header_value": on_data("header_value"),
+            "on_header_end": on_event("header_end"),
+            "on_headers_finished": on_event("headers_finished"),
+            "on_end": on_event("end"),
+        }
+        parser = MultipartParser(b"boundary", callbacks)
+        for chunk in chunks:
+            parser.write(chunk)
+        parser.finalize()
+
+        # Merge adjacent data events, since a split can break one value into several callbacks.
+        merged: list[tuple[str, bytes]] = []
+        for name, value in events:
+            if merged and value and merged[-1][0] == name:
+                merged[-1] = (name, merged[-1][1] + value)
+            else:
+                merged.append((name, value))
+        return merged
+
+    expected = parse([data])
+    assert expected == [
+        ("part_begin", b""),
+        ("header_begin", b""),
+        ("header_field", b"Content-Disposition"),
+        ("header_value", b'form-data; name="a"'),
+        ("header_end", b""),
+        ("header_begin", b""),
+        ("header_field", b"X-Empty"),
+        ("header_end", b""),
+        ("headers_finished", b""),
+        ("part_data", b"first"),
+        ("part_end", b""),
+        ("part_begin", b""),
+        ("headers_finished", b""),
+        ("part_data", b"second"),
+        ("part_end", b""),
+        ("end", b""),
+    ]
+    for i in range(1, len(data)):
+        assert parse([data[:i], data[i:]]) == expected
+    assert parse([data[i : i + 1] for i in range(len(data))]) == expected
 
 
 @pytest.mark.parametrize(
@@ -1357,6 +1455,12 @@ class TestFormParser(unittest.TestCase):
         with self.assertRaisesRegex(MultipartParseError, "Maximum header size exceeded"):
             self.f.write(payload)
 
+    @parametrize("rest", [b"x", b"\rx"])
+    def test_multipart_boundary_padding_without_crlf(self, rest: bytes) -> None:
+        self.make("poc")
+        with self.assertRaisesRegex(MultipartParseError, "after boundary padding"):
+            self.f.write(b'--poc\r\nContent-Disposition: form-data; name="a"\r\n\r\nfirst\r\n--poc ' + rest)
+
     def test_octet_stream(self) -> None:
         files: list[File] = []
 
@@ -1792,3 +1896,14 @@ def suite() -> unittest.TestSuite:
     suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestHelperFunctions))
 
     return suite
+
+
+@pytest.mark.parametrize("make_parser", [lambda: MultipartParser(b"boundary"), QuerystringParser, OctetStreamParser])
+def test_default_callbacks_are_not_shared_between_parsers(make_parser: Any) -> None:
+    first, second = make_parser(), make_parser()
+    on_end = Mock()
+    first.set_callback("end", on_end)
+
+    second.callback("end")
+
+    on_end.assert_not_called()

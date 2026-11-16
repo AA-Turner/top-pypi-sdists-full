@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+from itertools import product
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, cast
 
 from turbohtml import Element, Node, Text, parse_fragment
@@ -13,12 +15,44 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+def html_list_generate(rng: random.Random) -> str:
+    # Finite shapes bound depth without recursive expansion.
+    return f"{rng.choice(_TAGS)}:{rng.choice(_SHAPES)}:{rng.choice(tuple(_ENDINGS))}:{rng.choice(tuple(_LEAVES))}"
+
+
+def html_list_seeds() -> list[str]:
+    # Exhaust productions without depending on random draws.
+    return [f"{tag}:{shape}:{ending}:{leaf}" for tag, shape, ending, leaf in product(_TAGS, _SHAPES, _ENDINGS, _LEAVES)]
+
+
+def html_list_controls() -> dict[str, bool]:
+    # Detect attachment changes even when the parent tag stays equal.
+    return {
+        "inner item became outer sibling": html_list_check(
+            "ul:nested:explicit:plain",
+            lambda _node: (
+                '<ul id="z"><li id="x">MiXeD<ul id="z"><li id="x">MiXeD</li></ul></li>'
+                '<li id="y">MiXeD</li><li id="y">MiXeD</li></ul>'
+            ),
+        )
+        is not None,
+        "dropped sibling": html_list_check(
+            "ol:flat:explicit:plain", lambda _node: '<ol id="z"><li id="x">MiXeD</li></ol>'
+        )
+        is not None,
+        "encoded text": html_list_check(
+            "ul:nested:implied:named", lambda node: node.serialize().replace("&amp;", "&amp;amp;")
+        )
+        is not None,
+    }
+
+
 def html_list_check(
     case: str,
     serialize: Callable[[Node], str] = Node.serialize,
     read: Callable[[str], Element] = parse_fragment,
 ) -> str | None:
-    """Keep list attachment expectations independent of parsing."""
+    # Keep list attachment expectations independent of parsing.
     if (match := _CASE.fullmatch(case)) is None:
         raise UnsupportedHtmlListCaseError(case)
     tag, shape, ending, leaf = match.groups()
@@ -60,6 +94,11 @@ def html_list_check(
     )
 
 
+class UnsupportedHtmlListCaseError(ValueError):
+    # Separate invalid programs from failures of generated lists.
+    ...
+
+
 def _snapshot(root: Element) -> str:
     nodes: Final = [root, *root.descendants]
     records: Final[list[tuple[str, str, str, tuple[tuple[str, str | list[str] | None], ...], int]]] = []
@@ -74,57 +113,23 @@ def _snapshot(root: Element) -> str:
     return json.dumps(records)
 
 
-def html_list_generate(rng: random.Random) -> str:
-    """Finite shapes bound depth without recursive expansion."""
-    return f"{rng.choice(_TAGS)}:{rng.choice(_SHAPES)}:{rng.choice(tuple(_ENDINGS))}:{rng.choice(tuple(_LEAVES))}"
-
-
-def html_list_seeds() -> list[str]:
-    """Exhaust productions without depending on random draws."""
-    return [
-        f"{tag}:{shape}:{ending}:{leaf}"
-        for tag in _TAGS
-        for shape in _SHAPES
-        for ending in _ENDINGS
-        for leaf in _LEAVES
-    ]
-
-
-def html_list_controls() -> dict[str, bool]:
-    """Detect attachment changes even when the parent tag stays equal."""
-    return {
-        "inner item became outer sibling": html_list_check(
-            "ul:nested:explicit:plain",
-            lambda _node: (
-                '<ul id="z"><li id="x">MiXeD<ul id="z"><li id="x">MiXeD</li></ul></li>'
-                '<li id="y">MiXeD</li><li id="y">MiXeD</li></ul>'
-            ),
-        )
-        is not None,
-        "dropped sibling": html_list_check(
-            "ol:flat:explicit:plain", lambda _node: '<ol id="z"><li id="x">MiXeD</li></ol>'
-        )
-        is not None,
-        "encoded text": html_list_check(
-            "ul:nested:implied:named", lambda node: node.serialize().replace("&amp;", "&amp;amp;")
-        )
-        is not None,
-    }
-
-
-class UnsupportedHtmlListCaseError(ValueError):
-    """Separate invalid programs from failures of generated lists."""
-
-
-_CASE: Final = re.compile(r"(ul|ol):(flat|nested):(explicit|implied):(plain|named|numeric)")
-_TAGS: Final = ("ul", "ol")
-_SHAPES: Final = ("flat", "nested")
-_ENDINGS: Final = {"explicit": "</li>", "implied": ""}
-_LEAVES: Final = {
+_CASE: Final[re.Pattern[str]] = re.compile(
+    r"""
+    (?P<tag>ul|ol):                          # the list element
+    (?P<shape>flat|nested):                  # whether the items are nested
+    (?P<ending>explicit|implied):            # the word explicit or implied
+    (?P<leaf>plain|named|numeric)            # the kind of character reference
+    """,
+    re.VERBOSE,
+)
+_TAGS: Final[tuple[str, ...]] = ("ul", "ol")
+_SHAPES: Final[tuple[str, ...]] = ("flat", "nested")
+_ENDINGS: Final[MappingProxyType[str, str]] = MappingProxyType({"explicit": "</li>", "implied": ""})
+_LEAVES: Final[MappingProxyType[str, tuple[str, str]]] = MappingProxyType({
     "plain": ("MiXeD", "MiXeD"),
     "named": ("&amp;&lt;&gt;", "&<>"),
     "numeric": ("&#65;&#x42;&#67;", "ABC"),
-}
+})
 
 __all__ = [
     "UnsupportedHtmlListCaseError",

@@ -75,10 +75,11 @@ Run it against one built wheel:
         .github/scripts/verify_wheel_contents.py dist/*.whl
 
 `test.yml`'s `check-dist` job runs it on every wheel it downloads --
-`build-cibuildwheel`, `build-dynamic` and `build-windows` between them --
-which are the artifacts `release.yml`'s own `test` job produces and the
-publish jobs upload: one build, checked and shipped, so this judges the
-files this project actually publishes rather than a copy of them.
+`build-cibuildwheel`, `build-ios`, `build-dynamic` and `build-windows`
+between them -- which are the artifacts `release.yml`'s own `test` job
+produces and the publish jobs upload: one build, checked and shipped, so
+this judges the files this project actually publishes rather than a copy
+of them.
 """
 
 from __future__ import annotations
@@ -424,6 +425,11 @@ def start_files_mark(wheel_name: str) -> bool:
     it for an `_init` that has no `bti` instruction. A pinned image that
     does mark aarch64 is one more case here.
 
+    An Android wheel links the NDK's `crtbegin_so.o` and `crtend_so.o`
+    instead. Read with `readelf -n`, they mark BTI on aarch64 and carry
+    no property note on x86_64. An NDK that marks x86_64 is one more case
+    here.
+
     Args:
         wheel_name: the wheel's file name, the platform tag of which
             names the C runtime.
@@ -432,6 +438,8 @@ def start_files_mark(wheel_name: str) -> bool:
         Whether an ELF file in the wheel has to carry the marking.
     """
     tag = wheel_name[: -len(".whl")].rsplit("-", 1)[-1]
+    if "android" in tag:
+        return "x86_64" not in tag
     return "musllinux" not in tag and "aarch64" not in tag
 
 
@@ -490,12 +498,9 @@ def forbidden_reason(path: str) -> str | None:
     name = path.rsplit("/", 1)[-1]
     if name in FORBIDDEN_NAMES:
         return f"is {name}, which Python imports at startup"
-    for suffix in FORBIDDEN_SUFFIXES:
-        if path.endswith(suffix):
-            return f"carries the forbidden suffix {suffix}"
-    if "__pycache__" in path.split("/"):
-        return "is under __pycache__"
-    return None
+    if suffix := next((s for s in FORBIDDEN_SUFFIXES if path.endswith(s)), None):
+        return f"carries the forbidden suffix {suffix}"
+    return "is under __pycache__" if "__pycache__" in path.split("/") else None
 
 
 def package_payload_complaints(members: set[str]) -> list[str]:

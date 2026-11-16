@@ -23,7 +23,7 @@ import pycodestyle  # type: ignore
 from attrs import define, field
 from flake8.exceptions import PluginExecutionFailed
 
-__version__ = "26.11.9"
+__version__ = "26.11.16"
 
 LOG = logging.getLogger("flake8.bugbear")
 CONTEXTFUL_NODES = (
@@ -516,6 +516,43 @@ class ExceptBaseExceptionVisitor(ast.NodeVisitor):
 class B040CaughtException:
     name: str
     has_note: bool
+
+
+# Calls that use the exception currently being handled without it being passed in,
+# e.g. traceback.print_exc() prints it, notes included.
+B040_HANDLED_EXCEPTION_CALLS = {
+    ("traceback", "print_exc"),
+    ("traceback", "format_exc"),
+    ("sys", "exc_info"),
+    ("sys", "exception"),
+}
+
+
+def _reports_handled_exception(node: ast.Call) -> bool:
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        # logging.exception(...) / logger.exception(...) / sys.exception()
+        if func.attr == "exception":
+            return True
+        if (
+            isinstance(func.value, ast.Name)
+            and (func.value.id, func.attr) in B040_HANDLED_EXCEPTION_CALLS
+        ):
+            return True
+    elif isinstance(func, ast.Name) and func.id in (
+        "print_exc",
+        "format_exc",
+        "exc_info",
+    ):
+        # from traceback import print_exc / from sys import exc_info
+        return True
+    # logger.error(..., exc_info=True)
+    return any(
+        kw.arg == "exc_info"
+        and isinstance(kw.value, ast.Constant)
+        and kw.value.value is True
+        for kw in node.keywords
+    )
 
 
 class B041UnhandledKeyType:
@@ -1125,12 +1162,15 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b910(node)
         self.check_for_b911(node)
         self.check_for_b912(node)
+        self.check_for_b048(node)
 
         # no need for copying, if used in nested calls it will be set to None
         current_b040_caught_exception = self.b040_caught_exception
         if not is_b040_add_note:
             self.check_for_b040_usage(node.args)
             self.check_for_b040_usage(node.keywords)
+            if self.b040_caught_exception and _reports_handled_exception(node):
+                self.b040_caught_exception = None
 
         self.generic_visit(node)
 
@@ -1220,6 +1260,7 @@ class BugBearVisitor(ast.NodeVisitor):
                 self._b008_function_annotations(node), imports
             )
         self.check_for_b019(node)
+        self.check_for_b021(node)
         self.check_for_b049(node)
         self.generic_visit(node)
         if self._b008_in_module_child():
@@ -2291,6 +2332,52 @@ class BugBearVisitor(ast.NodeVisitor):
 
                 self._check_b031_group_usages(loop_node.body, group_name)
 
+    def check_for_b048(self, node: ast.Call) -> None:
+        # `str.find()`/`rfind()` return -1 when the substring is missing, which
+        # is truthy, and 0 when it is found at the start, which is falsy. Testing
+        # the result directly therefore inverts the intended logic, so require an
+        # explicit comparison against the returned index instead.
+        if not (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("find", "rfind")
+            and (node.args or node.keywords)
+        ):
+            return
+        if self._is_used_as_boolean(node):
+            self.add_error("B048", node)
+
+    def _is_used_as_boolean(self, node: ast.expr) -> bool:
+        # node is the node currently being visited, so it sits on top of the
+        # stack. Walk the ancestors, stepping through wrappers that keep
+        # testing the value's truthiness (`not`/`and`/`or`, and a walrus
+        # whose value is itself tested that way), and report if we reach a
+        # place that uses it as a boolean. `not` and any non-final `and`/`or`
+        # operand are themselves such a place: ``x = s.find(y) or -1`` and
+        # ``x = not s.find(y)`` test the truthiness even outside an ``if``,
+        # while ``x = y and s.find(z)`` just returns the index. Anything
+        # else (comparison, arithmetic, plain assignment/return of the
+        # index, ``bool(...)`` call, ...) uses the value as an index, not
+        # as a boolean, so we stop without reporting.
+        child: ast.AST = node
+        for parent in reversed(self.node_stack[:-1]):
+            if isinstance(parent, ast.BoolOp):
+                # Every operand but the last is tested. The last one is the
+                # result of the expression, so it is only tested if that is.
+                if child is not parent.values[-1]:
+                    return True
+                child = parent
+            elif isinstance(parent, ast.UnaryOp) and isinstance(parent.op, ast.Not):
+                return True
+            elif isinstance(parent, ast.NamedExpr):
+                child = parent
+            elif isinstance(parent, (ast.If, ast.IfExp, ast.While, ast.Assert)):
+                return parent.test is child
+            elif isinstance(parent, ast.comprehension):
+                return child in parent.ifs
+            else:
+                return False
+        return False
+
     def _get_names_from_tuple(self, node: ast.Tuple) -> Iterator[str]:
         for dim in node.elts:
             if isinstance(dim, ast.Name):
@@ -2630,7 +2717,9 @@ class BugBearVisitor(ast.NodeVisitor):
         ):
             self.add_error("B018", node, node.value.__class__.__name__)
 
-    def check_for_b021(self, node: ast.FunctionDef | ast.ClassDef) -> None:
+    def check_for_b021(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
         if (
             node.body
             and isinstance(node.body[0], ast.Expr)
@@ -3337,19 +3426,36 @@ class BugBearVisitor(ast.NodeVisitor):
                 target = None
             iterable = iterable.func.value
 
-        if isinstance(iterable, ast.Name):
-            name = _to_name_str(iterable)
-            key = _to_name_str(target)
-        elif isinstance(iterable, ast.Attribute):
-            name = _to_name_str(iterable)
-            key = _to_name_str(target)
-        else:
+        if not isinstance(iterable, (ast.Name, ast.Attribute)):
             return
 
-        if name is None or (key is None and target is not None):
+        name = _to_name_str(iterable)
+        if name is None:
             return
 
-        checker = B909Checker(name, key)
+        key = _to_name_str(target)
+        check_subscript_assignments = target is None or key is not None
+        if not check_subscript_assignments:
+            if not isinstance(node.target, (ast.Tuple, ast.List)):
+                return
+            # An unpacked target can rebind the iterable's name or its receiver.
+            bound_names = (
+                _to_name_str(binding)
+                for binding in ast.walk(node.target)
+                if isinstance(binding, (ast.Name, ast.Attribute))
+                and isinstance(binding.ctx, ast.Store)
+            )
+            if any(
+                bound_name is not None
+                and (name == bound_name or name.startswith(f"{bound_name}."))
+                for bound_name in bound_names
+            ):
+                return
+
+        # An unpacked key can be rebuilt in a subscript without adding an entry.
+        checker = B909Checker(
+            name, key, check_subscript_assignments=check_subscript_assignments
+        )
         checker.visit(node.body)
         for mutation in itertools.chain.from_iterable(
             m for m in checker.mutations.values()
@@ -3425,11 +3531,13 @@ class B909Checker(ast.NodeVisitor):
         "discard",
     )
 
-    def __init__(self, name: str, key: str | None) -> None:
+    def __init__(
+        self, name: str, key: str | None, *, check_subscript_assignments: bool = True
+    ) -> None:
         self.name = name
-        # assigning to `name[key]` doesn't change its size; with no key loop
-        # variable, every subscript assignment is reported
+        # Assigning to an existing key doesn't change the dictionary's size.
         self.key = key
+        self.check_subscript_assignments = check_subscript_assignments
         self.mutations: dict[
             int, list[ast.Assign | ast.AugAssign | ast.Delete | ast.Call]
         ] = defaultdict(list)
@@ -3438,7 +3546,8 @@ class B909Checker(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign) -> None:
         for target in node.targets:
             if (
-                isinstance(target, ast.Subscript)
+                self.check_subscript_assignments
+                and isinstance(target, ast.Subscript)
                 and _to_name_str(target.value) == self.name
                 and (self.key is None or _to_name_str(target.slice) != self.key)
             ):
@@ -4257,6 +4366,14 @@ error_codes = {
             "B047 `{0}` is never caught by this handler, since the earlier "
             "`except{2} {1}` already catches it. Reorder the handlers or remove "
             "the unreachable one."
+        )
+    ),
+    "B048": Error(
+        message=(
+            "B048 Using the result of `.find()`/`.rfind()` as a boolean is "
+            "misleading: it returns -1 (truthy) when the substring is missing and "
+            "0 (falsy) when it is found at the start. Compare the returned index "
+            "explicitly instead."
         )
     ),
     "B049": Error(

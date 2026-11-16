@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
+import threading
+from collections.abc import Iterator
 from contextvars import ContextVar
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
@@ -23,6 +26,24 @@ INTEGRATION_FIXTURES_KEY = "integration_fixtures"
 _replay_context: ContextVar[dict[str, Any] | None] = ContextVar(
     "bitfab_replay_context", default=None
 )
+_replay_items_running = [0]
+_replay_items_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def replay_item_running() -> Iterator[None]:
+    with _replay_items_lock:
+        _replay_items_running[0] += 1
+    try:
+        yield
+    finally:
+        with _replay_items_lock:
+            _replay_items_running[0] -= 1
+
+
+def replay_item_is_running() -> bool:
+    return _replay_items_running[0] > 0
+
 
 # Set by ``Bitfab.seed_trace`` for the duration of the one call it records:
 # carries the trace id the call's root span adopts, and tells the span

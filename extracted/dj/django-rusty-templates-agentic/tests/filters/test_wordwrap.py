@@ -284,23 +284,6 @@ def test_wordwrap_width_overflow_float(assert_render_error):
     )
 
 
-def test_wordwrap_width_float_overflow(assert_render_error):
-    assert_render_error(
-        template="{{ text|wordwrap:1e310 }}",
-        context={"text": "hello"},
-        exception=OverflowError,
-        django_message=snapshot("cannot convert float infinity to integer"),
-        rusty_message=snapshot("""\
-  × Couldn't convert float (inf) to integer
-   ╭────
- 1 │ {{ text|wordwrap:1e310 }}
-   ·                  ──┬──
-   ·                    ╰── here
-   ╰────
-"""),
-    )
-
-
 def test_wordwrap_width_from_python_variable(assert_render_error):
     assert_render_error(
         template="{{ text|wordwrap:width }}",
@@ -309,14 +292,16 @@ def test_wordwrap_width_from_python_variable(assert_render_error):
         django_message=snapshot(
             "invalid literal for int() with base 10: 'not a number'"
         ),
-        rusty_message=snapshot("""\
-  × Couldn't convert argument (not a number) to integer
+        rusty_message=snapshot(
+            """\
+  × invalid literal for int() with base 10: 'not a number'
    ╭────
  1 │ {{ text|wordwrap:width }}
    ·                  ──┬──
    ·                    ╰── argument
    ╰────
-"""),
+"""
+        ),
     )
 
 

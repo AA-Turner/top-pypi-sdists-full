@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket as socket_module
 import sys
 import threading
 from io import BytesIO
@@ -17,8 +18,8 @@ from pytest_recording.network import blocking_context
 try:
     from socket import AF_NETLINK, AF_UNIX
 except ImportError:
-    AF_NETLINK = None  # type: ignore[assignment]
-    AF_UNIX = None  # type: ignore[assignment]
+    AF_NETLINK = None  # type: ignore[assignment, misc]
+    AF_UNIX = None  # type: ignore[assignment, misc]
 
 
 try:
@@ -41,7 +42,7 @@ def assert_network_blocking(testdir, dirname):
     result.assert_outcomes(passed=3)
 
     # And a cassette is recorded for the case where pytest.mark.vcr is applied
-    cassette_path = testdir.tmpdir.join("cassettes/{}/test_recording.yaml".format(dirname))
+    cassette_path = testdir.tmpdir.join(f"cassettes/{dirname}/test_recording.yaml")
     assert cassette_path.exists()
 
 
@@ -173,8 +174,9 @@ def test_block_network_allowed_socket():
 @skip_unix
 @pytest.mark.block_network(allowed_hosts=["./allowed_socket"])
 def test_block_network_blocked_socket():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled for host './blocked_socket'$"):
+    with pytest.raises(RuntimeError) as exc:
         call("./blocked_socket", AF_UNIX, SOCK_STREAM)
+    assert str(exc.value) == "Network is disabled for host './blocked_socket' (allowed hosts: './allowed_socket')"
 
 
 # When not AF_UNIX, AF_INET or AF_INET6 socket is used
@@ -182,8 +184,9 @@ def test_block_network_blocked_socket():
 @skip_netlink
 @pytest.mark.block_network(allowed_hosts=["./allowed_socket", "127.0.0.1", "0"])
 def test_blocked():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled for host ''$"):
+    with pytest.raises(RuntimeError) as exc:
         call((0, 0), AF_NETLINK, SOCK_RAW)
+    assert str(exc.value) == "Network is disabled for host '' (allowed hosts: './allowed_socket', '127.0.0.1', '0')"
 
 
 # When record is disabled
@@ -206,16 +209,16 @@ def test_no_vcr_mark(httpbin):
 
 @pytest.mark.block_network(allowed_hosts=["127.0.0.2"])
 def test_no_vcr_mark_bytes():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled for host b'127.0.0.1'$"):
-        with socket(AF_INET, SOCK_STREAM) as sock:
-            sock.connect((b"127.0.0.1", 80))
+    with pytest.raises(RuntimeError) as exc, socket(AF_INET, SOCK_STREAM) as sock:
+        sock.connect((b"127.0.0.1", 80))
+    assert str(exc.value) == "Network is disabled for host b'127.0.0.1' (allowed hosts: '127.0.0.2')"
 
 
 @pytest.mark.block_network(allowed_hosts=["127.0.0.2"])
 def test_no_vcr_mark_bytearray():
-    with pytest.raises(RuntimeError, match=r"^Network is disabled for host bytearray\(b'127.0.0.1'\)$"):
-        with socket(AF_INET, SOCK_STREAM) as sock:
-            sock.connect((bytearray(b"127.0.0.1"), 80))
+    with pytest.raises(RuntimeError) as exc, socket(AF_INET, SOCK_STREAM) as sock:
+        sock.connect((bytearray(b"127.0.0.1"), 80))
+    assert str(exc.value) == "Network is disabled for host bytearray(b'127.0.0.1') (allowed hosts: '127.0.0.2')"
 
 
 @pytest.mark.parametrize(
@@ -243,7 +246,7 @@ def test_no_vcr_mark_bytearray():
 )
 def test_block_network_with_allowed_hosts(testdir, marker, cmd_options, vcr_cfg):
     testdir.makepyfile(
-        """
+        f"""
 import socket
 import pytest
 import requests
@@ -259,18 +262,79 @@ def test_allowed(httpbin):
 
 {marker}
 def test_blocked():
-    with pytest.raises(RuntimeError, match="^Network is disabled for host "):
-        requests.get("http://example.com")
+    with pytest.raises(RuntimeError) as exc:
+        requests.get("http://192.0.2.1")
+    assert str(exc.value) == "Network is disabled for host '192.0.2.1' (allowed hosts: '127.0.0.*', '127.0.1.1')"
     assert socket.socket.connect.__name__ == "network_guard"
     assert socket.socket.connect_ex.__name__ == "network_guard"
-    """.format(
-            marker=marker,
-            vcr_cfg=vcr_cfg,
-        )
+    """
     )
 
     result = testdir.runpytest(*cmd_options)
     result.assert_outcomes(passed=2)
+
+
+@pytest.mark.parametrize(
+    "marker, cmd_options, vcr_cfg",
+    (
+        pytest.param("@pytest.mark.block_network(allow_private_ips=True)", (), "", id="block_marker"),
+        pytest.param("", ("--block-network", "--allow-private-ips"), "", id="block_cmd"),
+        pytest.param(
+            "@pytest.mark.block_network()",
+            (),
+            "@pytest.fixture(autouse=True)\ndef vcr_config():\n    return {'allow_private_ips': True}",
+            id="vcr_cfg",
+        ),
+    ),
+)
+def test_block_network_with_private_ips_allowed(testdir, marker, cmd_options, vcr_cfg):
+    testdir.makepyfile(
+        f"""
+import pytest
+import requests
+
+{vcr_cfg}
+
+{marker}
+def test_allowed(httpbin):
+    assert requests.get(httpbin.url + "/ip").status_code == 200
+
+{marker}
+def test_blocked():
+    with pytest.raises(RuntimeError) as exc:
+        requests.get("http://8.8.8.8")
+    assert str(exc.value) == "Network is disabled for host '8.8.8.8' (allowed hosts: private IPs)"
+    """
+    )
+
+    result = testdir.runpytest(*cmd_options)
+    result.assert_outcomes(passed=2)
+
+
+@pytest.mark.block_network(allowed_hosts=["127.0.0.2"], allow_private_ips=True)
+def test_private_ips_listed_with_allowed_hosts():
+    with pytest.raises(RuntimeError) as exc, socket(AF_INET, SOCK_STREAM) as sock:
+        sock.connect((b"8.8.8.8", 80))
+    assert str(exc.value) == "Network is disabled for host b'8.8.8.8' (allowed hosts: '127.0.0.2', private IPs)"
+
+
+@skip_unix
+@pytest.mark.block_network(allow_private_ips=True)
+def test_private_ips_do_not_allow_unix_sockets():
+    with pytest.raises(RuntimeError):
+        call("./blocked_socket", AF_UNIX, SOCK_STREAM)
+
+
+@pytest.mark.skipif(pycurl is None, reason="Requires pycurl installed.")
+@pytest.mark.block_network(allow_private_ips=True)
+def test_pycurl_with_private_ips_allowed(httpbin):
+    buffer = BytesIO()
+    c = pycurl.Curl()
+    c.setopt(c.URL, httpbin.url + "/ip")  # type: ignore[attr-defined]
+    c.setopt(c.WRITEDATA, buffer)  # type: ignore[attr-defined]
+    c.perform()
+    c.close()
+    assert buffer.getvalue()
 
 
 def test_block_network_via_cmd(testdir):
@@ -377,8 +441,9 @@ def test_pycurl_with_allowed_hosts_blocked(httpbin):
     c = pycurl.Curl()
     c.setopt(c.URL, "http://example.com")  # type: ignore[attr-defined]
     c.setopt(c.WRITEDATA, buffer)  # type: ignore[attr-defined]
-    with pytest.raises(RuntimeError, match=r"^Network is disabled for host 'example.com'$"):
+    with pytest.raises(RuntimeError) as exc:
         c.perform()
+    assert str(exc.value) == "Network is disabled for host 'example.com' (allowed hosts: '127.0.0.*', '127.0.1.1')"
     c.close()
 
 
@@ -436,14 +501,14 @@ IS_PYTEST_ABOVE_54 = version.parse(pytest.__version__) >= version.parse("5.4.0")
 def test_invalid_input_arguments(testdir, args):
     # When the `block_network` mark receives an unknown argument
     testdir.makepyfile(
-        """
+        f"""
 import pytest
 import requests
 
-@pytest.mark.block_network({})
+@pytest.mark.block_network({args})
 def test_request():
     requests.get("https://google.com")
-    """.format(args)
+    """
     )
     result = testdir.runpytest()
     # Then there should be an error
@@ -451,7 +516,7 @@ def test_request():
         result.assert_outcomes(errors=1)
     else:
         result.assert_outcomes(error=1)
-    expected = "Invalid arguments to `block_network`. It accepts only the following keyword arguments: `allowed_hosts`."
+    expected = "Invalid arguments to `block_network`. It accepts only the following keyword arguments: `allowed_hosts`, `allow_private_ips`."
     assert expected in result.stdout.str()
 
 
@@ -459,7 +524,7 @@ def test_socketpair_is_allowed_while_network_is_blocked():
     # `socketpair()` is emulated on Windows with a real loopback `connect()`, which the guard used
     # to reject - the socket is in-process, so it must not count as network access.
     with blocking_context():
-        left, right = network.socket.socketpair()
+        left, right = socket_module.socketpair()
         try:
             left.sendall(b"ping")
             assert right.recv(4) == b"ping"
@@ -499,10 +564,10 @@ def test_socketpair_exemption_does_not_leak_to_other_threads(monkeypatch):
 
     monkeypatch.setattr(network, "_original_socketpair", slow_socketpair)
 
-    made: "list[tuple[socket, socket]]" = []
+    made: list[tuple[socket, socket]] = []
 
     def worker_target() -> None:
-        made.append(network.socket.socketpair())
+        made.append(socket_module.socketpair())
 
     worker = threading.Thread(target=worker_target)
 
@@ -525,3 +590,61 @@ def test_socketpair_exemption_does_not_leak_to_other_threads(monkeypatch):
     left, right = made[0]
     left.close()
     right.close()
+
+
+def socket_connect(port):
+    with socket(AF_INET, SOCK_STREAM) as client:
+        client.connect(("127.0.0.1", port))
+
+
+def curl_get(url):
+    curl = pycurl.Curl()
+    curl.setopt(curl.URL, url)  # type: ignore[attr-defined]
+    curl.setopt(curl.WRITEDATA, BytesIO())  # type: ignore[attr-defined]
+    try:
+        curl.perform()
+    finally:
+        curl.close()
+
+
+@pytest.mark.skipif(pycurl is None, reason="Requires pycurl installed.")
+def test_socket_transport_only(httpbin):
+    with blocking_context(transports=("socket",)):
+        with pytest.raises(RuntimeError, match="Network is disabled"):
+            socket_connect(httpbin.port)
+        curl_get(httpbin.url + "/ip")
+    socket_connect(httpbin.port)
+
+
+@pytest.mark.skipif(pycurl is None, reason="Requires pycurl installed.")
+def test_pycurl_transport_only(httpbin):
+    with blocking_context(transports=("pycurl",)):
+        socket_connect(httpbin.port)
+        with pytest.raises(RuntimeError, match="Network is disabled"):
+            curl_get(httpbin.url + "/ip")
+    curl_get(httpbin.url + "/ip")
+
+
+@pytest.mark.skipif(pycurl is None, reason="Requires pycurl installed.")
+def test_unblock_leaves_other_transports_blocked(httpbin):
+    with blocking_context():
+        network.unblock(transports=("pycurl",))
+        curl_get(httpbin.url + "/ip")
+        with pytest.raises(RuntimeError, match="Network is disabled"):
+            socket_connect(httpbin.port)
+    with blocking_context():
+        network.unblock(transports=("socket",))
+        socket_connect(httpbin.port)
+        with pytest.raises(RuntimeError, match="Network is disabled"):
+            curl_get(httpbin.url + "/ip")
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [network.block, network.unblock, lambda transports: blocking_context(transports=transports).__enter__()],
+)
+@pytest.mark.parametrize("transports", [(), ("unknown",), ("socket", "unknown"), "socket"])
+def test_invalid_transports(httpbin, operation, transports):
+    with pytest.raises(ValueError):
+        operation(transports=transports)
+    socket_connect(httpbin.port)

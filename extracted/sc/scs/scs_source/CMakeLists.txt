@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.22)
 project(
   scs
   LANGUAGES C
-  VERSION 3.3.1)
+  VERSION 3.3.2)
 
 # ABI version, the loader identity of the shared libraries (libscsdir.so.3.3):
 # bump on ABI breaks, never on patch releases. scs.mk derives the same value
@@ -113,11 +113,36 @@ if(USE_SPECTRAL_CONES AND NOT USE_LAPACK)
   message(FATAL_ERROR "USE_SPECTRAL_CONES requires USE_LAPACK to be ON")
 endif()
 
+# Whether OpenMP and the parallel PSD projection are in the build is reported
+# further down, once CMake has looked for OpenMP.
 option(USE_OPENMP "Compile with OpenMP support" OFF)
-message(STATUS "OpenMP parallelization is ${USE_OPENMP}")
+
+# Projects the PSD blocks of a problem in parallel, on up to OMP_NUM_THREADS
+# threads that each call LAPACK for their own blocks. Off by default, because
+# it is only faster when the BLAS runs on one thread inside the threads of SCS:
+# a BLAS on the same OpenMP runtime as SCS does that by itself, and any other
+# multithreaded BLAS has to be set to one thread, or the threads of the two
+# multiply. See "Parallel projection of PSD blocks" on the BLAS and LAPACK page
+# of the documentation, and the comment on the option in src/cones.c.
+option(USE_PARALLEL_PSD
+       "Project PSD blocks in parallel (requires USE_OPENMP and USE_LAPACK)" OFF)
+if(USE_PARALLEL_PSD AND NOT (USE_OPENMP AND USE_LAPACK))
+  message(FATAL_ERROR
+          "USE_PARALLEL_PSD requires USE_OPENMP and USE_LAPACK to be ON")
+endif()
 
 option(USE_CUDSS "Compile with cuDSS support" OFF)
 message(STATUS "cuDSS support is ${USE_CUDSS}")
+
+# SCS's own GPU linear system solver is the indirect (conjugate gradient)
+# one; the cuDSS direct solver has its own option above.
+option(USE_GPU "Compile the CUDA GPU indirect solver" OFF)
+message(STATUS "GPU (CUDA) support is ${USE_GPU}")
+
+if(USE_GPU)
+  option(GPU_TRANSPOSE_MAT "Store the transpose of A in GPU memory" ON)
+  message(STATUS "Transposing A in GPU memory is ${GPU_TRANSPOSE_MAT}")
+endif()
 
 if(APPLE)
   option(USE_APPLE_ACCELERATE "Use Apple Accelerate framework for sparse LDLt" OFF)
@@ -189,14 +214,39 @@ endif()
 
 find_package(Threads REQUIRED)
 
+# SCS_WITH_OPENMP and SCS_WITH_PARALLEL_PSD say what is built, which is not
+# what was asked for when CMake does not find OpenMP. USE_OPENMP alone then
+# gives a warning and libraries without OpenMP. With USE_PARALLEL_PSD the
+# configuration stops, because no library would then have the parallel
+# projection and the option would otherwise be dropped with no more than that
+# warning. The libraries below link OpenMP::OpenMP_C, and the installed package
+# asks for OpenMP, when SCS_WITH_OPENMP is ON.
+set(SCS_WITH_OPENMP OFF)
+set(SCS_WITH_PARALLEL_PSD OFF)
 if(USE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_C_FOUND)
-    # Link target used below via target_link_libraries.
+    set(SCS_WITH_OPENMP ON)
+    if(USE_PARALLEL_PSD)
+      # Takes effect in the libraries that are compiled with OpenMP.
+      list(APPEND COMPILER_OPTS USE_PARALLEL_PSD)
+      set(SCS_WITH_PARALLEL_PSD ON)
+    endif()
+  elseif(USE_PARALLEL_PSD)
+    message(FATAL_ERROR
+            "USE_PARALLEL_PSD requires OpenMP, which CMake did not find. "
+            "Install OpenMP for this compiler, or if it is installed tell "
+            "CMake where with -DOpenMP_ROOT=<folder> (needed for Homebrew's "
+            "libomp on macOS), or configure with -DUSE_PARALLEL_PSD=OFF")
   else()
-    message(WARNING "OpenMP requested but not found by CMake")
+    message(WARNING
+            "OpenMP requested but not found by CMake: the libraries are built "
+            "without it. If OpenMP is installed, tell CMake where with "
+            "-DOpenMP_ROOT=<folder>")
   endif()
 endif()
+message(STATUS "OpenMP parallelization is ${SCS_WITH_OPENMP}")
+message(STATUS "Parallel PSD projection is ${SCS_WITH_PARALLEL_PSD}")
 
 if(USE_SPECTRAL_CONES)
   list(APPEND COMPILER_OPTS USE_SPECTRAL_CONES)
@@ -336,7 +386,7 @@ target_compile_definitions(${${PROJECT_NAME}_DIRECT} PRIVATE ${COMPILER_OPTS})
 target_link_libraries(${${PROJECT_NAME}_DIRECT}
                       PRIVATE ${LAPACK_LINK_LIBRARIES}
                               $<$<NOT:$<PLATFORM_ID:Windows>>:m>
-                              $<$<BOOL:${OpenMP_C_FOUND}>:OpenMP::OpenMP_C>
+                              $<$<BOOL:${SCS_WITH_OPENMP}>:OpenMP::OpenMP_C>
                               Threads::Threads)
 
 set_target_properties(
@@ -381,7 +431,7 @@ target_compile_definitions(${${PROJECT_NAME}_INDIRECT} PRIVATE ${COMPILER_OPTS}
 target_link_libraries(${${PROJECT_NAME}_INDIRECT}
                       PRIVATE $<$<NOT:$<PLATFORM_ID:Windows>>:m>
                               ${LAPACK_LINK_LIBRARIES}
-                              $<$<BOOL:${OpenMP_C_FOUND}>:OpenMP::OpenMP_C>
+                              $<$<BOOL:${SCS_WITH_OPENMP}>:OpenMP::OpenMP_C>
                               Threads::Threads)
 
 set_target_properties(
@@ -428,7 +478,7 @@ if(USE_LAPACK)
   target_link_libraries(${${PROJECT_NAME}_DENSE}
                         PRIVATE ${LAPACK_LINK_LIBRARIES}
                                 $<$<NOT:$<PLATFORM_ID:Windows>>:m>
-                                $<$<BOOL:${OpenMP_C_FOUND}>:OpenMP::OpenMP_C>
+                                $<$<BOOL:${SCS_WITH_OPENMP}>:OpenMP::OpenMP_C>
                                 Threads::Threads)
 
   set_target_properties(
@@ -536,11 +586,13 @@ if(USE_CUDSS)
   find_package(CUDAToolkit REQUIRED)
   find_package(cudss REQUIRED)
 
-  # Force 32-bit integers for cuDSS compatibility
+  # The cuDSS source supports 64-bit indices and the Makefile build accepts
+  # DLONG=1, but the CMake build has not been tested with them, so it refuses
+  # DLONG=ON.
   if(DLONG)
     message(
       FATAL_ERROR
-        "cuDSS requires 32-bit integers. Set DLONG=OFF or do not use -DDLONG=ON"
+        "The CMake build of the cuDSS solver requires 32-bit integers (DLONG=OFF); the Makefile build accepts DLONG=1"
     )
   endif()
 
@@ -591,6 +643,68 @@ if(USE_CUDSS)
   set_property(GLOBAL APPEND PROPERTY SCS_TARGETS ${${PROJECT_NAME}_CUDSS})
 endif()
 
+# GPU indirect method library (optional, requires the CUDA toolkit).
+# The sources are plain C calling the CUDA runtime, cuBLAS and cuSPARSE, so
+# CUDA does not have to be enabled as a language: FindCUDAToolkit is enough.
+if(USE_GPU)
+  find_package(CUDAToolkit REQUIRED)
+
+  message(STATUS "Will install SCS-GPU (libscsgpuindir).")
+
+  set(GPUSRC ${LINSYS}/gpu)
+  set(GPUINDIRSRC ${LINSYS}/gpu/indirect)
+
+  set(${PROJECT_NAME}_GPU_INDIRECT ${PROJECT_NAME}gpuindir)
+  add_library(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    ${${PROJECT_NAME}_HDR} ${${PROJECT_NAME}_SRC} ${GPUSRC}/gpu.c
+    ${GPUSRC}/gpu.h ${GPUINDIRSRC}/private.c ${GPUINDIRSRC}/private.h)
+
+  target_include_directories(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    PRIVATE
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${GPUINDIRSRC};${CMAKE_CURRENT_SOURCE_DIR}/${GPUSRC};${CMAKE_CURRENT_SOURCE_DIR}/${LINSYS}>"
+  )
+
+  target_include_directories(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    PUBLIC ${SCS_PUBLIC_INCLUDE_DIRS})
+
+  target_compile_definitions(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    PRIVATE ${COMPILER_OPTS} -DINDIRECT
+            $<$<BOOL:${GPU_TRANSPOSE_MAT}>:-DGPU_TRANSPOSE_MAT=1>)
+
+  target_link_libraries(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    PRIVATE CUDA::cudart CUDA::cublas CUDA::cusparse
+            $<$<NOT:$<PLATFORM_ID:Windows>>:m>
+            ${LAPACK_LINK_LIBRARIES}
+            $<$<BOOL:${SCS_WITH_OPENMP}>:OpenMP::OpenMP_C>
+            Threads::Threads)
+
+  set_target_properties(
+    ${${PROJECT_NAME}_GPU_INDIRECT}
+    PROPERTIES VERSION ${scs_VERSION} SOVERSION ${SCS_ABI_VERSION}
+               PUBLIC_HEADER
+                                      "${${PROJECT_NAME}_PUBLIC_HDR}")
+
+  add_library(scs::${${PROJECT_NAME}_GPU_INDIRECT}
+              ALIAS ${${PROJECT_NAME}_GPU_INDIRECT})
+
+  install(
+    TARGETS ${${PROJECT_NAME}_GPU_INDIRECT}
+    EXPORT ${PROJECT_NAME}
+    COMPONENT runtime
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/scs")
+
+  set_property(GLOBAL APPEND PROPERTY SCS_TARGETS
+                                      ${${PROJECT_NAME}_GPU_INDIRECT})
+endif()
+
 # Apple Accelerate library (optional, macOS only).
 if(APPLE AND USE_APPLE_ACCELERATE)
   if(DLONG)
@@ -626,7 +740,7 @@ if(APPLE AND USE_APPLE_ACCELERATE)
   target_link_libraries(
     ${${PROJECT_NAME}_ACCEL}
     PRIVATE ${ACCELERATE_FRAMEWORK}
-            $<$<BOOL:${OpenMP_C_FOUND}>:OpenMP::OpenMP_C>
+            $<$<BOOL:${SCS_WITH_OPENMP}>:OpenMP::OpenMP_C>
             Threads::Threads)
 
   set_target_properties(
@@ -681,6 +795,14 @@ if(BUILD_TESTING)
     target_compile_definitions(${TEST_NAME} PRIVATE ${COMPILER_OPTS})
     target_link_libraries(${TEST_NAME} PRIVATE ${LINK_TARGET}
                                                ${SCS_TEST_LINK_LIBRARIES})
+    # OpenMP in the test when its library is built with it: the PSD tests then
+    # check the projection under several OpenMP threads (parallel with
+    # USE_PARALLEL_PSD, serial without), and skip for a library without OpenMP
+    # (scsmkl and scscudss do not link it)
+    get_target_property(_scs_test_libs ${LINK_TARGET} LINK_LIBRARIES)
+    if(SCS_WITH_OPENMP AND "${_scs_test_libs}" MATCHES "OpenMP::OpenMP_C")
+      target_link_libraries(${TEST_NAME} PRIVATE OpenMP::OpenMP_C)
+    endif()
     target_include_directories(
       ${TEST_NAME}
       PRIVATE
@@ -705,6 +827,12 @@ if(BUILD_TESTING)
 
   if(USE_CUDSS)
     scs_add_test(run_tests_cudss scs::scscudss)
+  endif()
+
+  # Builds anywhere the CUDA toolkit is present, but needs an actual device
+  # to run: on a GPU-less machine skip it with `ctest -E gpu`.
+  if(USE_GPU)
+    scs_add_test(run_tests_gpu_indirect scs::scsgpuindir)
   endif()
 
   if(APPLE AND USE_APPLE_ACCELERATE)

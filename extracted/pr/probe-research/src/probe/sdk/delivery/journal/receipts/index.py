@@ -84,11 +84,11 @@ class ReceiptIndexMixin:
             self._index_receipts(receipts, timeout=max(0.001, deadline - time.monotonic()))
             report["indexed"] = len(receipts)
         if not self.receipt_index.exists():
-            return report
+            return self._check_leftovers(report)
         with closing(sqlite3.connect(self.receipt_index, timeout=max(0.001, deadline - time.monotonic()))) as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
             if version == 0 and not conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone():
-                return report
+                return self._check_leftovers(report)
             if version != RECEIPT_INDEX_VERSION:
                 raise ValueError("unsupported terminal receipt index version")
             keys = conn.execute("SELECT key FROM receipts WHERE cleanup=1 LIMIT ?", (max_records,)).fetchall()
@@ -115,6 +115,11 @@ class ReceiptIndexMixin:
                 conn.commit()
             report["compacted"] = len(cleaned)
             report["remaining"] = bool(conn.execute("SELECT 1 FROM receipts WHERE cleanup=1 LIMIT 1").fetchone())
+        return self._check_leftovers(report)
+
+    def _check_leftovers(self, report: dict) -> dict:
+        """`remaining` also when legacy JSON is still there: a pass whose budget ran out before it read one
+        has indexed nothing (no index yet), and its caller must still come back."""
         if self.receipts_dir.exists():
             with os.scandir(self.receipts_dir) as entries:
                 report["remaining"] |= next(entries, None) is not None

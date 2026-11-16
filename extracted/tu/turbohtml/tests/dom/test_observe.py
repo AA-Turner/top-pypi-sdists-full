@@ -1,32 +1,18 @@
 from __future__ import annotations
 
 import gc
+from functools import partial
 from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
-from turbohtml import Comment, Element, Node, Text, parse
+from turbohtml import Comment, Element, Node, Range, Text, parse
 from turbohtml.mutations import MutationObserver, MutationRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
 
-
-def _element(node: Node | None) -> Element:
-    assert isinstance(node, Element)
-    return node
-
-
-def _tags(nodes: Iterable[Node]) -> list[str]:
-    return [_element(node).tag for node in nodes]
-
-
-def _div(markup: str = "<div id=a></div>") -> Element:
-    return _element(parse(markup).find(id="a"))
-
-
-def _first_child(markup: str) -> Node:
-    return _element(parse(markup).find("div")).children[0]
+    from work_steps import WorkSteps
 
 
 def test_child_list_append_record_shape() -> None:
@@ -37,14 +23,20 @@ def test_child_list_append_record_shape() -> None:
     div.append(added)
     (record,) = observer.take_records()
     assert isinstance(record, MutationRecord)
-    assert record.type == "childList"
-    assert record.target == div
-    assert record.added_nodes == (added,)
-    assert record.removed_nodes == ()
+    assert (record.type, record.target, record.added_nodes, record.removed_nodes) == ("childList", div, (added,), ())
     assert _element(record.previous_sibling).tag == "span"
     assert record.next_sibling is None
     assert record.attribute_name is None
     assert record.old_value is None
+
+
+def _div(markup: str = "<div id=a></div>") -> Element:
+    return _element(parse(markup).find(id="a"))
+
+
+def _element(node: Node | None) -> Element:
+    assert isinstance(node, Element)
+    return node
 
 
 def test_take_records_drains_the_queue() -> None:
@@ -77,6 +69,10 @@ def test_insert_after_and_index_insert_record() -> None:
     assert [_tags(record.added_nodes) for record in observer.take_records()] == [["b"], ["i"]]
 
 
+def _tags(nodes: Iterable[Node]) -> list[str]:
+    return [_element(node).tag for node in nodes]
+
+
 def test_extend_records_one_per_child() -> None:
     div = _div()
     observer = MutationObserver()
@@ -104,7 +100,7 @@ def test_clear_records_each_removal() -> None:
     assert [_tags(record.removed_nodes) for record in observer.take_records()] == [["span"], ["i"]]
 
 
-@pytest.mark.parametrize("method", ["extract", "decompose"], ids=["extract", "decompose"])
+@pytest.mark.parametrize("method", [pytest.param("extract", id="extract"), pytest.param("decompose", id="decompose")])
 def test_removal_methods_record(method: str) -> None:
     div = _div("<div id=a><span></span></div>")
     span = _element(div.find("span"))
@@ -176,8 +172,7 @@ def test_attribute_added_reports_no_old_value() -> None:
     observer.observe(div, attributes=True, attribute_old_value=True)
     div.attrs["data-x"] = "1"
     (record,) = observer.take_records()
-    assert record.type == "attributes"
-    assert record.attribute_name == "data-x"
+    assert (record.type, record.attribute_name) == ("attributes", "data-x")
     assert record.old_value is None
 
 
@@ -215,8 +210,7 @@ def test_attribute_delete_records_old_value() -> None:
     observer.observe(div, attributes=True, attribute_old_value=True)
     del div.attrs["data-x"]
     (record,) = observer.take_records()
-    assert record.attribute_name == "data-x"
-    assert record.old_value == "gone"
+    assert (record.attribute_name, record.old_value) == ("data-x", "gone")
 
 
 def test_attribute_filter_limits_names() -> None:
@@ -262,6 +256,10 @@ def test_character_data_old_value_implies_character_data() -> None:
     assert len(observer.take_records()) == 1
 
 
+def _first_child(markup: str) -> Node:
+    return _element(parse(markup).find("div")).children[0]
+
+
 def test_character_data_records_old_value() -> None:
     text = _first_child("<div>hello</div>")
     assert isinstance(text, Text)
@@ -269,8 +267,7 @@ def test_character_data_records_old_value() -> None:
     observer.observe(text, character_data=True, character_data_old_value=True)
     text.data = "world"
     (record,) = observer.take_records()
-    assert record.type == "characterData"
-    assert record.old_value == "hello"
+    assert (record.type, record.old_value) == ("characterData", "hello")
 
 
 def test_character_data_without_flag_reports_none() -> None:
@@ -421,9 +418,126 @@ def test_disconnect_one_of_several_observers() -> None:
     second.disconnect()  # empties the registry
 
 
+def test_disconnect_the_later_of_two_observers_on_a_target() -> None:
+    div = _div()
+    first = MutationObserver()
+    second = MutationObserver()
+    first.observe(div, child_list=True)
+    second.observe(div, child_list=True)
+    second.disconnect()
+    div.append(Element("b"))
+    assert len(first.take_records()) == 1
+    assert second.take_records() == []
+
+
+def test_target_is_watched_again_after_its_only_observer_left() -> None:
+    doc = parse("<div id=a></div><div id=b></div>")
+    left = _element(doc.find(id="a"))
+    right = _element(doc.find(id="b"))
+    kept = MutationObserver()
+    kept.observe(left, child_list=True)
+    gone = MutationObserver()
+    gone.observe(right, child_list=True)
+    gone.disconnect()  # right keeps its place in the registry, with nobody watching it
+    right.append(Element("b"))
+    assert kept.take_records() == []
+    kept.observe(right, child_list=True)
+    right.append(Element("i"))
+    assert _tags(kept.take_records()[0].added_nodes) == ["i"]
+
+
+@pytest.mark.parametrize("targets", [pytest.param(1, id="one-target"), pytest.param(2, id="two-targets")])
+def test_reobserving_a_target_a_later_observer_also_watches(targets: int) -> None:
+    doc = parse("<div id=a></div><div id=b></div>")
+    left = _element(doc.find(id="a"))
+    right = _element(doc.find(id="b"))
+    first = MutationObserver()
+    second = MutationObserver()
+    for target in (left, right)[:targets]:
+        first.observe(target, attributes=True)
+    second.observe(left, attributes=True)
+    first.observe(left, child_list=True)  # replaces first's options, which are no longer the newest on left
+    left.attrs["data-x"] = "1"
+    left.append(Element("b"))
+    assert [record.type for record in first.take_records()] == ["childList"]
+    assert [record.type for record in second.take_records()] == ["attributes"]
+
+
+def test_one_observer_per_target_in_a_deep_tree() -> None:
+    root = Element("div")
+    root.set_inner_html("<div>" * 50 + "<p></p>" * 200)
+    paragraphs = root.select("p")
+    shared = MutationObserver()
+    own = [MutationObserver() for _ in paragraphs]
+    for paragraph, observer in zip(paragraphs, own, strict=True):
+        shared.observe(paragraph, attributes=True, subtree=True)
+        observer.observe(paragraph, attributes=True, attribute_old_value=True, subtree=True)
+    for paragraph in paragraphs:
+        paragraph.attrs["dir"] = "auto"
+    assert [record.target for record in shared.take_records()] == paragraphs
+    assert [[record.target for record in observer.take_records()] for observer in own] == [[p] for p in paragraphs]
+
+
+def test_each_watched_span_gets_its_own_record() -> None:
+    spans, observer = _watch_each_span(3)
+    assert [record.target for record in _edit_each(spans, observer)] == spans
+
+
+def _watch_each_span(count: int) -> tuple[list[Element], MutationObserver]:
+    spans = parse("<span></span>" * count).find_all("span")
+    observer = MutationObserver()
+    for span in spans:
+        observer.observe(span, attributes=True)
+    return spans, observer
+
+
+def _edit_each(spans: list[Element], observer: MutationObserver) -> list[MutationRecord]:
+    for span in spans:
+        span.attrs["dir"] = "auto"
+    return observer.take_records()
+
+
+def test_edit_steps_stay_linear_in_the_watched_nodes(work_steps: WorkSteps) -> None:
+    work_steps.assert_linear(_watched_edits, (1000, 4000))
+
+
+def _watched_edits(count: int) -> partial[list[MutationRecord]]:
+    spans, observer = _watch_each_span(count)
+    return partial(_edit_each, spans, observer)
+
+
+def test_watch_without_subtree_on_an_ancestor_ignores_a_descendant_edit() -> None:
+    doc = parse("<div id=a><p id=b></p></div>")
+    outer = _element(doc.find(id="a"))
+    inner = _element(doc.find(id="b"))
+    shallow = MutationObserver()
+    shallow.observe(outer, attributes=True)
+    deep = MutationObserver()
+    deep.observe(outer, attributes=True, subtree=True)
+    inner.attrs["dir"] = "auto"
+    assert shallow.take_records() == []
+    assert [record.target for record in deep.take_records()] == [inner]
+
+
+def test_many_observers_of_one_target_each_receive_the_record() -> None:
+    div = _div()
+    observers = [MutationObserver() for _ in range(50)]
+    for observer in observers:
+        observer.observe(div, attributes=True)
+    for observer in observers[::2]:
+        observer.observe(div, attributes=True, attribute_old_value=True)
+    for observer in observers[10:20]:
+        observer.disconnect()
+    div.attrs["data-x"] = "1"
+    div.attrs["data-x"] = "2"
+    old_values = [[record.old_value for record in observer.take_records()] for observer in observers]
+    alternating = [[None, "1"], [None, None]]
+    assert old_values == alternating * 5 + [[]] * 10 + alternating * 15
+
+
 def test_deliver_calls_callback_with_records_and_observer() -> None:
     div = _div()
-    seen: list[tuple[int, object]] = []
+    seen: list[tuple[int, MutationObserver]] = []
     observer = MutationObserver(lambda records, obs: seen.append((len(records), obs)))
     observer.observe(div, child_list=True)
     div.append(Element("b"))
@@ -510,6 +624,19 @@ def test_re_extract_detached_node_records_once() -> None:
     assert len(observer.take_records()) == 1
 
 
+def test_child_list_recorded_after_a_range_insertion() -> None:
+    # the range insertion drops the parsed tree's nest bound, which shares its field with the observer flag
+    div = _div()
+    observer = MutationObserver()
+    observer.observe(div, child_list=True)
+    Range(div, 0).insert_node(Element("i"))
+    observer.take_records()
+    added = Element("b")
+    div.append(added)
+    (record,) = observer.take_records()
+    assert record.added_nodes == (added,)
+
+
 def test_mutation_without_observers_still_works() -> None:
     div = _div("<div id=a><span>text</span></div>")
     span = _element(div.find("span"))
@@ -576,7 +703,7 @@ def test_observer_is_garbage_collected() -> None:
 
 def test_target_must_be_a_node() -> None:
     with pytest.raises(TypeError):
-        MutationObserver().observe("not a node", child_list=True)  # ty: ignore[invalid-argument-type]
+        MutationObserver().observe("not a node", child_list=True)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
 def test_observe_requires_an_option() -> None:
@@ -595,37 +722,37 @@ def test_cross_tree_target_is_rejected() -> None:
 
 def test_non_callable_callback_is_rejected() -> None:
     with pytest.raises(TypeError, match="callable"):
-        MutationObserver(42)  # ty: ignore[invalid-argument-type]
+        MutationObserver(42)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
 def test_too_many_constructor_arguments() -> None:
     with pytest.raises(TypeError):
-        MutationObserver(None, None)  # ty: ignore[too-many-positional-arguments]
+        MutationObserver(None, None)  # ty: ignore[too-many-positional-arguments]  # passes an extra positional argument on purpose to check the rejection
 
 
 def test_observe_rejects_unknown_keyword() -> None:
     with pytest.raises(TypeError):
-        MutationObserver().observe(_div(), child_list=True, bogus=1)  # ty: ignore[unknown-argument]
+        MutationObserver().observe(_div(), child_list=True, bogus=1)  # ty: ignore[unknown-argument]  # passes an unknown keyword on purpose to check the rejection
 
 
 @pytest.mark.parametrize(
     "attribute_filter",
     [pytest.param([1], id="non-str-entry"), pytest.param(["ok", 1], id="non-str-after-valid")],
 )
-def test_non_str_attribute_filter_is_rejected(attribute_filter: list[object]) -> None:
+def test_non_str_attribute_filter_is_rejected(attribute_filter: list[int | str]) -> None:
     with pytest.raises(TypeError):
-        MutationObserver().observe(_div(), attributes=True, attribute_filter=attribute_filter)  # ty: ignore[invalid-argument-type]
+        MutationObserver().observe(_div(), attributes=True, attribute_filter=attribute_filter)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
 def test_non_iterable_attribute_filter_is_rejected() -> None:
     with pytest.raises(TypeError):
-        MutationObserver().observe(_div(), attributes=True, attribute_filter=5)  # ty: ignore[invalid-argument-type]
+        MutationObserver().observe(_div(), attributes=True, attribute_filter=5)  # ty: ignore[invalid-argument-type]  # passes a wrong type on purpose to check the runtime rejection
 
 
-@pytest.mark.parametrize("attributes", [False, True], ids=["wrong-kind", "unrelated"])
+@pytest.mark.parametrize("attributes", [pytest.param(False, id="wrong-kind"), pytest.param(True, id="unrelated")])
 def test_observer_overlap_keeps_old_value(*, attributes: bool) -> None:
     root: Final = Element("div")
-    root.set_inner_html('<section><p data-x="before"></p></section>' + "<span></span>" * 100)
+    root.set_inner_html(f'<section><p data-x="before"></p></section>{"<span></span>" * 100}')
     observer: Final = MutationObserver()
     for node in root.select("span"):
         observer.observe(node, child_list=not attributes, attributes=attributes, subtree=True)
@@ -636,3 +763,45 @@ def test_observer_overlap_keeps_old_value(*, attributes: bool) -> None:
     assert [(record.target, record.attribute_name, record.old_value) for record in observer.take_records()] == [
         (target, "data-x", "before")
     ]
+
+
+@pytest.mark.parametrize("drain", ["take_records", "deliver"])
+def test_failed_drain_drops_the_batch(drain: str) -> None:
+    paragraph: Final = _element(parse(f'<p title="{"A" * 200}" \ud800 lang="{"B" * 200}">x</p>').find("p"))
+    observer: Final = MutationObserver()
+    observer.observe(paragraph, attributes=True, attribute_old_value=True)
+    paragraph.attrs.clear()  # removes last to first, so the name that has no str form sits between two old values
+    with pytest.raises(UnicodeDecodeError):
+        getattr(observer, drain)()
+    assert observer.take_records() == []  # a queue still holding the batch frees its old values a second time
+    paragraph.attrs["id"] = "a"
+    assert [record.attribute_name for record in observer.take_records()] == ["id"]
+    observer.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("reenter", "result"),
+    [
+        pytest.param("take_records", [], id="take_records"),
+        pytest.param("deliver", [], id="deliver"),
+        pytest.param("disconnect", None, id="disconnect"),
+    ],
+)
+def test_drain_survives_reentry_while_building_a_record(
+    reenter: str, result: list[MutationRecord] | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    div: Final = _div(f'<div id=a title="{"A" * 200}"></div>')
+    observer: Final = MutationObserver()
+    observer.observe(div, attributes=True, attribute_old_value=True)
+    div.attrs["title"] = "after"
+    div.attrs["id"] = "b"
+    nested: Final[list[list[MutationRecord] | None]] = []
+
+    def reentering(cls: type[MutationRecord], *fields: str | Node | tuple[Node, ...] | None) -> MutationRecord:
+        nested.append(getattr(observer, reenter)())  # sees an empty queue, or drops the observer's hold on the tree
+        return tuple.__new__(cls, fields)
+
+    monkeypatch.setattr(MutationRecord, "__new__", reentering)
+    records: Final = observer.take_records()
+    assert [(record.attribute_name, record.old_value) for record in records] == [("title", "A" * 200), ("id", "a")]
+    assert nested == [result, result]

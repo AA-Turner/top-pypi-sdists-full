@@ -27,7 +27,7 @@ axis; static windows of literal extents (``start + hl.arange(E)`` or a literal
 slice); pointwise chains in fp32, or in bf16 with every result rounded as
 torch rounds it (casts, ``*``, ``+``, ``-``, ``neg``, ``exp2``, ``rsqrt``,
 ``where`` with static masks of ``hl.arange`` origin; a repeated operand such
-as ``x * x``, which the lowering spells ``mul(x, None)``); the per-row
+as ``x * x`` retains both operands); the per-row
 ``sum(dim=-1, keepdim=True)`` of an fp32 tile over a static extent (the
 fused row L2 norm ``x * rsqrt((x * x).sum(-1, keepdim=True) + eps)``);
 ``hl.dot`` with fp32 operands under tf32 ``dot_precision`` on sm_80+; plain
@@ -110,6 +110,8 @@ from ..compile_environment import shape_env_size_hint
 from ..compile_environment import shape_env_var_hints
 from ..variable_origin import BlockSizeOrigin
 from ..variable_origin import GridOrigin
+from .fx_matcher import _is_call
+from .state import cute_codegen_state
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -686,14 +688,6 @@ def _static_range(d: tuple[object, ...]) -> tuple[int, int] | None:
 
 # --------------------------------------------------------------------------
 # Matching / flattening
-
-
-def _is_call(node: object, target: object) -> bool:
-    return (
-        isinstance(node, torch.fx.Node)
-        and node.op == "call_function"
-        and node.target is target
-    )
 
 
 class _Matcher:
@@ -1741,21 +1735,10 @@ class _Matcher:
 
     @staticmethod
     def lowered_args(node: Node) -> tuple[object, ...]:
-        """The operands of a lowered pointwise node.  The inductor lowering
-        (``strip_unused_inputs``) replaces a repeated input by None after
-        its first occurrence (``x * x`` is ``mul(x, None)``): that None is the
-        one Node the other args name; with several candidates (a ``where``
-        of two tensors) the operand is ambiguous and the program declines."""
-        args = node.args
-        if not any(a is None for a in args):
-            return args
-        if "lowering" not in node.meta:
+        """Read exact semantic operands; pruned inputs are not reconstructible."""
+        if any(a is None for a in node.args):
             raise _NotMine(f"a None operand of {node.target}")
-        nodes = {a for a in args if isinstance(a, torch.fx.Node)}
-        if len(nodes) != 1:
-            raise _NotMine(f"ambiguous repeated operand of {node.target}")
-        (only,) = nodes
-        return tuple(only if a is None else a for a in args)
+        return node.args
 
     def build_row_reduce(self, node: Node, values: dict[Node, object]) -> Value:
         """``x.sum(dim=-1, keepdim=True)`` of an fp32 tile value over a static
@@ -4127,7 +4110,7 @@ def emit_register_subblocks_module_statements(cg: GenerateAST) -> None:
 def codegen_register_subblocks(cg: GenerateAST) -> bool:
     """Replace the device body by the register sub-block program of the plan."""
     df = cg.device_function
-    plan = df.cute_state.register_subblocks_plan
+    plan = df.cute_state.root_plans.register_subblocks_plan
     if plan is None:
         return False
     root = cg.current_root_graph_info
@@ -4145,7 +4128,7 @@ def codegen_register_subblocks(cg: GenerateAST) -> bool:
         names=_DeviceNames(cg),
     )
     source = emitter.render()
-    cg.cute_wrapper_plans.append(
+    cute_codegen_state(cg).wrapper_plans.append(
         {
             "kind": PLAN_KIND,
             "total_ctas": plan.total_ctas,
@@ -4156,5 +4139,5 @@ def codegen_register_subblocks(cg: GenerateAST) -> bool:
     )
     df.body = list(ast.parse(textwrap.dedent(source)).body)
     df.preamble = []
-    df.cute_state.owned_root_block_dims = (plan.threads, 1, 1)
+    df.cute_state.lanes.owned_root_block_dims = (plan.threads, 1, 1)
     return True

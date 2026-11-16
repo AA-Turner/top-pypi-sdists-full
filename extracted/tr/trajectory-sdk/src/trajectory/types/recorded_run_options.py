@@ -14,6 +14,8 @@ class RecordedRunOptions(BaseModel):
 
   load_weights_only: bool | None = None
 
+  full_parameter: bool | None = None
+
   density_aware_training: bool | None = None
 
   algorithm: str | None = None

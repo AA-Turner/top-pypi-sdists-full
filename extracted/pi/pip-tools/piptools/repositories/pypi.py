@@ -120,17 +120,8 @@ class PyPIRepository(BaseRepository):
 
     def _clear_finder_cache(self) -> None:
         """Clear the cache of installation candidates."""
-        # `finder.find_all_candidates` is an lru_cache wrapped method on older `pip`
-        # versions, which can be cleared with `cache_clear()`
-        # but on newer versions, it's a simple method, and the underlying cache is a
-        # dict on the instance
-        # the same holds for `finder.find_best_candidate`
-        if _pip_api.PIP_VERSION_MAJOR_MINOR >= (25, 1):  # pragma: pip>=25.1 cover
-            self.finder._all_candidates.clear()
-            self.finder._best_candidates.clear()
-        else:  # pragma: pip>=25.1 no cover
-            self.finder.find_all_candidates.cache_clear()
-            self.finder.find_best_candidate.cache_clear()
+        self.finder._all_candidates.clear()
+        self.finder._best_candidates.clear()
 
     @property
     def command(self) -> InstallCommand:
@@ -183,7 +174,7 @@ class PyPIRepository(BaseRepository):
         download_dir: str | None,
         ireq: InstallRequirement,
         wheel_cache: WheelCache,
-    ) -> set[InstallationCandidate]:
+    ) -> set[InstallRequirement]:
         with (
             get_build_tracker() as build_tracker,
             TempDirectory(kind="resolver") as temp_dir,
@@ -282,7 +273,7 @@ class PyPIRepository(BaseRepository):
         request_failed_error_types = _pip_api.get_pip_request_failed_exception_types()
 
         for index_base_url in index_base_urls:
-            json_url = urllib.parse.urljoin(index_base_url, f"{ireq.name}/json")
+            json_url = _json_api_url(base_url=index_base_url, package_name=ireq.name)
 
             try:
                 response = self.session.get(json_url)
@@ -296,6 +287,10 @@ class PyPIRepository(BaseRepository):
             # Skip this PyPI server, because there is no package
             # or JSON API might be not supported
             if response.status_code == 404:
+                log.debug(
+                    f"Index server {index_base_url!r} did not "
+                    f"provide PyPI JSON API data for {ireq.name!r}."
+                )
                 continue
 
             try:
@@ -529,6 +524,20 @@ def open_local_or_remote_file(link: Link, session: Session) -> Iterator[FileStre
 
 def candidate_version(candidate: InstallationCandidate) -> _BaseVersion:
     return candidate.version
+
+
+def _json_api_url(*, base_url: str, package_name: str) -> str:
+    """
+    Given a base URL for an index server + a package name, get the PyPI JSON API URL.
+
+    Should be ``https://pypi.org/pypi/<package>/json`` for PyPI.
+    This is not well-defined for non-PyPI servers, but they may provide it.
+
+    :param base_url: The true base URL of the index, as returned by
+        :func:`_get_true_base_from_index_url`.
+    :param package_name: The name of the package to lookup.
+    """
+    return urllib.parse.urljoin(base_url, f"pypi/{package_name}/json")
 
 
 def _get_true_base_from_index_url(url: str) -> str:

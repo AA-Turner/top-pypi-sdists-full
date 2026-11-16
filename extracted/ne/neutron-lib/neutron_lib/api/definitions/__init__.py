@@ -40,6 +40,7 @@ from neutron_lib.api.definitions import dvr
 from neutron_lib.api.definitions import ecmp_routes
 from neutron_lib.api.definitions import empty_string_filtering
 from neutron_lib.api.definitions import evpn
+from neutron_lib.api.definitions import evpn_l2
 from neutron_lib.api.definitions import expose_l3_conntrack_helper
 from neutron_lib.api.definitions import expose_port_forwarding_in_fip
 from neutron_lib.api.definitions import external_net
@@ -56,10 +57,8 @@ from neutron_lib.api.definitions import firewall_v2
 from neutron_lib.api.definitions import firewall_v2_stdattrs
 from neutron_lib.api.definitions import flavors
 from neutron_lib.api.definitions import floating_ip_port_forwarding
-from neutron_lib.api.definitions import floatingip_autodelete_internal
 from neutron_lib.api.definitions import floatingip_pools
 from neutron_lib.api.definitions import floatingip_router_writable
-from neutron_lib.api.definitions import flowclassifier
 from neutron_lib.api.definitions import ip_allocation
 from neutron_lib.api.definitions import ip_substring_port_filtering
 from neutron_lib.api.definitions import l2_adjacency
@@ -86,6 +85,7 @@ from neutron_lib.api.definitions import network_cascade_delete
 from neutron_lib.api.definitions import network_ha
 from neutron_lib.api.definitions import network_ip_availability
 from neutron_lib.api.definitions import network_ip_availability_details
+from neutron_lib.api.definitions import network_metadata
 from neutron_lib.api.definitions import network_mtu
 from neutron_lib.api.definitions import network_mtu_writable
 from neutron_lib.api.definitions import network_segment_range
@@ -129,12 +129,12 @@ from neutron_lib.api.definitions import quota_check_limit
 from neutron_lib.api.definitions import quota_check_limit_default
 from neutron_lib.api.definitions import rbac_address_groups
 from neutron_lib.api.definitions import rbac_address_scope
-from neutron_lib.api.definitions import rbac_bgpvpn
 from neutron_lib.api.definitions import rbac_security_groups
 from neutron_lib.api.definitions import rbac_subnetpool
 from neutron_lib.api.definitions import revisionifmatch
 from neutron_lib.api.definitions import router_admin_state_down_before_update
 from neutron_lib.api.definitions import router_availability_zone
+from neutron_lib.api.definitions import router_availability_zone_hints_writable
 from neutron_lib.api.definitions import router_enable_snat
 from neutron_lib.api.definitions import routerservicetype
 from neutron_lib.api.definitions import security_groups_default_statefulness
@@ -148,7 +148,6 @@ from neutron_lib.api.definitions import security_groups_shared_filtering
 from neutron_lib.api.definitions import segment
 from neutron_lib.api.definitions import segments_peer_subnet_host_routes
 from neutron_lib.api.definitions import servicetype
-from neutron_lib.api.definitions import sfc
 from neutron_lib.api.definitions import sort_key_validation
 from neutron_lib.api.definitions import sorting
 from neutron_lib.api.definitions import standard_attr_segment
@@ -157,7 +156,6 @@ from neutron_lib.api.definitions import subnet
 from neutron_lib.api.definitions import subnet_dns_publish_fixed_ip
 from neutron_lib.api.definitions import subnet_external_network
 from neutron_lib.api.definitions import subnet_onboard
-from neutron_lib.api.definitions import subnet_segmentid_enforce
 from neutron_lib.api.definitions import subnet_segmentid_writable
 from neutron_lib.api.definitions import subnet_service_types
 from neutron_lib.api.definitions import subnetpool
@@ -167,6 +165,7 @@ from neutron_lib.api.definitions import tag_creation
 from neutron_lib.api.definitions import tag_ports_during_bulk_creation
 from neutron_lib.api.definitions import tap_mirror
 from neutron_lib.api.definitions import tap_mirror_both_direction
+from neutron_lib.api.definitions import tap_mirror_lport
 from neutron_lib.api.definitions import trunk
 from neutron_lib.api.definitions import trunk_details
 from neutron_lib.api.definitions import uplink_status_propagation
@@ -212,6 +211,7 @@ _ALL_API_DEFINITIONS = {
     ecmp_routes,
     empty_string_filtering,
     evpn,
+    evpn_l2,
     expose_l3_conntrack_helper,
     expose_port_forwarding_in_fip,
     external_net,
@@ -228,13 +228,11 @@ _ALL_API_DEFINITIONS = {
     floating_ip_port_forwarding,
     fip_pf_port_range,
     fip_pf_description,
-    floatingip_autodelete_internal,
     floatingip_pools,
     floatingip_router_writable,
     ip_allocation,
     ip_substring_port_filtering,
     l2_adjacency,
-    flowclassifier,
     l3,
     l3_agent_scheduler_ha_chassis_priority,
     l3_conntrack_helper,
@@ -258,6 +256,7 @@ _ALL_API_DEFINITIONS = {
     network_ha,
     network_ip_availability,
     network_ip_availability_details,
+    network_metadata,
     network_mtu,
     network_mtu_writable,
     network_segment_range,
@@ -301,12 +300,12 @@ _ALL_API_DEFINITIONS = {
     quota_check_limit_default,
     rbac_address_groups,
     rbac_address_scope,
-    rbac_bgpvpn,
     rbac_security_groups,
     rbac_subnetpool,
     revisionifmatch,
     router_admin_state_down_before_update,
     router_availability_zone,
+    router_availability_zone_hints_writable,
     router_enable_snat,
     routerservicetype,
     security_groups_default_statefulness,
@@ -319,7 +318,6 @@ _ALL_API_DEFINITIONS = {
     segment,
     segments_peer_subnet_host_routes,
     servicetype,
-    sfc,
     sort_key_validation,
     sorting,
     standard_attr_segment,
@@ -328,7 +326,6 @@ _ALL_API_DEFINITIONS = {
     subnet_dns_publish_fixed_ip,
     subnet_external_network,
     subnet_onboard,
-    subnet_segmentid_enforce,
     subnet_segmentid_writable,
     subnet_service_types,
     subnetpool,
@@ -338,6 +335,7 @@ _ALL_API_DEFINITIONS = {
     tag_ports_during_bulk_creation,
     tap_mirror,
     tap_mirror_both_direction,
+    tap_mirror_lport,
     trunk,
     trunk_details,
     uplink_status_propagation,

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from branca.element import MacroElement
 
 from folium.elements import JSCSSMixin
@@ -32,8 +30,7 @@ class Geocoder(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
 
             var geocoderOpts_{{ this.get_name() }} = {{ this.options|tojavascript }};
@@ -54,8 +51,7 @@ class Geocoder(JSCSSMixin, MacroElement):
             }).addTo({{ this._parent.get_name() }});
 
         {% endmacro %}
-    """
-    )
+    """)
 
     default_js = [
         (
@@ -75,10 +71,10 @@ class Geocoder(JSCSSMixin, MacroElement):
         collapsed: bool = False,
         position: str = "topright",
         add_marker: bool = True,
-        zoom: Optional[int] = 11,
+        zoom: int | None = 11,
         provider: str = "nominatim",
         provider_options: dict = {},
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "Geocoder"
@@ -89,5 +85,5 @@ class Geocoder(JSCSSMixin, MacroElement):
             zoom=zoom,
             provider=provider,
             provider_options=provider_options,
-            **kwargs
+            **kwargs,
         )

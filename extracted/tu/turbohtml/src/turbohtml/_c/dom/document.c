@@ -1,6 +1,7 @@
 /* The Document root, the tree-owning handle, the push IncrementalParser, the parse()/parse_fragment()
    entry points, and the type registration that wires every node type onto the module. */
 
+#include "core/refresh.h"
 #include "dom/nodes.h"
 
 #include <stdbool.h>
@@ -381,6 +382,22 @@ static int url_has_scheme(PyObject *url) {
     return 0;
 }
 
+static int url_first_segment_colon(PyObject *url) {
+    Py_ssize_t length = PyUnicode_GET_LENGTH(url);
+    int kind = PyUnicode_KIND(url);
+    const void *data = PyUnicode_DATA(url);
+    for (Py_ssize_t index = 0; index < length; index++) {
+        Py_UCS4 point = PyUnicode_READ(kind, data, index);
+        if (point == '/' || point == '\\' || point == '?' || point == '#') {
+            break;
+        }
+        if (point == ':') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static Py_ssize_t url_base_opaque_colon(PyObject *base) {
     Py_ssize_t length = PyUnicode_GET_LENGTH(base);
     if (length < 2 || !th_scheme_start(PyUnicode_READ_CHAR(base, 0))) {
@@ -516,10 +533,19 @@ static PyObject *url_join_encoded_dot_segments(PyObject *base, PyObject *target,
                            PyUnicode_FindChar(target, '#', 0, encoded_dot, 1) < 0;
     Py_ssize_t colon = path_encoded_dot ? url_same_scheme_colon(base, target) : -1;
     if (colon >= 0 && th_url_web_authority(target) == TH_URL_WEB_AUTHORITY_NONE) {
+        /* The remainder is a relative reference, so no scheme scan may read it again; "./" keeps a first segment that
+           holds a colon a path (RFC 3986 section 4.2). */
         PyObject *relative = PyUnicode_Substring(target, colon + 1, target_len);
         if (relative == NULL) {          /* GCOVR_EXCL_BR_LINE: only allocation can fail */
             Py_XDECREF(normalized_base); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;                 /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (url_first_segment_colon(relative)) {
+            Py_SETREF(relative, th_str_format("./%U", relative));
+            if (relative == NULL) {          /* GCOVR_EXCL_BR_LINE: only allocation can fail */
+                Py_XDECREF(normalized_base); /* GCOVR_EXCL_LINE: allocation-failure path */
+                return NULL;                 /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
         }
         PyObject *resolved =
             url_join_encoded_dot_segments(normalized_base == NULL ? base : normalized_base, relative, literalized);
@@ -911,8 +937,10 @@ PyObject *th_url_resolve(PyObject *base, PyObject *target) {
         return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t target_len = PyUnicode_GET_LENGTH(target);
-    if (target_len >= 3 && PyUnicode_READ_CHAR(target, target_len - 1) == ':' && url_web_special_base(target) &&
-        url_same_scheme(base, target)) {
+    /* A colon before the last character is a port, path, query or fragment colon, not the scheme's. */
+    if (target_len >= 3 && PyUnicode_READ_CHAR(target, target_len - 1) == ':' &&
+        PyUnicode_FindChar(target, ':', 0, target_len, 1) == target_len - 1 && url_web_special_base(target) &&
+        url_same_scheme_at(base, target, target_len - 1)) {
         PyObject *empty = PyUnicode_New(0, 127);
         if (empty == NULL) { /* GCOVR_EXCL_BR_LINE: only allocation can fail */
             return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1029,95 +1057,45 @@ static int meta_is_space(Py_UCS4 c) {
     return 0;
 }
 
-static int meta_is_digit(Py_UCS4 c) {
-    return c >= '0' && c <= '9';
-}
-
 /* Parse a meta-refresh `content` ("<delay>" or "<delay>;url=<url>") into ``(delay, url)``, resolving the url against
-   `fallback` and using `fallback` itself when the directive has none. Returns the tuple, None when there is no leading
-   delay, or NULL on error. */
+   `fallback` and using `fallback` itself when the directive has none. Returns the tuple, None when the value is not a
+   refresh directive, or NULL on error. */
 static PyObject *parse_meta_refresh(PyObject *content, PyObject *fallback) {
-    int kind = PyUnicode_KIND(content);
-    const void *data = PyUnicode_DATA(content);
     Py_ssize_t len = PyUnicode_GET_LENGTH(content);
-    Py_ssize_t pos = 0;
-    while (pos < len && meta_is_space(PyUnicode_READ(kind, data, pos))) {
-        pos++;
+    Py_UCS4 *value = PyUnicode_AsUCS4Copy(content);
+    if (value == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    Py_ssize_t number_start = pos;
-    while (pos < len && meta_is_digit(PyUnicode_READ(kind, data, pos))) {
-        pos++;
+    refresh_span span;
+    int refresh = refresh_read(value, len, &span);
+    int lone_dot = refresh && span.delay_end - span.delay_start == 1 && value[span.delay_start] == '.';
+    PyMem_Free(value);
+    if (!refresh) {
+        Py_RETURN_NONE;
     }
-    if (pos < len && PyUnicode_READ(kind, data, pos) == '.') {
-        pos++;
-        while (pos < len && meta_is_digit(PyUnicode_READ(kind, data, pos))) {
-            pos++;
-        }
-    }
-    if (pos == number_start) {
-        Py_RETURN_NONE; /* no leading number, so not a refresh directive */
-    }
-    PyObject *number = PyUnicode_Substring(content, number_start, pos);
+    PyObject *number = PyUnicode_Substring(content, span.delay_start, span.delay_end);
     if (number == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    PyObject *delay = PyFloat_FromString(number);
+    PyObject *delay = lone_dot ? PyFloat_FromDouble(0.0) : PyFloat_FromString(number);
     Py_DECREF(number);
-    if (delay == NULL) { /* GCOVR_EXCL_BR_LINE: the substring is all digits and at most one dot */
+    if (delay == NULL) { /* GCOVR_EXCL_BR_LINE: the substring is digits with at most one dot */
         return NULL;     /* GCOVR_EXCL_LINE */
     }
     PyObject *url = NULL;
-    while (pos < len && PyUnicode_READ(kind, data, pos) != ';' && PyUnicode_READ(kind, data, pos) != ',') {
-        pos++;
-    }
-    if (pos < len) {
-        pos++; /* step past the ';' or ',' */
-        while (pos < len && meta_is_space(PyUnicode_READ(kind, data, pos))) {
-            pos++;
+    if (span.target_end > span.target_start) {
+        PyObject *raw = PyUnicode_Substring(content, span.target_start, span.target_end);
+        if (raw == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            Py_DECREF(delay); /* GCOVR_EXCL_LINE */
+            return NULL;      /* GCOVR_EXCL_LINE */
         }
-        /* an optional "url" "=" prefix, e.g. "url=next" or "URL = next" */
-        if (pos + 2 < len && (PyUnicode_READ(kind, data, pos) | 0x20) == 'u' &&
-            (PyUnicode_READ(kind, data, pos + 1) | 0x20) == 'r' &&
-            (PyUnicode_READ(kind, data, pos + 2) | 0x20) == 'l') {
-            Py_ssize_t after = pos + 3;
-            while (after < len && meta_is_space(PyUnicode_READ(kind, data, after))) {
-                after++;
-            }
-            if (after < len && PyUnicode_READ(kind, data, after) == '=') {
-                after++;
-                while (after < len && meta_is_space(PyUnicode_READ(kind, data, after))) {
-                    after++;
-                }
-                pos = after;
-            }
+        url = th_url_resolve(fallback, raw);
+        Py_DECREF(raw);
+        if (url == NULL) { /* a refresh target with an unbalanced IPv6 bracket cannot be resolved */
+            Py_DECREF(delay);
+            return NULL;
         }
-        Py_ssize_t url_end = len;
-        while (url_end > pos && meta_is_space(PyUnicode_READ(kind, data, url_end - 1))) {
-            url_end--;
-        }
-        if (url_end > pos) {
-            Py_UCS4 quote = PyUnicode_READ(kind, data, pos);
-            if ((quote == '"' || quote == '\'') && url_end - 1 > pos &&
-                PyUnicode_READ(kind, data, url_end - 1) == quote) {
-                pos++;
-                url_end--;
-            }
-        }
-        if (url_end > pos) {
-            PyObject *raw = PyUnicode_Substring(content, pos, url_end);
-            if (raw == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-                Py_DECREF(delay); /* GCOVR_EXCL_LINE */
-                return NULL;      /* GCOVR_EXCL_LINE */
-            }
-            url = th_url_resolve(fallback, raw);
-            Py_DECREF(raw);
-            if (url == NULL) { /* a refresh target with an unbalanced IPv6 bracket cannot be resolved */
-                Py_DECREF(delay);
-                return NULL;
-            }
-        }
-    }
-    if (url == NULL) {
+    } else {
         url = Py_NewRef(fallback);
     }
     PyObject *result = PyTuple_Pack(2, delay, url);
@@ -1135,7 +1113,8 @@ static PyObject *refresh_fallback(PyObject *fallback) {
 }
 
 PyDoc_STRVAR(base_url_doc, "base_url(fallback='')\n--\n\n"
-                           "Resolve this document's base URL from its first <base href>.\n\n"
+                           "Resolve this document's base URL from its first <base href>. A base that resolves to\n"
+                           "more than 2,048 characters is ignored.\n\n"
                            ":param fallback: the URL the <base href> is resolved against, and the result\n"
                            "    itself when the document has no <base href>.\n"
                            ":returns: the document's base URL.");
@@ -1252,7 +1231,8 @@ static int base_url_missing_special_host(PyObject *fallback, PyObject *input) {
 }
 
 /* The document's base URL: its first <base href> resolved against `fallback` (a borrowed str), or `fallback` itself
-   when there is none or the href fails URL parsing (HTML spec 2.4.3). The extraction methods share it. */
+   when there is none, the href fails URL parsing (HTML spec 2.4.3) or the resolved base is longer than
+   TH_BASE_URL_MAX. The extraction methods share it. */
 PyObject *th_document_base_url(PyObject *self, PyObject *fallback) {
     PyObject *href = NULL;
     th_tree *tree = tree_of(self);
@@ -1287,7 +1267,7 @@ PyObject *th_document_base_url(PyObject *self, PyObject *fallback) {
         PyErr_Clear();
         result = Py_NewRef(fallback);
     }
-    if (base_has_forbidden_scheme(result)) {
+    if (base_has_forbidden_scheme(result) || PyUnicode_GET_LENGTH(result) > TH_BASE_URL_MAX) {
         Py_SETREF(result, Py_NewRef(fallback));
     }
     Py_DECREF(input);
@@ -1311,13 +1291,15 @@ TH_NODE_API(static, PyObject *, document_base_url, (PyObject * self, PyObject *a
     return result;
 }
 
-PyDoc_STRVAR(meta_refresh_doc, "meta_refresh(fallback='')\n--\n\n"
-                               "Read the document's <meta http-equiv=refresh> redirect. A refresh tag inside\n"
-                               "<noscript> is ignored.\n\n"
-                               ":param fallback: the URL the directive's target is resolved against, and the\n"
-                               "    target itself when the directive omits one.\n"
-                               ":returns: a (delay_seconds, url) pair, or None when the document has no\n"
-                               "    refresh directive.");
+PyDoc_STRVAR(meta_refresh_doc,
+             "meta_refresh(fallback='')\n--\n\n"
+             "Read the document's <meta http-equiv=refresh> redirect. A refresh tag inside\n"
+             "<noscript> is ignored.\n\n"
+             ":param fallback: the URL the directive's target is resolved against, and the\n"
+             "    target itself when the directive omits one.\n"
+             ":returns: a (delay_seconds, url) pair, or None when the document has no\n"
+             "    refresh directive. Text other than a separator right after the delay is not one, as\n"
+             "    in a browser.");
 
 /* A <meta> nested in <noscript> is ignored, as w3lib does; <script> needs no entry because it is a raw-text element, so
    the parser never nests a <meta> element inside one. */
@@ -1411,7 +1393,8 @@ PyDoc_STRVAR(structured_data_doc,
              "    and Dublin Core are left verbatim. None (the default) returns every value verbatim.\n"
              ":raises ValueError: if base_url is not a valid absolute URL.\n"
              ":raises RecursionError: if Microdata or RDFa records nest more than 400 levels, or if\n"
-             "    Microdata itemref links form a nested-item cycle.");
+             "    Microdata itemref links form a nested-item cycle, repeat shared items more than\n"
+             "    10,000 times or repeat shared property values more than 100,000 times.");
 
 PyDoc_STRVAR(json_ld_doc, "json_ld()\n--\n\n"
                           "Parse every <script type=\"application/ld+json\"> block in the document with the\n"
@@ -1440,7 +1423,8 @@ PyDoc_STRVAR(microdata_doc,
              "    None (the default) returns every value verbatim.\n"
              ":raises ValueError: if base_url is not a valid absolute URL.\n"
              ":raises RecursionError: if records nest more than 400 levels, or if itemref links form\n"
-             "    a nested-item cycle.");
+             "    a nested-item cycle, repeat shared items more than 10,000 times or repeat shared\n"
+             "    property values more than 100,000 times.");
 
 PyDoc_STRVAR(rdfa_doc, "rdfa(base_url=None)\n--\n\n"
                        "Extract RDFa as a list of RdfaItem, one per top-level typeof resource. Each item has\n"
@@ -1561,6 +1545,10 @@ static void handle_dealloc(PyObject *self) {
     PyMem_Free(handle->binding_overflow);
     path_id_map_free(handle->path_ids);
     path_positions_free(handle->path_positions);
+    path_positions_free(handle->path_child_positions);
+    th_copy_memo_free(&handle->copies);
+    handle_drop_slots(handle);
+    th_markdown_ordinals_free(handle->md_ordinals);
     th_tree_free(handle->tree);
     Py_XDECREF(handle->source);
     Py_XDECREF(handle->encoding);
@@ -1593,6 +1581,13 @@ PyObject *handle_new(module_state *state, th_tree *tree, PyObject *source, PyObj
     self->bindings = self->inline_bindings;
     self->binding_capacity = sizeof(self->inline_bindings) / sizeof(*self->inline_bindings);
     self->binding_next = 1;
+    /* An odd multiplier maps distinct serials to distinct salts and spreads them into the low bits dict lookups use. */
+#ifdef Py_GIL_DISABLED
+    uint64_t serial = _Py_atomic_add_uint64(&state->handles_created, 1);
+#else
+    uint64_t serial = state->handles_created++;
+#endif
+    self->hash_salt = serial * UINT64_C(0x9E3779B97F4A7C15);
     self->source = Py_NewRef(source);
     self->encoding = Py_NewRef(encoding);
     self->encoding_certain = encoding_certain;
@@ -1677,15 +1672,15 @@ static const th_encoding_entry *meta_declared_encoding(const th_tree *tree) {
     Py_ssize_t count;
     const th_meta_label *labels = th_tree_meta_labels(tree, &count);
     for (Py_ssize_t index = 0; index < count; index++) {
-        char extracted[64]; /* label may point into it, so it outlives the branch below */
         const char *label = labels[index].text;
+        Py_ssize_t label_len = (Py_ssize_t)strlen(label);
         if (labels[index].from_content) {
-            label = prescan_charset_in_content(label, extracted, sizeof(extracted));
+            label = prescan_charset_in_content(label, &label_len);
             if (label == NULL) {
                 continue;
             }
         }
-        const th_encoding_entry *entry = th_encoding_lookup(label, (Py_ssize_t)strlen(label));
+        const th_encoding_entry *entry = th_encoding_lookup(label, label_len);
         if (entry != NULL) {
             return th_encoding_declared(entry);
         }
@@ -2402,6 +2397,68 @@ PyObject *turbohtml_codec_label(PyObject *Py_UNUSED(module), PyObject *name) {
     Py_RETURN_NONE;
 }
 
+/* WHATWG labels for the CPython codecs whose registry names the spec's label table does not carry as written. */
+static const struct {
+    const char *codec;
+    const char *label;
+} CODEC_WHATWG_LABELS[] = {
+    {"big5hkscs", "big5-hkscs"},
+    {"cp874", "windows-874"},
+    {"cp932", "windows-31j"},
+    {"cp949", "windows-949"},
+    {"cp950", "big5"},
+    {"iso2022_jp", "iso-2022-jp"},
+    {"iso8859-16", "iso-8859-16"},
+    {"mac-cyrillic", "x-mac-cyrillic"},
+    {"mac-roman", "x-mac-roman"},
+    {"utf-8-sig", "utf-8"},
+};
+
+/* The label-table entry a codec's registry name resolves to, or NULL when no entry names it. */
+static const th_encoding_entry *codec_label_entry(PyObject *name) {
+    if (!PyUnicode_Check(name)) {
+        return NULL;
+    }
+    const char *codec = PyUnicode_AsUTF8(name);
+    if (codec == NULL) {
+        PyErr_Clear(); /* a name the UTF-8 encoder rejects is one no label names */
+        return NULL;
+    }
+    for (size_t index = 0; index < sizeof(CODEC_WHATWG_LABELS) / sizeof(CODEC_WHATWG_LABELS[0]); index++) {
+        if (strcmp(codec, CODEC_WHATWG_LABELS[index].codec) == 0) {
+            const char *spelled = CODEC_WHATWG_LABELS[index].label;
+            return th_encoding_lookup(spelled, (Py_ssize_t)strlen(spelled));
+        }
+    }
+    size_t len = strlen(codec);
+    char label[64];
+    if (len >= sizeof(label)) {
+        return NULL;
+    }
+    for (size_t index = 0; index <= len; index++) {
+        label[index] = codec[index] == '_' ? '-' : codec[index];
+    }
+    return th_encoding_lookup(label, (Py_ssize_t)len);
+}
+
+/* The WHATWG name a <meta charset> declares for the codec encode() writes, or NULL with no exception set when no label
+   names the codec. UTF-16 has no such name, because the spec rewrites a UTF-16 declaration to UTF-8. */
+const char *meta_charset_label(const char *encoding) {
+    PyObject *name = codec_registry_name(encoding);
+    if (name == NULL) {
+        return NULL;
+    }
+    const th_encoding_entry *entry = codec_label_entry(name);
+    Py_DECREF(name);
+    if (entry == NULL || th_encoding_declared(entry) != entry) {
+        return NULL;
+    }
+    if (entry == &th_encoding_utf8) {
+        return "utf-8"; /* serialize() declares this spelling, so encode() and serialize() agree */
+    }
+    return entry->canonical;
+}
+
 PyObject *turbohtml_parse(PyObject *module, PyObject *args, PyObject *kwargs) {
     static char *keywords[] = {"markup",    "encoding",         "strict",    "detect_encoding",
                                "positions", "source_locations", "scripting", "allow_declarative_shadow_roots",
@@ -2507,7 +2564,9 @@ typedef struct {
     th_decoder decoder; /* carries ISO-2022-JP's mode across a chunk boundary */
     Py_UCS4 *scratch;   /* grown to the largest chunk seen, so a chunked decode allocates once */
     Py_ssize_t scratch_len;
-    unsigned char tail[4]; /* the incomplete sequence a chunk ended on; gb18030 needs the most, four bytes */
+    /* the incomplete sequence a chunk ended on; ISO-2022-JP needs the most, five bytes: an escape that switched the
+       mode and the first two bytes of the escape that follows it */
+    unsigned char tail[5];
     Py_ssize_t tail_len;
     int replaced; /* the replacement encoding owes the stream exactly one U+FFFD, however many chunks arrive */
 } StreamObject;
@@ -2575,11 +2634,14 @@ static PyObject *stream_decode_legacy(StreamObject *parser, const unsigned char 
         memcpy(spliced + parser->tail_len, chunk, (size_t)chunk_len);
         joined = spliced;
     }
-    if (len > parser->scratch_len) {
+    /* one code point per byte, plus the U+FFFD an ISO-2022-JP escape the previous chunk ended on can still owe, which
+       th_decode_chunk writes before it spends a byte of this one */
+    Py_ssize_t need = len + 1;
+    if (need > parser->scratch_len) {
         /* the held-back tail makes every chunk a byte or two longer than the last, so grow geometrically rather than
            reallocate on each feed */
         Py_ssize_t capacity = parser->scratch_len > 0 ? parser->scratch_len : 64;
-        while (capacity < len) {
+        while (capacity < need) {
             capacity *= 2;
         }
         Py_UCS4 *grown = PyMem_Realloc(parser->scratch, (size_t)capacity * sizeof(Py_UCS4));
@@ -3061,6 +3123,51 @@ static PyObject *reconstruct_shadow_root(module_state *state, PyObject *data) {
     return node_wrap(state, ((NodeObject *)host)->handle, root);
 }
 
+/* Pickle rebuilds each node in a fresh tree, and linking a child from another tree copies its subtree. Taking the new
+   childless node into the largest child's tree instead leaves only the smaller siblings to copy, each into a tree at
+   least twice the size of the one it leaves, so a node is copied at most log2(nodes) times. A child that still has a
+   parent, is a shadow root or has another XML flag is copied as before. Returns 0, or -1 with an exception on
+   allocation failure. */
+static int join_largest_child(module_state *state, PyObject *children, PyObject **slot) {
+    th_tree *tree = tree_of(*slot);
+    th_node *node = ((NodeObject *)*slot)->node;
+    int as_root = node->type == TH_NODE_CONTENT && node == th_tree_document(tree);
+    if (node->type != TH_NODE_ELEMENT && !as_root) {
+        return 0;
+    }
+    NodeObject *largest = NULL;
+    uint32_t most = th_tree_node_count(tree);
+    for (Py_ssize_t index = 0; index < PyList_GET_SIZE(children); index++) {
+        PyObject *item = PyList_GET_ITEM(children, index);
+        if (!PyObject_TypeCheck(item, (PyTypeObject *)state->node_type)) {
+            continue; /* the caller's linking loop raises for it */
+        }
+        NodeObject *child = (NodeObject *)item;
+        th_tree *child_tree = tree_of(item);
+        th_node *root = th_tree_document(child_tree);
+        int rootless = root == NULL || (!as_root && root == child->node && root->type == TH_NODE_CONTENT);
+        if (rootless && child->node->parent == NULL && !th_node_is_shadow_root(child->node) &&
+            th_tree_is_xml(child_tree) == th_tree_is_xml(tree) && th_tree_node_count(child_tree) > most) {
+            most = th_tree_node_count(child_tree);
+            largest = child;
+        }
+    }
+    if (largest == NULL) {
+        return 0;
+    }
+    th_tree *joined = tree_of((PyObject *)largest);
+    /* the import rebinds an element's wrapper to its copy and swaps a fragment's for that of a new fragment there */
+    if (import_foreign_node(largest->handle, slot) < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
+        return -1;                                        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (as_root) {
+        th_tree_set_document(joined, ((NodeObject *)*slot)->node);
+    } else if (largest->node == th_tree_document(joined)) {
+        th_tree_set_document(joined, NULL);
+    }
+    return 0;
+}
+
 PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
     int kind;
     PyObject *data;
@@ -3115,9 +3222,14 @@ PyObject *turbohtml_reconstruct(PyObject *module, PyObject *args) {
     if (node == NULL) {
         return NULL;
     }
+    if (join_largest_child(state, children, &node) < 0) { /* GCOVR_EXCL_BR_LINE: OOM only */
+        Py_DECREF(node);                                  /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                                      /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     /* link each rebuilt child straight into the node: a document has no append(), and a fragment child (a template's
        contents) must land as a child rather than be spliced */
     th_node *parent = ((NodeObject *)node)->node;
+    th_tree_note_deepened(tree_of(node));
     for (Py_ssize_t index = 0; index < PyList_GET_SIZE(children); index++) {
         th_node *child = adopt_child((NodeObject *)node, parent, PyList_GET_ITEM(children, index));
         if (child == NULL) {

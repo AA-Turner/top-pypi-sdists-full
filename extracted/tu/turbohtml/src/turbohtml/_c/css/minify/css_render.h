@@ -25,11 +25,11 @@ static void css_collect_open_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t
 CSS_NOINLINE static void css_close_function_args(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *args) {
     css_blocks blocks = {.deep = {NULL, 0, 0, args->oom}};
     css_collect_open_blocks(vec, start, end, 1, &blocks);
-    css_blocks_close(&blocks, args);
+    css_blocks_close_at_end(&blocks, args);
 }
 
-/* Whether a declaration's tokens [start, end) that run to the end of the input leave a block open. Kept out of line:
-   only the last declaration of an unterminated stylesheet reaches it. */
+/* Whether the tokens [start, end) of a declaration leave a block open. Kept out of line: only a name that is not one
+   ident, and a `!important` ending a stylesheet that runs to the end of the input, reach it. */
 CSS_NOINLINE static int css_leaves_block_open(token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
     css_blocks blocks = {.deep = {NULL, 0, 0, vec->oom}};
     css_collect_open_blocks(vec, start, end, 0, &blocks);
@@ -45,7 +45,7 @@ CSS_NOINLINE static void css_close_bare_blocks(css_buf *pool, token_vec *vec, Py
     css_blocks blocks = {.deep = {NULL, 0, 0, pool->oom}};
     css_collect_open_blocks(vec, start, end, 1, &blocks);
     Py_ssize_t closers = pool->len;
-    css_blocks_close(&blocks, pool);
+    css_blocks_close_at_end(&blocks, pool);
     for (Py_ssize_t index = closers; index < pool->len; index++) {
         css_comp closer = {0};
         closer.off = index;
@@ -60,7 +60,7 @@ CSS_NOINLINE static void css_close_bare_blocks(css_buf *pool, token_vec *vec, Py
 CSS_NOINLINE static void css_close_raw_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
     css_blocks blocks = {.deep = {NULL, 0, 0, vec->oom}};
     css_collect_open_blocks(vec, start, end, 0, &blocks);
-    css_blocks_close(&blocks, out);
+    css_blocks_close_at_end(&blocks, out);
 }
 
 /* Render a value's tokens [start, end) into components in the pool. A bare `(` or `[` (one not opened by a function)
@@ -71,13 +71,17 @@ static CSS_FORCEINLINE void css_render_components(css_buf *pool, token_vec *vec,
                                                   int color_mode, int drop_zero_unit, const css_calc_context *context,
                                                   comp_vec *comps) {
     Py_ssize_t index = start;
+    int gap = 0;
     while (index < end) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS || token->kind == CSS_COMMENT) {
+            gap = 1;
             index++;
             continue;
         }
         css_comp comp = {0};
+        comp.spaced = gap;
+        gap = 0;
         if (token->kind == CSS_DELIM && (token->delim == ',' || token->delim == '/')) {
             comp.off = pool->len;
             cbuf_putc(pool, token->delim);
@@ -133,11 +137,54 @@ static CSS_FORCEINLINE void css_render_components(css_buf *pool, token_vec *vec,
     }
 }
 
+/* Whether the `u` or `U` component at index is a one-character identifier that a `+` component follows. */
+static int css_is_range_u(const css_buf *pool, const comp_vec *comps, Py_ssize_t index) {
+    const css_comp *comp = &comps->items[index];
+    return comp->kind == CK_IDENT && comp->len == 1 && (pool->data[comp->off] | 0x20) == 'u';
+}
+
+static int css_is_plus(const css_buf *pool, const comp_vec *comps, Py_ssize_t index) {
+    const css_comp *comp = &comps->items[index];
+    return comp->kind == CK_DELIM && comp->len == 1 && pool->data[comp->off] == '+';
+}
+
+static int css_is_question(const css_buf *pool, const comp_vec *comps, Py_ssize_t index) {
+    const css_comp *comp = &comps->items[index];
+    return comp->kind == CK_DELIM && comp->len == 1 && pool->data[comp->off] == '?';
+}
+
+/* Whether the component at index is a unicode-range token the tokenizer kept whole: the only delimiter component of
+   three or more code points that starts with a `u`. */
+static int css_is_range_token(const css_buf *pool, const comp_vec *comps, Py_ssize_t index) {
+    const css_comp *comp = &comps->items[index];
+    return comp->kind == CK_DELIM && comp->len >= 3 && (pool->data[comp->off] | 0x20) == 'u';
+}
+
+/* Whether the source separated the component at index from the one before it in a way the output must keep: a `u`
+   and `+` that were apart, a `+` and a hex digit or `?` that were apart after a `u`, or a `?` and a hex digit or `?`
+   that were apart. Written with no separator, such a pair reads as a unicode-range token, which only a hex digit
+   followed by `?` marks may not continue; a pair the source ran together stays as it was. */
+static int css_splits_range(const css_buf *pool, const comp_vec *comps, Py_ssize_t index) {
+    const css_comp *comp = &comps->items[index];
+    if (!comp->spaced) {
+        return 0;
+    }
+    if (css_is_range_u(pool, comps, index - 1)) {
+        return css_is_plus(pool, comps, index);
+    }
+    const css_char first = pool->data[comp->off];
+    if (css_is_range_token(pool, comps, index - 1) || css_is_question(pool, comps, index - 1)) {
+        return css_is_hex(first) || first == '?' || first == '-';
+    }
+    return index >= 2 && css_is_plus(pool, comps, index - 1) && css_is_range_u(pool, comps, index - 2) &&
+           (css_is_hex(first) || first == '?');
+}
+
 /* Assemble components into the value buffer: a single space between components, except after a function/url/separator,
    before a parenthesised piece, around a bare delimiter, or between a unitless number and a negative unitless one: a
    `-` before a digit starts no unit, so `1-1` reads as two numbers (CSS Syntax 3 §4.3.3). A negative dimension still
    needs a space because `0-1px` is not a valid space-separated CSS value. */
-static void css_assemble(css_buf *pool, comp_vec *comps, css_buf *out) {
+static void css_assemble(css_buf *pool, comp_vec *comps, int escapes, css_buf *out) {
     for (Py_ssize_t index = 0; index < comps->len; index++) {
         css_comp *comp = &comps->items[index];
         if (index > 0) {
@@ -152,8 +199,9 @@ static void css_assemble(css_buf *pool, comp_vec *comps, css_buf *out) {
                                         (prev->kind == CK_NUM || (prev->kind == CK_DIM && prev->len == 1)) &&
                                         text[0] == '-';
             if (!negative_after_number &&
-                (!glued || css_would_merge(pool->data[prev->off + prev->len - 1], prev->kind == CK_IDENT,
-                                           pool->data + comp->off, comp->len))) {
+                (css_splits_range(pool, comps, index) || !glued ||
+                 css_would_merge_after(escapes, pool->data + prev->off, prev->len, prev->kind == CK_IDENT,
+                                       pool->data + comp->off, comp->len))) {
                 cbuf_putc(out, ' ');
             }
         }
@@ -242,6 +290,10 @@ CSS_NOINLINE static void css_render_raw_value(token_vec *vec, Py_ssize_t start, 
     int any_ws = 0;
     int comment_gap = 0;
     int last_is_ident = 0;
+    /* 1 after a `u` or `U` identifier, 2 after the `+` that follows one: a comment kept between the pieces of a range
+       start, as a separator, stops them reading as a unicode-range token */
+    int range_state = 0;
+    int after_range = 0;
     Py_ssize_t written = 0;
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
@@ -254,14 +306,23 @@ CSS_NOINLINE static void css_render_raw_value(token_vec *vec, Py_ssize_t start, 
             comment_gap = 1;
             continue;
         }
+        css_char first = token->text[0];
+        int range_split = range_state == 1   ? token->kind == CSS_DELIM && token->delim == '+'
+                          : range_state == 2 ? css_is_hex(first) || first == '?'
+                          : after_range      ? css_is_hex(first) || first == '?' || first == '-'
+                                             : 0;
         if (pending_ws && written > 0) {
             cbuf_putc(out, ' ');
-        } else if (comment_gap && written > 0 &&
-                   css_would_merge(out->data[out->len - 1], last_is_ident, token->text, token->text_len)) {
+        } else if (written > 0 && comment_gap &&
+                   (range_split || css_would_merge_after(vec->escapes, out->data, out->len, last_is_ident, token->text,
+                                                         token->text_len))) {
             cbuf_puts(out, "/**/");
         }
         pending_ws = 0;
         comment_gap = 0;
+        int is_u = token->kind == CSS_IDENT && token->text_len == 1 && css_lower(token->text[0]) == 'u';
+        range_state = range_state == 1 && token->kind == CSS_DELIM && token->delim == '+' ? 2 : is_u;
+        after_range = token->kind == CSS_URANGE || (token->kind == CSS_DELIM && token->delim == '?');
         last_is_ident = token->kind == CSS_IDENT;
         if (token->kind == CSS_NUM) {
             cbuf_put_run(out, token->text, token->text_len);
@@ -616,6 +677,7 @@ CSS_NOINLINE static int css_border_has_other_style(const css_buf *pool, const co
                                          "double", "groove", "ridge",  "inset",  "outset"};
     static const char *const dynamic_funcs[] = {"var", "env", "attr"};
     for (Py_ssize_t index = 0; index < comps->len; index++) {
+        TH_WORK_STEP();
         if (index == dropped) {
             continue;
         }
@@ -637,6 +699,7 @@ static CSS_FORCEINLINE int css_border_has_other_width(const css_buf *pool, const
     static const char *const widths[] = {"thin", "medium", "thick"};
     static const char *const width_funcs[] = {"calc", "min", "max", "clamp", "var", "env", "attr"};
     for (Py_ssize_t index = 0; index < comps->len; index++) {
+        TH_WORK_STEP();
         if (index == dropped) {
             continue;
         }
@@ -680,6 +743,7 @@ static CSS_FORCEINLINE int css_border_has_other_color(const css_buf *pool, const
         return css_border_maybe_color(pool, &comps->items[1 - dropped]);
     }
     for (Py_ssize_t index = 0; index < comps->len; index++) {
+        TH_WORK_STEP();
         if (index != dropped && css_border_maybe_color(pool, &comps->items[index])) {
             return 1;
         }
@@ -761,6 +825,12 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
     }
     Py_ssize_t write = 0;
     int any_value = 0;
+    /* A rival scan walks the value, so each answer is computed once per value (-1 is not yet scanned) instead of once
+       per keyword. It holds for later keywords of the same kind: a kept keyword is the rival a later one finds, and a
+       keyword that finds no rival means no later keyword of its kind exists. */
+    int other_style = -1;
+    int other_width = -1;
+    int other_color = -1;
     for (Py_ssize_t index = 0; index < comps->len; index++) {
         css_comp comp = comps->items[index];
         if (comp.kind == CK_SEP) {
@@ -771,11 +841,15 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
             if (comp.len == 4 && comps->len > 1 && drop != decoration_drop && drop != emphasis_drop &&
                 comp_ieq(pool, &comp, "none")) {
                 const css_comp *other = comps->len == 2 ? &comps->items[1 - index] : NULL;
-                if ((!other || other->kind == CK_FUNC ||
-                     (other->kind == CK_IDENT && other->len >= 4 && other->len <= 6)) &&
-                    css_border_has_other_style(pool, comps, index, drop == outline_drop)) {
-                    comps->items[write++] = comp;
-                    any_value = 1;
+                if (!other || other->kind == CK_FUNC ||
+                    (other->kind == CK_IDENT && other->len >= 4 && other->len <= 6)) {
+                    if (other_style < 0) {
+                        other_style = css_border_has_other_style(pool, comps, index, drop == outline_drop);
+                    }
+                    if (other_style) {
+                        comps->items[write++] = comp;
+                        any_value = 1;
+                    }
                 }
                 continue;
             }
@@ -784,17 +858,24 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
                 if (comp_ieq(pool, &comp, drop[which])) {
                     if (comp.len == 6 && comps->len > 1) {
                         const css_comp *other = comps->len == 2 ? &comps->items[1 - index] : NULL;
-                        if ((!other || other->kind == CK_NUM || other->kind == CK_DIM || other->kind == CK_FUNC ||
-                             (other->kind == CK_IDENT && other->len >= 4 && other->len <= 6 &&
-                              (css_lower(pool->data[other->off]) == 't' ||
-                               css_lower(pool->data[other->off]) == 'm'))) &&
-                            css_border_has_other_width(pool, comps, index)) {
-                            break;
+                        if (!other || other->kind == CK_NUM || other->kind == CK_DIM || other->kind == CK_FUNC ||
+                            (other->kind == CK_IDENT && other->len >= 4 && other->len <= 6 &&
+                             (css_lower(pool->data[other->off]) == 't' || css_lower(pool->data[other->off]) == 'm'))) {
+                            if (other_width < 0) {
+                                other_width = css_border_has_other_width(pool, comps, index);
+                            }
+                            if (other_width) {
+                                break;
+                            }
                         }
                     }
-                    if (comp.len == 12 && comps->len > 1 && drop != decoration_drop && drop != emphasis_drop &&
-                        css_border_has_other_color(pool, comps, index)) {
-                        break;
+                    if (comp.len == 12 && comps->len > 1 && drop != decoration_drop && drop != emphasis_drop) {
+                        if (other_color < 0) {
+                            other_color = css_border_has_other_color(pool, comps, index);
+                        }
+                        if (other_color) {
+                            break;
+                        }
                     }
                     dropped = 1;
                     break;
@@ -978,10 +1059,25 @@ static Py_ssize_t css_collapse_box_shadow_run(css_buf *pool, css_comp *items, Py
     return count;
 }
 
+/* The closer of the `(` at open_paren in a filter value's tokens [start, end), as css_match_paren finds it.
+   css_handle_filter asks for each function it meets and then walks on into its arguments, so the first request
+   matches every block of the value and the later ones read the table. */
+static Py_ssize_t css_filter_closer(token_vec *vec, Py_ssize_t start, Py_ssize_t end, Py_ssize_t open_paren,
+                                    Py_ssize_t **closers) {
+    if (*closers == NULL) {
+        *closers = css_match_blocks(vec, start, end);
+        if (*closers == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return end;         /* GCOVR_EXCL_LINE: the call's oom flag fails it as a whole */
+        }
+    }
+    return (*closers)[open_paren - start];
+}
+
 /* Append a color-function-style filter value (progid alpha shortening), returning 1 when handled. */
 static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *prop,
                               Py_ssize_t prop_len, css_buf *out) {
     css_buf joined = {NULL, 0, 0, pool->oom};
+    Py_ssize_t *closers = NULL;
     int is_ms = css_run_ieq(prop, prop_len, "-ms-filter");
     Py_ssize_t keep_ws_end = -1;
     int pending_ws = 0;
@@ -995,7 +1091,8 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
         if (pending_ws && joined.len > 0 && /* GCOVR_EXCL_BR_LINE: only allocation failure empties an active function */
             ((index < keep_ws_end && joined.data[joined.len - 1] != '(' && joined.data[joined.len - 1] != ',' &&
               (token->kind != CSS_DELIM || (token->delim != ')' && token->delim != ','))) ||
-             css_would_merge(joined.data[joined.len - 1], last_is_ident, token->text, token->text_len))) {
+             css_would_merge_after(vec->escapes, joined.data, joined.len, last_is_ident, token->text,
+                                   token->text_len))) {
             cbuf_putc(&joined, ' ');
         }
         pending_ws = 0;
@@ -1003,14 +1100,14 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
         if (token->kind == CSS_IDENT && token->text_len == 11 && !is_ms &&
             css_run_ieq(token->text, token->text_len, "drop-shadow") && index + 1 < end &&
             vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == '(') {
-            Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
+            Py_ssize_t close_index = css_filter_closer(vec, start, end, index + 1, &closers);
             if (close_index < end) {
                 keep_ws_end = close_index;
             }
         } else if (!is_ms && token->kind == CSS_IDENT && css_lower(token->text[0]) != 'b' && index + 1 < end &&
                    vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == '(' &&
                    token->text_len <= 5 && css_is_math_func(token->text, token->text_len)) {
-            Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
+            Py_ssize_t close_index = css_filter_closer(vec, start, end, index + 1, &closers);
             if (close_index < end) {
                 if (index >= keep_ws_end) {
                     keep_ws_end = close_index;
@@ -1022,7 +1119,7 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
                     css_compkind kind;
                     if (css_try_calc(pool, vec, index + 2, close_index, &context, &off, &len, &kind) &&
                         len < vec->items[close_index].text + vec->items[close_index].text_len - token->text) {
-                        cbuf_put_run(&joined, pool->data + off, len);
+                        css_put_folded(&joined, pool->data + off, len, vec, close_index + 1, end);
                         index = close_index;
                         last_is_ident = 0;
                         continue;
@@ -1053,6 +1150,7 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
             cbuf_put_run(&joined, token->text, token->text_len);
         }
     }
+    css_free(closers);
     if (*pool->oom) {       /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         cbuf_free(&joined); /* GCOVR_EXCL_LINE: allocation-failure path */
         return;             /* GCOVR_EXCL_LINE: allocation-failure path */

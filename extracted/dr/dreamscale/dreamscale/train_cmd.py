@@ -595,6 +595,21 @@ def run_cancel(
     return run
 
 
+def run_checkpoint(
+    *,
+    run_id: str,
+    client_factory: Callable[..., Any] = ControlPlaneClient,
+    print_fn: Callable[[str], None] = print,
+) -> dict:
+    """Save a deployable checkpoint now: the run saves one at its next update and trains on."""
+    run = call(client_factory, "save_checkpoint_now", run_id)
+    print_fn(
+        f"Saving a checkpoint of {run_id} at its next step; training continues. It's listed "
+        f"once written: {COMMAND} show {run_id}"
+    )
+    return run
+
+
 def run_resume(
     *,
     run_id: str,

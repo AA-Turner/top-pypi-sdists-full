@@ -46,8 +46,10 @@ _ghash_api_template = """
                     const uint8_t y_in[16],
                     const void *exp_key);
     int ghash_expand_%imp%(const uint8_t h[16],
-                           void **ghash_tables);
-    int ghash_destroy_%imp%(void *ghash_tables);
+                           void **exp_key);
+    int ghash_expand_rev_%imp%(const uint8_t h[16],
+                               void **exp_key);
+    int ghash_destroy_%imp%(void *exp_key);
     int ghash_at_%imp%(uint8_t y_out[16],
                        const uint8_t block_data[],
                        size_t offset,
@@ -59,13 +61,33 @@ _ghash_api_template = """
                             size_t n_blocks,
                             const uint8_t g[16],
                             const void *exp_key);
+    int ghash_rev_%imp%(uint8_t y_out[16],
+                        const uint8_t block_data[],
+                        size_t len,
+                        const uint8_t y_in[16],
+                        const void *exp_key);
+    int ghash_rev_at_%imp%(uint8_t y_out[16],
+                           const uint8_t block_data[],
+                           size_t offset,
+                           size_t len,
+                           const uint8_t y_in[16],
+                           const void *exp_key);
 """
 
 
 def _build_impl(lib, postfix):
     from collections import namedtuple
 
-    funcs = ("ghash", "ghash_expand", "ghash_destroy", "ghash_at", "ghash_combine")
+    funcs = (
+        "ghash",
+        "ghash_expand",
+        "ghash_expand_rev",
+        "ghash_destroy",
+        "ghash_at",
+        "ghash_combine",
+        "ghash_rev",
+        "ghash_rev_at",
+    )
     GHASH_Imp = namedtuple("_GHash_Imp", funcs)
     try:
         imp_funcs = [getattr(lib, x + "_" + postfix) for x in funcs]
@@ -135,16 +157,23 @@ class _GHASH:
     which are hashed in parallel and then combined with:
 
        GHASH(A || B) = GHASH(A) * H^{len(B)} + GHASH(B)
+
+    If ``reversed_blocks`` is true, the input is made up by the blocks
+    X_1, X_2, .. X_m with their bytes in reversed order, and the subkey
+    is the POLYVAL key K, for which H = mulX_GHASH(ByteReverse(K)).
     """
 
-    def __init__(self, subkey, ghash_c, threads=1):
+    def __init__(self, subkey, ghash_c, threads=1, reversed_blocks=False):
         assert len(subkey) == 16
 
         self.ghash_c = ghash_c
         self._threads = threads
+        self._ghash = ghash_c.ghash_rev if reversed_blocks else ghash_c.ghash
+        self._ghash_at = ghash_c.ghash_rev_at if reversed_blocks else ghash_c.ghash_at
 
         self._exp_key = VoidPointer()
-        result = ghash_c.ghash_expand(c_uint8_ptr(subkey), self._exp_key.address_of())
+        ghash_expand = ghash_c.ghash_expand_rev if reversed_blocks else ghash_c.ghash_expand
+        result = ghash_expand(c_uint8_ptr(subkey), self._exp_key.address_of())
         if result:
             raise ValueError("Error %d while expanding the GHASH key" % result)
 
@@ -167,7 +196,7 @@ class _GHASH:
             self._update_threaded(block_data_ptr, block_data_len, threads)
             return self
 
-        result = self.ghash_c.ghash(
+        result = self._ghash(
             self._last_y,
             block_data_ptr,
             c_size_t(block_data_len),
@@ -194,7 +223,7 @@ class _GHASH:
         partials: list[Any] = [self._last_y] + [create_string_buffer(16) for _ in range(1, threads)]
 
         def worker(i: int) -> int:
-            return self.ghash_c.ghash_at(
+            return self._ghash_at(
                 partials[i],
                 block_data_ptr,
                 c_size_t(bounds[i]),

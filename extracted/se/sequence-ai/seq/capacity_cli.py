@@ -124,7 +124,7 @@ LIMITS = {"max_policies_per_user": "policies", "max_benchmarks_per_user": "bench
           "max_robots": "robots",
           "max_robot_keys_per_user": "robot keys",
           "max_calls_per_min": "calls a minute",
-          "max_gpus_per_user": "GPUs at once", "daily_spend_cap_per_user_usd": "daily spend (USD)"}
+          "max_gpus_per_user": "GPU cards at once", "daily_spend_cap_per_user_usd": "daily spend (USD)"}
 
 GONE_LIMIT = "max_production_policies_per_user"
 
@@ -300,10 +300,10 @@ def _account_id(base_url: str | None) -> str | None:
 
 
 def account(*, base_url: str | None = None, echo: Echo = _silent) -> dict:
-    """The account's balance, its GPUs (limit, held by serving, by evals, by build checks and by shells, available, the evals
-    waiting for GPUs), usage and limits - or, with a robot key, the one deployment it is for (show_deployment); signed
-    in, headed by the account's id, the one the console's Account page asks for to delete it.
-"""
+    """The account's balance, its GPU cards (limit, held by serving, by evals, by build checks, by shells and by GPUs,
+    available, the evals waiting for GPUs), usage and limits - or, with a robot key, the one deployment it is for
+    (show_deployment); signed in, headed by the account's id, the one the console's Account page asks for to delete it.
+    """
     out = _call("GET", "/v1/account", base_url)
     acct = _account_id(base_url)
     if acct:
@@ -369,13 +369,15 @@ def show_account(out: dict, echo: Echo) -> None:
     show_spend(bal, echo)
     g = out["gpus"]
     in_use = g.get("in_use") or {}
-    echo(f"GPUs      limit {count(g.get('limit'))} · in use {count(in_use.get('total'))} ({held(in_use)}) · "
+
+
+    echo(f"GPU limit {count(in_use.get('total'))} / {count(g.get('limit'))} cards ({held(in_use)}) · "
          f"{count(g.get('available'))} available")
     waiting = g.get("waiting_evals") or []
     for w in waiting:
         waited = w.get("waited_s")
 
-        echo(f"  queued: eval {w.get('eval_id')} needs {count(w.get('cards'))} GPUs"
+        echo(f"  queued: eval {w.get('eval_id')} needs {count(w.get('cards'))} GPU cards"
              + (f", waited {float(waited):.0f} s" if isinstance(waited, (int, float)) else "")
              + f", gives up at {_clock(w.get('gives_up_at'))}")
     if not waiting:
@@ -945,7 +947,7 @@ def show_gpu(g: dict | None, start_wait_s: Any, echo: Echo) -> None:
 
         mine = f"this policy's max GPUs {g['max_gpus']}" if g.get("max_gpus") else "no max GPUs of its own"
         acct = f", your account's GPU limit {g['account_gpus']}" if g.get("account_gpus") else ""
-        echo(f"  at most {min(caps)} GPU{'s' if min(caps) != 1 else ''} at once ({mine}{acct})")
+        echo(f"  at most {min(caps)} GPU card{'s' if min(caps) != 1 else ''} at once ({mine}{acct})")
 
 
 
@@ -1063,9 +1065,11 @@ def show_batching(measured: dict | None, echo: Echo) -> None:
     """How a deployment that declares `@seq.concurrent` batches: a copy seats as many robots as the largest batch size
     it lists whose batch answers within the time its robots can wait for an answer (@seq.policy(hz=,
     action_chunk_valid_len=, action_chunk_replan_at=): the steps between the two, at hz; asking at the last valid step,
-    or declaring no valid length, one robot a copy), as long as their batches fill at most LOAD_MAX of the time between
-    a robot's asks - and an eval's copy runs its acts in batches of those sizes. Nothing for a policy that declares no
-    @seq.concurrent. The worker reports the declaration as `measured.concurrent` ({sizes}).
+    or declaring no valid length, one robot a copy), as long as, run together on a simulated clock, at least 95% of
+    their answers are in time and their batches fill at most LOAD_MAX of the time between a robot's asks - and an
+    eval's copy runs its acts in batches of those sizes. Nothing for a policy that declares no @seq.concurrent. The
+    worker reports the declaration as `measured.concurrent` ({sizes}).
+
 """
     from seq.parts import most_a_copy
 
@@ -1074,11 +1078,16 @@ def show_batching(measured: dict | None, echo: Echo) -> None:
     if not listed:
         return
     sizes = ", ".join(map(str, listed[:-1])) + f" and {listed[-1]}" if len(listed) > 1 else str(listed[0])
+
+
+
     echo(f"batching: a copy seats as many robots as the largest of its batches of {sizes} that answers within the time "
          "its robots can wait for an answer (the steps from action_chunk_replan_at to action_chunk_valid_len, at hz), "
-         f"as long as their batches fill at most {LOAD_MAX:.0%} of the time between a robot's asks "
+         "as long as, run together on a simulated clock, at least 95% of their answers are in time and their batches "
+         f"fill at most {LOAD_MAX:.0%} of the time between a robot's asks "
          "(action_chunk_replan_at steps at hz) - one robot a copy when it asks at its last valid step or declares no "
-         "action_chunk_valid_len; where it sets max_wait_for_batch, within that wait in place of those steps; an "
+         "action_chunk_valid_len; where it sets max_wait_for_batch, within that wait in place of those steps, by its "
+         "load alone; an "
          f"eval's copy runs its acts in batches of those sizes{most_a_copy(listed)}")
 
 
@@ -1194,8 +1203,8 @@ def show_ceiling(name: str, c: dict | None, echo: Echo, *, capped: bool = True) 
             echo(f"  now: {n} worker{'s' if n != 1 else ''} past max_gpus while a worker is replaced - billed as any "
                  "worker, until its robots have moved")
         if full:
-            echo(f"  your account's GPUs are all in use ({int(used)} of {int(cap)}): a worker being replaced cannot start "
-                 "its replacement beside it, so its robots move at its forced end")
+            echo(f"  your account's GPU cards are all in use ({int(used)} of {int(cap)}): a worker being replaced "
+                 "cannot start its replacement beside it, so its robots move at its forced end")
     last = c.get("last_event") or {}
     if last.get("event") in ("gpu_ceiling_near", "gpu_ceiling_reached"):
         what = ("reached half of it" if last["event"] == "gpu_ceiling_near"

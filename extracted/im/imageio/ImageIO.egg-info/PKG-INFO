@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ImageIO
-Version: 2.38.1
+Version: 2.38.2
 Summary: Read and write images and video across all major formats. Supports scientific and volumetric data.
 Author: ImageIO contributors
 Maintainer-email: Sebastian Wallkotter <sebastian@wallkoetter.net>, Almar Klein <almar.klein@gmail.com>

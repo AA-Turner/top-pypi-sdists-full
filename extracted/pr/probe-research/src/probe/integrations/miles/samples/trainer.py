@@ -16,6 +16,7 @@ from pathlib import Path
 from string import Formatter
 from typing import Any
 
+from probe.integrations.miles.samples.harbor_keys import HARBOR_KEYS
 from probe.integrations.miles.samples.mapping import build_train_key, to_finite_lists, to_list, to_number
 from probe.integrations.miles.samples.producers import PROCESS, ROLLOUT, get_trainer_name
 
@@ -108,6 +109,8 @@ class TrainerCapture:
         if position.dp == 0:
             self._send_producer_plan(writer, position.dp_size, model_id)
             self.record_checkpoints(writer, args, model_id)
+            if not model_id:  # every rank is past it (this step's collectives needed them all); policies step apart
+                HARBOR_KEYS.clear(rollout_id - 1)
         trainer_parts, scorer_parts = build_trainer_parts(rollout_data, rollout_id, position, self.pushed_version)
         writer.log(trainer_parts, role="trainer", step=rollout_id)
         writer.log(scorer_parts, role="scorer", step=rollout_id)
@@ -155,7 +158,7 @@ class TrainerCapture:
 
 def build_trainer_parts(data: dict, rollout_id: int, position: Position, version: int | None) -> tuple[list, list]:
     """Each trained row's trainer part (and its normalized reward as a scorer part). Keys are rebuilt
-    the way the rollout hook built them (`build_train_key`). Context parallelism leaves this rank a
+    the way the rollout hook built them: its Harbor key (`harbor_keys.py`), else `build_train_key`. Context parallelism leaves this rank a
     slice of each array, so its arrays are left out and the sample reads misaligned."""
     # Columns may be numpy arrays (`train_data_conversion.py:44-70`): never test them for truth.
     raw_indices, tokens = data.get("sample_indices"), data.get("tokens")
@@ -167,7 +170,7 @@ def build_trainer_parts(data: dict, rollout_id: int, position: Position, version
     for row, index in enumerate(indices):
         if row >= len(tokens):
             break
-        key = build_train_key(rollout_id, index, tokens[row])
+        key = HARBOR_KEYS.fetch_key(rollout_id, index, build_train_key(rollout_id, index, tokens[row]))
         part: dict[str, Any] = {"key": key, "consumed_step": rollout_id, "trainer_rank": position.dp,
                                 "occurrence": occurrences[index]}
         if version is not None:

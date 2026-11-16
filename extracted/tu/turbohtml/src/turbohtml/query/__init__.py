@@ -18,25 +18,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast, overload
 
-from turbohtml._html import (
-    Document,
-    Element,
-    _matches_many,
-    _query_add_class,
-    _query_attr,
-    _query_children,
-    _query_closest,
-    _query_has_class,
-    _query_parents,
-    _query_remove_class,
-    _query_siblings,
-    _query_text,
-    _query_toggle_class,
-    _query_unique,
-    _select_many,
-    parse,
-)
-
 from ._match import (
     DEBUG,
     Matcher,
@@ -52,37 +33,65 @@ from ._match import (
     select,
     select_one,
 )
+from ._native import (
+    Document,
+    Element,
+    parse,
+)
+from ._native import (
+    matches_many as _matches_many,
+)
+from ._native import (
+    query_add_class as _query_add_class,
+)
+from ._native import (
+    query_attr as _query_attr,
+)
+from ._native import (
+    query_children as _query_children,
+)
+from ._native import (
+    query_closest as _query_closest,
+)
+from ._native import (
+    query_has_class as _query_has_class,
+)
+from ._native import (
+    query_parents as _query_parents,
+)
+from ._native import (
+    query_remove_class as _query_remove_class,
+)
+from ._native import (
+    query_siblings as _query_siblings,
+)
+from ._native import (
+    query_text as _query_text,
+)
+from ._native import (
+    query_toggle_class as _query_toggle_class,
+)
+from ._native import (
+    query_unique as _query_unique,
+)
+from ._native import (
+    select_many as _select_many,
+)
+from ._xpath import XPathDepthError, XPathString
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
-__all__ = [
-    "DEBUG",
-    "Matcher",
-    "Matching",
-    "Query",
-    "SelectorSyntaxError",
-    "closest",
-    "compile",
-    "css",
-    "escape_identifier",
-    "filter",
-    "iselect",
-    "match",
-    "select",
-    "select_one",
-]
 
-
-class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors pyquery's broad chainable method set
-    """
-    An ordered, duplicate-free set of elements with chainable traversal and mutation.
-
-    :param source: HTML to parse, a single Element or Document, or an iterable of Elements.
-    """
+class Query:  # ruff:ignore[too-many-public-methods]  # each method is a chainable step of the public API
+    """An ordered, duplicate-free set of elements with chainable traversal and mutation."""
 
     def __init__(self, source: str | Element | Document | Iterable[Element]) -> None:
-        """Wrap a source into a query set."""
+        """
+        Wrap a source into a query set.
+
+        :param source: HTML to parse, a single Element or Document, or an iterable of Elements.
+        """
         if isinstance(source, str):
             source = parse(source)
         if isinstance(source, Document):
@@ -92,13 +101,6 @@ class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors
             self._nodes = [source]
         else:
             self._nodes = _query_unique(source)
-
-    @classmethod
-    def _wrap(cls, nodes: list[Element]) -> Query:
-        """Build a query around an already-unique, document-ordered node list, skipping the dedupe."""
-        query = cls.__new__(cls)
-        query._nodes = nodes  # ruff:ignore[private-member-access]  # a same-class factory setting its own private attribute
-        return query
 
     def __call__(self, selector: str) -> Query:
         """
@@ -120,6 +122,63 @@ class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors
             # the C select() already returns unique results in document order
             return Query._wrap(self._nodes[0].select(selector))
         return Query._wrap(_select_many(self._nodes, selector))
+
+    @classmethod
+    def _wrap(cls, nodes: list[Element]) -> Query:
+        # Build a query around an already-unique, document-ordered node list, skipping the dedupe.
+        query = cls.__new__(cls)
+        query._nodes = nodes  # ruff:ignore[private-member-access]  # a same-class factory setting its own private attribute
+        return query
+
+    def __iter__(self) -> Iterator[Element]:
+        """
+        Iterate the wrapped elements.
+
+        :returns: an iterator over the wrapped elements.
+        """
+        return iter(self._nodes)
+
+    def __len__(self) -> int:
+        """
+        Return the number of wrapped elements.
+
+        :returns: the number of wrapped elements.
+        """
+        return len(self._nodes)
+
+    def __getitem__(self, index: int) -> Element:
+        """
+        Return the wrapped element at the given index.
+
+        :param index: the position of the element in the set.
+        :returns: the wrapped element at the index.
+        """
+        return self._nodes[index]
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Return whether other is a query wrapping the same elements in the same order.
+
+        :param other: the object to compare with.
+        :returns: whether the other object is a query with the same elements in order.
+        """
+        return isinstance(other, Query) and self._nodes == other._nodes
+
+    def __hash__(self) -> int:
+        """
+        Hash the wrapped elements by node identity.
+
+        :returns: the hash of the wrapped elements' identities.
+        """
+        return hash(tuple(self._nodes))
+
+    def __repr__(self) -> str:
+        """
+        Return a representation listing the wrapped elements' tags.
+
+        :returns: the query's repr.
+        """
+        return f"Query({[node.tag for node in self._nodes]!r})"
 
     def filter(self, selector: str) -> Query:
         """
@@ -183,20 +242,22 @@ class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors
         """
         Iterate the wrapped elements, each as its own single-element query.
 
-        :returns: an iterator of single-element queries.
+        :yields: an iterator of single-element queries.
         """
         for node in self._nodes:
             yield Query([node])
 
     @overload
     def attr(self, name: str) -> str | None: ...
+
     @overload
     def attr(self, name: str, value: str) -> Query: ...
+
     def attr(self, name: str, value: str | None = None) -> str | Query | None:
         """
         Get an attribute from the first element, or set it on every element.
 
-        :param name: the attribute name.
+        :param name: the attribute to read, or to set on every element.
         :param value: the value to set; omit to read instead.
         :returns: the attribute value when reading, or the query when setting.
         """
@@ -208,8 +269,10 @@ class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors
 
     @overload
     def text(self) -> str: ...
+
     @overload
     def text(self, value: str) -> Query: ...
+
     def text(self, value: str | None = None) -> str | Query:
         """
         Get the combined text of every element, or set each element's text.
@@ -270,26 +333,22 @@ class Query:  # ruff:ignore[too-many-public-methods]  # a fluent wrapper mirrors
         _query_toggle_class(self._nodes, name)
         return self
 
-    def __iter__(self) -> Iterator[Element]:
-        """Iterate the wrapped elements."""
-        return iter(self._nodes)
 
-    def __len__(self) -> int:
-        """Return the number of wrapped elements."""
-        return len(self._nodes)
-
-    def __getitem__(self, index: int) -> Element:
-        """Return the wrapped element at the given index."""
-        return self._nodes[index]
-
-    def __eq__(self, other: object) -> bool:
-        """Return whether other is a query wrapping the same elements in the same order."""
-        return isinstance(other, Query) and self._nodes == other._nodes
-
-    def __hash__(self) -> int:
-        """Hash the wrapped elements by node identity."""
-        return hash(tuple(self._nodes))
-
-    def __repr__(self) -> str:
-        """Return a representation listing the wrapped elements' tags."""
-        return f"Query({[node.tag for node in self._nodes]!r})"
+__all__ = [
+    "DEBUG",
+    "Matcher",
+    "Matching",
+    "Query",
+    "SelectorSyntaxError",
+    "XPathDepthError",
+    "XPathString",
+    "closest",
+    "compile",
+    "css",
+    "escape_identifier",
+    "filter",
+    "iselect",
+    "match",
+    "select",
+    "select_one",
+]

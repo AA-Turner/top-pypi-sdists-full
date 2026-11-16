@@ -1252,6 +1252,9 @@ class Join(Generic[NodeT]):
     # are read off (no parent alias), set when a rule moves a join into it.
     condition: BoolExpr | None = None
     left_local: BuildDatasource | QueryDatasource | None = None
+    # planning only: the type the join had before an earlier join's padding
+    # widened it (`join_resolution.restore_unpadded_joins`)
+    own_type: JoinType | None = None
 
     def __post_init__(self):
         key = _node_key(self.right)
@@ -1292,6 +1295,7 @@ class Join(Generic[NodeT]):
             modifiers=self.modifiers,
             guard=_bind_guard(self.guard, node_for),
             condition=self.condition,
+            own_type=self.own_type,
         )
 
     def repoint(self, node_for: Callable[[NodeT], NodeT]) -> None:
@@ -2394,6 +2398,20 @@ def _null_extended_sides(join: SourceJoin) -> list[str]:
     return []
 
 
+def _is_cross_join(join: Join | UnnestJoin) -> bool:
+    """A keyless INNER join between two named CTEs: `a JOIN b on 1=1` and
+    `b JOIN a on 1=1` are one cross product."""
+    return (
+        isinstance(join, Join)
+        and join.join_type == JoinType.INNER
+        and join.condition is None
+        and not join.pairs
+        and not join.concepts
+        and not join.guard
+        and join.left is not None
+    )
+
+
 def coalesce_duplicate_joins(
     joins: list[Join | UnnestJoin],
 ) -> list[Join | UnnestJoin]:
@@ -2403,70 +2421,43 @@ def coalesce_duplicate_joins(
     and re-matching on a differing key subset multiplies rows and renders an
     ambiguous duplicate table reference. Both copies are plans for the same
     logical relation, so the joined rows must satisfy the union of their
-    pairings."""
+    pairings.
+
+    A join also merges into one written the other way round over the same
+    CTEs: two independently-built plans for one logical merge can pick opposite
+    bases (`a JOIN b` vs `b JOIN a`, `a LEFT JOIN b` vs `b RIGHT JOIN a`), and
+    keeping both renders a duplicate table reference. They are one relation
+    when they NULL-extend the same CTEs, which is what makes them one
+    QueryDatasource identity."""
     merged: dict[tuple[JoinType, str | None, str], Join] = {}
-    # INNER joins additionally merge orientation-independently: two
-    # independently-built plans for the same logical merge can pick opposite
-    # bases (`a JOIN b` vs `b JOIN a` on the mirrored pairs), and CTE-level
-    # joins have no aliasing, so keeping both renders a duplicate table
-    # reference. A pair present in both orientations keeps the intersection of
-    # its modifiers: rendering both joins would AND both conditions, and the
-    # conjunction of `=` with `is not distinct from` is `=`.
-    inner_merged: dict[frozenset[str], Join] = {}
-
-    def _pair_norm(right_name: str, p: ConceptPair) -> frozenset[tuple[str, str]]:
-        return frozenset({(p.node.name, p.left.address), (right_name, p.right.address)})
-
+    mirrored: dict[tuple[frozenset[str], tuple[str, ...]], Join] = {}
+    crossed: set[frozenset[str]] = set()
     out: list[Join | UnnestJoin] = []
     for join in joins:
+        if _is_cross_join(join):
+            assert isinstance(join, Join) and join.left is not None
+            sides = frozenset({join.left.name, join.right.name})
+            if sides in crossed:
+                continue
+            crossed.add(sides)
         if not isinstance(join, Join) or join.condition is not None or not join.pairs:
             out.append(join)
             continue
+        relation = (
+            frozenset({join.right.name} | {p.node.name for p in join.pairs}),
+            tuple(_null_extended_names(join)),
+        )
+        mirror = mirrored.get(relation)
+        if mirror is not None and (
+            join.join_type == JoinType.INNER or mirror.right.name != join.right.name
+        ):
+            if _absorb_mirrored(mirror, join):
+                continue
+            out.append(join)
+            continue
+        mirrored.setdefault(relation, join)
         if join.join_type == JoinType.INNER:
-            partners = frozenset({join.right.name} | {p.node.name for p in join.pairs})
-            inner_existing = inner_merged.get(partners)
-            if inner_existing is None:
-                inner_merged[partners] = join
-                out.append(join)
-                continue
-            assert inner_existing.pairs is not None
-            existing_right = inner_existing.right.name
-            by_norm = {_pair_norm(existing_right, p): p for p in inner_existing.pairs}
-            additions: list[ConceptPair] = []
-            mergeable = True
-            for pair in join.pairs:
-                norm = _pair_norm(join.right.name, pair)
-                match = by_norm.get(norm)
-                if match is not None:
-                    continue
-                # A new pair must orient against the surviving join's right CTE.
-                if pair.node.name == existing_right:
-                    additions.append(
-                        ConceptPair(
-                            left=pair.right,
-                            right=pair.left,
-                            modifiers=pair.modifiers,
-                            node=join.right,
-                        )
-                    )
-                elif join.right.name == existing_right:
-                    additions.append(pair)
-                else:
-                    mergeable = False
-                    break
-            if not mergeable:
-                out.append(join)
-                continue
-            for pair in join.pairs:
-                match = by_norm.get(_pair_norm(join.right.name, pair))
-                if match is not None:
-                    match.modifiers = [
-                        m for m in match.modifiers if m in pair.modifiers
-                    ]
-            for addition in additions:
-                inner_existing.pairs.append(addition)
-                by_norm[_pair_norm(existing_right, addition)] = addition
-            _absorb_join(inner_existing, join)
+            out.append(join)
             continue
         key = (
             join.join_type,
@@ -2486,7 +2477,128 @@ def coalesce_duplicate_joins(
                 existing.pairs.append(pair)
                 seen.add(pair_key)
         _absorb_join(existing, join)
+    return _fold_inner_rejoins(out)
+
+
+def _fold_inner_rejoins(joins: list[Join | UnnestJoin]) -> list[Join | UnnestJoin]:
+    """An INNER join to a CTE an earlier join already brought in, from a
+    different left (two merged plans each paired `w` with their own side:
+    `a JOIN w`, `u JOIN w`), is a cycle: rendered, `w` appears twice. Over
+    INNER joins the pairs are one conjunction, so each moves onto the INNER
+    join that introduced the later of its two sides, where both are in scope.
+    Left as is when that join pads (its ON would filter what it preserves)."""
+    introduced: dict[str, int] = {}
+    out: list[Join | UnnestJoin] = []
+    for join in joins:
+        if (
+            isinstance(join, Join)
+            and join.right.name in introduced
+            and join.join_type == JoinType.INNER
+            and join.condition is None
+            and join.pairs
+            and not join.guard
+            and _fold_pairs(out, introduced, join)
+        ):
+            continue
+        if isinstance(join, Join):
+            introduced.setdefault(join.right.name, len(out))
+        out.append(join)
     return out
+
+
+def _fold_pairs(
+    out: list[Join | UnnestJoin], introduced: dict[str, int], join: Join
+) -> bool:
+    moves: list[tuple[Join, ConceptPair]] = []
+    for pair in join.pairs:
+        # the base is in scope before any join: index -1
+        node_at = introduced.get(pair.node.name, -1)
+        right_at = introduced[join.right.name]
+        target = out[max(node_at, right_at)]
+        if (
+            not isinstance(target, Join)
+            or target.join_type != JoinType.INNER
+            or target.condition is not None
+        ):
+            return False
+        if target.right.name == join.right.name:
+            moves.append((target, pair))
+        else:
+            moves.append(
+                (
+                    target,
+                    ConceptPair(
+                        left=pair.right,
+                        right=pair.left,
+                        modifiers=pair.modifiers,
+                        node=join.right,
+                    ),
+                )
+            )
+    for target, pair in moves:
+        assert target.pairs is not None
+        if _pair_norm(target.right.name, pair) not in {
+            _pair_norm(target.right.name, p) for p in target.pairs
+        }:
+            target.pairs.append(pair)
+        _absorb_join(target, join)
+    return True
+
+
+def _null_extended_names(join: Join) -> list[str]:
+    """`_null_extended_sides` by CTE name: what a CTE-level join pads."""
+    right = [join.right.name]
+    left = sorted(
+        {n.name for n in (join.left, *(p.node for p in join.pairs)) if n is not None}
+    )
+    if join.join_type == JoinType.LEFT_OUTER:
+        return right
+    if join.join_type == JoinType.RIGHT_OUTER:
+        return left
+    if join.join_type == JoinType.FULL:
+        return left + right
+    return []
+
+
+def _pair_norm(right_name: str, p: ConceptPair) -> frozenset[tuple[str, str]]:
+    return frozenset({(p.node.name, p.left.address), (right_name, p.right.address)})
+
+
+def _absorb_mirrored(existing: Join, join: Join) -> bool:
+    """Fold `join` into `existing`, one relation over the same CTEs possibly
+    written from the other side. A pair present in both orientations keeps the
+    intersection of its modifiers: rendering both joins would AND both
+    conditions, and the conjunction of `=` with `is not distinct from` is `=`.
+    False when a pair of `join` cannot be oriented against `existing`."""
+    assert existing.pairs is not None
+    existing_right = existing.right.name
+    by_norm = {_pair_norm(existing_right, p): p for p in existing.pairs}
+    additions: list[ConceptPair] = []
+    for pair in join.pairs:
+        if _pair_norm(join.right.name, pair) in by_norm:
+            continue
+        if pair.node.name == existing_right:
+            additions.append(
+                ConceptPair(
+                    left=pair.right,
+                    right=pair.left,
+                    modifiers=pair.modifiers,
+                    node=join.right,
+                )
+            )
+        elif join.right.name == existing_right:
+            additions.append(pair)
+        else:
+            return False
+    for pair in join.pairs:
+        match = by_norm.get(_pair_norm(join.right.name, pair))
+        if match is not None:
+            match.modifiers = [m for m in match.modifiers if m in pair.modifiers]
+    for addition in additions:
+        existing.pairs.append(addition)
+        by_norm[_pair_norm(existing_right, addition)] = addition
+    _absorb_join(existing, join)
+    return True
 
 
 def _absorb_join(existing: Join, join: Join) -> None:

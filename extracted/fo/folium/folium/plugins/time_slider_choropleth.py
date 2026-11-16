@@ -24,7 +24,7 @@ class TimeSliderChoropleth(JSCSSMixin, Layer):
         Whether to show a visual effect on mouse hover and click.
     name : string, default None
         The name of the Layer, as it will appear in LayerControls.
-    overlay : bool, default False
+    overlay : bool, default True
         Adds the layer as an optional overlay (True) or the base layer (False).
     control : bool, default True
         Whether the Layer will be included in LayerControls.
@@ -37,8 +37,7 @@ class TimeSliderChoropleth(JSCSSMixin, Layer):
         latest timestamp.
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
         {
             let timestamps = {{ this.timestamps|tojson }};
@@ -51,7 +50,17 @@ class TimeSliderChoropleth(JSCSSMixin, Layer):
             }
 
             let slider_body = d3.select("body").insert("div", "div.folium-map")
-                .attr("id", "slider_{{ this.get_name() }}");
+                .attr("id", "slider_{{ this.get_name() }}")
+                // overlay the slider on the map so it doesn't push the map
+                // (and its attribution) out of view
+                .style("position", "absolute")
+                .style("top", "10px")
+                .style("left", "50%")
+                .style("transform", "translateX(-50%)")
+                .style("z-index", "999")
+                .style("background", "rgba(255, 255, 255, 0.8)")
+                .style("border-radius", "4px")
+                .style("padding", "2px 8px");
             $("#slider_{{ this.get_name() }}").hide();
             // insert time slider label
             slider_body.append("output")
@@ -158,8 +167,7 @@ class TimeSliderChoropleth(JSCSSMixin, Layer):
             {%- endif %}
         }
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         ("d3v4", "https://d3js.org/d3.v4.min.js"),

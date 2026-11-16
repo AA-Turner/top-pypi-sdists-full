@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: sanitize_filename
-Version: 1.2.1
+Version: 1.3.0
 Summary: A permissive filename sanitizer.
 Home-page: https://gitlab.com/jplusplus/sanitize-filename
-Author: Leo Wallentin | J++ Stockholm
+Author: Leo Wallentin | J++/Newsworthy
 Author-email: mejl@leowallentin.se
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
@@ -58,9 +58,27 @@ Examples:
 
 > sanitize("..")
 '__'
+
+> sanitize("x" * 200 + ".txt", max_bytes=10)
+'xxxxxx.txt'
 ```
 
+### Arguments to `sanitize`
+
+- `max_bytes` sets the maximum number of UTF-8 bytes. Default is 255.
+
 ## Changelog
+
+- 1.3.0
+
+  - Add `max_bytes` argument to `sanitize()`
+  - Filenames are now NFC normalized rather than NFKD, so that e.g. narrow non-break space (common in macOS screenshot names) are kept.
+  - Count UTF-8 bytes, not characters, when limiting filename length. This will make long non-ascii filenames shorter than in earlier versions.
+  - Blacklist bidi control chars, to avoid e.g. "file\u202etxt.exe" displaying locally as "fileexe.txt"
+  - Make sure the result of truncating a filename can not be a reserved word (e.g. `CON    [...]    x.txt`)
+  - Limit filename extensions to 16 characters, and truncate separately
+  - Make sure not to split character sequences when truncating names
+  - Do all character removals in one step to speed up execution
 
 - 1.2.1
 

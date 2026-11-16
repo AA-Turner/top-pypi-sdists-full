@@ -1,0 +1,167 @@
+use std::io::Write;
+use std::path::Path;
+
+use anyhow::Result;
+
+use crate::hook::Hook;
+use crate::hooks::{
+    FileReadCache, FilenamesArgs, HookOutput, parse_hook_args, run_blocking_file_checks,
+};
+
+/// Runs the `check-toml` hook.
+pub(crate) async fn run(
+    hook: &Hook,
+    filenames: &[&Path],
+    cache: &FileReadCache,
+) -> Result<HookOutput> {
+    let args: FilenamesArgs = parse_hook_args(hook)?;
+    let cache = cache.clone();
+    run_blocking_file_checks(
+        hook.project().relative_path(),
+        &args.filenames,
+        filenames,
+        move |file_path, display_path| check_file(file_path, display_path, &cache),
+    )
+    .await
+}
+
+fn check_file(file_path: &Path, display_path: &Path, cache: &FileReadCache) -> Result<HookOutput> {
+    let content = cache.read(file_path)?;
+    if content.is_empty() {
+        return Ok(HookOutput::unchanged(0, Vec::new()));
+    }
+
+    // Use string content for borrowed parsing
+    let content_str = match simdutf8::compat::from_utf8(&content) {
+        Ok(s) => s,
+        Err(e) => {
+            let error_message =
+                format!("{}: Failed to decode UTF-8 ({e})\n", display_path.display());
+            return Ok(HookOutput::unchanged(1, error_message.into_bytes()));
+        }
+    };
+
+    // Use DeTable::parse_recoverable to report all parse errors at once
+    let (_parsed, errors) = toml::de::DeTable::parse_recoverable(content_str);
+    if errors.is_empty() {
+        Ok(HookOutput::unchanged(0, Vec::new()))
+    } else {
+        let mut output = Vec::new();
+        for error in errors {
+            writeln!(
+                output,
+                "{}: Failed to toml decode ({error})",
+                display_path.display()
+            )?;
+        }
+        Ok(HookOutput::unchanged(1, output))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+
+    async fn create_test_file(
+        dir: &tempfile::TempDir,
+        name: &str,
+        content: &[u8],
+    ) -> Result<PathBuf> {
+        let file_path = dir.path().join(name);
+        fs_err::tokio::write(&file_path, content).await?;
+        Ok(file_path)
+    }
+
+    #[tokio::test]
+    async fn test_valid_toml() -> Result<()> {
+        let dir = tempdir()?;
+        let content = br#"key1 = "value1"
+key2 = "value2"
+"#;
+        let file_path = create_test_file(&dir, "valid.toml", content).await?;
+        let result = check_file(&file_path, &file_path, &FileReadCache::default())?;
+        assert_eq!(result.exit_status, 0);
+        assert_eq!(result.output, b"");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_invalid_toml() -> Result<()> {
+        let dir = tempdir()?;
+        let content = br#"key1 = "value1
+key2 = "value2"
+"#;
+        let file_path = create_test_file(&dir, "invalid.toml", content).await?;
+        let result = check_file(&file_path, &file_path, &FileReadCache::default())?;
+        assert_eq!(result.exit_status, 1);
+        assert_ne!(result.output, b"");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_duplicate_keys() -> Result<()> {
+        let dir = tempdir()?;
+        let content = br#"key1 = "value1"
+key1 = "value2"
+"#;
+        let file_path = create_test_file(&dir, "duplicate.toml", content).await?;
+        let result = check_file(&file_path, &file_path, &FileReadCache::default())?;
+        assert_eq!(result.exit_status, 1);
+        assert_ne!(result.output, b"");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_empty_toml() -> Result<()> {
+        let dir = tempdir()?;
+        let content = b"";
+        let file_path = create_test_file(&dir, "empty.toml", content).await?;
+        let result = check_file(&file_path, &file_path, &FileReadCache::default())?;
+        assert_eq!(result.exit_status, 0);
+        assert_eq!(result.output, b"");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_multiple_errors_reported() -> Result<()> {
+        let dir = tempdir()?;
+        // TOML with multiple syntax errors
+        let content = br#"key1 = "unclosed string
+key2 = "value2"
+key3 = invalid_value_without_quotes
+[section
+key4 = "another unclosed string
+"#;
+        let file_path = create_test_file(&dir, "multiple_errors.toml", content).await?;
+        let result = check_file(&file_path, &file_path, &FileReadCache::default())?;
+        assert_eq!(result.exit_status, 1);
+        let output_str = String::from_utf8_lossy(&result.output);
+
+        // Should contain multiple error messages (one for each error found)
+        let error_count = output_str.matches("Failed to toml decode").count();
+        assert!(error_count == 3, "Expected three errors, got: {output_str}");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_invalid_utf8() -> Result<()> {
+        let dir = tempdir()?;
+        let content =
+            b"key = \"a longer value with invalid UTF-8 after otherwise valid text: \xff\"\n";
+        let file_path = create_test_file(&dir, "invalid_utf8.toml", content).await?;
+
+        let result = check_file(
+            &file_path,
+            Path::new("invalid_utf8.toml"),
+            &FileReadCache::default(),
+        )?;
+        assert_eq!(result.exit_status, 1);
+        assert_eq!(
+            result.output,
+            b"invalid_utf8.toml: Failed to decode UTF-8 (invalid utf-8 sequence of 1 bytes from index 69)\n"
+        );
+        Ok(())
+    }
+}

@@ -1,0 +1,98 @@
+[project]
+name = "cerbos-sqlalchemy"
+description = "SQLAlchemy adapter for generating queries with Cerbos: an open core, language-agnostic, scalable authorization solution"
+authors = [
+    { name = "Cerbos Developers", email = "sdk+sqlalchemy@cerbos.dev" },
+]
+dependencies = [
+    "sqlalchemy>=1.4",
+    "cerbos>=0.10.4",
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries",
+]
+readme = "README.md"
+dynamic = []
+version = "0.5.0"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://cerbos.dev"
+Repository = "https://github.com/cerbos/query-plan-adapters/tree/main/sqlalchemy"
+
+[project.optional-dependencies]
+testcontainers = [
+    "testcontainers>=3.5.3",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=7.1.2",
+    "psycopg2-binary>=2.9.10",
+    "aiosqlite>=0.17",
+    "pymysql>=1.1",
+]
+lint = [
+    "ruff>=0.11.13",
+    "isort>=5.10.1",
+]
+tools = [
+    "ptpython>=3.0.25",
+]
+
+[tool.pdm.scripts]
+test = "pytest"
+
+[tool.pdm.scripts.isort]
+cmd = "isort src tests example"
+
+[tool.pdm.scripts.ruff_format]
+cmd = "ruff format src tests example"
+
+[tool.pdm.scripts.lint]
+cmd = "ruff check --fix src tests example"
+
+[tool.pdm.scripts.format]
+composite = [
+    "isort",
+    "ruff_format",
+]
+
+[tool.pyprojectx]
+pdm = "pdm"
+ruff = "ruff"
+isort = "isort"
+
+[tool.pyprojectx.aliases]
+install = "pdm install -G :all"
+run = "pdm run"
+test = "pdm run test"
+lint = "pdm lint"
+format = "pdm format"
+outdated = "pdm update --outdated"
+
+[tool.isort]
+profile = "black"
+known_third_party = [
+    "sqlalchemy",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "TRY004",
+]

@@ -252,6 +252,29 @@ def test_optimize_with_catch(storage_mode: str) -> None:
         assert all(trial.state == TrialState.FAIL for trial in study.trials)
 
 
+@pytest.mark.parametrize("n_trials", [1, 2, 3])
+@pytest.mark.parametrize("n_jobs", [1, 2])
+@pytest.mark.parametrize("catch", [(), (ValueError,), (ArithmeticError,)])
+def test_optimize_with_error_in_last_trial(
+    n_trials: int, n_jobs: int, catch: tuple[type[Exception], ...]
+) -> None:
+    def objective(trial: Trial) -> float:
+        if trial.number == n_trials - 1:
+            raise ValueError("error in last trial")
+        return 1.0
+
+    study = create_study()
+    if ValueError in catch:
+        study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs, catch=catch)
+    else:
+        with pytest.raises(ValueError, match="error in last trial"):
+            study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs, catch=catch)
+
+    assert [trial.state for trial in study.trials] == [TrialState.COMPLETE] * (n_trials - 1) + [
+        TrialState.FAIL
+    ]
+
+
 @pytest.mark.parametrize("catch", [ValueError, (ValueError,), [ValueError], {ValueError}])
 def test_optimize_with_catch_valid_type(catch: Any) -> None:
     study = create_study()
@@ -510,7 +533,10 @@ def test_copy_study(from_storage_mode: str, to_storage_mode: str) -> None:
 
 @pytest.mark.parametrize("from_storage_mode", STORAGE_MODES)
 @pytest.mark.parametrize("to_storage_mode", STORAGE_MODES)
-def test_copy_study_to_study_name(from_storage_mode: str, to_storage_mode: str) -> None:
+@pytest.mark.parametrize("to_study_name", ["bar", ""])
+def test_copy_study_to_study_name(
+    from_storage_mode: str, to_storage_mode: str, to_study_name: str
+) -> None:
     with (
         StorageSupplier(from_storage_mode) as from_storage,
         StorageSupplier(to_storage_mode) as to_storage,
@@ -529,10 +555,10 @@ def test_copy_study_to_study_name(from_storage_mode: str, to_storage_mode: str) 
             from_study_name=from_study.study_name,
             from_storage=from_storage,
             to_storage=to_storage,
-            to_study_name="bar",
+            to_study_name=to_study_name,
         )
 
-        _ = load_study(study_name="bar", storage=to_storage)
+        _ = load_study(study_name=to_study_name, storage=to_storage)
 
 
 def test_nested_optimization() -> None:
@@ -765,33 +791,8 @@ def test_enqueue_trial_skips_existing_finished(storage_mode: str) -> None:
         assert t0.params["x"] == -5
         assert t0.params["y"] == 5
 
-        before_enqueue = len(study.trials)
         study.enqueue_trial({"x": -5, "y": 5}, skip_if_exists=True)
-        after_enqueue = len(study.trials)
-        assert before_enqueue == after_enqueue
-
-
-@pytest.mark.parametrize("storage_mode", STORAGE_MODES)
-def test_enqueue_trial_skips_existing_waiting(storage_mode: str) -> None:
-    with StorageSupplier(storage_mode) as storage:
-        study = create_study(storage=storage)
-        assert len(study.trials) == 0
-
-        def objective(trial: Trial) -> float:
-            x = trial.suggest_int("x", -10, 10)
-            y = trial.suggest_int("y", -10, 10)
-            return x**2 + y**2
-
-        study.enqueue_trial({"x": -5, "y": 5})
-        before_enqueue = len(study.trials)
-        study.enqueue_trial({"x": -5, "y": 5}, skip_if_exists=True)
-        after_enqueue = len(study.trials)
-        assert before_enqueue == after_enqueue
-
-        study.optimize(objective, n_trials=1)
-        t0 = study.trials[0]
-        assert t0.params["x"] == -5
-        assert t0.params["y"] == 5
+        assert len(study.trials) == 1
 
 
 @pytest.mark.parametrize("storage_mode", STORAGE_MODES)
@@ -830,31 +831,33 @@ def test_enqueue_trial_skip_existing_allows_unfixed(
 
 @pytest.mark.parametrize("storage_mode", STORAGE_MODES)
 @pytest.mark.parametrize(
-    "param", ["foo", 1, 1.1, 1e17, 1e-17, float("inf"), float("-inf"), float("nan"), None]
+    "params, expected_n_trials",
+    [
+        (["foo", "foo"], 1),
+        ([1, 1], 1),
+        ([100000, 100001], 2),
+        ([-100000, -100001], 2),
+        ([1.1, 1.1], 1),
+        ([1e17, 1e17], 1),
+        ([1e-17, 1e-17], 1),
+        ([float("inf"), float("inf")], 1),
+        ([float("-inf"), float("-inf")], 1),
+        ([float("nan"), float("nan")], 1),
+        ([None, None], 1),
+        ([0.0, float("nan")], 2),
+        ([float("nan"), 0.0], 2),
+    ],
 )
-def test_enqueue_trial_skip_existing_handles_common_types(storage_mode: str, param: Any) -> None:
-    with StorageSupplier(storage_mode) as storage:
-        study = create_study(storage=storage)
-        study.enqueue_trial({"x": param})
-        before_enqueue = len(study.trials)
-        study.enqueue_trial({"x": param}, skip_if_exists=True)
-        after_enqueue = len(study.trials)
-        assert before_enqueue == after_enqueue
-
-
-@pytest.mark.parametrize("storage_mode", STORAGE_MODES)
-@pytest.mark.parametrize(
-    ("first_param", "second_param"),
-    [(0.0, float("nan")), (float("nan"), 0.0)],
-)
-def test_enqueue_trial_skip_existing_distinguishes_nan_from_numeric_values(
-    storage_mode: str, first_param: float, second_param: float
+def test_enqueue_trial_skip_existing(
+    storage_mode: str, params: list[Any], expected_n_trials: int
 ) -> None:
     with StorageSupplier(storage_mode) as storage:
         study = create_study(storage=storage)
-        study.enqueue_trial({"x": first_param})
-        study.enqueue_trial({"x": second_param}, skip_if_exists=True)
-        assert len(study.trials) == 2
+
+        for param in params:
+            study.enqueue_trial({"x": param}, skip_if_exists=True)
+
+        assert len(study.trials) == expected_n_trials
 
 
 @patch("optuna.study._optimize.gc.collect")

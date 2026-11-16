@@ -15,6 +15,9 @@ from trajectory._utils import maybe_transform
 from trajectory.types.inference.operations.chat_inference_operation_input_param import (
   ChatInferenceOperationInputParam,
 )
+from trajectory.types.inference.operations.decisions_inference_operation_input_param import (
+  DecisionsInferenceOperationInputParam,
+)
 from trajectory.types.inference.operations.inference_operation_response import (
   InferenceOperationResponse,
 )
@@ -33,7 +36,9 @@ class Operations(APIResource):
     *,
     x_trajectory_id: str,
     idempotency_key: str,
-    body: ChatInferenceOperationInputParam | ResponsesInferenceOperationInputParam,
+    body: ChatInferenceOperationInputParam
+    | ResponsesInferenceOperationInputParam
+    | DecisionsInferenceOperationInputParam,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -54,7 +59,10 @@ class Operations(APIResource):
       "/api/v1/inference/operations",
       cast_to=InferenceOperationResponse,
       body=maybe_transform(
-        body, ChatInferenceOperationInputParam | ResponsesInferenceOperationInputParam
+        body,
+        ChatInferenceOperationInputParam
+        | ResponsesInferenceOperationInputParam
+        | DecisionsInferenceOperationInputParam,
       ),
       options=make_request_options(
         headers={

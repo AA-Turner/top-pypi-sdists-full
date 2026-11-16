@@ -81,6 +81,7 @@ class TestPlacementAPIClientNoAuth(base.BaseTestCase):
     def setUp(self):
         super().setUp()
         self.config = mock.Mock()
+        self.placement_api_client = None
 
     @mock.patch('neutron_lib.placement.client.NoAuthClient', autospec=True)
     def test__create_client_noauth(self, mock_auth_client):
@@ -156,6 +157,12 @@ class TestPlacementAPIClient(base.BaseTestCase):
             RESOURCE_PROVIDER_UUID)
         self.placement_fixture.mock_delete.assert_called_once_with(
             f'/resource_providers/{RESOURCE_PROVIDER_UUID}')
+
+    def test_delete_resource_provider_not_found(self):
+        self.placement_fixture.mock_delete.side_effect = ks_exc.NotFound()
+        self.assertRaises(n_exc.PlacementResourceProviderNotFound,
+                          self.placement_api_client.delete_resource_provider,
+                          RESOURCE_PROVIDER_UUID)
 
     def test_get_resource_provider(self):
         self.placement_api_client.get_resource_provider(RESOURCE_PROVIDER_UUID)

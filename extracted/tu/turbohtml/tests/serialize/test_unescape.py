@@ -13,9 +13,7 @@ import turbohtml
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from _pytest.mark.structures import ParameterSet
-
-CASES: Final = [
+_CASES: Final[list[pytest.ParameterSet]] = [
     pytest.param("no character references", "no character references", id="no-refs"),
     pytest.param("&\n&\t& &&", "&\n&\t& &&", id="bare-amp"),
     pytest.param("&0 &9 &a &0; &9; &a;", "&0 &9 &a &0; &9; &a;", id="amp-then-alnum"),
@@ -51,7 +49,7 @@ CASES: Final = [
 ]
 
 
-def _entity_cases() -> Iterator[ParameterSet]:
+def _entity_cases() -> Iterator[pytest.ParameterSet]:
     for filename in ("entities.test", "namedEntities.test", "numericEntities.test"):
         for case in json.loads(
             (Path(__file__).parents[1] / "html5lib-tests" / "tokenizer" / filename).read_text(encoding="utf-8")
@@ -69,7 +67,7 @@ def test_unescape_matches_html5lib(text: str, expected: str) -> None:
     assert turbohtml.unescape(text) == expected
 
 
-@pytest.mark.parametrize(("text", "expected"), CASES)
+@pytest.mark.parametrize(("text", "expected"), _CASES)
 def test_unescape_cases(text: str, expected: str) -> None:
     assert turbohtml.unescape(text) == expected
     assert turbohtml.unescape(text) == html.unescape(text)

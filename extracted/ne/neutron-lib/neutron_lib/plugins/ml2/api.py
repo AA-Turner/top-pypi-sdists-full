@@ -12,9 +12,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import annotations
+
 import abc
+from collections.abc import Callable
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+from typing import Generic
+from typing import NotRequired
+from typing import TYPE_CHECKING
+from typing import TypedDict
+from typing import TypeVar
+import uuid
+
+from sqlalchemy.orm.session import Session
 
 from neutron_lib.api.definitions import portbindings
+
+if TYPE_CHECKING:
+    from neutron_lib.api.definitions.network import Network
+    from neutron_lib.api.definitions.port import Port
+    from neutron_lib.api.definitions.subnet import Subnet
+    from neutron_lib.context import Context
+    from neutron_lib.db.model_base import BASEV2
+    from neutron_lib.worker import BaseWorker
+
+
+# Extension drivers add their own attributes to the resources, so they are
+# parameterized by TypedDicts derived from the base resource types.
+NetworkT = TypeVar('NetworkT', bound='Network')
+SubnetT = TypeVar('SubnetT', bound='Subnet')
+PortT = TypeVar('PortT', bound='Port')
 
 
 # The following keys are used in the segment dictionaries passed via
@@ -26,11 +55,26 @@ SEGMENTATION_ID = 'segmentation_id'
 MTU = 'mtu'
 NETWORK_ID = 'network_id'
 
+
+class Segment(TypedDict):
+    network_type: str
+    id: NotRequired[str]
+    network_id: NotRequired[str]
+    physical_network: NotRequired[str | None]
+    segmentation_id: NotRequired[int | None]
+    mtu: NotRequired[int]
+
+
 # The following keys are used in the binding level dictionaries
 # available via the binding_levels and original_binding_levels
 # PortContext properties.
 BOUND_DRIVER = 'bound_driver'
 BOUND_SEGMENT = 'bound_segment'
+
+
+class BindingLevel(TypedDict):
+    bound_driver: str
+    bound_segment: Segment
 
 
 class MechanismDriver(metaclass=abc.ABCMeta):
@@ -71,10 +115,10 @@ class MechanismDriver(metaclass=abc.ABCMeta):
     # See also:
     #     https://tools.ietf.org/html/rfc4122
     #     https://stackoverflow.com/a/7816117
-    resource_provider_uuid5_namespace = None
+    resource_provider_uuid5_namespace: uuid.UUID | None = None
 
     @abc.abstractmethod
-    def initialize(self):
+    def initialize(self) -> None:
         """Perform driver initialization.
 
         Called after all drivers have been loaded and the database has
@@ -82,7 +126,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         called prior to this method being called.
         """
 
-    def start_rpc_listeners(self):
+    def start_rpc_listeners(self) -> list[BaseWorker]:
         """Start RPC listeners.
 
         Create and start RPC listeners required by this driver. To be used in
@@ -93,7 +137,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
         return []
 
-    def create_network_precommit(self, context):
+    def create_network_precommit(self, context: NetworkContext) -> None:
         """Allocate resources for a new network.
 
         :param context: NetworkContext instance describing the new
@@ -105,7 +149,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         of the current transaction.
         """
 
-    def create_network_postcommit(self, context):
+    def create_network_postcommit(self, context: NetworkContext) -> None:
         """Create a network.
 
         :param context: NetworkContext instance describing the new
@@ -117,7 +161,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         cause the deletion of the resource.
         """
 
-    def update_network_precommit(self, context):
+    def update_network_precommit(self, context: NetworkContext) -> None:
         """Update resources of a network.
 
         :param context: NetworkContext instance describing the new
@@ -134,7 +178,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state or state changes that it does not know or care about.
         """
 
-    def update_network_postcommit(self, context):
+    def update_network_postcommit(self, context: NetworkContext) -> None:
         """Update a network.
 
         :param context: NetworkContext instance describing the new
@@ -151,7 +195,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state or state changes that it does not know or care about.
         """
 
-    def delete_network_precommit(self, context):
+    def delete_network_precommit(self, context: NetworkContext) -> None:
         """Delete resources for a network.
 
         :param context: NetworkContext instance describing the current
@@ -164,7 +208,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         transaction.
         """
 
-    def delete_network_postcommit(self, context):
+    def delete_network_postcommit(self, context: NetworkContext) -> None:
         """Delete a network.
 
         :param context: NetworkContext instance describing the current
@@ -177,7 +221,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         deleted.
         """
 
-    def create_subnet_precommit(self, context):
+    def create_subnet_precommit(self, context: SubnetContext) -> None:
         """Allocate resources for a new subnet.
 
         :param context: SubnetContext instance describing the new
@@ -189,7 +233,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         of the current transaction.
         """
 
-    def create_subnet_postcommit(self, context):
+    def create_subnet_postcommit(self, context: SubnetContext) -> None:
         """Create a subnet.
 
         :param context: SubnetContext instance describing the new
@@ -201,7 +245,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         cause the deletion of the resource.
         """
 
-    def update_subnet_precommit(self, context):
+    def update_subnet_precommit(self, context: SubnetContext) -> None:
         """Update resources of a subnet.
 
         :param context: SubnetContext instance describing the new
@@ -218,7 +262,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state or state changes that it does not know or care about.
         """
 
-    def update_subnet_postcommit(self, context):
+    def update_subnet_postcommit(self, context: SubnetContext) -> None:
         """Update a subnet.
 
         :param context: SubnetContext instance describing the new
@@ -235,7 +279,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state or state changes that it does not know or care about.
         """
 
-    def delete_subnet_precommit(self, context):
+    def delete_subnet_precommit(self, context: SubnetContext) -> None:
         """Delete resources for a subnet.
 
         :param context: SubnetContext instance describing the current
@@ -248,7 +292,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         transaction.
         """
 
-    def delete_subnet_postcommit(self, context):
+    def delete_subnet_postcommit(self, context: SubnetContext) -> None:
         """Delete a subnet.
 
         :param context: SubnetContext instance describing the current
@@ -261,7 +305,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         deleted.
         """
 
-    def create_port_precommit(self, context):
+    def create_port_precommit(self, context: PortContext) -> None:
         """Allocate resources for a new port.
 
         :param context: PortContext instance describing the port.
@@ -272,7 +316,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         of the current transaction.
         """
 
-    def create_port_postcommit(self, context):
+    def create_port_postcommit(self, context: PortContext) -> None:
         """Create a port.
 
         :param context: PortContext instance describing the port.
@@ -283,7 +327,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         result in the deletion of the resource.
         """
 
-    def update_port_precommit(self, context):
+    def update_port_precommit(self, context: PortContext) -> None:
         """Update resources of a port.
 
         :param context: PortContext instance describing the new
@@ -299,7 +343,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state changes that it does not know or care about.
         """
 
-    def update_port_postcommit(self, context):
+    def update_port_postcommit(self, context: PortContext) -> None:
         """Update a port.
 
         :param context: PortContext instance describing the new
@@ -316,7 +360,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         state changes that it does not know or care about.
         """
 
-    def delete_port_precommit(self, context):
+    def delete_port_precommit(self, context: PortContext) -> None:
         """Delete resources of a port.
 
         :param context: PortContext instance describing the current
@@ -331,7 +375,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         transaction.
         """
 
-    def delete_port_postcommit(self, context):
+    def delete_port_postcommit(self, context: PortContext) -> None:
         """Delete a port.
 
         :param context: PortContext instance describing the current
@@ -347,7 +391,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         not prevent the resource from being deleted.
         """
 
-    def bind_port(self, context):
+    def bind_port(self, context: PortContext) -> None:
         """Attempt to bind a port.
 
         :param context: PortContext instance describing the port
@@ -391,10 +435,12 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
 
     @property
-    def _supports_port_binding(self):
+    def _supports_port_binding(self) -> bool:
         return self.__class__.bind_port != MechanismDriver.bind_port
 
-    def check_vlan_transparency(self, context):
+    def check_vlan_transparency(
+            self,
+            context: NetworkContext) -> bool | None:
         """Check if the network supports vlan transparency.
 
         Return ``True`` when this mechanism driver explicitly supports vlan
@@ -411,7 +457,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
         return None
 
-    def check_vlan_qinq(self, context):
+    def check_vlan_qinq(self, context: NetworkContext) -> bool | None:
         """Check if the network supports QinQ vlans.
 
         Return ``True`` when this mechanism driver explicitly supports QinQ
@@ -431,7 +477,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
         return None
 
-    def get_workers(self):
+    def get_workers(self) -> Sequence[BaseWorker]:
         """Get any NeutronWorker instances that should have their own process
 
         Any driver that needs to run processes separate from the API or RPC
@@ -440,12 +486,16 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         return ()
 
     @classmethod
-    def is_host_filtering_supported(cls):
+    def is_host_filtering_supported(cls) -> bool:
         return (cls.filter_hosts_with_segment_access !=
                 MechanismDriver.filter_hosts_with_segment_access)
 
     def filter_hosts_with_segment_access(
-            self, context, segments, candidate_hosts, agent_getter):
+            self,
+            context: Context,
+            segments: list[Segment],
+            candidate_hosts: set[str],
+            agent_getter: Callable[..., Any]) -> set[str]:
         """Filter hosts with access to at least one segment.
 
         :returns: a set with a subset of candidate_hosts.
@@ -458,7 +508,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
         return candidate_hosts
 
-    def responsible_for_ports_allocation(self, context):
+    def responsible_for_ports_allocation(self, context: PortContext) -> bool:
         """Is responsible for a port's resource provider?
 
         :param context: PortContext instance describing the port
@@ -480,7 +530,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         return False
 
     @staticmethod
-    def provider_network_attribute_updates_supported():
+    def provider_network_attribute_updates_supported() -> list[str]:
         """Returns the provider network attributes that can be updated
 
         Possible values: neutron_lib.api.definitions.provider_net.ATTRIBUTES
@@ -490,7 +540,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         """
         return []
 
-    def supported_extensions(self, extensions):
+    def supported_extensions(self, extensions: set[str]) -> set[str]:
         """Return the mechanism driver supported extensions
 
         By default this method will return the same provided set, without any
@@ -506,7 +556,7 @@ class MechanismDriver(metaclass=abc.ABCMeta):
         return extensions
 
     @property
-    def connectivity(self):
+    def connectivity(self) -> portbindings.CONNECTIVITY:
         """Return the mechanism driver connectivity type
 
         The possible values are "l2", "l3" and "legacy" (default).
@@ -519,14 +569,14 @@ class MechanismDriver(metaclass=abc.ABCMeta):
 class _TypeDriverBase(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def get_type(self):
+    def get_type(self) -> str:
         """Get driver's network type.
 
         :returns: network_type value handled by this driver
         """
 
     @abc.abstractmethod
-    def initialize(self):
+    def initialize(self) -> None:
         """Perform driver initialization.
 
         Called after all drivers have been loaded and the database has
@@ -535,7 +585,7 @@ class _TypeDriverBase(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def is_partial_segment(self, segment):
+    def is_partial_segment(self, segment: Segment) -> bool:
         """Return True if segment is a partially specified segment.
 
         :param segment: segment dictionary
@@ -543,7 +593,7 @@ class _TypeDriverBase(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def validate_provider_segment(self, segment):
+    def validate_provider_segment(self, segment: Segment) -> None:
         """Validate attributes of a provider network segment.
 
         :param segment: segment dictionary using keys defined above
@@ -562,7 +612,7 @@ class _TypeDriverBase(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def get_mtu(self, physical):
+    def get_mtu(self, physical: str | None) -> int:
         """Get driver's network MTU.
 
         :returns: mtu maximum transmission unit
@@ -596,7 +646,12 @@ class TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def reserve_provider_segment(self, session, segment, filters=None):
+    def reserve_provider_segment(
+        self,
+        session: Session,
+        segment: Segment,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment:
         """Reserve resource associated with a provider network segment.
 
         :param session: database session
@@ -611,7 +666,11 @@ class TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def allocate_tenant_segment(self, session, filters=None):
+    def allocate_tenant_segment(
+        self,
+        session: Session,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment | None:
         """Allocate resource for a new project network segment.
 
         :param session: database session
@@ -628,12 +687,16 @@ class TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
 
     # NOTE(haleyb): when all sub-classes support the new method, we can
     # remove the tenant version and make this an abtract method
-    def allocate_project_segment(self, session, filters=None):
+    def allocate_project_segment(
+        self,
+        session: Session,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment | None:
         """For backwards-compatibility, call allocate_tenant_segment()"""
         return self.allocate_tenant_segment(session, filters=filters)
 
     @abc.abstractmethod
-    def release_segment(self, session, segment):
+    def release_segment(self, session: Session, segment: Segment) -> None:
         """Release network segment.
 
         :param session: database session
@@ -670,7 +733,12 @@ class ML2TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def reserve_provider_segment(self, context, segment, filters=None):
+    def reserve_provider_segment(
+        self,
+        context: Context,
+        segment: Segment,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment | None:
         """Reserve resource associated with a provider network segment.
 
         :param context: instance of neutron context with DB session
@@ -685,7 +753,11 @@ class ML2TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def allocate_tenant_segment(self, context, filters=None):
+    def allocate_tenant_segment(
+        self,
+        context: Context,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment | None:
         """Allocate resource for a new project network segment.
 
         :param context: instance of neutron context with DB session
@@ -702,12 +774,20 @@ class ML2TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
 
     # NOTE(haleyb): when all sub-classes support the new method, we can
     # remove the tenant version and make this an abtract method
-    def allocate_project_segment(self, context, filters=None):
+    def allocate_project_segment(
+        self,
+        context: Context,
+        filters: Mapping[str, object] | None = None
+    ) -> Segment | None:
         """For backwards-compatibility, call allocate_tenant_segment()"""
         return self.allocate_tenant_segment(context, filters=filters)
 
     @abc.abstractmethod
-    def release_segment(self, context, segment):
+    def release_segment(
+        self,
+        context: Context,
+        segment: Segment,
+    ) -> None:
         """Release network segment.
 
         :param context: instance of neutron context with DB session
@@ -720,7 +800,7 @@ class ML2TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def initialize_network_segment_range_support(self):
+    def initialize_network_segment_range_support(self) -> None:
         """Perform driver network segment range initialization.
 
         Called during the initialization of the ``network-segment-range``
@@ -730,7 +810,7 @@ class ML2TypeDriver(_TypeDriverBase, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def update_network_segment_range_allocations(self):
+    def update_network_segment_range_allocations(self) -> None:
         """Update driver network segment range allocations.
 
         This syncs the driver segment allocations when network segment ranges
@@ -749,7 +829,7 @@ class NetworkContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def current(self):
+    def current(self) -> Network:
         """Return the network in its current configuration.
 
         Return the network, as defined by NeutronPluginBaseV2.
@@ -760,7 +840,7 @@ class NetworkContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original(self):
+    def original(self) -> Network:
         """Return the network in its original configuration.
 
         Return the network, with all its properties set to their
@@ -771,7 +851,7 @@ class NetworkContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def network_segments(self):
+    def network_segments(self) -> list[Segment]:
         """Return the segments associated with this network resource."""
 
 
@@ -786,7 +866,7 @@ class SubnetContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def current(self):
+    def current(self) -> Subnet:
         """Return the subnet in its current configuration.
 
         Return the subnet, as defined by NeutronPluginBaseV2.
@@ -797,7 +877,7 @@ class SubnetContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original(self):
+    def original(self) -> Subnet:
         """Return the subnet in its original configuration.
 
         Return the subnet, with all its properties set to their
@@ -818,7 +898,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def current(self):
+    def current(self) -> Port:
         """Return the port in its current configuration.
 
         Return the port, as defined by NeutronPluginBaseV2.
@@ -829,7 +909,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original(self):
+    def original(self) -> Port:
         """Return the port in its original configuration.
 
         Return the port, with all its properties set to their
@@ -840,12 +920,12 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def status(self):
+    def status(self) -> str:
         """Return the status of the current port."""
 
     @property
     @abc.abstractmethod
-    def original_status(self):
+    def original_status(self) -> str | None:
         """Return the status of the original port.
 
         The method is only valid within calls to update_port_precommit and
@@ -854,12 +934,12 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def network(self):
+    def network(self) -> NetworkContext:
         """Return the NetworkContext associated with this port."""
 
     @property
     @abc.abstractmethod
-    def binding_levels(self):
+    def binding_levels(self) -> list[BindingLevel] | None:
         """Return dictionaries describing the current binding levels.
 
         This property returns a list of dictionaries describing each
@@ -887,7 +967,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_binding_levels(self):
+    def original_binding_levels(self) -> list[BindingLevel] | None:
         """Return dictionaries describing the original binding levels.
 
         This property returns a list of dictionaries describing each
@@ -902,7 +982,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def top_bound_segment(self):
+    def top_bound_segment(self) -> Segment | None:
         """Return the current top-level bound segment dictionary.
 
         This property returns the current top-level bound segment
@@ -915,7 +995,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_top_bound_segment(self):
+    def original_top_bound_segment(self) -> Segment | None:
         """Return the original top-level bound segment dictionary.
 
         This property returns the original top-level bound segment
@@ -931,7 +1011,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def bottom_bound_segment(self):
+    def bottom_bound_segment(self) -> Segment | None:
         """Return the current bottom-level bound segment dictionary.
 
         This property returns the current bottom-level bound segment
@@ -946,7 +1026,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_bottom_bound_segment(self):
+    def original_bottom_bound_segment(self) -> Segment | None:
         """Return the original bottom-level bound segment dictionary.
 
         This property returns the original bottom-level bound segment
@@ -963,7 +1043,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def host(self):
+    def host(self) -> str:
         """Return the host with which the port is associated.
 
         In the context of a host-specific operation on a distributed
@@ -974,7 +1054,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_host(self):
+    def original_host(self) -> str | None:
         """Return the original host with which the port was associated.
 
         In the context of a host-specific operation on a distributed
@@ -989,7 +1069,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def vif_type(self):
+    def vif_type(self) -> str:
         """Return the vif_type indicating the binding state of the port.
 
         In the context of a host-specific operation on a distributed
@@ -1001,7 +1081,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_vif_type(self):
+    def original_vif_type(self) -> str | None:
         """Return the original vif_type of the port.
 
         In the context of a host-specific operation on a distributed
@@ -1017,7 +1097,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def vif_details(self):
+    def vif_details(self) -> portbindings.VifDetails:
         """Return the vif_details describing the binding of the port.
 
         In the context of a host-specific operation on a distributed
@@ -1029,7 +1109,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def original_vif_details(self):
+    def original_vif_details(self) -> portbindings.VifDetails | None:
         """Return the original vif_details of the port.
 
         In the context of a host-specific operation on a distributed
@@ -1045,7 +1125,7 @@ class PortContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def segments_to_bind(self):
+    def segments_to_bind(self) -> list[Segment] | None:
         """Return the list of segments with which to bind the port.
 
         This property returns the list of segment dictionaries with
@@ -1060,7 +1140,7 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def host_agents(self, agent_type):
+    def host_agents(self, agent_type: str) -> list[Any]:
         """Get agents of the specified type on port's host.
 
         :param agent_type: Agent type identifier
@@ -1068,8 +1148,12 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def set_binding(self, segment_id, vif_type, vif_details,
-                    status=None):
+    def set_binding(
+            self,
+            segment_id: str,
+            vif_type: str,
+            vif_details: portbindings.VifDetails,
+            status: str | None = None) -> None:
         """Set the bottom-level binding for the port.
 
         :param segment_id: Network segment bound for the port.
@@ -1084,7 +1168,10 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def continue_binding(self, segment_id, next_segments_to_bind):
+    def continue_binding(
+            self,
+            segment_id: str,
+            next_segments_to_bind: list[Segment]) -> None:
         """Continue binding the port with different segments.
 
         :param segment_id: Network segment partially bound for the port.
@@ -1102,7 +1189,7 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def allocate_dynamic_segment(self, segment):
+    def allocate_dynamic_segment(self, segment: Segment) -> Segment:
         """Allocate a dynamic segment.
 
         :param segment: A partially or fully specified segment dictionary
@@ -1115,7 +1202,7 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def release_dynamic_segment(self, segment_id):
+    def release_dynamic_segment(self, segment_id: str) -> None:
         """Release an allocated dynamic segment.
 
         :param segment_id: UUID of the dynamic network segment.
@@ -1125,7 +1212,8 @@ class PortContext(metaclass=abc.ABCMeta):
         """
 
 
-class ExtensionDriver(metaclass=abc.ABCMeta):
+class ExtensionDriver(Generic[NetworkT, SubnetT, PortT],
+                      metaclass=abc.ABCMeta):
     """Define stable abstract interface for ML2 extension drivers.
 
     An extension driver extends the core resources implemented by the
@@ -1137,7 +1225,7 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def initialize(self):
+    def initialize(self) -> None:
         """Perform driver initialization.
 
         Called after all drivers have been loaded and the database has
@@ -1146,7 +1234,7 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         """
 
     @property
-    def extension_alias(self):
+    def extension_alias(self) -> str | None:
         """Supported extension alias.
 
         Return the alias identifying the core API extension supported
@@ -1154,19 +1242,24 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         be left to a service plugin, and we just need to provide
         core resource extension and updates.
         """
-        return
+        return None
 
     @property
-    def extension_aliases(self):
+    def extension_aliases(self) -> list[str]:
         """List of extension aliases supported by the driver.
 
         Return a list of aliases identifying the core API extensions
         supported by the driver. By default this just returns the
         extension_alias property for backwards compatibility.
         """
-        return [self.extension_alias]
+        alias = self.extension_alias
+        return [alias] if alias is not None else []
 
-    def process_create_network(self, plugin_context, data, result):
+    def process_create_network(
+            self,
+            plugin_context: Context,
+            data: NetworkT,
+            result: NetworkT) -> None:
         """Process extended attributes for create network.
 
         :param plugin_context: plugin request context
@@ -1179,7 +1272,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         result.
         """
 
-    def process_create_subnet(self, plugin_context, data, result):
+    def process_create_subnet(
+            self,
+            plugin_context: Context,
+            data: SubnetT,
+            result: SubnetT) -> None:
         """Process extended attributes for create subnet.
 
         :param plugin_context: plugin request context
@@ -1192,7 +1289,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         result.
         """
 
-    def process_create_port(self, plugin_context, data, result):
+    def process_create_port(
+            self,
+            plugin_context: Context,
+            data: PortT,
+            result: PortT) -> None:
         """Process extended attributes for create port.
 
         :param plugin_context: plugin request context
@@ -1205,7 +1306,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         result.
         """
 
-    def process_update_network(self, plugin_context, data, result):
+    def process_update_network(
+            self,
+            plugin_context: Context,
+            data: NetworkT,
+            result: NetworkT) -> None:
         """Process extended attributes for update network.
 
         :param plugin_context: plugin request context
@@ -1218,7 +1323,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         must also be added to result.
         """
 
-    def process_update_subnet(self, plugin_context, data, result):
+    def process_update_subnet(
+            self,
+            plugin_context: Context,
+            data: SubnetT,
+            result: SubnetT) -> None:
         """Process extended attributes for update subnet.
 
         :param plugin_context: plugin request context
@@ -1231,7 +1340,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         must also be added to result.
         """
 
-    def process_update_port(self, plugin_context, data, result):
+    def process_update_port(
+            self,
+            plugin_context: Context,
+            data: PortT,
+            result: PortT) -> None:
         """Process extended attributes for update port.
 
         :param plugin_context: plugin request context
@@ -1244,7 +1357,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         must also be added to result.
         """
 
-    def extend_network_dict(self, session, base_model, result):
+    def extend_network_dict(
+            self,
+            session: Session,
+            base_model: BASEV2,
+            result: NetworkT) -> None:
         """Add extended attributes to network dictionary.
 
         :param session: database session
@@ -1257,7 +1374,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         returned as the result of a network operation.
         """
 
-    def extend_subnet_dict(self, session, base_model, result):
+    def extend_subnet_dict(
+            self,
+            session: Session,
+            base_model: BASEV2,
+            result: SubnetT) -> None:
         """Add extended attributes to subnet dictionary.
 
         :param session: database session
@@ -1270,7 +1391,11 @@ class ExtensionDriver(metaclass=abc.ABCMeta):
         returned as the result of a subnet operation.
         """
 
-    def extend_port_dict(self, session, base_model, result):
+    def extend_port_dict(
+            self,
+            session: Session,
+            base_model: BASEV2,
+            result: PortT) -> None:
         """Add extended attributes to port dictionary.
 
         :param session: database session

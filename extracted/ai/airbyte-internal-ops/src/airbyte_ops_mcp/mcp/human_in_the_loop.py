@@ -479,6 +479,8 @@ _NEWSLETTER_CHANNELS: dict[str, tuple[str, str]] = {
     "Internal AI": ("C0AH48172M6", "#daily-newsletters"),
     "AJ": ("C0BLUPJ0X0R", "#aj-release-notes"),
     "AJ WIP Tracker": ("C0C2PHD33RN", "#aj-wip-tracker"),
+    "mtx": ("C0AH48172M6", "#daily-newsletters"),
+    "mtx Project": ("C09LPHML4QZ", "#proj-mtx-semantic-metric-transforms"),
 }
 
 _REPO_OWNER = "airbytehq"
@@ -557,11 +559,12 @@ def post_slack_newsletter(
         "Do NOT include markdown tables — they will be rejected.",
     ],
     newsletter_name: Annotated[
-        Literal["DR", "Internal AI", "AJ", "AJ WIP Tracker"],
+        Literal["DR", "Internal AI", "AJ", "AJ WIP Tracker", "mtx", "mtx Project"],
         "Name of the newsletter to post to. "
         "Determines which Slack channel receives the message. "
-        "DR and Internal AI both post to #daily-newsletters; AJ posts to "
+        "DR, Internal AI, and mtx post to #daily-newsletters; AJ posts to "
         "#aj-release-notes; AJ WIP Tracker posts to #aj-wip-tracker. "
+        "mtx Project posts to #proj-mtx-semantic-metric-transforms. "
         "Ignored when dry_run is 'slack_test_channel'.",
     ],
     dry_run: Annotated[

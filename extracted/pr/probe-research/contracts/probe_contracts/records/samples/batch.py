@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 from ..command import CommandKind
-from .capture import MAX_PRODUCERS, CaptureField, Plan, Producer, Refusal, Seal
+from .capture import MAX_PRODUCERS, FieldReasons, Plan, Producer, Refusal, Seal
 from .live.turns import LiveTurnIn
 from .part import SamplePartIn
 from .points import SampleMetricsIn, TrainingPlan, UpdateIn
@@ -22,7 +22,8 @@ MAX_BATCH_ITEMS = 1_000
 MAX_BATCH_BYTES = 4 * 1024 * 1024
 
 
-class TaskIn(Task.project("task_key", "scenario", "prompt", "prompt_blob", "dataset", "label", "reward_max")):
+class TaskIn(Task.project("task_key", "scenario", "prompt", "prompt_blob", "dataset", "label", "reward_max",
+                          "name", "description")):
     """A task instance, once per run: the server derives its id from the key and the scenario."""
 
 
@@ -57,7 +58,7 @@ class PlanIn(Plan.project(
     refusals=(dict[CommandKind, Refusal] | None, None),
     adapter_hooks_missing=(bool | None, None),
     training=(TrainingPlan | None, None),
-    unsupported=(dict[CaptureField, Refusal] | None, None),
+    unsupported=(FieldReasons | None, None),
 )):
     """A change to the run's plan: only the fields sent change (`model_fields_set`). `capabilities` is what THIS
     batch's producer can be asked (it replaces that producer's list on the plan row); `refusals` why it refuses the

@@ -34,16 +34,14 @@ class PolyLineTextPath(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro script(this, kwargs) %}
             {{ this.polyline.get_name() }}.setText(
                 {{ this.text|tojson }},
                 {{ this.options|tojavascript }}
             );
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -62,7 +60,7 @@ class PolyLineTextPath(JSCSSMixin, MacroElement):
         offset=0,
         orientation=0,
         attributes=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "PolyLineTextPath"
@@ -75,5 +73,5 @@ class PolyLineTextPath(JSCSSMixin, MacroElement):
             offset=offset,
             orientation=orientation,
             attributes=attributes,
-            **kwargs
+            **kwargs,
         )

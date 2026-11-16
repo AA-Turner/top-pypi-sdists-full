@@ -8,6 +8,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
+from ..sampling import MAX_POLL_RPCS, MAX_SAMPLING_BATCH, STREAM_WINDOW_BYTES
+
 
 def _integer(value, name, minimum=0):
     if type(value) is not int or (minimum is not None and value < minimum):
@@ -302,6 +304,14 @@ class Schedule:
         admit_ahead: Deprecated; use ``Admission.ahead``.
         priority: Ready-queue ordering policy.
         oversample_factor: Deprecated; use ``Admission.oversample``.
+        max_poll_rpcs: Most concurrent result-retrieval streams for native
+            sampling. None scales with the outstanding prompts so one sweep
+            asks after all of them: ``ceil(max_sample_requests / 128)``,
+            clamped to 4..64. Set it only to lower that on a client short of
+            memory; each stream can buffer about ``stream_window_bytes`` plus
+            two results.
+        stream_window_bytes: Per-stream HTTP/2 read-ahead for result
+            retrieval. Lower it only on a client short of memory.
     """
 
     window: float = 0.01
@@ -318,14 +328,19 @@ class Schedule:
     admit_ahead: int | None = None
     priority: Literal["fifo", "predicted_length"] = "fifo"
     oversample_factor: float | None = None
+    # Appended after the existing fields to keep positional construction.
+    max_poll_rpcs: int | None = None
+    stream_window_bytes: int = STREAM_WINDOW_BYTES
 
     def __post_init__(self):
         if self.window < 0 or not math.isfinite(self.window):
             raise ValueError("window must be finite and nonnegative")
         for name in ("max_batch", "max_batch_bytes", "concurrency", "max_rpc_workers"):
             _integer(getattr(self, name), name, 1)
-        if self.max_sample_requests is not None:
-            _integer(self.max_sample_requests, "max_sample_requests", 1)
+        for name in ("max_sample_requests", "max_poll_rpcs"):
+            if getattr(self, name) is not None:
+                _integer(getattr(self, name), name, 1)
+        _integer(self.stream_window_bytes, "stream_window_bytes", 1)
         if self.admit_ahead is not None:
             _integer(self.admit_ahead, "admit_ahead")
         if self.priority not in {"fifo", "predicted_length"}:
@@ -342,6 +357,13 @@ class Schedule:
                 FutureWarning,
                 stacklevel=3,
             )
+
+    @property
+    def poll_rpc_limit(self):
+        if self.max_poll_rpcs is not None:
+            return self.max_poll_rpcs
+        streams = -(-self.sample_request_limit // MAX_SAMPLING_BATCH)
+        return min(MAX_POLL_RPCS, max(4, streams))
 
     @property
     def sample_request_limit(self):

@@ -15,7 +15,9 @@
 
 #include "core/ascii.h"
 #include "core/common.h" /* SWAR lane probes for the serializer's clean-run scan */
+#include "core/hash.h"   /* th_name_hash keyed hash for the dynamic attribute-name table */
 #include "core/vec.h"    /* th_grow_cap overflow-safe buffer growth */
+#include "core/work_steps.h"
 
 #include <string.h>
 
@@ -68,34 +70,11 @@ static inline Py_UCS4 input_read(const th_tree *tree, Py_ssize_t index) {
     return ((const uint32_t *)tree->data)[index];
 }
 
+/* The atom and category flags of a fragment context's lowercased name, TH_TAG_UNKNOWN for an empty one. */
 static uint16_t intern_atom(const th_buf *name, uint8_t *out_flags) {
-    *out_flags = 0;
-    if (name->kind != PyUnicode_1BYTE_KIND || name->len == 0) { /* GCOVR_EXCL_BR_LINE: name is never empty */
-        return TH_TAG_UNKNOWN;                                  /* non-ASCII / empty tag names are never atoms */
-    }
-    const unsigned char *str = (const unsigned char *)name->data;
-    size_t slot = ((size_t)name->len * TH_TAG_HASH_LENGTH + (size_t)str[0] * TH_TAG_HASH_FIRST +
-                   (size_t)str[name->len - 1] * TH_TAG_HASH_LAST + (size_t)str[name->len > 1] * TH_TAG_HASH_SECOND) &
-                  TH_TAG_HASH_MASK;
-    uint8_t index = th_tag_hash[slot];
-    if (index == 0) {
-        return TH_TAG_UNKNOWN;
-    }
-    const th_tag_entry *entry = &th_tag_table[index - 1];
-    if (entry->name_len != name->len) {
-        return TH_TAG_UNKNOWN;
-    }
-    /* Verify with an inline byte loop, not memcmp: tag names are 1-10 bytes, so a
-       libc call's setup costs more than the compare it saves -- most of all for the
-       one-byte names (p, a, b, ...) a parse hits far more often than div or span. */
-    const unsigned char *en = (const unsigned char *)entry->name;
-    for (Py_ssize_t pos = 0; pos < name->len; pos++) {
-        if (str[pos] != en[pos]) {
-            return TH_TAG_UNKNOWN;
-        }
-    }
-    *out_flags = entry->flags;
-    return entry->atom;
+    uint16_t atom = name->len == 0 ? TH_TAG_UNKNOWN : th_tag_lookup(name->data, name->len);
+    *out_flags = th_tag_flags(atom);
+    return atom;
 }
 
 /* The token's interned tag atom, cached on the token by the run loop once per
@@ -104,17 +83,65 @@ static uint16_t tok_atom(const th_token *tok) {
     return tok->atom;
 }
 
-static uint32_t fnv1a(const char *bytes, Py_ssize_t len) {
-    uint32_t hash = 2166136261u;
-    for (Py_ssize_t index = 0; index < len; index++) {
-        hash ^= (unsigned char)bytes[index];
-        hash *= 16777619u;
+/* 1 when the run of filled slots through slot is longer than TH_FAST_RUN_LIMIT. A
+   lookup walks at most the run its home falls in, so bounding every run bounds hits
+   and misses alike. Every run was within the limit before this seat, so the walks back
+   and ahead each cover at most the limit: neither is a counted work step. */
+static int attr_run_long(const th_tree *tree, uint32_t slot) {
+    uint32_t mask = tree->attr_slot_mask;
+    uint32_t length = 1;
+    for (uint32_t probe = (slot - 1) & mask; tree->attr_slots[probe] != 0; probe = (probe - 1) & mask) {
+        length++;
     }
-    return hash;
+    for (uint32_t probe = (slot + 1) & mask; tree->attr_slots[probe] != 0; probe = (probe + 1) & mask) {
+        length++;
+    }
+    return length > TH_FAST_RUN_LIMIT;
+}
+
+/* Replace the slots with cap of them and seat every record under its stored hash,
+   which is th_name_hash when keyed, else FNV-1a. Doubling cannot lengthen the longest
+   run: the records of a run in the new slots have their homes inside it, so they
+   already formed a run at least as long in the old ones. A failure flags the parse
+   as arena_alloc does. */
+static int attr_slots_rebuild(th_tree *tree, uint32_t cap, int keyed) {
+    uint32_t *slots = PyMem_Calloc(cap, sizeof(uint32_t));
+    if (slots == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    uint32_t mask = cap - 1;
+    for (uint32_t index = 0; index < tree->attr_rec_count; index++) {
+        uint32_t probe = tree->attr_recs[index].hash & mask;
+        while (slots[probe] != 0) {
+            TH_WORK_STEP();
+            probe = (probe + 1) & mask;
+        }
+        slots[probe] = index + 1;
+    }
+    PyMem_Free(tree->attr_slots);
+    tree->attr_slots = slots;
+    tree->attr_fast = keyed ? NULL : slots;
+    tree->attr_slot_mask = mask;
+    return 0;
+}
+
+/* Move the table to th_name_hash for the rest of the tree's life: FNV-1a is fixed,
+   so a document can pick names that share one run of slots, and once a run grows
+   past TH_FAST_RUN_LIMIT every record is rehashed under a key the document cannot
+   see and seated again. */
+static TH_NOINLINE int attr_table_rekey(th_tree *tree) {
+    for (uint32_t index = 0; index < tree->attr_rec_count; index++) {
+        th_attr_record *rec = &tree->attr_recs[index];
+        rec->hash = th_name_hash(rec->name, (Py_ssize_t)rec->name_len);
+    }
+    return attr_slots_rebuild(tree, tree->attr_slot_mask + 1, 1);
 }
 
 /* Ensure the dynamic table can take one more record: grow the record array, and
-   build or grow the hash slots past a 3/4 load factor (rehashing the records). A
+   build or grow the hash slots past half load (rehashing the records): every insert
+   past TH_FAST_RUN_LIMIT records measures the run it joined, and runs stay short at
+   half load where they grow long at 3/4. A
    failure flags the parse as arena_alloc does, so the builder drops the tree instead
    of keeping an attribute with no atom. */
 static int attr_table_reserve(th_tree *tree) {
@@ -135,51 +162,18 @@ static int attr_table_reserve(th_tree *tree) {
         tree->attr_recs = recs;
         tree->attr_rec_cap = (uint32_t)cap;
     }
-    if (tree->attr_slots == NULL || tree->attr_rec_count + 1 > (tree->attr_slot_mask + 1) * 3 / 4) {
-        uint32_t new_cap = tree->attr_slots == NULL ? 16 : (tree->attr_slot_mask + 1) * 2;
-        uint32_t *slots = PyMem_Calloc(new_cap, sizeof(uint32_t));
-        if (slots == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
-            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        uint32_t mask = new_cap - 1;
-        for (uint32_t index = 0; index < tree->attr_rec_count; index++) {
-            uint32_t probe = tree->attr_recs[index].hash & mask;
-            while (slots[probe] != 0) {
-                probe = (probe + 1) & mask;
-            }
-            slots[probe] = index + 1;
-        }
-        PyMem_Free(tree->attr_slots);
-        tree->attr_slots = slots;
-        tree->attr_slot_mask = mask;
+    if (tree->attr_slots == NULL || tree->attr_rec_count + 1 > (tree->attr_slot_mask + 1) / 2) {
+        int keyed = tree->attr_slots != NULL && tree->attr_fast == NULL;
+        return attr_slots_rebuild(tree, tree->attr_slots == NULL ? 16 : (tree->attr_slot_mask + 1) * 2, keyed);
     }
     return 0;
 }
 
-/* The record index + 1 for an interned name, or 0 when it is not in the table.
-   The name comparison is by bytes, so a hash collision is not a special case. */
-static uint32_t dynamic_slot(th_tree *tree, const char *bytes, Py_ssize_t len, uint32_t hash) {
-    if (tree->attr_slots == NULL) {
-        return 0;
-    }
-    uint32_t mask = tree->attr_slot_mask;
-    for (uint32_t probe = hash & mask; tree->attr_slots[probe] != 0; probe = (probe + 1) & mask) {
-        const th_attr_record *rec = &tree->attr_recs[tree->attr_slots[probe] - 1];
-        if (rec->name_len == (uint32_t)len && memcmp(rec->name, bytes, (size_t)len) == 0) {
-            return tree->attr_slots[probe];
-        }
-    }
-    return 0;
-}
-
-/* Intern UTF-8 name bytes into the per-tree dynamic table, returning the atom
-   (prototype in dom/tree_internal.h; the construction API in mutate.c reuses it). */
-uint32_t intern_attr_dynamic(th_tree *tree, const char *bytes, Py_ssize_t len) {
-    uint32_t hash = fnv1a(bytes, len);
-    uint32_t found = dynamic_slot(tree, bytes, len, hash);
-    if (found != 0) {
-        return TH_ATTR__DYNAMIC_BASE + (found - 1);
+/* Add a name the table does not hold, hashed to hash under the table's current hash.
+   Out of line, since a tree adds each name once and looks it up for every element. */
+TH_NOINLINE uint32_t intern_attr_insert(th_tree *tree, const char *bytes, Py_ssize_t len, uint32_t hash) {
+    if (len > 6 && memcmp(bytes, "xmlns:", 6) == 0) {
+        tree->has_prefix_decl = 1;
     }
     if (attr_table_reserve(tree) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return TH_ATTR_UNKNOWN;         /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -195,10 +189,27 @@ uint32_t intern_attr_dynamic(th_tree *tree, const char *bytes, Py_ssize_t len) {
     uint32_t mask = tree->attr_slot_mask;
     uint32_t probe = hash & mask;
     while (tree->attr_slots[probe] != 0) {
+        TH_WORK_STEP();
         probe = (probe + 1) & mask;
     }
     tree->attr_slots[probe] = index + 1;
+    if (tree->attr_fast != NULL && tree->attr_rec_count > TH_FAST_RUN_LIMIT && attr_run_long(tree, probe)) {
+        if (attr_table_rekey(tree) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return TH_ATTR_UNKNOWN;       /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
     return TH_ATTR__DYNAMIC_BASE + index;
+}
+
+/* intern_attr_dynamic for a table that is not built yet, which starts on FNV-1a, or
+   one on th_name_hash. Out of line, so the FNV-1a lookup keeps its registers. */
+TH_NOINLINE uint32_t intern_attr_slow(th_tree *tree, const char *bytes, Py_ssize_t len) {
+    if (tree->attr_slots == NULL) {
+        return intern_attr_insert(tree, bytes, len, th_fnv1a_bytes(bytes, len));
+    }
+    uint32_t hash = th_name_hash(bytes, len);
+    uint32_t found = dynamic_slot(tree, bytes, len, hash);
+    return found != 0 ? TH_ATTR__DYNAMIC_BASE + (found - 1) : intern_attr_insert(tree, bytes, len, hash);
 }
 
 /* UTF-8 encode a non-ASCII attribute name into the arena (NUL-terminated). Only
@@ -267,6 +278,7 @@ static uint32_t intern_attr(th_tree *tree, const th_buf *name) {
 /* The interned name's bytes for an atom: the static table for a common atom, the
    per-tree records otherwise. NUL-terminated; *out_len receives the length. */
 const char *th_attr_name(th_tree *tree, uint32_t atom, Py_ssize_t *out_len) {
+    TH_WORK_STEP();
     if (atom < TH_ATTR__DYNAMIC_BASE) {
         const th_attr_entry *entry = &th_attr_table[atom - 1];
         *out_len = entry->name_len;
@@ -277,19 +289,20 @@ const char *th_attr_name(th_tree *tree, uint32_t atom, Py_ssize_t *out_len) {
     return rec->name;
 }
 
+/* th_attr_lookup's dynamic step for a table on th_name_hash
+   (prototype in dom/tree_internal.h). Out of line, so th_attr_lookup_inline keeps only
+   the FNV-1a step. */
+TH_NOINLINE uint32_t th_attr_lookup_slow(th_tree *tree, const char *bytes, Py_ssize_t len) {
+    uint32_t found = dynamic_slot(tree, bytes, len, th_name_hash(bytes, len));
+    return found != 0 ? TH_ATTR__DYNAMIC_BASE + (found - 1) : UINT32_MAX;
+}
+
 /* Resolve a query attribute name (UTF-8 bytes) to the atom an element would carry
    for it, without interning: a static atom, a dynamic atom already seen in this
-   tree, or UINT32_MAX when no element in the tree has that name. */
-uint32_t th_attr_lookup(th_tree *tree, const char *bytes, Py_ssize_t len) {
-    if (len == 0) {
-        return UINT32_MAX;
-    }
-    uint32_t atom = th_attr_atom(bytes, (size_t)len);
-    if (atom != TH_ATTR_UNKNOWN) {
-        return atom;
-    }
-    uint32_t found = dynamic_slot(tree, bytes, len, fnv1a(bytes, len));
-    return found != 0 ? TH_ATTR__DYNAMIC_BASE + (found - 1) : UINT32_MAX;
+   tree, or UINT32_MAX when no element in the tree has that name. Out of line, so
+   callers that resolve a name once per query keep their registers. */
+TH_NOINLINE uint32_t th_attr_lookup(th_tree *tree, const char *bytes, Py_ssize_t len) {
+    return th_attr_lookup_inline(tree, bytes, len);
 }
 
 uint32_t th_tree_attr_generation(const th_tree *tree) {
@@ -302,6 +315,18 @@ uint64_t th_tree_attr_version(const th_tree *tree) {
 
 uint64_t th_tree_id_version(const th_tree *tree) {
     return tree->id_version;
+}
+
+void th_tree_note_element_edit(th_tree *tree) {
+    tree->id_version++;
+}
+
+int th_tree_slot_cache_valid(const th_tree *tree) {
+    return tree->slot_cache_valid;
+}
+
+void th_tree_set_slot_cache(th_tree *tree, int valid) {
+    tree->slot_cache_valid = valid;
 }
 
 int th_tree_quirks(const th_tree *tree) {
@@ -336,8 +361,16 @@ int th_tree_reparse_hazard(const th_tree *tree) {
     return tree->reparse_hazard;
 }
 
-Py_ssize_t th_tree_max_depth(const th_tree *tree) {
-    return tree->max_depth;
+Py_ssize_t th_tree_nest_bound(const th_tree *tree) {
+    return tree->nest_bound;
+}
+
+int th_tree_nests_deep(const th_tree *tree) {
+    return (tree->nest_bound & TH_NEST_CAPPED) == 0;
+}
+
+void th_tree_note_deepened(th_tree *tree) {
+    tree->nest_bound &= TH_NEST_OBSERVED;
 }
 
 int th_tree_failed(const th_tree *tree) {
@@ -433,10 +466,14 @@ const void *th_tree_source_data(th_tree *tree, int *kind, int *has_nul) {
 
 /* A shallow element clone (same atom/name/attrs, no children) for the adoption
    agency and active-formatting-element reconstruction. */
-static th_node *node_clone(th_tree *tree, const th_node *src);
+static th_node *node_clone(th_tree *tree, th_node *src, int with_attrs);
 
 static th_node *current_node(th_tree *tree) {
     return tree->open_len > 0 ? tree->open[tree->open_len - 1] : tree->document;
+}
+
+static int stack_at_depth_cap(const th_tree *tree) {
+    return tree->open_len >= TH_MAX_TREE_DEPTH;
 }
 
 static int stack_push(th_tree *tree, th_node *node) {
@@ -470,20 +507,29 @@ static int stack_push(th_tree *tree, th_node *node) {
         tree->open_p_count++;
     }
     tree->stack_version++;
-    if (tree->open_len > tree->max_depth) {
-        tree->max_depth = tree->open_len;
+    /* the push cap keeps every element short of TH_DEEP_NEST ancestors */
+    if (tree->open_len >= TH_HAS_MEMO_DEPTH) {
+        tree->nest_bound &= TH_NEST_CAPPED;
     }
     return 1;
+}
+
+/* stack_push reports success even when the depth cap keeps the node off the stack */
+static int stack_push_kept(th_tree *tree, th_node *node) {
+    Py_ssize_t open_len_before = tree->open_len;
+    stack_push(tree, node);
+    return tree->open_len != open_len_before;
 }
 
 static void maybe_clone_option(th_tree *tree, th_node *option);
 static int name_matches(const th_node *node, const th_token *token, int fold);
 
-static void stack_pop(th_tree *tree) {
+static void stack_pop_any(th_tree *tree) {
     if (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: only reached with a non-empty stack */
         tree->open_len--;
         tree->stack_version++;
         th_node *popped = tree->open[tree->open_len];
+        popped->left_stack = 1;
         if (popped->ns == TH_NS_HTML && popped->atom == TH_TAG_P) {
             tree->open_p_count--;
         }
@@ -506,6 +552,15 @@ static void stack_pop(th_tree *tree) {
                clone an option into selectedcontent" */
             maybe_clone_option(tree, popped);
         }
+    }
+}
+
+/* html, or the fragment root, stays at open[0] until run_close: the scope walks, clear_to and the adoption agency's
+   common ancestor all read it. An element the depth cap kept off the stack leaves its insertion mode popping for it
+   (a refused tr, td or raw-text element), and that pop must not reach the root. */
+static void stack_pop(th_tree *tree) {
+    if (tree->open_len > 1) {
+        stack_pop_any(tree);
     }
 }
 
@@ -597,8 +652,7 @@ static int is_implied_end_atom(uint16_t atom) {
 }
 
 static void generate_implied_end_tags(th_tree *tree, uint16_t except_atom) {
-    while (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: the html element is never an implied-end-tag element, so the
-                                    stack never empties here */
+    while (tree->open_len > 1) {
         uint16_t atom = current_node(tree)->atom;
         if (atom == except_atom || !is_implied_end_atom(atom)) {
             return;
@@ -610,8 +664,7 @@ static void generate_implied_end_tags(th_tree *tree, uint16_t except_atom) {
 /* Pop elements until (and including) an HTML element with this atom; a foreign
    element with the same local name (e.g. a MathML td) never matches. */
 static void pop_until_atom(th_tree *tree, uint16_t atom) {
-    while (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: pop_until_atom is only called with the target element in scope,
-                                    so the stack never empties */
+    while (tree->open_len > 1) { /* GCOVR_EXCL_BR_LINE: every caller checks the atom is on the stack first */
         th_node *node = current_node(tree);
         stack_pop(tree);
         if (node->ns == TH_NS_HTML && node->atom == atom) {
@@ -624,13 +677,12 @@ static void pop_until_atom(th_tree *tree, uint16_t atom) {
    (exclusive); used by the table modes to "clear the stack back to a
    table / body / row context". */
 static void clear_to(th_tree *tree, uint16_t atom_a, uint16_t atom_b, uint16_t atom_c) {
-    while (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: a table-context boundary is always on the open stack, so the
-                                    loop never empties it */
+    while (tree->open_len > 1) {
         th_node *node = current_node(tree);
         uint16_t atom = node->atom;
-        /* A table-context boundary is always an html element. */
+        /* the open_len > 1 bound keeps the html root out of this walk, so html is never a boundary here */
         if (node->ns == TH_NS_HTML /* GCOVR_EXCL_BR_LINE */ &&
-            (atom == atom_a || atom == atom_b || atom == atom_c || atom == TH_TAG_HTML || atom == TH_TAG_TEMPLATE)) {
+            (atom == atom_a || atom == atom_b || atom == atom_c || atom == TH_TAG_TEMPLATE)) {
             return; /* template is also a table-context boundary */
         }
         stack_pop(tree);
@@ -719,6 +771,7 @@ static th_src_loc *build_source_location(th_tree *tree, th_node *node, const th_
         (th_src_span){token->line, token->col, token->src_off, token->end_line, token->end_col, token->end_off};
     loc->end_tag = (th_src_span){0};
     loc->has_end_tag = 0;
+    loc->self_closing = token->self_closing;
     loc->start_dirty = 0;
     loc->end_dirty = 0;
     loc->attr_count = token->attr_count;
@@ -794,13 +847,14 @@ static th_node *build_element(th_tree *tree, const th_token *token) {
 
 /* The start tag's attribute with this lowercased ASCII name (tokenizer names are
    already lowercased), or NULL. Used for the boolean shadowroot* attributes, to
-   read shadowrootmode's value, and to read a <meta> encoding declaration. A wider-kind
-   name of the same length holds interleaved zero bytes for its ASCII runs, so the byte
-   compare against an all-ASCII literal can never spuriously match. */
+   read shadowrootmode's value, and to read a <meta> encoding declaration. A wider name
+   stores its code units in more than one byte, so its bytes can equal the literal's
+   without the name being it; only a one-byte name is compared. */
 static const th_attr *token_attr(const th_token *token, const char *name, Py_ssize_t name_len) {
     for (Py_ssize_t index = 0; index < token->attr_count; index++) {
         const th_attr *attr = &token->attrs[index];
-        if (attr->name.len == name_len && memcmp(attr->name.data, name, (size_t)name_len) == 0) {
+        if (attr->name.len == name_len && attr->name.kind == PyUnicode_1BYTE_KIND &&
+            memcmp(attr->name.data, name, (size_t)name_len) == 0) {
             return attr;
         }
     }
@@ -843,24 +897,7 @@ static const char *meta_value_ascii(th_tree *tree, const th_buf *value) {
     return out;
 }
 
-/* Record a <meta> element's encoding declaration, if it carries one: a charset attribute,
-   or an http-equiv="content-type" whose content still needs its charset= token extracted.
-   Every other <meta> declares no encoding and is skipped. Kept in document order because an
-   unresolvable label falls through to the next declaration rather than ending the search. */
-static void record_meta_label(th_tree *tree, const th_token *token) {
-    const th_attr *declaration = token_attr(token, "charset", 7);
-    int from_content = 0;
-    if (declaration == NULL || !declaration->has_value) {
-        const th_attr *pragma = token_attr(token, "http-equiv", 10);
-        if (pragma == NULL || !pragma->has_value || !buf_iequals_ascii(&pragma->value, "content-type", 12)) {
-            return;
-        }
-        declaration = token_attr(token, "content", 7);
-        if (declaration == NULL || !declaration->has_value) {
-            return;
-        }
-        from_content = 1;
-    }
+static void append_meta_label(th_tree *tree, const th_buf *value, int from_content) {
     if (tree->meta_label_count == tree->meta_label_cap) {
         Py_ssize_t cap = tree->meta_label_cap == 0 ? TH_INITIAL_CAPACITY(4) : tree->meta_label_cap * 2;
         th_meta_label *grown = PyMem_Realloc(tree->meta_labels, (size_t)cap * sizeof(*grown));
@@ -871,13 +908,80 @@ static void record_meta_label(th_tree *tree, const th_token *token) {
         tree->meta_labels = grown;
         tree->meta_label_cap = cap;
     }
-    const char *text = meta_value_ascii(tree, &declaration->value);
+    const char *text = meta_value_ascii(tree, value);
     if (text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return;         /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     tree->meta_labels[tree->meta_label_count].text = text;
     tree->meta_labels[tree->meta_label_count].from_content = from_content;
     tree->meta_label_count++;
+}
+
+/* ASCII case-insensitive equality of an attribute name with a literal. Names a rewrite handler supplies are not
+   lowercased, and the tree builder reads them lowercased. */
+static int name_iequals_ascii(const char *name, Py_ssize_t len, const char *ascii) {
+    if (len != (Py_ssize_t)strlen(ascii)) {
+        return 0;
+    }
+    for (Py_ssize_t index = 0; index < len; index++) {
+        char c = name[index];
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+        if (c != ascii[index]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int th_builder_reads_attr(uint8_t ns, uint16_t tag, const char *name, Py_ssize_t len) {
+    if (ns == TH_NS_HTML) {
+        switch (tag) {
+        case TH_TAG_INPUT:
+            return name_iequals_ascii(name, len, "type");
+        case TH_TAG_OPTION:
+            return name_iequals_ascii(name, len, "disabled") || name_iequals_ascii(name, len, "selected");
+        case TH_TAG_OPTGROUP:
+        case TH_TAG_SELECTEDCONTENT:
+            return name_iequals_ascii(name, len, "disabled");
+        case TH_TAG_SELECT:
+            return name_iequals_ascii(name, len, "multiple");
+        case TH_TAG_TEMPLATE:
+            return name_iequals_ascii(name, len, "shadowrootmode") ||
+                   name_iequals_ascii(name, len, "shadowrootdelegatesfocus") ||
+                   name_iequals_ascii(name, len, "shadowrootclonable");
+        default:
+            return 0;
+        }
+    }
+    if (ns == TH_NS_MATHML && tag == TH_TAG_ANNOTATION_XML) {
+        return name_iequals_ascii(name, len, "encoding");
+    }
+    if (tag == TH_TAG_FONT) {
+        return name_iequals_ascii(name, len, "color") || name_iequals_ascii(name, len, "face") ||
+               name_iequals_ascii(name, len, "size");
+    }
+    return 0;
+}
+
+/* Record a <meta> element's encoding declarations in the order the tree-construction rule tries them: its charset
+   value, then -- for an http-equiv="content-type" element -- its content value, whose charset= token still needs
+   extracting. A value that names no encoding falls through to the next declaration rather than ending the search,
+   so every declaration is kept, in document order. Other <meta> elements declare nothing. */
+static void record_meta_label(th_tree *tree, const th_token *token) {
+    const th_attr *charset = token_attr(token, "charset", 7);
+    if (charset != NULL && charset->has_value) {
+        append_meta_label(tree, &charset->value, 0);
+    }
+    const th_attr *pragma = token_attr(token, "http-equiv", 10);
+    if (pragma == NULL || !pragma->has_value || !buf_iequals_ascii(&pragma->value, "content-type", 12)) {
+        return;
+    }
+    const th_attr *content = token_attr(token, "content", 7);
+    if (content != NULL && content->has_value) {
+        append_meta_label(tree, &content->value, 1);
+    }
 }
 
 static th_node *insert_element(th_tree *tree, const th_token *token) {
@@ -942,48 +1046,176 @@ static Py_UCS4 *build_doctype_text(th_tree *tree, const th_token *tok, Py_ssize_
     return out;
 }
 
+/* Attribute names of the elements merge_attrs looks up by hash, one open-addressed set per tree of
+   (element, name atom) keys. The key takes the element's creation sequence, not its address, so the probe
+   order depends only on the input. Key 0 marks an empty slot; an element's marker key (atom 0 is never a
+   real name) records that its names were loaded. */
+struct th_attr_names {
+    uint64_t *keys;
+    size_t capacity;
+    size_t count;
+};
+
+/* Elements with at most this many attributes are searched linearly, which is cheaper than hashing. */
+enum { TH_MERGE_SCAN_LIMIT = 8 };
+
+static uint64_t attr_name_key(const th_node *node, uint32_t atom) {
+    return (((uint64_t)node->seq + 1) << 32) | atom;
+}
+
+static size_t attr_name_slot(uint64_t key, size_t capacity) {
+    return th_hash_slot(th_fibonacci_hash(th_fibonacci_hash((uint32_t)(key >> 32)) ^ (uint32_t)key), capacity);
+}
+
+static void attr_name_place(uint64_t *keys, size_t capacity, uint64_t key) {
+    size_t slot = attr_name_slot(key, capacity);
+    while (keys[slot] != 0) {
+        TH_WORK_STEP();
+        slot = (slot + 1) & (capacity - 1);
+    }
+    keys[slot] = key;
+}
+
+static int attr_name_present(const th_attr_names *names, uint64_t key) {
+    if (names->count == 0) {
+        return 0;
+    }
+    size_t slot = attr_name_slot(key, names->capacity);
+    while (names->keys[slot] != 0) {
+        TH_WORK_STEP();
+        if (names->keys[slot] == key) {
+            return 1;
+        }
+        slot = (slot + 1) & (names->capacity - 1);
+    }
+    return 0;
+}
+
+static int attr_name_add(th_tree *tree, th_attr_names *names, uint64_t key) {
+    if (2 * (names->count + 1) > names->capacity) {
+        size_t capacity;
+        size_t bytes;
+        /* GCOVR_EXCL_BR_START: allocation-size overflow */
+        if (!th_grow_cap(2 * (names->count + 1), names->capacity, 16, sizeof(uint64_t), &capacity, &bytes) ||
+            bytes > PY_SSIZE_T_MAX) {
+            /* GCOVR_EXCL_BR_STOP */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-size overflow */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-size overflow */
+        }
+        uint64_t *keys = arena_alloc(tree, (Py_ssize_t)bytes);
+        if (keys == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return -1;      /* GCOVR_EXCL_LINE: allocation failure cannot be forced from a test */
+        }
+        memset(keys, 0, bytes);
+        for (size_t index = 0; index < names->capacity; index++) {
+            if (names->keys[index] != 0) {
+                attr_name_place(keys, capacity, names->keys[index]);
+            }
+        }
+        names->keys = keys;
+        names->capacity = capacity;
+    }
+    attr_name_place(names->keys, names->capacity, key);
+    names->count++;
+    return 0;
+}
+
+/* The tree's name set with the element's current names loaded. An element is loaded once, on the first merge
+   that finds it past the linear limit, so later merges only add the names they insert. */
+static th_attr_names *attr_names_for(th_tree *tree, const th_node *node) {
+    if (tree->attr_names == NULL) {
+        tree->attr_names = arena_alloc(tree, (Py_ssize_t)sizeof(th_attr_names));
+        if (tree->attr_names == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return NULL;                /* GCOVR_EXCL_LINE: allocation failure cannot be forced from a test */
+        }
+        *tree->attr_names = (th_attr_names){NULL, 0, 0};
+    }
+    th_attr_names *names = tree->attr_names;
+    const uint64_t loaded = attr_name_key(node, TH_ATTR_UNKNOWN);
+    if (!attr_name_present(names, loaded)) {
+        if (attr_name_add(tree, names, loaded) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return NULL;                              /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+            const uint64_t key = attr_name_key(node, node->attrs[index].name_atom);
+            if (attr_name_add(tree, names, key) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return NULL;                           /* GCOVR_EXCL_LINE: allocation failure */
+            }
+        }
+    }
+    return names;
+}
+
+static int merge_name_present(const th_attr_names *names, const th_node *node, uint32_t atom) {
+    if (names != NULL) {
+        return attr_name_present(names, attr_name_key(node, atom));
+    }
+    for (Py_ssize_t inner_index = 0; inner_index < node->attr_count; inner_index++) {
+        TH_WORK_STEP();
+        if (node->attrs[inner_index].name_atom == atom) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Merge a start tag's attributes onto an existing element, keeping only the
-   ones whose name is not already present (the <html>/<body> re-open rule). */
+   ones whose name is not already present (the <html>/<body> re-open rule).
+   The fragment root is skipped: the standard discards that html element along
+   with anything merged onto it, while parse_fragment() hands it back as the
+   caller's context element, whose attributes the markup must not choose. */
 static void merge_attrs(th_tree *tree, th_node *node, const th_token *token) {
-    if (token->attr_count == 0) {
+    if (token->attr_count == 0 || node == tree->fragment_root) {
         return;
+    }
+    th_attr_names *names = NULL;
+    if (node->attr_count > TH_MERGE_SCAN_LIMIT) {
+        names = attr_names_for(tree, node);
+        if (names == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;          /* GCOVR_EXCL_LINE: allocation failure cannot be forced from a test */
+        }
     }
     Py_ssize_t add = 0;
     for (Py_ssize_t index = 0; index < token->attr_count; index++) {
         uint32_t atom = intern_attr(tree, &token->attrs[index].name);
-        int present = 0;
-        for (Py_ssize_t inner_index = 0; inner_index < node->attr_count; inner_index++) {
-            if (node->attrs[inner_index].name_atom == atom) {
-                present = 1;
-                break;
-            }
-        }
-        if (!present) {
+        if (!merge_name_present(names, node, atom)) {
             add++;
         }
     }
     if (add == 0) {
         return;
     }
-    th_node_attr *merged = arena_alloc(tree, (node->attr_count + add) * (Py_ssize_t)sizeof(th_node_attr));
-    if (merged == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-    }
-    if (node->attr_count > 0) { /* an element without attributes has a NULL attrs array */
-        memcpy(merged, node->attrs, (size_t)node->attr_count * sizeof(th_node_attr));
+    /* Grow geometrically, as node_attr_write does: the arena keeps every superseded array until the tree is freed,
+       so an exact-size copy per re-opening tag would retain memory quadratic in the number of such tags. */
+    size_t capacity = th_node_attr_capacity(node);
+    size_t needed = (size_t)node->attr_count + (size_t)add;
+    th_node_attr *merged = node->attrs;
+    if (needed > capacity) {
+        size_t bytes;
+        /* GCOVR_EXCL_BR_START: allocation-size overflow */
+        if (!th_grow_cap(needed, capacity, 2, sizeof(th_node_attr), &capacity, &bytes) || bytes > PY_SSIZE_T_MAX) {
+            /* GCOVR_EXCL_BR_STOP */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-size overflow */
+            return;           /* GCOVR_EXCL_LINE: allocation-size overflow */
+        }
+        merged = arena_alloc(tree, (Py_ssize_t)bytes);
+        if (merged == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        }
+        if (node->attr_count > 0) { /* an element without attributes has a NULL attrs array */
+            TH_WORK_STEPS_ADD(node->attr_count);
+            memcpy(merged, node->attrs, (size_t)node->attr_count * sizeof(th_node_attr));
+        }
+        node->attr_capacity_shift = 0;
+        for (size_t slots = capacity; slots > 1; slots >>= 1) {
+            node->attr_capacity_shift++;
+        }
     }
     Py_ssize_t at = node->attr_count;
     for (Py_ssize_t index = 0; index < token->attr_count; index++) {
         const th_attr *src = &token->attrs[index];
         uint32_t atom = intern_attr(tree, &src->name);
-        int present = 0;
-        for (Py_ssize_t inner_index = 0; inner_index < node->attr_count; inner_index++) {
-            if (node->attrs[inner_index].name_atom == atom) {
-                present = 1;
-                break;
-            }
-        }
-        if (present) {
+        if (merge_name_present(names, node, atom)) {
             continue;
         }
         // NOLINTNEXTLINE(clang-analyzer-security.ArrayBound): merged holds one slot per source attribute
@@ -995,7 +1227,16 @@ static void merge_attrs(th_tree *tree, th_node *node, const th_token *token) {
         }
     }
     node->attrs = merged;
-    node->attr_capacity_shift = 0;
+    /* an index behind the array would describe the attributes from before this merge, so it is dropped */
+    node->attr_capacity_shift &= (uint8_t)~TH_ATTR_INDEXED;
+    if (names != NULL) {
+        for (Py_ssize_t index = node->attr_count; index < at; index++) {
+            const uint64_t key = attr_name_key(node, merged[index].name_atom);
+            if (attr_name_add(tree, names, key) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return;                                /* GCOVR_EXCL_LINE: allocation failure */
+            }
+        }
+    }
     node->attr_count += add;
 }
 
@@ -1220,7 +1461,10 @@ static void insert_text(th_tree *tree, Py_UCS4 *text, Py_ssize_t len) {
         if (prev_text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return;              /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        size_t capacity = tree->merged_text_node == prev ? tree->merged_text_capacity : 0;
+        /* The capacity lives on the node, not in one slot for the tree: text can alternate between two open text
+           nodes (in a table, whitespace stays inside while other text is foster-parented before it), and a node that
+           forgot its capacity would copy its whole payload into a fresh arena buffer on every append. */
+        size_t capacity = prev->text_capacity_shift ? (size_t)1 << prev->text_capacity_shift : 0;
         if ((size_t)len > SIZE_MAX - (size_t)prev->text_len) { /* GCOVR_EXCL_BR_LINE: allocation-size overflow */
             tree->failed = 1;                                  /* GCOVR_EXCL_LINE: allocation-size overflow */
             return;                                            /* GCOVR_EXCL_LINE: allocation-size overflow */
@@ -1238,13 +1482,16 @@ static void insert_text(th_tree *tree, Py_UCS4 *text, Py_ssize_t len) {
             if (merged == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 return;           /* GCOVR_EXCL_LINE: allocation-failure path */
             }
+            TH_WORK_STEPS_ADD(prev->text_len);
             memcpy(merged, prev_text, (size_t)prev->text_len * sizeof(Py_UCS4));
             prev->text = merged;
+            prev->text_capacity_shift = 0;
+            for (size_t slots = capacity; slots > 1; slots >>= 1) { /* th_grow_cap doubles, so a power of two */
+                prev->text_capacity_shift++;
+            }
         }
         memcpy(prev->text + prev->text_len, text, (size_t)len * sizeof(Py_UCS4));
         prev->text_len += len;
-        tree->merged_text_node = prev;
-        tree->merged_text_capacity = capacity;
         return;
     }
     th_node *node = node_new(tree, TH_NODE_TEXT);
@@ -1357,7 +1604,7 @@ static Py_UCS4 *token_text(th_tree *tree, const th_token *token, Py_ssize_t *out
     return out;
 }
 
-static th_node *node_clone(th_tree *tree, const th_node *src) {
+static th_node *node_clone(th_tree *tree, th_node *src, int with_attrs) {
     th_node *node = node_new(tree, TH_NODE_ELEMENT);
     if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
@@ -1367,28 +1614,61 @@ static th_node *node_clone(th_tree *tree, const th_node *src) {
     node->tag_flags = (uint8_t)((src->tag_flags & ~TH_ELEM_CLOSED_BY_END_TAG) | TH_ELEM_IMPLIED);
     node->text = src->text;
     node->text_len = src->text_len;
-    if (src->attr_count > 0) {
+    if (with_attrs && src->attr_count > 0) {
         /* Mutations and sanitization can rewrite a reconstructed element's attribute slots. */
         node->attrs = arena_alloc(tree, src->attr_count * (Py_ssize_t)sizeof(th_node_attr));
         if (node->attrs == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             return NULL;           /* GCOVR_EXCL_LINE */
         }
         memcpy(node->attrs, src->attrs, (size_t)src->attr_count * sizeof(th_node_attr));
+        /* the slots are the clone's own, the values they point at are not */
+        th_node_share_values(src);
+        node->attr_values_shared = 1;
+        node->values_seq = src->values_seq;
+        node->attr_count = src->attr_count;
     }
-    node->attr_count = src->attr_count;
     if (tree->track_positions) {
         /* an adoption-agency clone stands in for the same source start tag, so it
            keeps the original's position */
-        const uint32_t *src_pos = node_pos((th_node *)src);
+        const uint32_t *src_pos = node_pos(src);
         node_pos(node)[0] = src_pos[0];
         node_pos(node)[1] = src_pos[1];
     }
     return node;
 }
 
+/* Reconstructing the active formatting elements and the adoption agency re-create an element the document wrote
+   once, and each clone owns a copy of its source's attribute slots. A few bytes of input buy a clone (text after the
+   </p> that closed a <b>), so a <b> with k attributes ahead of k paragraphs would copy k^2 slots. A clone is itself a
+   node, so one with at most TH_CLONE_ATTRS_PER_NODE attributes costs a constant per node and is copied whole without
+   being counted; that keeps the common clone to one compare. Larger copies are held to a flat allowance plus that
+   share per node the tree has made. Past the bound the clone still takes its place in the tree, the stack and the
+   list, keeping the structure the standard builds, but it carries no attributes, and neither do the clones later made
+   from it. */
+#define TH_CLONE_ATTR_ALLOWANCE 65536
+#define TH_CLONE_ATTRS_PER_NODE 16
+
+static TH_NOINLINE th_node *clone_formatting_counted(th_tree *tree, th_node *src) {
+    uint64_t copied = tree->clone_attr_slots + (uint64_t)src->attr_count;
+    uint64_t bound = TH_CLONE_ATTR_ALLOWANCE + TH_CLONE_ATTRS_PER_NODE * ((uint64_t)tree->node_seq + 1);
+    int with_attrs = copied <= bound && copied <= UINT32_MAX; /* GCOVR_EXCL_BR_LINE: no test copies 2^32 slots */
+    if (with_attrs) {
+        tree->clone_attr_slots = (uint32_t)copied;
+    }
+    return node_clone(tree, src, with_attrs);
+}
+
+static inline th_node *clone_formatting(th_tree *tree, th_node *src) {
+    if (TH_UNLIKELY(src->attr_count > TH_CLONE_ATTRS_PER_NODE)) {
+        return clone_formatting_counted(tree, src);
+    }
+    return node_clone(tree, src, 1);
+}
+
 /* Does the element carry an attribute with this interned name? */
 static int node_has_attr(const th_node *node, uint32_t atom) {
     for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        TH_WORK_STEP();
         if (node->attrs[index].name_atom == atom) {
             return 1;
         }
@@ -1401,11 +1681,23 @@ static int is_html_element(const th_node *node, uint16_t atom) {
 }
 
 /* An option is disabled by its own disabled attribute or by sitting directly in a
-   disabled optgroup ("a disabled option"), so "reset a select's selectedness" skips it. */
-static int option_is_disabled(const th_node *option) {
+   disabled optgroup ("a disabled option"), so "reset a select's selectedness" skips it.
+   The options of one optgroup close in turn and share it as their parent, and the parser
+   never changes an open optgroup's attributes, so the select caches the last answer
+   instead of searching the attributes once per option. */
+static int option_is_disabled(th_select_cache *cache, const th_node *option) {
+    if (node_has_attr(option, TH_ATTR_DISABLED)) {
+        return 1;
+    }
     th_node *parent = option->parent;
-    return node_has_attr(option, TH_ATTR_DISABLED) ||
-           (is_html_element(parent, TH_TAG_OPTGROUP) && node_has_attr(parent, TH_ATTR_DISABLED));
+    if (!is_html_element(parent, TH_TAG_OPTGROUP)) {
+        return 0;
+    }
+    if (cache->optgroup != parent) {
+        cache->optgroup = parent;
+        cache->optgroup_disabled = (uint8_t)node_has_attr(parent, TH_ATTR_DISABLED);
+    }
+    return cache->optgroup_disabled;
 }
 
 /* An HTML select, option, or selectedcontent element: a selectedcontent below one
@@ -1433,8 +1725,40 @@ static int select_disabled_by_ancestor(const th_node *select) {
     return 0;
 }
 
+/* The select's target walk does not descend into these, so a selectedcontent beneath one is not reachable. */
+static int reach_stops_at(const th_node *node) {
+    return node->type == TH_NODE_CONTENT || disables_selectedcontent(node);
+}
+
+/* Marks node and its ancestors up to the next reach_stops_at boundary, for a flagged child just attached under node. */
+void th_node_mark_ancestors(th_node *node) {
+    while (node != NULL && !node->reaches_selectedcontent && !reach_stops_at(node)) {
+        TH_WORK_STEP();
+        node->reaches_selectedcontent = 1;
+        node = node->parent;
+    }
+}
+
+/* An enabled selectedcontent is flagged once the parser has created it, when its namespace is final. */
+static void selectedcontent_flagged(th_node *node) {
+    if (!node_has_attr(node, TH_ATTR_DISABLED)) {
+        node->reaches_selectedcontent = 1;
+        th_node_mark_ancestors(node->parent);
+    }
+}
+
+/* The selectedcontent elements one select mirrors its shown option into. The HTML
+   Standard mirrors it into every enabled one, and a valid select holds one, in its
+   button. Uncapped, N of them under one select copy an option of M nodes N times, so
+   the tree grows as N x M from N + M of input. A target past the cap keeps the content
+   the source gave it, as a disabled one does. */
+#define MAX_CLONE_TARGETS 16
+
 /* Record one clone destination, growing the per-select buffer as needed. */
 static void select_cache_add_target(th_tree *tree, th_select_cache *cache, th_node *target) {
+    if (cache->target_count == MAX_CLONE_TARGETS) {
+        return;
+    }
     if (cache->target_count == cache->target_cap) {
         size_t cap;
         size_t bytes;
@@ -1455,18 +1779,32 @@ static void select_cache_add_target(th_tree *tree, th_select_cache *cache, th_no
     cache->targets[cache->target_count++] = target;
 }
 
+static th_node *option_nearest_select(th_node *option);
+
 /* Collect the select's enabled descendant selectedcontent elements ("update a select's
    descendant selectedcontent elements"): every selectedcontent whose nearest ancestor
    select is this one (not nested under an inner select/option/selectedcontent) and that
-   carries no disabled attribute. The buffer is reused across refills. */
-static void select_cache_fill(th_tree *tree, th_select_cache *cache) {
+   carries no disabled attribute. The same walk returns the option the select shows, as
+   the selectedness setting algorithm picks it from the options so far: the last selected
+   one, else the first enabled one. */
+static th_node *select_cache_fill(th_tree *tree, th_select_cache *cache) {
     th_node *root = cache->select;
-    cache->target_count = 0;
+    th_node *first_enabled = NULL;
+    th_node *last_selected = NULL;
     th_node *node = root->first_child;
     while (node != NULL) {
+        TH_WORK_STEP();
         if (disables_selectedcontent(node)) {
-            if (node->atom == TH_TAG_SELECTEDCONTENT && !node_has_attr(node, TH_ATTR_DISABLED)) {
-                select_cache_add_target(tree, cache, node);
+            if (node->atom == TH_TAG_SELECTEDCONTENT) {
+                if (!node_has_attr(node, TH_ATTR_DISABLED)) {
+                    select_cache_add_target(tree, cache, node);
+                }
+            } else if (node->atom == TH_TAG_OPTION && (node->parent == root || option_nearest_select(node) == root)) {
+                if (node_has_attr(node, TH_ATTR_SELECTED)) {
+                    last_selected = node;
+                } else if (first_enabled == NULL && !option_is_disabled(cache, node)) {
+                    first_enabled = node;
+                }
             }
         } else if (node->type != TH_NODE_CONTENT && node->first_child != NULL) {
             /* a template's content fragment holds its own selectedcontent, not the select's */
@@ -1474,19 +1812,28 @@ static void select_cache_fill(th_tree *tree, th_select_cache *cache) {
             continue;
         }
         while (node != root && node->next_sibling == NULL) {
+            TH_WORK_STEP();
             node = node->parent;
         }
         node = node == root ? NULL : node->next_sibling;
     }
     cache->disabled = (uint8_t)select_disabled_by_ancestor(root);
-    cache->valid = 1;
+    return last_selected != NULL ? last_selected : first_enabled;
 }
 
-/* The select's cached selectedcontent targets, filled on first use and refilled after
-   the adoption agency moved nodes under it. Every popped selected option needs them,
-   and finding them walks the select's subtree, so without the cache a run of options
-   costs quadratic time. */
-static th_select_cache *select_cache_get(th_tree *tree, th_node *select) {
+/* The select's position in the caches, 0 when it has no cache. */
+static Py_ssize_t select_cache_slot(th_select_state *state, const th_node *select) {
+    if (select != state->last_select) {
+        state->last_select = select;
+        /* a select created after the newest cache has none, so only an older one needs the hash probe */
+        state->last_slot = select->seq >= state->fresh_seq ? 0 : th_node_map_find(&state->index, select);
+    }
+    return state->last_slot;
+}
+
+/* Creates the select's cache when it gains its first selectedcontent, lists its enabled selectedcontent elements and
+   reads the option it shows from the options it holds so far. */
+static th_select_cache *select_cache_insert(th_tree *tree, th_node *select) {
     if (tree->select_state == NULL) {
         tree->select_state = PyMem_Calloc(1, sizeof(th_select_state));
         if (tree->select_state == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -1495,64 +1842,94 @@ static th_select_cache *select_cache_get(th_tree *tree, th_node *select) {
         }
     }
     th_select_state *state = tree->select_state;
-    Py_ssize_t slot = th_node_map_find(&state->index, select);
-    if (slot == 0) {
-        if (state->count == state->cap) {
-            size_t cap;
-            size_t bytes;
-            int grew =
-                th_grow_cap((size_t)state->count + 1, (size_t)state->cap, 8, sizeof(th_select_cache), &cap, &bytes);
-            if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow cannot be forced from a test */
-                tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-                return NULL;      /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-            }
-            th_select_cache *grown = PyMem_Realloc(state->caches, bytes);
-            if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-                tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-                return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-            }
-            state->caches = grown;
-            state->cap = (Py_ssize_t)cap;
+    if (state->count == state->cap) {
+        size_t cap;
+        size_t bytes;
+        int grew = th_grow_cap((size_t)state->count + 1, (size_t)state->cap, 8, sizeof(th_select_cache), &cap, &bytes);
+        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow cannot be forced from a test */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            return NULL;      /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
         }
-        /* counted only once indexed: a failed insert must leave no uninitialized cache for select_cache_free */
-        slot = state->count + 1;
-        if (th_node_map_insert(&state->index, select, slot) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+        th_select_cache *grown = PyMem_Realloc(state->caches, bytes);
+        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
             return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
-        state->count = slot;
-        th_select_cache *cache = &state->caches[slot - 1];
-        cache->select = select;
-        cache->targets = NULL;
-        cache->target_count = 0;
-        cache->target_cap = 0;
-        cache->selected = NULL;
-        cache->multiple = (uint8_t)node_has_attr(select, TH_ATTR_MULTIPLE);
-        cache->valid = 0;
+        state->caches = grown;
+        state->cap = (Py_ssize_t)cap;
     }
+    /* counted only once indexed: a failed insert must leave no uninitialized cache for select_cache_free */
+    Py_ssize_t slot = state->count + 1;
+    if (th_node_map_insert(&state->index, select, slot) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+        tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    state->count = slot;
+    state->fresh_seq = tree->node_seq;
+    state->last_select = select;
+    state->last_slot = slot;
     th_select_cache *cache = &state->caches[slot - 1];
-    if (!cache->valid) {
-        select_cache_fill(tree, cache);
-    }
+    cache->select = select;
+    cache->targets = NULL;
+    cache->target_count = 0;
+    cache->target_cap = 0;
+    cache->filled = 0;
+    cache->optgroup = NULL;
+    cache->optgroup_disabled = 0;
+    cache->multiple = (uint8_t)node_has_attr(select, TH_ATTR_MULTIPLE);
+    cache->selected = select_cache_fill(tree, cache);
     return cache;
 }
 
-/* The adoption agency is the one place that reorders existing nodes, so a select
-   whose subtree it disturbs has its cache dropped and lazily refilled on the next
-   clone. This keeps the common no-move case O(1) per option without tracking moves. */
-static void select_cache_invalidate_above(th_tree *tree, th_node *node) {
-    th_select_state *state = tree->select_state;
-    if (state == NULL) {
-        return;
-    }
+/* The select whose target walk reaches node: the nearest boundary at or above it, when that boundary is a select. */
+static th_node *select_reaching(th_node *node) {
     for (; node != NULL; node = node->parent) {
-        if (is_html_element(node, TH_TAG_SELECT)) {
-            Py_ssize_t slot = th_node_map_find(&state->index, node);
-            if (slot != 0) {
-                state->caches[slot - 1].valid = 0;
-            }
+        TH_WORK_STEP();
+        if (reach_stops_at(node)) {
+            return is_html_element(node, TH_TAG_SELECT) ? node : NULL;
         }
     }
+    return NULL;
+}
+
+/* Appends the targets inside a block that reached the select, in document order, up to the cap. A flagged node
+   is the only kind that can hold a target, so the walk skips every other subtree. */
+static void select_cache_collect(th_tree *tree, th_select_cache *cache, th_node *block) {
+    th_node *node = block->first_child;
+    while (node != NULL && cache->target_count < MAX_CLONE_TARGETS) {
+        TH_WORK_STEP();
+        if (node->reaches_selectedcontent && is_html_element(node, TH_TAG_SELECTEDCONTENT)) {
+            select_cache_add_target(tree, cache, node);
+        } else {
+            th_node *down = node->reaches_selectedcontent ? node->first_child : NULL;
+            if (down != NULL) {
+                node = down;
+                continue;
+            }
+        }
+        while (node != block && node->next_sibling == NULL) {
+            TH_WORK_STEP();
+            node = node->parent;
+        }
+        node = node == block ? NULL : node->next_sibling;
+    }
+}
+
+/* A flagged block the adoption agency moved into the reach of a select. A block that reached a select before the
+   move still reaches it, and its targets are already listed. Only a block that a gate removed from the open
+   elements was out of reach before, so only that case is handled here. */
+static void select_cache_block_gained(th_tree *tree, th_node *block) {
+    th_node *select = select_reaching(block);
+    if (select == NULL) {
+        return;
+    }
+    th_select_state *state = tree->select_state;
+    Py_ssize_t slot = state != NULL ? select_cache_slot(state, select) : 0;
+    if (slot == 0) {
+        select_cache_insert(tree, select);
+        return;
+    }
+    select_cache_collect(tree, &state->caches[slot - 1], block);
 }
 
 static void select_cache_free(th_tree *tree) {
@@ -1570,7 +1947,7 @@ static void select_cache_free(th_tree *tree) {
 
 static th_node *copy_node_in_tree(th_tree *tree, th_node *source) {
     if (source->type == TH_NODE_ELEMENT) {
-        th_node *copy = node_clone(tree, source);
+        th_node *copy = node_clone(tree, source, 1);
         if (copy != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
             copy->ns = source->ns;
         }
@@ -1580,6 +1957,7 @@ static th_node *copy_node_in_tree(th_tree *tree, th_node *source) {
     if (copy != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
         copy->text = need_text(tree, source);
         copy->text_len = source->text_len;
+        source->text_capacity_shift = 0;    /* the buffer is shared now, so neither node may write into it */
         if (source->type != TH_NODE_TEXT) { /* compact text nodes omit attr_count */
             copy->attr_count = source->attr_count;
         }
@@ -1589,33 +1967,31 @@ static th_node *copy_node_in_tree(th_tree *tree, th_node *source) {
 
 /* Deep-copy src's children into dst without consuming one C stack frame per level. */
 static void deep_copy_children(th_tree *tree, const th_node *src, th_node *dst) {
+    tree->nest_bound = 0; /* the copy can sit deeper than the source the stack measured */
     const th_node *from = src;
     th_node *copy = dst;
     for (;;) {
+        th_node *parent;
         if (from->first_child != NULL) {
             from = from->first_child;
-            th_node *child = copy_node_in_tree(tree, (th_node *)from);
-            if (child == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-                return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            parent = copy;
+        } else {
+            while (from != src && from->next_sibling == NULL) {
+                from = from->parent;
+                copy = copy->parent;
             }
-            node_append(copy, child);
-            copy = child;
-            continue;
+            if (from == src) {
+                return;
+            }
+            from = from->next_sibling;
+            parent = copy->parent;
         }
-        while (from != src && from->next_sibling == NULL) {
-            from = from->parent;
-            copy = copy->parent;
+        /* one copy site, so the copy inlines into the walk */
+        copy = copy_node_in_tree(tree, (th_node *)from);
+        if (copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;         /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
-        if (from == src) {
-            return;
-        }
-        from = from->next_sibling;
-        th_node *sibling = copy_node_in_tree(tree, (th_node *)from);
-        if (sibling == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return;            /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        }
-        node_append(copy->parent, sibling);
-        copy = sibling;
+        node_append(parent, copy);
     }
 }
 
@@ -1662,45 +2038,115 @@ static th_node *select_cache_shown_option(const th_select_cache *cache) {
     return option != NULL && option_nearest_select(option) == cache->select ? option : NULL;
 }
 
-/* "Update descendant selectedcontent elements for an option": when the option the
-   select shows is popped, its children are mirrored into the select's enabled
-   selectedcontent elements. */
-static void maybe_clone_option(th_tree *tree, th_node *option) {
-    th_node *select = option_nearest_select(option);
-    if (select == NULL) {
-        return;
+/* Removes the options of select that a copy carries into target. The copy lifts them out of the option they were
+   nested in, which kept them off the select's list; reparsing the output would pop them inside the target and let
+   them replace its content, so the target keeps the rest of the copy without them. */
+static void target_drop_options(th_node *select, th_node *target) {
+    th_node *node = target->first_child;
+    while (node != NULL) {
+        TH_WORK_STEP();
+        int option = is_html_element(node, TH_TAG_OPTION);
+        if (!option && node->first_child != NULL) {
+            node = node->first_child;
+            continue;
+        }
+        th_node *dropped = option && option_nearest_select(node) == select ? node : NULL;
+        while (node != target && node->next_sibling == NULL) {
+            TH_WORK_STEP();
+            node = node->parent;
+        }
+        node = node == target ? NULL : node->next_sibling;
+        if (dropped != NULL) {
+            node_remove(dropped);
+        }
     }
-    th_select_cache *cache = select_cache_get(tree, select);
-    if (cache == NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-        return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-    }
-    if (cache->multiple) {
-        return;
-    }
-    /* the selectedness setting algorithm: the last selected option wins, and the first
-       enabled one is selected only while no option is */
-    if (!node_has_attr(option, TH_ATTR_SELECTED) &&
-        (option_is_disabled(option) || select_cache_shown_option(cache) != NULL)) {
-        return;
-    }
-    cache->selected = option;
-    if (cache->target_count == 0 || cache->disabled) {
-        return;
-    }
-    for (Py_ssize_t index = 0; index < cache->target_count; index++) {
+}
+
+/* Replaces the children of the unfilled targets with a copy of option. Children the parser gave a target are
+   dropped, not kept beside the copy: browsers keep them, but then reparsing the output changes the tree, so this
+   departs from browser output on purpose. */
+static void replace_target_children(th_tree *tree, th_select_cache *cache, th_node *option) {
+    for (Py_ssize_t index = cache->filled; index < cache->target_count; index++) {
         th_node *target = cache->targets[index];
         while (target->first_child != NULL) {
             node_remove(target->first_child);
         }
         deep_copy_children(tree, option, target);
     }
+    cache->filled = (uint8_t)cache->target_count;
+}
+
+/* Makes option the shown option when the selectedness setting algorithm picks it, and returns its select's cache;
+   NULL when it is not picked. Only a select that holds a selectedcontent has a cache: the rest have nothing to copy
+   into, and a cache made later reads the shown option from the tree, so callers skip the call while no select has
+   one. */
+static th_select_cache *select_cache_pick(th_select_state *state, th_node *option) {
+    /* an option whose parent is the select looked up last belongs to it, without the ancestor walk */
+    th_node *select = option->parent;
+    if (select != state->last_select) {
+        select = option_nearest_select(option);
+        if (select == NULL) {
+            return NULL;
+        }
+    }
+    Py_ssize_t slot = select_cache_slot(state, select);
+    if (slot == 0) {
+        return NULL;
+    }
+    th_select_cache *cache = &state->caches[slot - 1];
+    if (cache->multiple) {
+        return NULL;
+    }
+    /* the selectedness setting algorithm: the last selected option wins, and the first
+       enabled one is selected only while no option is */
+    if (!node_has_attr(option, TH_ATTR_SELECTED) &&
+        (option_is_disabled(cache, option) || select_cache_shown_option(cache) != NULL)) {
+        return NULL;
+    }
+    cache->selected = option;
+    cache->filled = 0;
+    return cache;
+}
+
+/* "Update descendant selectedcontent elements for an option": when the option the
+   select shows is popped, its children are mirrored into the select's enabled
+   selectedcontent elements. The copy waits for select_cache_finish, which makes it once
+   for the option shown last, unless the option sits inside a selectedcontent: there the
+   copy removes it at once and the parser appends what follows to the copy. */
+static void maybe_clone_option(th_tree *tree, th_node *option) {
+    if (tree->select_state == NULL) {
+        return;
+    }
+    th_select_cache *cache = select_cache_pick(tree->select_state, option);
+    if (cache == NULL || cache->disabled) {
+        return;
+    }
+    for (const th_node *ancestor = option->parent; ancestor != cache->select; ancestor = ancestor->parent) {
+        TH_WORK_STEP();
+        if (is_html_element(ancestor, TH_TAG_SELECTEDCONTENT)) {
+            replace_target_children(tree, cache, option);
+            /* the copy removed it, so a reparse never lists it and picks from the options left; the finish does the
+               same */
+            if (option_nearest_select(option) != cache->select) {
+                tree->select_state->recheck = 1;
+            }
+            return;
+        }
+    }
 }
 
 /* The selectedcontent post-connection steps: a selectedcontent inserted under a select
-   it is enabled for joins the select's clone targets and copies the option the select
-   already shows. A select with no cache has had no option closed, so it shows none.
-   The walk stops at an ancestor option, so a chain of nested options stays O(1) each. */
+   it is enabled for joins the select's targets, while the cap leaves room. It stays
+   pending until select_cache_finish, which runs after the parser has appended the
+   element's own children and replaces them. A browser keeps those children beside the
+   copy; dropping them keeps reparsed output unchanged. A select with no cache yet builds
+   one here, which lists the new element with the rest. The walk stops at an ancestor
+   option, so a chain of nested options stays O(1) each. */
 static void selectedcontent_inserted(th_tree *tree, th_node *selectedcontent) {
+    /* selectedcontent_flagged set the flag exactly when the element carries no disabled attribute */
+    if (!selectedcontent->reaches_selectedcontent) {
+        return;
+    }
     th_node *select = selectedcontent->parent;
     while (select != NULL && !is_html_element(select, TH_TAG_SELECT)) {
         /* a template's content fragment holds its own selectedcontent, not the select's */
@@ -1709,23 +2155,133 @@ static void selectedcontent_inserted(th_tree *tree, th_node *selectedcontent) {
         }
         select = select->parent;
     }
-    Py_ssize_t slot = select != NULL ? th_node_map_find(&tree->select_state->index, select) : 0;
-    if (slot == 0 || node_has_attr(selectedcontent, TH_ATTR_DISABLED)) {
+    if (select == NULL) {
         return;
     }
-    th_select_cache *cache = &tree->select_state->caches[slot - 1];
-    if (cache->valid) { /* an invalid cache refills on the next pop and finds it then */
-        select_cache_add_target(tree, cache, selectedcontent);
+    th_select_state *state = tree->select_state;
+    Py_ssize_t slot = state != NULL ? select_cache_slot(state, select) : 0;
+    if (slot == 0) {
+        select_cache_insert(tree, select);
+        return;
     }
-    th_node *option = select_cache_shown_option(cache);
-    if (option != NULL && !cache->disabled) {
-        deep_copy_children(tree, option, selectedcontent);
+    th_select_cache *cache = &state->caches[slot - 1];
+    if (cache->target_count == MAX_CLONE_TARGETS) {
+        return;
     }
+    select_cache_add_target(tree, cache, selectedcontent);
+}
+
+/* The option the select shows as a parse of its current subtree would pick it: the last selected one, else the
+   first enabled one. Only the select's own options count, as in option_nearest_select. */
+static th_node *select_scan_option(th_select_cache *cache) {
+    th_node *root = cache->select;
+    th_node *first_enabled = NULL;
+    th_node *last_selected = NULL;
+    th_node *node = root->first_child;
+    while (node != NULL) {
+        TH_WORK_STEP();
+        if (is_html_element(node, TH_TAG_OPTION)) {
+            if (option_nearest_select(node) == root) {
+                if (node_has_attr(node, TH_ATTR_SELECTED)) {
+                    last_selected = node;
+                } else if (first_enabled == NULL && !option_is_disabled(cache, node)) {
+                    first_enabled = node;
+                }
+            }
+        } else if (node->type != TH_NODE_CONTENT && !is_html_element(node, TH_TAG_SELECT) &&
+                   node->first_child != NULL) {
+            node = node->first_child;
+            continue;
+        }
+        while (node != root && node->next_sibling == NULL) {
+            TH_WORK_STEP();
+            node = node->parent;
+        }
+        node = node == root ? NULL : node->next_sibling;
+    }
+    return last_selected != NULL ? last_selected : first_enabled;
+}
+
+/* Whether option sits inside one of the select's targets, where a copy into that target removes it. */
+static int option_in_target(const th_select_cache *cache, const th_node *option) {
+    for (const th_node *ancestor = option->parent; ancestor != cache->select; ancestor = ancestor->parent) {
+        TH_WORK_STEP();
+        if (is_html_element(ancestor, TH_TAG_SELECTEDCONTENT)) {
+            for (Py_ssize_t index = 0; index < cache->target_count; index++) {
+                if (cache->targets[index] == ancestor) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+/* Runs once the parse has ended and gives each pending target the copy of the shown option. After the adoption
+   agency moved nodes or an option removed itself with its copy, the shown option is read from the tree again, as a
+   reparse of the output picks it. A pick inside a target removes itself and every option the targets held, and its
+   copy leaves out the options nested in it, so the second read finds an option outside the targets, or none. */
+static void select_cache_finish(th_tree *tree) {
+    th_select_state *state = tree->select_state;
+    if (state == NULL) {
+        return;
+    }
+    /* read once: the copies below allocate nodes, so the compiler would reload these after every one */
+    const uint8_t recheck = state->recheck;
+    const th_select_cache *end = state->caches + state->count;
+    for (th_select_cache *cache = state->caches; cache != end; cache++) {
+        if (cache->disabled || cache->multiple) {
+            continue;
+        }
+        /* only the adoption agency and a copy that removed its option take the shown option out of its select, and
+           both ask for the recheck */
+        if (!recheck) {
+            if (cache->selected != NULL && cache->filled != cache->target_count) {
+                replace_target_children(tree, cache, cache->selected);
+            }
+            continue;
+        }
+        for (;;) {
+            th_node *option = select_scan_option(cache);
+            if (option == NULL) {
+                break;
+            }
+            /* an option inside a target is copied even when it was shown already: the adoption agency can bring it
+               back after its copy removed it */
+            int in_target = option_in_target(cache, option);
+            if (option != cache->selected || in_target) {
+                cache->selected = option;
+                cache->filled = 0;
+            }
+            if (cache->filled == cache->target_count) {
+                break;
+            }
+            replace_target_children(tree, cache, option);
+            if (!in_target) {
+                break;
+            }
+            for (Py_ssize_t target = 0; target < cache->target_count; target++) {
+                target_drop_options(cache->select, cache->targets[target]);
+            }
+        }
+    }
+}
+
+/* The afe_hash() of each list entry, cached in the same allocation right after the entries so th_tree keeps its size:
+   0 for an entry pushed while the hash set was unused, never read for a marker. */
+static inline uint64_t *afe_keys(const th_tree *tree) {
+    return (uint64_t *)(tree->afe + tree->afe_cap);
 }
 
 /* Remove the active-formatting-elements entry at index, shifting the tail down. */
 static void afe_remove_at(th_tree *tree, Py_ssize_t index) {
-    memmove(&tree->afe[index], &tree->afe[index + 1], (size_t)(tree->afe_len - index - 1) * sizeof(th_node *));
+    tree->afe[index]->afe_listed = 0;
+    size_t tail = (size_t)(tree->afe_len - index - 1);
+    if (tail > 0) {
+        memmove(&tree->afe[index], &tree->afe[index + 1], tail * sizeof(th_node *));
+        uint64_t *keys = afe_keys(tree);
+        memmove(&keys[index], &keys[index + 1], tail * sizeof(uint64_t));
+    }
     tree->afe_len--;
     if (tree->afe_len == 0) {
         tree->afe_hash_valid = 0;
@@ -1734,6 +2290,7 @@ static void afe_remove_at(th_tree *tree, Py_ssize_t index) {
 
 /* Remove the open-elements-stack entry at index, shifting the tail down. */
 static void stack_remove_at(th_tree *tree, Py_ssize_t index) {
+    tree->open[index]->left_stack = 1;
     memmove(&tree->open[index], &tree->open[index + 1], (size_t)(tree->open_len - index - 1) * sizeof(th_node *));
     tree->open_len--;
     tree->stack_version++;
@@ -1743,6 +2300,7 @@ static uint64_t afe_hash(const th_node *node) {
     uint64_t hash = UINT64_C(14695981039346656037) ^ node->atom;
     for (Py_ssize_t index = 0; index < node->attr_count; index++) {
         const th_node_attr *attr = &node->attrs[index];
+        TH_WORK_STEPS_ADD(attr->value_len);
         hash = (hash ^ attr->name_atom) * UINT64_C(1099511628211);
         hash = (hash ^ (uint64_t)attr->value_len) * UINT64_C(1099511628211);
         for (Py_ssize_t offset = 0; offset < attr->value_len; offset++) {
@@ -1752,77 +2310,169 @@ static uint64_t afe_hash(const th_node *node) {
     return hash | 1;
 }
 
-static int afe_hash_add(th_tree *tree, const th_node *node) {
+/* Below this many entries after the last marker a push compares against them directly and leaves the hash set unused:
+   hashing every pushed element costs more than scanning a short segment, and few documents list more. */
+#define AFE_SCAN_LIMIT 8
+#define AFE_HASH_MIN_CAPACITY 32
+
+/* Whether at least AFE_SCAN_LIMIT entries follow the last marker. */
+static inline int afe_segment_is_long(const th_tree *tree) {
+    if (tree->afe_len < AFE_SCAN_LIMIT) {
+        return 0;
+    }
+    for (Py_ssize_t index = tree->afe_len - AFE_SCAN_LIMIT; index < tree->afe_len; index++) {
+        if (tree->afe[index] == NULL) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Index of the first entry after the last marker: the only entries the Noah's Ark scan reads. */
+static Py_ssize_t afe_segment_start(const th_tree *tree) {
+    Py_ssize_t index = tree->afe_len;
+    while (index > 0 && tree->afe[index - 1] != NULL) {
+        index--;
+    }
+    return index;
+}
+
+static int afe_hash_insert(th_tree *tree, uint64_t key);
+
+/* Refill the set with the keys of the entries from start on, hashing only those pushed while the set was unused. The
+   table first shrinks to the smallest size that holds them under a quarter load (its buffer keeps the allocation), so
+   a reseed takes time in the length of the segment, not in the largest table the parse has needed. */
+static int afe_hash_reseed(th_tree *tree, Py_ssize_t start) {
+    size_t live = (size_t)(tree->afe_len - start);
+    while (tree->afe_hash_capacity > AFE_HASH_MIN_CAPACITY && tree->afe_hash_capacity / 8 > live) {
+        tree->afe_hash_capacity /= 2;
+    }
+    if (tree->afe_hash_capacity > 0) {
+        TH_WORK_STEPS_ADD(tree->afe_hash_capacity);
+        memset(tree->afe_hashes, 0, tree->afe_hash_capacity * sizeof(uint64_t));
+    }
+    tree->afe_hash_count = 0;
+    uint64_t *keys = afe_keys(tree);
+    for (Py_ssize_t index = start; index < tree->afe_len; index++) {
+        if (keys[index] == 0) {
+            keys[index] = afe_hash(tree->afe[index]);
+        }
+        if (afe_hash_insert(tree, keys[index]) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return -1;                                /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    return 0;
+}
+
+static int afe_hash_insert(th_tree *tree, uint64_t key) {
     if (tree->afe_hash_count >= tree->afe_hash_capacity / 2) {
-        size_t capacity;
-        size_t bytes;
-        /* GCOVR_EXCL_BR_START: allocation-size overflow */
-        if (!th_grow_cap(tree->afe_hash_capacity + 1, tree->afe_hash_capacity, 32, sizeof(uint64_t), &capacity,
-                         &bytes)) {
-            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-size overflow */
-            return -1;        /* GCOVR_EXCL_LINE: allocation-size overflow */
-        }
-        /* GCOVR_EXCL_BR_STOP */
-        uint64_t *hashes = PyMem_Calloc(capacity, sizeof(uint64_t));
-        if (hashes == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
-            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        for (size_t index = 0; index < tree->afe_hash_capacity; index++) {
-            uint64_t hash = tree->afe_hashes[index];
-            if (hash != 0) {
-                size_t slot = (size_t)hash & (capacity - 1);
-                while (hashes[slot] != 0) {
-                    slot = (slot + 1) & (capacity - 1);
+        /* An entry that leaves the list keeps its key in the set. Once such keys fill half the table, reseed it from
+           the segment instead of growing it, so the table and its probe runs stay bounded by the segment and not by
+           every element the list has held. The reseed leaves the count under half the shrunk table, so it grows
+           nothing. */
+        if (tree->afe_hash_count > 64) {
+            Py_ssize_t start = afe_segment_start(tree);
+            if (tree->afe_hash_count > 2 * (size_t)(tree->afe_len - start) + 64) {
+                if (afe_hash_reseed(tree, start) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                    return -1;                          /* GCOVR_EXCL_LINE: allocation-failure path */
                 }
-                hashes[slot] = hash;
             }
         }
-        PyMem_Free(tree->afe_hashes);
-        tree->afe_hashes = hashes;
-        tree->afe_hash_capacity = capacity;
+        if (tree->afe_hash_count >= tree->afe_hash_capacity / 2) {
+            size_t capacity;
+            size_t bytes;
+            /* GCOVR_EXCL_BR_START: allocation-size overflow */
+            if (!th_grow_cap(tree->afe_hash_capacity + 1, tree->afe_hash_capacity, AFE_HASH_MIN_CAPACITY,
+                             sizeof(uint64_t), &capacity, &bytes)) {
+                tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-size overflow */
+                return -1;        /* GCOVR_EXCL_LINE: allocation-size overflow */
+            }
+            /* GCOVR_EXCL_BR_STOP */
+            uint64_t *hashes = PyMem_Calloc(capacity, sizeof(uint64_t));
+            if (hashes == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+                return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            for (size_t index = 0; index < tree->afe_hash_capacity; index++) {
+                uint64_t hash = tree->afe_hashes[index];
+                if (hash != 0) {
+                    size_t slot = (size_t)hash & (capacity - 1);
+                    while (hashes[slot] != 0) {
+                        TH_WORK_STEP();
+                        slot = (slot + 1) & (capacity - 1);
+                    }
+                    hashes[slot] = hash;
+                }
+            }
+            PyMem_Free(tree->afe_hashes);
+            tree->afe_hashes = hashes;
+            tree->afe_hash_capacity = capacity;
+        }
     }
-    uint64_t hash = afe_hash(node);
-    size_t slot = (size_t)hash & (tree->afe_hash_capacity - 1);
+    size_t slot = (size_t)key & (tree->afe_hash_capacity - 1);
     while (tree->afe_hashes[slot] != 0) {
-        if (tree->afe_hashes[slot] == hash) {
+        TH_WORK_STEP();
+        if (tree->afe_hashes[slot] == key) {
             return 1;
         }
         slot = (slot + 1) & (tree->afe_hash_capacity - 1);
     }
-    tree->afe_hashes[slot] = hash;
+    tree->afe_hashes[slot] = key;
     tree->afe_hash_count++;
     return 0;
 }
 
+/* Make room for one more entry in a full list, moving the cached keys up behind the larger entry array. */
+static int afe_grow(th_tree *tree) {
+    size_t full = (size_t)tree->afe_cap;
+    size_t cap;
+    size_t bytes;
+    int grew = th_grow_cap(full + 1, full, 16, sizeof(th_node *) + sizeof(uint64_t), &cap, &bytes);
+    if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+        tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        return 0;         /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    }
+    th_node **grown = PyMem_Realloc(tree->afe, bytes);
+    if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        return 0;         /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    if (full > 0) {
+        memmove(grown + cap, grown + full, full * sizeof(uint64_t));
+    }
+    tree->afe = grown;
+    tree->afe_cap = (Py_ssize_t)cap;
+    return 1;
+}
+
+/* The hash set comes into use (afe_hash_valid) once the segment after the last marker is long, and leaves it when the
+   list clears back to a marker or empties. In use, it holds the key of every entry after the last marker, plus keys of
+   entries that have left the list or sit before that marker, so a miss proves the segment holds no equal entry and a
+   hit runs the exact comparison. */
 static int afe_push(th_tree *tree, th_node *node) {
-    if (!tree->afe_hash_valid) {
-        if (tree->afe_hash_capacity > 0) {
-            memset(tree->afe_hashes, 0, tree->afe_hash_capacity * sizeof(uint64_t));
-        }
-        tree->afe_hash_count = 0;
-        for (Py_ssize_t index = 0; index < tree->afe_len; index++) {
-            if (tree->afe[index] != NULL) {
-                /* GCOVR_EXCL_BR_START: allocation failure */
-                if (afe_hash_add(tree, tree->afe[index]) < 0) {
-                    return 0; /* GCOVR_EXCL_LINE: allocation-failure path */
-                }
-                /* GCOVR_EXCL_BR_STOP */
+    uint64_t key = 0;
+    int seen = 1;
+    if (tree->afe_hash_valid || afe_segment_is_long(tree)) {
+        if (!tree->afe_hash_valid) {
+            if (afe_hash_reseed(tree, afe_segment_start(tree)) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                return 0;                                             /* GCOVR_EXCL_LINE: allocation-failure path */
             }
+            tree->afe_hash_valid = 1;
         }
-        tree->afe_hash_valid = 1;
+        key = afe_hash(node);
+        seen = afe_hash_insert(tree, key);
+        if (seen < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return 0;   /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
     }
-    int seen = afe_hash_add(tree, node);
-    if (seen < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return 0;   /* GCOVR_EXCL_LINE: allocation-failure path */
-    }
-    /* Hash collisions retain the full duplicate comparison. */
+    /* A short segment, or a hash hit, runs the full duplicate comparison. */
     if (seen) {
         /* Noah's Ark: at most three earlier entries with the same name+attributes
            may precede a new one before the oldest is dropped. */
         int matches = 0;
         Py_ssize_t earliest = -1;
         for (Py_ssize_t index = tree->afe_len - 1; index >= 0; index--) {
+            TH_WORK_STEP();
             th_node *entry = tree->afe[index];
             if (entry == NULL) {
                 break; /* stop at the marker */
@@ -1849,41 +2499,47 @@ static int afe_push(th_tree *tree, th_node *node) {
         }
     }
     if (tree->afe_len == tree->afe_cap) {
-        size_t cap;
-        size_t bytes;
-        int grew = th_grow_cap((size_t)(tree->afe_cap + 1), (size_t)tree->afe_cap, 16, sizeof(th_node *), &cap, &bytes);
-        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-            return 0;         /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        if (!afe_grow(tree)) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return 0;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
-        th_node **grown = PyMem_Realloc(tree->afe, bytes);
-        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-            return 0;         /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        }
-        tree->afe = grown;
-        tree->afe_cap = (Py_ssize_t)cap;
     }
+    afe_keys(tree)[tree->afe_len] = key;
     tree->afe[tree->afe_len++] = node;
+    node->afe_listed = 1;
     return 1;
+}
+
+/* A clone at index keeps the key of the entry it stands in for, unless clone_formatting left its attributes off: then
+   it hashes apart from its source, and the slot (which a reseed reads) and the set in use (which must hold the key of
+   every entry after the last marker) both take its own key. A failed insert has set tree->failed. */
+static TH_NOINLINE void afe_rekey(th_tree *tree, Py_ssize_t index) {
+    uint64_t key = afe_hash(tree->afe[index]);
+    afe_keys(tree)[index] = key;
+    if (tree->afe_hash_valid) {
+        (void)afe_hash_insert(tree, key);
+    }
+}
+
+static inline void afe_key_clone(th_tree *tree, Py_ssize_t index, const th_node *source) {
+    if (TH_UNLIKELY(tree->afe[index]->attr_count != source->attr_count)) {
+        afe_rekey(tree, index);
+    }
+}
+
+/* Put a clone in the list slot of the entry it stands in for. */
+static void afe_replace_at(th_tree *tree, Py_ssize_t index, th_node *clone) {
+    th_node *source = tree->afe[index];
+    source->afe_listed = 0;
+    tree->afe[index] = clone;
+    clone->afe_listed = 1;
+    afe_key_clone(tree, index, source);
 }
 
 static void afe_push_marker(th_tree *tree) {
     if (tree->afe_len == tree->afe_cap) {
-        size_t cap;
-        size_t bytes;
-        int grew = th_grow_cap((size_t)(tree->afe_cap + 1), (size_t)tree->afe_cap, 16, sizeof(th_node *), &cap, &bytes);
-        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-            return;           /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        if (!afe_grow(tree)) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;            /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
-        th_node **grown = PyMem_Realloc(tree->afe, bytes);
-        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-            return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        }
-        tree->afe = grown;
-        tree->afe_cap = (Py_ssize_t)cap;
     }
     tree->afe[tree->afe_len++] = NULL;
 }
@@ -1896,16 +2552,22 @@ static void afe_clear_to_marker(th_tree *tree) {
         if (entry == NULL) {
             return;
         }
+        entry->afe_listed = 0;
     }
 }
 
+/* The list outlives the stack of open elements, so a search for an element that has left it would read every entry
+   the markers left behind. Membership comes from the flag, and the search runs only for a listed element. */
 static Py_ssize_t afe_index_of(th_tree *tree, th_node *node) {
-    for (Py_ssize_t index = tree->afe_len - 1; index >= 0; index--) {
-        if (tree->afe[index] == node) {
-            return index;
-        }
+    if (!node->afe_listed) {
+        return -1;
     }
-    return -1;
+    Py_ssize_t index = tree->afe_len - 1;
+    while (tree->afe[index] != node) {
+        TH_WORK_STEP();
+        index--;
+    }
+    return index;
 }
 
 static Py_ssize_t stack_index_of(th_tree *tree, th_node *node) {
@@ -1917,9 +2579,11 @@ static Py_ssize_t stack_index_of(th_tree *tree, th_node *node) {
     return -1;
 }
 
+/* Scans down from the top and skips foreign elements, as pop_until_atom does: a foreign template is not the template
+   the rules look for. */
 static Py_ssize_t stack_index_of_atom(th_tree *tree, uint16_t atom) {
     for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) {
-        if (tree->open[index]->atom == atom) {
+        if (tree->open[index]->ns == TH_NS_HTML && tree->open[index]->atom == atom) {
             return index;
         }
     }
@@ -1950,8 +2614,15 @@ static int afe_on_stack(th_tree *tree, th_node *node) {
     return tree->afe_stack_hint >= 0;
 }
 
+/* The most active formatting elements one reconstruction reopens: the entries nearest the end of the list, the ones
+   that apply most closely to what follows. The standard reopens every entry that has left the stack, and below
+   TH_MAX_TREE_DEPTH nothing else bounds the run, so unclosed start tags that differ (Noah's Ark drops only the
+   repeats) cost each later block one clone apiece: entries x blocks nodes. Real markup leaves a handful open across
+   a block. */
+#define TH_MAX_RECONSTRUCTED_FORMATTING 16
+
 /* Reconstruct the active formatting elements (re-open any that fell off the
-   stack of open elements) per the spec. */
+   stack of open elements) per the spec, up to TH_MAX_RECONSTRUCTED_FORMATTING of them. */
 static void reconstruct_afe(th_tree *tree) {
     if (tree->afe_len == 0) {
         return;
@@ -1967,8 +2638,33 @@ static void reconstruct_afe(th_tree *tree) {
             break;
         }
     }
+    Py_ssize_t excess = tree->afe_len - index - TH_MAX_RECONSTRUCTED_FORMATTING;
+    if (excess > 0) {
+        /* An entry passed over but left listed would be reopened by a later pass, and the list would outgrow the
+           stack, so the outermost ones leave the list. Every entry from index on is off the stack, so no open
+           element loses its entry. */
+        for (Py_ssize_t dropped = index; dropped < index + excess; dropped++) {
+            tree->afe[dropped]->afe_listed = 0;
+        }
+        memmove(&tree->afe[index], &tree->afe[index + excess],
+                (size_t)TH_MAX_RECONSTRUCTED_FORMATTING * sizeof(th_node *));
+        uint64_t *keys = afe_keys(tree);
+        memmove(&keys[index], &keys[index + excess], (size_t)TH_MAX_RECONSTRUCTED_FORMATTING * sizeof(uint64_t));
+        tree->afe_len -= excess;
+    }
     for (; index < tree->afe_len; index++) {
-        th_node *clone = node_clone(tree, tree->afe[index]);
+        if (tree->open_len >= TH_MAX_TREE_DEPTH) {
+            /* stack_push would refuse the clone, so the entry would stay unopened and every later token would clone
+               the whole tail again; as in afe_push_if_open, an element the depth cap keeps off the stack leaves
+               the list */
+            for (Py_ssize_t dropped = index; dropped < tree->afe_len; dropped++) {
+                tree->afe[dropped]->afe_listed = 0;
+            }
+            tree->afe_len = index;
+            tree->afe_hash_valid = 0;
+            return;
+        }
+        th_node *clone = clone_formatting(tree, tree->afe[index]);
         if (clone == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
@@ -1978,7 +2674,7 @@ static void reconstruct_afe(th_tree *tree) {
         insertion_location(tree, &parent, &before);
         node_insert_before(parent, clone, before);
         stack_push(tree, clone);
-        tree->afe[index] = clone;
+        afe_replace_at(tree, index, clone);
         /* an a or nobr start tag closes an open one in scope, so a clone the output nests in its namesake moves out */
         tree->reparse_hazard |= (clone->atom == TH_TAG_A) | (clone->atom == TH_TAG_NOBR);
     }
@@ -1995,7 +2691,7 @@ static int is_special_atom(uint16_t atom, uint8_t flags) {
 static int adoption_agency(th_tree *tree, uint16_t atom) {
     /* if the current node is a matching formatting element not in the list, pop it */
     th_node *cur = current_node(tree);
-    if (cur->atom == atom && afe_index_of(tree, cur) < 0) {
+    if (cur->atom == atom && !cur->afe_listed) {
         stack_pop(tree);
         return 1;
     }
@@ -2049,8 +2745,12 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
         }
         /* moving the furthest block under a formatting clone can nest it where its own start tag would not */
         tree->reparse_hazard = 1;
-        th_node *common = tree->open[fmt_stack - 1];
+        tree->nest_bound = 0;
+        /* the stack bottom, html or the fragment root, is below every formatting element; without one, the document
+           takes its place */
+        th_node *common = fmt_stack > 0 /* GCOVR_EXCL_BR_LINE */ ? tree->open[fmt_stack - 1] : tree->document;
         Py_ssize_t bookmark = afe_index_of(tree, fmt);
+        th_node *old_select = furthest->reaches_selectedcontent ? select_reaching(furthest->parent) : NULL;
         th_node *node, *last = furthest;
         Py_ssize_t node_idx = furthest_idx;
         /* The inner loop runs until it reaches the formatting element; the
@@ -2075,15 +2775,20 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
                 node_afe = -1;
             }
             if (node_afe < 0) {
-                /* not in the list: remove from the stack and continue */
+                /* not in the list: remove from the stack and continue; an option removed this way is never popped, so
+                   it is picked here, the selection the reparse of its select would make */
+                if (tree->select_state != NULL && is_html_element(node, TH_TAG_OPTION)) {
+                    select_cache_pick(tree->select_state, node);
+                }
                 stack_remove_at(tree, node_idx);
                 continue;
             }
-            th_node *clone = node_clone(tree, node);
+            th_node *clone = clone_formatting(tree, node);
             if (clone == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 return 1;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
             }
-            tree->afe[node_afe] = clone;
+            afe_replace_at(tree, node_afe, clone);
+            node->left_stack = 1; /* the clone takes its place on the stack */
             tree->open[node_idx] = clone;
             tree->stack_version++;
             node = clone;
@@ -2102,7 +2807,7 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             insertion_location_target(tree, common, &parent, &before);
             node_insert_before(parent, last, before);
         }
-        th_node *fmt_clone = node_clone(tree, fmt);
+        th_node *fmt_clone = clone_formatting(tree, fmt);
         if (fmt_clone == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return 1;            /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
@@ -2115,33 +2820,21 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             child = next;
         }
         node_append(furthest, fmt_clone);
-        select_cache_invalidate_above(tree, furthest);
+        if (tree->select_state != NULL) {
+            tree->select_state->recheck = 1;
+        }
+        if (furthest->reaches_selectedcontent && old_select == NULL) {
+            select_cache_block_gained(tree, furthest);
+        }
         /* remove fmt from the list, insert the clone at the bookmark */
         Py_ssize_t fi = afe_index_of(tree, fmt);
         if (fi < bookmark) {
             bookmark--;
         }
+        /* a clone with fmt's attributes hashes as fmt did, so it takes over fmt's key */
+        uint64_t fmt_key = afe_keys(tree)[fi];
+        /* removing fmt frees the slot the clone takes below, so the list needs no room */
         afe_remove_at(tree, fi);
-        /* GCOVR_EXCL_START: the list just shrank by one (fmt removed) before this single
-           re-insert, so afe_len < afe_cap here and the grow never fires */
-        if (tree->afe_len == tree->afe_cap) {
-            size_t cap;
-            size_t bytes;
-            int grew =
-                th_grow_cap((size_t)(tree->afe_cap + 1), (size_t)tree->afe_cap, 16, sizeof(th_node *), &cap, &bytes);
-            if (!grew) {
-                tree->failed = 1;
-                return 1;
-            }
-            th_node **grown = PyMem_Realloc(tree->afe, bytes);
-            if (grown == NULL) {
-                tree->failed = 1;
-                return 1;
-            }
-            tree->afe = grown;
-            tree->afe_cap = (Py_ssize_t)cap;
-        }
-        /* GCOVR_EXCL_STOP */
         /* GCOVR_EXCL_START: the bookmark is kept within [0, afe_len] by the loop above; these are defensive clamps */
         if (bookmark < 0) {
             bookmark = 0;
@@ -2150,9 +2843,15 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             bookmark = tree->afe_len;
         }
         /* GCOVR_EXCL_STOP */
-        memmove(&tree->afe[bookmark + 1], &tree->afe[bookmark], (size_t)(tree->afe_len - bookmark) * sizeof(th_node *));
+        size_t moved = (size_t)(tree->afe_len - bookmark);
+        memmove(&tree->afe[bookmark + 1], &tree->afe[bookmark], moved * sizeof(th_node *));
         tree->afe[bookmark] = fmt_clone;
+        fmt_clone->afe_listed = 1;
+        uint64_t *keys = afe_keys(tree);
+        memmove(&keys[bookmark + 1], &keys[bookmark], moved * sizeof(uint64_t));
+        keys[bookmark] = fmt_key;
         tree->afe_len++;
+        afe_key_clone(tree, bookmark, fmt);
         /* remove fmt from the stack, insert the clone below furthest */
         Py_ssize_t fs = stack_index_of(tree, fmt);
         stack_remove_at(tree, fs);
@@ -2209,6 +2908,16 @@ static void close_p_before_list_item(th_tree *tree, Py_ssize_t barrier) {
 static int is_heading_atom(uint16_t atom) {
     return atom == TH_TAG_H1 || atom == TH_TAG_H2 || atom == TH_TAG_H3 || atom == TH_TAG_H4 || atom == TH_TAG_H5 ||
            atom == TH_TAG_H6;
+}
+
+/* HTML h1-h6 only */
+static int is_heading(const th_node *node) {
+    return node->ns == TH_NS_HTML && is_heading_atom(node->atom);
+}
+
+/* a foreign context root named select takes the foreign rules, so only an HTML select context counts */
+static int is_select_fragment(const th_tree *tree) {
+    return tree->fragment_root != NULL && tree->fragment_root->ns == TH_NS_HTML && tree->ctx_atom == TH_TAG_SELECT;
 }
 
 /* Start tags that close an open <p> in button scope before being inserted. */
@@ -2313,8 +3022,9 @@ static int name_matches(const th_node *node, const th_token *token, int fold) {
    match (after implied end tags), or stop at a special element. Unknown
    elements (atom 0) match by name so <foo></foo> closes correctly. */
 static void any_other_end_tag(th_tree *tree, uint16_t atom, const th_token *token) {
-    /* the html element is a special element, so any-other-end-tag stops before the stack bottom */
-    for (Py_ssize_t index = tree->open_len - 1; index >= 0 /* GCOVR_EXCL_BR_LINE */; index--) {
+    /* the html element is a special element, so any-other-end-tag stops before the stack bottom; the root is never
+       the match, although a fragment root carries its context's name */
+    for (Py_ssize_t index = tree->open_len - 1; index > 0; index--) {
         th_node *node = tree->open[index];
         int match =
             node->ns == TH_NS_HTML && (atom != TH_TAG_UNKNOWN ? node->atom == atom : name_matches(node, token, 0));
@@ -2340,6 +3050,7 @@ enum mode {
     M_AFTER_HEAD,
     M_IN_BODY,
     M_TEXT,
+    M_TEXT_REFUSED, /* text of a raw-text element the depth cap kept off the stack */
     M_IN_TABLE,
     M_IN_CAPTION,
     M_IN_COLUMN_GROUP,
@@ -2354,10 +3065,13 @@ enum mode {
     M_AFTER_AFTER_FRAMESET,
 };
 
+/* Set on the template mode record of a template the depth cap kept off the stack of open elements. */
+#define TMPL_REFUSED 0x100
+
 /* The stack of template insertion modes: a <template> pushes one, the
    in-template mode replaces its top as content selects a sub-mode, and reset
    returns the top so a closing sub-context resumes the template correctly. */
-static void tmpl_push(th_tree *tree, enum mode mode) {
+static void tmpl_push(th_tree *tree, int record) {
     if (tree->tmpl_len == tree->tmpl_cap) {
         size_t cap;
         size_t bytes;
@@ -2374,7 +3088,7 @@ static void tmpl_push(th_tree *tree, enum mode mode) {
         tree->tmpl = grown;
         tree->tmpl_cap = (Py_ssize_t)cap;
     }
-    tree->tmpl[tree->tmpl_len++] = (int)mode;
+    tree->tmpl[tree->tmpl_len++] = record;
 }
 
 static void tmpl_pop(th_tree *tree) {
@@ -2387,13 +3101,26 @@ static void tmpl_pop(th_tree *tree) {
 static void tmpl_set(th_tree *tree, enum mode mode) {
     /* tmpl_set runs only while a template insertion mode is on the stack. */
     if (tree->tmpl_len > 0 /* GCOVR_EXCL_BR_LINE */) {
-        tree->tmpl[tree->tmpl_len - 1] = (int)mode;
+        tree->tmpl[tree->tmpl_len - 1] = (tree->tmpl[tree->tmpl_len - 1] & TMPL_REFUSED) | (int)mode;
     }
 }
 
 /* tmpl_top runs only for a template element, which carries a pushed mode. */
 static enum mode tmpl_top(th_tree *tree) {
-    return tree->tmpl_len > 0 /* GCOVR_EXCL_BR_LINE */ ? (enum mode)tree->tmpl[tree->tmpl_len - 1] : M_IN_BODY;
+    return (enum mode)(tree->tmpl[tree->tmpl_len - 1] & ~TMPL_REFUSED);
+}
+
+/* A template refused at the depth cap stays off the stack but still opens its marker and its mode record, so what
+   follows parses as its content. The record is flagged so that the template's own end tag pops it and the marker
+   instead of closing the nearest open template, an ancestor. */
+static void stack_push_template(th_tree *tree, th_node *node) {
+    int kept = stack_push_kept(tree, node);
+    afe_push_marker(tree);
+    tmpl_push(tree, kept ? M_IN_TEMPLATE : M_IN_TEMPLATE | TMPL_REFUSED);
+}
+
+static int current_template_refused(const th_tree *tree) {
+    return tree->tmpl_len > 0 && (tree->tmpl[tree->tmpl_len - 1] & TMPL_REFUSED);
 }
 
 /* Reset the insertion mode appropriately: pick the mode implied by the current
@@ -2405,7 +3132,8 @@ static enum mode reset_insertion_mode(th_tree *tree) {
         int last = (index == 0);
         uint16_t atom;
         if (last && tree->fragment_root != NULL) {
-            atom = tree->ctx_atom; /* the bottom of the stack stands in for the context */
+            /* the reset steps name HTML elements, so a foreign root matches none and the mode stays in body */
+            atom = node->ns == TH_NS_HTML ? tree->ctx_atom : TH_TAG_UNKNOWN;
         } else if (node->ns != TH_NS_HTML) {
             /* the reset algorithm names HTML-namespace elements only, so a foreign
                element (an SVG/MathML td/tr/table/html/...) matches no step; skip it */
@@ -2569,6 +3297,17 @@ typedef struct {
 
 enum th_drain { TH_DRAIN_NEXT, TH_DRAIN_REPROCESS };
 
+/* Push a raw-text or RCDATA element and return the insertion mode for its text. An element the depth cap keeps off the
+   stack gets M_TEXT_REFUSED, so its end tag leaves the parent it was refused under open. Out of line, each of the ten
+   text-mode entries stays a call and a store. */
+static TH_NOINLINE enum mode stack_push_text(th_tree *tree, th_node *node) {
+    if (tree->open_len >= TH_MAX_TREE_DEPTH) {
+        return M_TEXT_REFUSED;
+    }
+    stack_push(tree, node);
+    return M_TEXT;
+}
+
 static enum th_drain drain_initial(th_tree *tree, th_token *tok, th_insert *dc) {
     if (tok->kind == TH_TEXT) {
         Py_ssize_t len;
@@ -2722,10 +3461,9 @@ static enum th_drain drain_in_head(th_tree *tree, th_token *tok, th_insert *dc) 
         if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
             int model = content_model_for(atom, flags, tree->scripting);
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)model);
             dc->original_mode = M_IN_HEAD;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_BASE || atom == TH_TAG_BASEFONT || atom == TH_TAG_BGSOUND || atom == TH_TAG_LINK ||
@@ -2735,12 +3473,11 @@ static enum th_drain drain_in_head(th_tree *tree, th_token *tok, th_insert *dc) 
         }
         if (atom == TH_TAG_NOSCRIPT) {
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             if (tree->scripting) {
                 /* with scripting on, noscript follows the generic raw-text path */
                 th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
                 dc->original_mode = M_IN_HEAD;
-                dc->mode = M_TEXT;
                 return TH_DRAIN_NEXT;
             }
             dc->mode = M_IN_HEAD_NOSCRIPT;
@@ -2817,10 +3554,9 @@ static enum th_drain drain_in_head_noscript(th_tree *tree, th_token *tok, th_ins
         }
         if (atom == TH_TAG_STYLE || atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_IN_HEAD_NOSCRIPT;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_HEAD || atom == TH_TAG_NOSCRIPT) {
@@ -2853,6 +3589,10 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
         insert_comment_or_pi(tree, tok, NULL);
         return TH_DRAIN_NEXT;
     }
+    if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_HTML) {
+        merge_attrs(tree, tree->open[0], tok);
+        return TH_DRAIN_NEXT;
+    }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_BODY) {
         th_node *body = insert_element(tree, tok);
         stack_push(tree, body);
@@ -2864,6 +3604,9 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
         th_node *fs = insert_element(tree, tok);
         stack_push(tree, fs);
         dc->mode = M_IN_FRAMESET;
+        return TH_DRAIN_NEXT;
+    }
+    if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_HEAD) {
         return TH_DRAIN_NEXT;
     }
     if (tok->kind == TH_START_TAG) {
@@ -2891,10 +3634,9 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
                 th_node *node = is_void_atom(atom) ? insert_void_element(tree, tok) : insert_element(tree, tok);
                 stack_pop(tree); /* remove head again */
                 if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
-                    stack_push(tree, node);
+                    dc->mode = stack_push_text(tree, node);
                     th_tok_switch(dc->sm, (enum th_initial_state)content_model_for(atom, flags, tree->scripting));
                     dc->original_mode = M_AFTER_HEAD;
-                    dc->mode = M_TEXT;
                 }
             }
             return TH_DRAIN_NEXT;
@@ -2922,10 +3664,7 @@ static enum th_drain drain_in_template(th_tree *tree, th_token *tok, th_insert *
         uint8_t flags = tok->tag_flags;
         uint16_t atom = tok->atom;
         if (atom == TH_TAG_TEMPLATE) {
-            th_node *node = insert_template(tree, tok);
-            stack_push(tree, node);
-            afe_push_marker(tree);
-            tmpl_push(tree, M_IN_TEMPLATE);
+            stack_push_template(tree, insert_template(tree, tok));
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_BASE || atom == TH_TAG_BASEFONT || atom == TH_TAG_BGSOUND || atom == TH_TAG_LINK ||
@@ -2935,10 +3674,9 @@ static enum th_drain drain_in_template(th_tree *tree, th_token *tok, th_insert *
         }
         if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)content_model_for(atom, flags, tree->scripting));
             dc->original_mode = M_IN_TEMPLATE;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         /* table-section tags select the matching table sub-mode (updating
@@ -2992,7 +3730,9 @@ static enum th_drain drain_in_frameset(th_tree *tree, th_token *tok, th_insert *
         uint16_t atom = tok_atom(tok);
         if (atom == TH_TAG_FRAMESET) {
             th_node *fs = insert_element(tree, tok);
-            stack_push(tree, fs);
+            if (!stack_push_kept(tree, fs)) {
+                tree->refused_frameset_count++;
+            }
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_FRAME) {
@@ -3001,16 +3741,19 @@ static enum th_drain drain_in_frameset(th_tree *tree, th_token *tok, th_insert *
         }
         if (atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_IN_FRAMESET;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         return TH_DRAIN_NEXT;
     }
     /* a DOCTYPE is ignored before the switch, so the kind!=end-tag branch here is dead */
     if (tok->kind == TH_END_TAG && tok_atom(tok) == TH_TAG_FRAMESET) { /* GCOVR_EXCL_BR_LINE */
+        if (tree->refused_frameset_count > 0) {
+            tree->refused_frameset_count--;
+            return TH_DRAIN_NEXT;
+        }
         if (current_node(tree)->atom != TH_TAG_HTML) {
             stack_pop(tree);
         }
@@ -3035,10 +3778,9 @@ static enum th_drain drain_after_frameset(th_tree *tree, th_token *tok, th_inser
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_NOFRAMES) {
         th_node *node = insert_element(tree, tok);
-        stack_push(tree, node);
+        dc->mode = stack_push_text(tree, node);
         th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
         dc->original_mode = M_AFTER_FRAMESET;
-        dc->mode = M_TEXT;
         return TH_DRAIN_NEXT;
     }
     if (tok->kind == TH_END_TAG && tok_atom(tok) == TH_TAG_HTML) {
@@ -3169,7 +3911,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
            WITHOUT reconstructing the active formatting elements */
         if (is_heading_atom(atom)) {
             close_p_in_button_scope(tree);
-            if (is_heading_atom(current_node(tree)->atom)) {
+            if (is_heading(current_node(tree))) {
                 stack_pop(tree); /* nested headings don't stack */
             }
             th_node *node = insert_element(tree, tok);
@@ -3197,7 +3939,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             tree->reparse_hazard = 1; /* ignored tags inside select can become elements after serialization */
             /* select content is plain in-body content now; a nested
                select start closes the open one instead of nesting */
-            if (tree->fragment_root != NULL && tree->ctx_atom == TH_TAG_SELECT) {
+            if (is_select_fragment(tree)) {
                 return TH_DRAIN_NEXT; /* fragment case: ignored */
             }
             if (has_in_scope(tree, TH_TAG_SELECT)) {
@@ -3223,7 +3965,8 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             /* html bounds the stack walk */
             for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
                 uint16_t open_atom = tree->open[index]->atom;
-                if (open_atom == TH_TAG_LI) {
+                /* only an HTML li starts the walk, as pop_until_atom skips foreign elements */
+                if (tree->open[index]->ns == TH_NS_HTML && open_atom == TH_TAG_LI) {
                     generate_implied_end_tags(tree, TH_TAG_LI);
                     pop_until_atom(tree, TH_TAG_LI);
                     break;
@@ -3244,7 +3987,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             /* html bounds the stack walk */
             for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
                 uint16_t open_atom = tree->open[index]->atom;
-                if (open_atom == TH_TAG_DD || open_atom == TH_TAG_DT) {
+                if (tree->open[index]->ns == TH_NS_HTML && (open_atom == TH_TAG_DD || open_atom == TH_TAG_DT)) {
                     generate_implied_end_tags(tree, open_atom);
                     pop_until_atom(tree, open_atom);
                     break;
@@ -3262,7 +4005,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
         }
         if (atom == TH_TAG_HR) {
             close_p_in_button_scope(tree);
-            if (has_in_scope(tree, TH_TAG_SELECT) || (tree->fragment_root != NULL && tree->ctx_atom == TH_TAG_SELECT)) {
+            if (has_in_scope(tree, TH_TAG_SELECT) || is_select_fragment(tree)) {
                 /* in a select (or a select-context fragment) close the open option/optgroup
                    first, so the hr lands at select level rather than inside the option */
                 generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
@@ -3282,7 +4025,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
         }
         if (atom == TH_TAG_OPTION || atom == TH_TAG_OPTGROUP) {
             tree->reparse_hazard = 1; /* nested option markup can reopen as elements after serialization */
-            if (has_in_scope(tree, TH_TAG_SELECT) || (tree->fragment_root != NULL && tree->ctx_atom == TH_TAG_SELECT)) {
+            if (has_in_scope(tree, TH_TAG_SELECT) || is_select_fragment(tree)) {
                 /* inside a select (or a select-context fragment, where no select node
                    is on the stack), implied end tags close open option and (for an
                    optgroup start) optgroup elements */
@@ -3330,7 +4073,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_INPUT) {
-            if (tree->fragment_root != NULL && tree->ctx_atom == TH_TAG_SELECT) {
+            if (is_select_fragment(tree)) {
                 return TH_DRAIN_NEXT;
             }
             if (has_in_scope(tree, TH_TAG_SELECT)) {
@@ -3365,7 +4108,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 tree->frameset_ok = 0;
             }
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             if (atom == TH_TAG_TEXTAREA) {
                 tree->drop_newline = 1; /* a leading LF in a textarea is ignored */
             }
@@ -3374,7 +4117,6 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                mode is still the table mode, so the text mode must return there, not to
                in body, or the table's later rows would be dropped */
             dc->original_mode = dc->foster_pending ? dc->foster_return : M_IN_BODY;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_PRE || atom == TH_TAG_LISTING) {
@@ -3427,10 +4169,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_TEMPLATE) {
-            th_node *node = insert_template(tree, tok);
-            stack_push(tree, node);
-            afe_push_marker(tree);
-            tmpl_push(tree, M_IN_TEMPLATE);
+            stack_push_template(tree, insert_template(tree, tok));
             dc->mode = M_IN_TEMPLATE;
             return TH_DRAIN_NEXT;
         }
@@ -3441,9 +4180,9 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                       other element is ignored in HTML content) */
         }
         stack_push(tree, node);
-        /* every HTML selectedcontent the parser creates lands here, so a select cached before
-           it arrived learns of it without a test on every other element's insert or push */
-        if (atom == TH_TAG_SELECTEDCONTENT && tree->select_state != NULL) {
+        /* every HTML selectedcontent the parser creates lands here, so its select learns of it as it arrives */
+        if (atom == TH_TAG_SELECTEDCONTENT) {
+            selectedcontent_flagged(node);
             selectedcontent_inserted(tree, node);
         }
         return TH_DRAIN_NEXT;
@@ -3482,7 +4221,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             int in_scope = 0;
             /* html bounds the stack walk */
             for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
-                if (is_heading_atom(tree->open[index]->atom)) {
+                if (is_heading(tree->open[index])) {
                     in_scope = 1;
                     break;
                 }
@@ -3492,11 +4231,11 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             }
             if (in_scope) {
                 generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
-                while (tree->open_len > 0) { /* GCOVR_EXCL_BR_LINE: the heading is in scope when this runs, so
-                                                the stack never empties */
+                while (tree->open_len > 1) { /* GCOVR_EXCL_BR_LINE: the heading is in scope when this runs, so
+                                                the walk stops above the root */
                     th_node *node = current_node(tree);
                     stack_pop(tree);
-                    if (is_heading_atom(node->atom)) {
+                    if (is_heading(node)) {
                         break;
                     }
                 }
@@ -3596,7 +4335,7 @@ static void afe_push_if_open(th_tree *tree, th_node *node) {
     }
 }
 
-static enum th_drain drain_text(th_tree *tree, th_token *tok, th_insert *dc) {
+static enum th_drain drain_text(th_tree *tree, th_token *tok, th_insert *dc, int pushed) {
     if (tok->kind == TH_TEXT) {
         if (slice_can_span(tree, tok)) {
             Py_ssize_t off = tok->src_start + tree->text_offset;
@@ -3621,8 +4360,17 @@ static enum th_drain drain_text(th_tree *tree, th_token *tok, th_insert *dc) {
         insert_text(tree, text, len);
         return TH_DRAIN_NEXT;
     }
-    /* end tag (or EOF) closes the raw-text/RCDATA element */
-    stack_pop(tree);
+    /* the end tag closes the raw-text/RCDATA element; a depth-capped one never reached the stack */
+    if (pushed) {
+        th_node *element = current_node(tree);
+        /* the tokenizer reads a script's end tag only outside the double escaped state, so a re-parse of its text,
+           which the inserts merge into one node, ends there too and the serializer can skip its scan; the end of input
+           pops a script elsewhere, so the one it ends inside keeps the scan */
+        if (element->atom == TH_TAG_SCRIPT && element->first_child != NULL) {
+            element->first_child->script_text_closes = 1;
+        }
+        stack_pop(tree);
+    }
     dc->mode = dc->original_mode;
     return TH_DRAIN_NEXT;
 }
@@ -3669,25 +4417,32 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
         uint16_t atom = tok->atom;
         if (atom == TH_TAG_CAPTION) {
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
-            afe_push_marker(tree);
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            if (!stack_push_kept(tree, node)) {
+                return TH_DRAIN_NEXT;
+            }
+            afe_push_marker(tree);
             dc->mode = M_IN_CAPTION;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_COLGROUP) {
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            if (!stack_push_kept(tree, node)) {
+                return TH_DRAIN_NEXT;
+            }
             dc->mode = M_IN_COLUMN_GROUP;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_COL) {
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
-            {
-                th_node *cg = insert_implicit(tree, TH_TAG_COLGROUP, TH_TAG_SPECIAL);
-                stack_push(tree, cg);
+            if (stack_at_depth_cap(tree)) {
+                /* no colgroup can be opened at the cap, so the col stays a child of the table */
+                insert_void_element(tree, tok);
+                return TH_DRAIN_NEXT;
             }
+            th_node *cg = insert_implicit(tree, TH_TAG_COLGROUP, TH_TAG_SPECIAL);
+            stack_push(tree, cg);
             dc->mode = M_IN_COLUMN_GROUP;
             return TH_DRAIN_REPROCESS;
         }
@@ -3722,10 +4477,9 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             uint16_t a2 = tok->atom;
             int model = content_model_for(a2, f2, tree->scripting);
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)model);
             dc->original_mode = dc->table_origin;
-            dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_INPUT && input_is_hidden(tok)) {
@@ -3936,10 +4690,8 @@ static enum th_drain drain_in_row(th_tree *tree, th_token *tok, th_insert *dc) {
         if (atom == TH_TAG_TD || atom == TH_TAG_TH) {
             clear_to(tree, TH_TAG_TR, TH_TAG_TR, TH_TAG_TR);
             th_node *node = insert_element(tree, tok);
-            Py_ssize_t open_len_before = tree->open_len;
-            stack_push(tree, node);
             /* A cell outside the depth-capped stack cannot be closed in cell mode. */
-            if (tree->open_len == open_len_before) {
+            if (!stack_push_kept(tree, node)) {
                 return TH_DRAIN_NEXT;
             }
             afe_push_marker(tree);
@@ -4119,20 +4871,318 @@ static enum th_drain drain_after_after_frameset(th_tree *tree, th_token *tok, th
         }
         if (atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            stack_push(tree, node);
+            dc->mode = stack_push_text(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_AFTER_AFTER_FRAMESET;
-            dc->mode = M_TEXT;
         }
     }
     return TH_DRAIN_NEXT; /* everything else is a parse error and ignored */
 }
 
+/* Run one token through tree construction: the foreign-content dispatch, then the current insertion mode, reprocessing
+   it as the modes direct. run_drain feeds it the tokens it pulls; th_shadow_step feeds it the streaming rewriter's. */
+static TH_TREE_INLINE void drain_token(th_tree *tree, th_insert *dc, th_token *tok) {
+    if (dc->foster_pending) {
+        /* The one fostered token was processed under in-body rules; restore
+           the table/cell mode only if those rules did not themselves switch
+           the insertion mode (a fostered <select>/<table> legitimately
+           does, and that switch must survive). */
+        if (dc->mode == M_IN_BODY) {
+            dc->mode = dc->foster_return;
+        }
+        tree->foster = 0;
+        dc->foster_pending = 0;
+    }
+    dc->table_origin = M_IN_TABLE;
+    tree->text_offset = 0; /* a fresh token: any consumed-prefix offset is stale */
+    /* the pre/listing/textarea leading-LF skip applies only to the token
+       immediately following the start tag: a text token consumes it in its
+       own branch, so any other intervening token (a comment or element) must
+       clear the flag here or a later newline would be dropped too */
+    if (tree->drop_newline && tok->kind != TH_TEXT) {
+        tree->drop_newline = 0;
+    }
+reprocess:;
+    /* the machine interned a tag's name; every comparison and insert below reads tok->atom / tok->tag_flags */
+    if (tok->kind != TH_START_TAG && tok->kind != TH_END_TAG) {
+        tok->atom = TH_TAG_UNKNOWN;
+        tok->tag_flags = 0;
+    }
+    /* the element(s) this end tag pops are the ones the source closed explicitly */
+    tree->closing_end_tag = tok->kind == TH_END_TAG ? tok : NULL;
+    if (use_foreign_rules(tree, tok) && foreign_step(tree, tok)) {
+        goto token_done; /* handled under foreign-content rules */
+    }
+    /* template tags are handled uniformly across the table/select modes (the
+       spec routes them through in-head); in-body/in-head/in-template keep
+       their own handlers for the active-formatting interactions */
+    if (tok->kind == TH_END_TAG && dc->mode >= M_IN_HEAD && tok_atom(tok) == TH_TAG_TEMPLATE) {
+        if (current_template_refused(tree)) {
+            afe_clear_to_marker(tree);
+            tmpl_pop(tree);
+            dc->mode = reset_insertion_mode(tree);
+        } else if (stack_index_of_atom(tree, TH_TAG_TEMPLATE) >= 0) {
+            generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
+            /* an element still open inside the template may have pushed its own formatting marker, which the clear
+               below leaves behind, shielding an outer a/nobr the output's explicit end tags no longer shield */
+            tree->reparse_hazard |= current_node(tree)->atom != TH_TAG_TEMPLATE;
+            pop_until_atom(tree, TH_TAG_TEMPLATE);
+            afe_clear_to_marker(tree);
+            tmpl_pop(tree);
+            dc->mode = reset_insertion_mode(tree);
+        }
+        goto token_done;
+    }
+    if (tok->kind == TH_START_TAG &&
+        (dc->mode == M_IN_TABLE || dc->mode == M_IN_TABLE_BODY || dc->mode == M_IN_ROW || dc->mode == M_IN_CELL ||
+         dc->mode == M_IN_COLUMN_GROUP || dc->mode == M_IN_CAPTION) &&
+        tok_atom(tok) == TH_TAG_TEMPLATE) {
+        stack_push_template(tree, insert_template(tree, tok));
+        dc->mode = M_IN_TEMPLATE;
+        goto token_done;
+    }
+    /* "in select in table": a select opened in a table context does not get its own
+       mode here, so a table-family start tag would nest inside the still-open select.
+       Per the spec it pops the select, resets the insertion mode, and reprocesses, so
+       the table element becomes a sibling of the closed select (#90). */
+    if (tok->kind == TH_START_TAG && (dc->mode == M_IN_TABLE || dc->mode == M_IN_TABLE_BODY || dc->mode == M_IN_ROW ||
+                                      dc->mode == M_IN_CELL || dc->mode == M_IN_CAPTION)) {
+        uint16_t atom = tok_atom(tok);
+        if ((atom == TH_TAG_CAPTION || atom == TH_TAG_TABLE || atom == TH_TAG_TBODY || atom == TH_TAG_TFOOT ||
+             atom == TH_TAG_THEAD || atom == TH_TAG_TR || atom == TH_TAG_TD || atom == TH_TAG_TH) &&
+            has_in_scope(tree, TH_TAG_SELECT)) {
+            pop_until_atom(tree, TH_TAG_SELECT);
+            dc->mode = reset_insertion_mode(tree);
+            goto reprocess;
+        }
+    }
+    /* a DOCTYPE in any insertion mode other than "initial" is a parse error that is
+       ignored without changing the insertion mode (foreign content already handled
+       its own DOCTYPE above); only the initial mode builds the doctype node */
+    if (tok->kind == TH_DOCTYPE && dc->mode != M_INITIAL) {
+        th_error_sink_push(&tree->errors, "unexpected-doctype", tok->line, tok->col);
+        return;
+    }
+    /* every insertion mode has an explicit case, so the compiler default arm is unreachable */
+    enum th_drain action = TH_DRAIN_NEXT;
+    switch (dc->mode) /* GCOVR_EXCL_BR_LINE */ {
+    case M_INITIAL:
+        action = drain_initial(tree, tok, dc);
+        break;
+    case M_BEFORE_HTML:
+        action = drain_before_html(tree, tok, dc);
+        break;
+    case M_BEFORE_HEAD:
+        action = drain_before_head(tree, tok, dc);
+        break;
+    case M_IN_HEAD:
+        action = drain_in_head(tree, tok, dc);
+        break;
+    case M_IN_HEAD_NOSCRIPT:
+        action = drain_in_head_noscript(tree, tok, dc);
+        break;
+    case M_AFTER_HEAD:
+        action = drain_after_head(tree, tok, dc);
+        break;
+    case M_IN_TEMPLATE:
+        action = drain_in_template(tree, tok, dc);
+        break;
+    case M_IN_FRAMESET:
+        action = drain_in_frameset(tree, tok, dc);
+        break;
+    case M_AFTER_FRAMESET:
+        action = drain_after_frameset(tree, tok, dc);
+        break;
+    case M_IN_BODY:
+        action = drain_in_body(tree, tok, dc);
+        break;
+    case M_TEXT:
+        action = drain_text(tree, tok, dc, 1);
+        break;
+    case M_TEXT_REFUSED:
+        action = drain_text(tree, tok, dc, 0);
+        break;
+    case M_IN_TABLE:
+        action = drain_in_table(tree, tok, dc);
+        break;
+    case M_IN_CAPTION:
+        action = drain_in_caption(tree, tok, dc);
+        break;
+    case M_IN_COLUMN_GROUP:
+        action = drain_in_column_group(tree, tok, dc);
+        break;
+    case M_IN_TABLE_BODY:
+        action = drain_in_table_body(tree, tok, dc);
+        break;
+    case M_IN_ROW:
+        action = drain_in_row(tree, tok, dc);
+        break;
+    case M_IN_CELL:
+        action = drain_in_cell(tree, tok, dc);
+        break;
+    case M_AFTER_BODY:
+        action = drain_after_body(tree, tok, dc);
+        break;
+    case M_AFTER_AFTER_BODY:
+        action = drain_after_after_body(tree, tok, dc);
+        break;
+    case M_AFTER_AFTER_FRAMESET:
+        action = drain_after_after_frameset(tree, tok, dc);
+        break;
+    }
+    if (action == TH_DRAIN_REPROCESS) {
+        goto reprocess;
+    }
+token_done:
+    if (tok->kind == TH_START_TAG && tok->self_closing && !tok->self_closing_acknowledged) {
+        th_error_sink_push(&tree->errors, "non-void-html-element-start-tag-with-trailing-solidus", tok->line, tok->col);
+    }
+}
+
+/* The mode the next token runs in: a fostered token ran under the in-body rules, and the table mode it came from takes
+   over again at the next token. */
+static enum mode effective_mode(const th_insert *dc) {
+    return dc->foster_pending ? dc->foster_return : dc->mode;
+}
+
+/* Whether source[from, to) spells an end tag that closes raw-text noscript content: `</noscript` in any letter case
+   followed by whitespace, '/' or '>'. */
+static int source_ends_noscript(const th_tree *tree, Py_ssize_t from, Py_ssize_t to) {
+    static const char name[] = "</noscript";
+    Py_ssize_t name_len = (Py_ssize_t)sizeof(name) - 1;
+    for (Py_ssize_t index = from; index + name_len < to; index++) {
+        TH_WORK_STEP();
+        Py_ssize_t at = 0;
+        while (at < name_len && lower_ascii(PyUnicode_READ(tree->kind, tree->data, index + at)) == (Py_UCS4)name[at]) {
+            at++;
+        }
+        Py_UCS4 next = PyUnicode_READ(tree->kind, tree->data, index + name_len);
+        if (at == name_len && (is_space(next) || next == '/' || next == '>')) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Whether the open elements under a just-pushed noscript leave nothing the minified markup before it could rebuild
+   differently: all HTML, and no table whose misplaced content the parser moves. An open template needs no check here:
+   its marker keeps the active formatting list non-empty, which already rules out a cut. */
+static int noscript_cut_stack(const th_tree *tree) {
+    for (Py_ssize_t index = 0; index < tree->open_len - 1; index++) {
+        const th_node *open = tree->open[index];
+        if (open->ns != TH_NS_HTML || open->atom == TH_TAG_TABLE) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Record the noscript a start tag just built, given the open-element count and node sequence from before the token.
+   The parse ignores the tag in some modes, and the depth cap keeps the element off the stack, which leaves no node to
+   record but a span that cannot be stable. The span stays open when the tag left the builder where a raw-text reading
+   does, one element deeper, so its close can be compared against the state saved here. That state is also where a cut
+   can start: no active formatting element to reconstruct, and a form pointer that the minified markup sets alike. */
+static void noscript_opened(th_tree *tree, th_insert *dc, th_noscript_track *track, Py_ssize_t start,
+                            Py_ssize_t open_before, uint32_t seq_before) {
+    th_node *top = current_node(tree);
+    int created = tree->node_seq != seq_before;
+    int pushed = created && top->seq == tree->node_seq - 1 && top->ns == TH_NS_HTML;
+    if (!pushed && !stack_at_depth_cap(tree)) {
+        return;
+    }
+    if (track->count == track->cap) {
+        size_t cap;
+        size_t bytes;
+        int grew = th_grow_cap((size_t)track->count + 1, (size_t)track->cap, 4, sizeof(th_noscript_span), &cap, &bytes);
+        if (!grew) {           /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+            track->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            return;            /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        }
+        th_noscript_span *grown = PyMem_Realloc(track->spans, bytes);
+        if (grown == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            track->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return;            /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        }
+        track->spans = grown;
+        track->cap = (Py_ssize_t)cap;
+    }
+    th_noscript_span *span = &track->spans[track->count];
+    span->node = pushed ? top : NULL;
+    span->seq = tree->node_seq - 1;
+    span->start = start;
+    span->content = th_tok_position(dc->sm);
+    span->end = -1;
+    span->stable = 0;
+    span->cut = 0;
+    span->html = tree->open[0];
+    span->html_attrs = span->html->attr_count;
+    span->body = tree->open[1]->atom == TH_TAG_BODY ? tree->open[1] : NULL;
+    span->body_attrs = span->body != NULL ? span->body->attr_count : 0;
+    if (pushed && track->open < 0 && tree->open_len == open_before + 1) {
+        track->open = track->count;
+        track->open_len = open_before;
+        track->mode = dc->mode == M_IN_HEAD_NOSCRIPT ? M_IN_HEAD : effective_mode(dc);
+        track->afe_len = tree->afe_len;
+        track->afe_last = tree->afe_len > 0 ? tree->afe[tree->afe_len - 1] : NULL;
+        track->form = tree->form;
+        track->frameset_ok = tree->frameset_ok;
+        track->html_attrs = span->html_attrs;
+        track->body = span->body;
+        track->body_attrs = span->body_attrs;
+        span->cut = tree->afe_len == 0 && (tree->form == NULL || !tree->form->left_stack) && noscript_cut_stack(tree);
+    }
+    track->count++;
+}
+
+/* The open noscript left the stack: it is stable when the token that closed it is the first `</noscript` after its
+   start tag and the builder is back where the raw-text reading puts it -- the same open elements, active formatting
+   elements, form pointer, insertion mode and html/body attributes. A cleared frameset-ok is kept apart, since it only
+   matters to a later <frameset>. Every comparison is evaluated, so the result does not depend on which one fails. */
+static void noscript_closed(th_tree *tree, th_insert *dc, th_noscript_track *track, Py_ssize_t end) {
+    th_noscript_span *span = &track->spans[track->open];
+    if (track->frameset_ok && !tree->frameset_ok) {
+        track->frameset_span = track->open;
+    }
+    track->open = -1;
+    span->end = end;
+    th_node *afe_last = tree->afe_len > 0 ? tree->afe[tree->afe_len - 1] : NULL;
+    Py_ssize_t body_attrs = track->body != NULL ? track->body->attr_count : 0;
+    span->stable = (end >= span->content) & (tree->open_len == track->open_len) & (tree->afe_len == track->afe_len) &
+                   (afe_last == track->afe_last) & (tree->form == track->form) &
+                   ((int)effective_mode(dc) == track->mode) & (tree->open[0]->attr_count == track->html_attrs) &
+                   (body_attrs == track->body_attrs);
+    if (span->stable) {
+        span->stable = !source_ends_noscript(tree, span->content, end);
+    }
+}
+
+/* drain_token with the noscript bookkeeping around it, taken only by a parse that records spans. */
+static TH_NOINLINE void drain_tracked(th_tree *tree, th_insert *dc, th_token *tok, th_noscript_track *track) {
+    int opens = tok->kind == TH_START_TAG && tok->atom == TH_TAG_NOSCRIPT;
+    int ends = tok->kind == TH_END_TAG && tok->atom == TH_TAG_NOSCRIPT;
+    Py_ssize_t offset = tok->src_off; /* stamped on every tag token, read before drain_token reuses the token */
+    Py_ssize_t open_before = tree->open_len;
+    uint32_t seq_before = tree->node_seq;
+    if (tok->kind == TH_START_TAG && tok->atom == TH_TAG_FRAMESET && track->frameset_span >= 0) {
+        track->spans[track->frameset_span].stable = 0;
+    }
+    drain_token(tree, dc, tok);
+    if (track->open >= 0 && track->spans[track->open].node->left_stack) {
+        noscript_closed(tree, dc, track, ends ? offset : -1);
+    }
+    if (opens) {
+        /* a noscript inside an open one gets a span too, so every noscript element the walk meets has one */
+        noscript_opened(tree, dc, track, offset, open_before, seq_before);
+    }
+}
+
 /* Drive tree construction over the tokens the tokenizer can produce now,
    returning when it stalls (TH_STEP_NEED_MORE), reaches EOF (TH_STEP_DONE), or
    fails. The insertion-mode state is restored from run_state on entry and saved
-   back on exit so a later call resumes the WHATWG algorithm in place. */
-static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) {
+   back on exit so a later call resumes the WHATWG algorithm in place. A non-NULL track records noscript spans; the
+   parses without one get their own copy of the loop with no check for it. */
+static TH_TREE_INLINE void run_drain_with(th_tree *tree, th_tokenizer *sm, th_run_state *run_state,
+                                          th_noscript_track *track) {
     /* foster_return: a table mode foster-parents a stray token by processing it
        once under in-body rules and then returning to the table mode. table_origin:
        the row/section modes delegate unhandled tokens to the in-table rules without
@@ -4154,160 +5204,12 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
     while (!tree->failed /* GCOVR_EXCL_BR_LINE */ &&
            (th_tok_set_cdata(sm, tree->open_len > 0 && current_node(tree)->ns != TH_NS_HTML),
             th_tok_next(sm, &tok) == TH_STEP_TOKEN)) {
-        if (dc->foster_pending) {
-            /* The one fostered token was processed under in-body rules; restore
-               the table/cell mode only if those rules did not themselves switch
-               the insertion mode (a fostered <select>/<table> legitimately
-               does, and that switch must survive). */
-            if (dc->mode == M_IN_BODY) {
-                dc->mode = dc->foster_return;
-            }
-            tree->foster = 0;
-            dc->foster_pending = 0;
-        }
-        dc->table_origin = M_IN_TABLE;
-        tree->text_offset = 0; /* a fresh token: any consumed-prefix offset is stale */
-        /* the pre/listing/textarea leading-LF skip applies only to the token
-           immediately following the start tag: a text token consumes it in its
-           own branch, so any other intervening token (a comment or element) must
-           clear the flag here or a later newline would be dropped too */
-        if (tree->drop_newline && tok->kind != TH_TEXT) {
-            tree->drop_newline = 0;
-        }
-    reprocess:;
-        /* Intern the tag name once; every comparison and insert below reads
-           tok->atom / tok->tag_flags instead of re-interning the same name. */
-        if (tok->kind == TH_START_TAG || tok->kind == TH_END_TAG) {
-            tok->atom = intern_atom(&tok->name, &tok->tag_flags);
+        /* only a noscript or frameset tag, or a token while a noscript is open, changes the record; drain_tracked reads
+           the kind, as a text token can carry a tag's stale atom */
+        if (track != NULL && (track->open >= 0 || tok->atom == TH_TAG_NOSCRIPT || tok->atom == TH_TAG_FRAMESET)) {
+            drain_tracked(tree, dc, tok, track);
         } else {
-            tok->atom = TH_TAG_UNKNOWN;
-            tok->tag_flags = 0;
-        }
-        /* the element(s) this end tag pops are the ones the source closed explicitly */
-        tree->closing_end_tag = tok->kind == TH_END_TAG ? tok : NULL;
-        if (use_foreign_rules(tree, tok) && foreign_step(tree, tok)) {
-            goto token_done; /* handled under foreign-content rules */
-        }
-        /* template tags are handled uniformly across the table/select modes (the
-           spec routes them through in-head); in-body/in-head/in-template keep
-           their own handlers for the active-formatting interactions */
-        if (tok->kind == TH_END_TAG && dc->mode >= M_IN_HEAD && tok_atom(tok) == TH_TAG_TEMPLATE) {
-            if (stack_index_of_atom(tree, TH_TAG_TEMPLATE) >= 0) {
-                generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
-                /* an element still open inside the template may have pushed its own formatting marker, which the clear
-                   below leaves behind, shielding an outer a/nobr the output's explicit end tags no longer shield */
-                tree->reparse_hazard |= current_node(tree)->atom != TH_TAG_TEMPLATE;
-                pop_until_atom(tree, TH_TAG_TEMPLATE);
-                afe_clear_to_marker(tree);
-                tmpl_pop(tree);
-                dc->mode = reset_insertion_mode(tree);
-            }
-            goto token_done;
-        }
-        if (tok->kind == TH_START_TAG &&
-            (dc->mode == M_IN_TABLE || dc->mode == M_IN_TABLE_BODY || dc->mode == M_IN_ROW || dc->mode == M_IN_CELL ||
-             dc->mode == M_IN_COLUMN_GROUP || dc->mode == M_IN_CAPTION) &&
-            tok_atom(tok) == TH_TAG_TEMPLATE) {
-            th_node *node = insert_template(tree, tok);
-            stack_push(tree, node);
-            afe_push_marker(tree);
-            tmpl_push(tree, M_IN_TEMPLATE);
-            dc->mode = M_IN_TEMPLATE;
-            goto token_done;
-        }
-        /* "in select in table": a select opened in a table context does not get its own
-           mode here, so a table-family start tag would nest inside the still-open select.
-           Per the spec it pops the select, resets the insertion mode, and reprocesses, so
-           the table element becomes a sibling of the closed select (#90). */
-        if (tok->kind == TH_START_TAG && (dc->mode == M_IN_TABLE || dc->mode == M_IN_TABLE_BODY ||
-                                          dc->mode == M_IN_ROW || dc->mode == M_IN_CELL || dc->mode == M_IN_CAPTION)) {
-            uint16_t atom = tok_atom(tok);
-            if ((atom == TH_TAG_CAPTION || atom == TH_TAG_TABLE || atom == TH_TAG_TBODY || atom == TH_TAG_TFOOT ||
-                 atom == TH_TAG_THEAD || atom == TH_TAG_TR || atom == TH_TAG_TD || atom == TH_TAG_TH) &&
-                has_in_scope(tree, TH_TAG_SELECT)) {
-                pop_until_atom(tree, TH_TAG_SELECT);
-                dc->mode = reset_insertion_mode(tree);
-                goto reprocess;
-            }
-        }
-        /* a DOCTYPE in any insertion mode other than "initial" is a parse error that is
-           ignored without changing the insertion mode (foreign content already handled
-           its own DOCTYPE above); only the initial mode builds the doctype node */
-        if (tok->kind == TH_DOCTYPE && dc->mode != M_INITIAL) {
-            th_error_sink_push(&tree->errors, "unexpected-doctype", tok->line, tok->col);
-            continue;
-        }
-        /* every insertion mode has an explicit case, so the compiler default arm is unreachable */
-        enum th_drain action = TH_DRAIN_NEXT;
-        switch (dc->mode) /* GCOVR_EXCL_BR_LINE */ {
-        case M_INITIAL:
-            action = drain_initial(tree, tok, dc);
-            break;
-        case M_BEFORE_HTML:
-            action = drain_before_html(tree, tok, dc);
-            break;
-        case M_BEFORE_HEAD:
-            action = drain_before_head(tree, tok, dc);
-            break;
-        case M_IN_HEAD:
-            action = drain_in_head(tree, tok, dc);
-            break;
-        case M_IN_HEAD_NOSCRIPT:
-            action = drain_in_head_noscript(tree, tok, dc);
-            break;
-        case M_AFTER_HEAD:
-            action = drain_after_head(tree, tok, dc);
-            break;
-        case M_IN_TEMPLATE:
-            action = drain_in_template(tree, tok, dc);
-            break;
-        case M_IN_FRAMESET:
-            action = drain_in_frameset(tree, tok, dc);
-            break;
-        case M_AFTER_FRAMESET:
-            action = drain_after_frameset(tree, tok, dc);
-            break;
-        case M_IN_BODY:
-            action = drain_in_body(tree, tok, dc);
-            break;
-        case M_TEXT:
-            action = drain_text(tree, tok, dc);
-            break;
-        case M_IN_TABLE:
-            action = drain_in_table(tree, tok, dc);
-            break;
-        case M_IN_CAPTION:
-            action = drain_in_caption(tree, tok, dc);
-            break;
-        case M_IN_COLUMN_GROUP:
-            action = drain_in_column_group(tree, tok, dc);
-            break;
-        case M_IN_TABLE_BODY:
-            action = drain_in_table_body(tree, tok, dc);
-            break;
-        case M_IN_ROW:
-            action = drain_in_row(tree, tok, dc);
-            break;
-        case M_IN_CELL:
-            action = drain_in_cell(tree, tok, dc);
-            break;
-        case M_AFTER_BODY:
-            action = drain_after_body(tree, tok, dc);
-            break;
-        case M_AFTER_AFTER_BODY:
-            action = drain_after_after_body(tree, tok, dc);
-            break;
-        case M_AFTER_AFTER_FRAMESET:
-            action = drain_after_after_frameset(tree, tok, dc);
-            break;
-        }
-        if (action == TH_DRAIN_REPROCESS) {
-            goto reprocess;
-        }
-    token_done:
-        if (tok->kind == TH_START_TAG && tok->self_closing && !tok->self_closing_acknowledged) {
-            th_error_sink_push(&tree->errors, "non-void-html-element-start-tag-with-trailing-solidus", tok->line,
-                               tok->col);
+            drain_token(tree, dc, tok);
         }
     }
     /* the tokenizer reports its allocation failures as TH_STEP_ERROR, which would otherwise end the drain as if the
@@ -4319,8 +5221,13 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
     run_state->foster_pending = dc->foster_pending;
 }
 
+static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) {
+    run_drain_with(tree, sm, run_state, NULL);
+}
+
 /* Stop parsing at EOF: pop the remaining open elements, which runs the
-   option-into-selectedcontent clone for a still-open selected option. */
+   option-into-selectedcontent clone for a still-open selected option, then settles
+   the late selectedcontent elements, whose children are complete only now. */
 static void run_close(th_tree *tree) {
     /* EOF closes the remaining open elements; none was closed by an end tag. The
        last token buffer may still hold a partial tag the tokenizer never emitted
@@ -4328,8 +5235,9 @@ static void run_close(th_tree *tree) {
        element whose name matches that leftover gets a span the source never wrote. */
     tree->closing_end_tag = NULL;
     while (tree->open_len > 0) {
-        stack_pop(tree);
+        stack_pop_any(tree);
     }
+    select_cache_finish(tree);
     select_cache_free(tree);
 }
 
@@ -4424,6 +5332,33 @@ static void ensure_head_body(th_tree *tree, th_node *html) {
     }
 }
 
+/* The adoption agency and a selectedcontent copy drop the nest bound, since they can nest a node deeper than its start
+   tag would. Measure the finished document once instead, so that a page with no node TH_DEEP_NEST deep keeps
+   TH_NEST_CAPPED for its selector queries. */
+static void bound_parsed_nesting(th_tree *tree) {
+    th_node *const root = tree->document;
+    th_node *node = root;
+    Py_ssize_t ancestors = 0; /* of node's children */
+    for (;;) {
+        if (node->first_child != NULL) {
+            if (++ancestors >= TH_DEEP_NEST) {
+                return;
+            }
+            node = node->first_child;
+            continue;
+        }
+        while (node != root && node->next_sibling == NULL) {
+            node = node->parent;
+            ancestors--;
+        }
+        if (node == root) {
+            break;
+        }
+        node = node->next_sibling;
+    }
+    tree->nest_bound = TH_NEST_CAPPED;
+}
+
 /* At EOF a document always has html, head and body (the missing-element rules of
    the early insertion modes), so synthesize any the parse left out. */
 static void finalize_document(th_tree *tree) {
@@ -4436,6 +5371,9 @@ static void finalize_document(th_tree *tree) {
         node_append(tree->document, html);
     }
     ensure_head_body(tree, html);
+    if (tree->nest_bound == 0) {
+        bound_parsed_nesting(tree);
+    }
 }
 
 /* Allocate a fresh document tree ready for token-driven construction (the shared
@@ -4447,6 +5385,7 @@ static th_tree *tree_new_document(int positions, int locations) {
     if (tree == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
+    tree->nest_bound = TH_HAS_MEMO_DEPTH | TH_NEST_CAPPED;
     tree->track_positions = positions || locations; /* set before any element node_new */
     tree->track_locations = locations;
     tree->document = node_new(tree, TH_NODE_DOCUMENT);
@@ -4492,6 +5431,48 @@ th_tree *th_tree_parse(int kind, const void *data, Py_ssize_t length, int positi
         return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     return tree;
+}
+
+th_tree *th_tree_parse_noscript(int kind, const void *data, Py_ssize_t length, th_noscript_track *track) {
+    th_tree *tree = tree_new_document(1, 0);
+    if (tree == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    tree->declarative_shadow = 1;
+    tree->kind = kind;
+    tree->data = data;
+    tree->length = length;
+    th_tokenizer *sm = th_tok_new();
+    if (sm == NULL) {       /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        th_tree_free(tree); /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    th_tok_set_error_sink(sm, &tree->errors);
+    int normalized = setup_input(tree, sm, kind, data, length);
+    track->open = -1;
+    track->frameset_span = -1;
+    th_run_state run_state;
+    run_state_init(&run_state, M_INITIAL);
+    run_drain_with(tree, sm, &run_state, track);
+    run_close(tree);
+    track->open = -1; /* EOF closed it, which no raw-text reading matches: it stays unstable */
+    for (Py_ssize_t index = 0; index < track->count; index++) {
+        th_noscript_span *span = &track->spans[index];
+        span->cut &= (span->html->attr_count == span->html_attrs) &
+                     (span->body == NULL || span->body->attr_count == span->body_attrs);
+    }
+    retain_normalized_source(tree, sm, normalized);
+    th_tok_free(sm);
+    finalize_document(tree);
+    if (tree->failed || track->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        th_tree_free(tree);              /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                     /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    return tree;
+}
+
+void th_noscript_track_free(th_noscript_track *track) {
+    PyMem_Free(track->spans);
 }
 
 /* The insertion mode a fragment starts in, given its context element's atom. */
@@ -4673,6 +5654,7 @@ void th_tree_free(th_tree *tree) {
     if (tree == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure before tree creation */
         return;         /* GCOVR_EXCL_LINE */
     }
+    xp_ns_index_free(tree->ns_index);
     arena_block *block = tree->arena;
     while (block != NULL) {
         arena_block *next = block->next;
@@ -4780,4 +5762,392 @@ void th_stream_free(th_stream *stream) {
         th_tree_free(stream->tree);
     }
     PyMem_Free(stream);
+}
+
+/* A document tree built alongside another consumer's tokenizer: tree construction runs on the tokens that consumer
+   pulls and steers its tokenizer as it would its own, so the consumer reads the input exactly as a parse does. While
+   the consumer reads on without it, the tree waits at `synced`, and th_shadow_catch_up feeds it the input it missed. */
+struct th_shadow {
+    th_tree *tree;
+    th_insert dc;
+    th_tokenizer *sm;
+    Py_ssize_t synced; /* input offset the tree has read up to, at line:col */
+    Py_ssize_t line;
+    Py_ssize_t col;
+    arena_block *counted; /* the newest arena block already in allocated */
+    Py_ssize_t allocated; /* arena bytes the tree holds */
+    Py_ssize_t budget;    /* allocated past which th_shadow_compact copies the tree */
+    th_node gone;         /* stands in for an element the tree let go of: it has left the stack */
+    int mirror;           /* sm is the shadow's own, fed by th_shadow_mirror_feed, and its input moves */
+    int built;            /* the last token th_shadow_step read built a node */
+    int discarded;        /* the last token th_shadow_step read detached the body, as a frameset replacing it does */
+    int body_open;        /* the tree has opened a body, by the token at body_line:body_col */
+    Py_ssize_t body_line;
+    Py_ssize_t body_col;
+};
+
+/* Arena growth a shadow tree may reach before its first copy, and on top of three times what the last copy kept. */
+#define SHADOW_SLACK ((Py_ssize_t)256 * 1024)
+/* Set on an element of the tree being copied once it has its copy, which prev_sibling then points at. */
+#define SHADOW_COPIED 0x80
+
+static th_tree *shadow_tree(th_tokenizer *sm, int mirror) {
+    th_tree *tree = tree_new_document(1, 0); /* the start tag positions pair the elements with the consumer's */
+    if (tree == NULL) {                      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;                         /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* the settings of a document parse that runs scripts, as a browser does */
+    tree->scripting = 1;
+    tree->declarative_shadow = 1;
+    /* the consumer's input is final and outlives the tree, so text can stay a span of it, but a mirror's tokenizer
+       drops what it has read on the next feed; any slice may hold a NUL */
+    tree->data = th_tok_input_data(sm, &tree->kind);
+    tree->can_span = !mirror;
+    tree->has_nul = 1;
+    return tree;
+}
+
+static void shadow_count_arena(th_shadow *shadow) {
+    for (arena_block *block = shadow->tree->arena; block != shadow->counted; block = block->next) {
+        shadow->allocated += block->cap;
+    }
+    shadow->counted = shadow->tree->arena;
+}
+
+static th_shadow *shadow_new(th_tokenizer *sm, int mirror) {
+    th_shadow *shadow = PyMem_Calloc(1, sizeof(th_shadow));
+    if (shadow == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    shadow->mirror = mirror;
+    shadow->tree = shadow_tree(sm, mirror);
+    if (shadow->tree == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyMem_Free(shadow);     /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;            /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    shadow->sm = sm;
+    shadow->dc = (th_insert){
+        .sm = sm,
+        .mode = M_INITIAL,
+        .original_mode = M_IN_BODY,
+        .foster_return = M_IN_TABLE,
+        .table_origin = M_IN_TABLE,
+    };
+    shadow->line = 1;
+    shadow->gone.left_stack = 1;
+    shadow_count_arena(shadow);
+    shadow->budget = shadow->allocated + SHADOW_SLACK;
+    return shadow;
+}
+
+th_shadow *th_shadow_new(th_tokenizer *sm) {
+    return shadow_new(sm, 0);
+}
+
+static void shadow_take(th_shadow *shadow, th_token *token) {
+    th_tree *tree = shadow->tree;
+    drain_token(tree, &shadow->dc, token);
+    tree->closing_end_tag = NULL;
+    tree->errors.len = 0; /* nobody reads the shadow's parse errors, and keeping them would grow with the document */
+    if (!shadow->body_open && tree->open_len > 1 && tree->open[1]->atom == TH_TAG_BODY) {
+        shadow->body_open = 1;
+        shadow->body_line = token->line;
+        shadow->body_col = token->col;
+    }
+}
+
+/* Copy one node of src into dest, under parent when it has one. A template's content goes with it: a content
+   fragment as its child, the shadow root of a declarative one parentless, as the tree builder makes them. */
+static th_node *shadow_copy(th_tree *dest, th_tree *src, th_node *node, th_node *parent) {
+    th_node *copy = th_tree_copy_node_shallow(dest, src, node);
+    if (copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    copy->html_integration = node->html_integration;
+    copy->afe_listed = node->afe_listed;
+    copy->left_stack = node->left_stack;
+    if (node->type == TH_NODE_ELEMENT) {
+        node_pos(copy)[0] = node_pos(node)[0];
+        node_pos(copy)[1] = node_pos(node)[1];
+    }
+    node->left_stack |= SHADOW_COPIED;
+    node->prev_sibling = copy;
+    if (parent != NULL) {
+        node_append(parent, copy);
+    }
+    if (node->ns == TH_NS_HTML && node->atom == TH_TAG_TEMPLATE) { /* any other node is TH_TAG_UNKNOWN */
+        th_node *content = node->first_child;
+        int attached = content->parent == node;
+        th_node *inner = shadow_copy(dest, src, content, attached ? copy : NULL);
+        if (inner == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (!attached) {
+            copy->first_child = inner;
+            copy->last_child = inner;
+        }
+    }
+    return copy;
+}
+
+/* The copy of node, made with its ancestors when it has none yet. */
+static th_node *shadow_copy_rooted(th_tree *dest, th_tree *src, th_node *node) {
+    if (node->left_stack & SHADOW_COPIED) {
+        return node->prev_sibling;
+    }
+    th_node *parent = NULL;
+    if (node->parent != NULL) {
+        parent = shadow_copy_rooted(dest, src, node->parent);
+        if (parent == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    return shadow_copy(dest, src, node, parent);
+}
+
+static th_node *shadow_copy_detached(th_tree *dest, th_tree *src, th_node *node) {
+    if (node->left_stack & SHADOW_COPIED) {
+        return node->prev_sibling;
+    }
+    return shadow_copy(dest, src, node, NULL);
+}
+
+/* Replace the tree by a copy of what tree construction can still reach: the open elements with their ancestors, the
+   active formatting elements, the head and form element pointers and the template insertion modes. Everything
+   else (closed elements, text, comments) can no longer change how a later token is read. Each of the `count` node
+   pointers at refs, `stride` bytes apart, is moved to its element's copy, or to a stand-in that has left the stack. */
+static int shadow_compact(th_shadow *shadow, th_node **refs, Py_ssize_t count, size_t stride) {
+    th_tree *src = shadow->tree;
+    th_tree *dest = shadow_tree(shadow->sm, shadow->mirror);
+    if (dest == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    src->document->left_stack |= SHADOW_COPIED;
+    src->document->prev_sibling = dest->document;
+    for (Py_ssize_t index = 0; index < src->open_len; index++) {
+        TH_WORK_STEP();
+        th_node *copy = shadow_copy_rooted(dest, src, src->open[index]);
+        if (copy == NULL || !stack_push(dest, copy)) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            th_tree_free(dest);                        /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;                                 /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+    }
+    for (Py_ssize_t index = 0; index < src->afe_len; index++) {
+        TH_WORK_STEP();
+        th_node *entry = src->afe[index];
+        th_node *copy = entry == NULL ? NULL : shadow_copy_detached(dest, src, entry);
+        if (dest->afe_len == dest->afe_cap && !afe_grow(dest)) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            th_tree_free(dest);                                  /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;                                           /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        afe_keys(dest)[dest->afe_len] = 0; /* hashed again once the hash set needs it */
+        dest->afe[dest->afe_len++] = copy;
+    }
+    dest->head = src->head == NULL ? NULL : shadow_copy_detached(dest, src, src->head);
+    dest->form = src->form == NULL ? NULL : shadow_copy_detached(dest, src, src->form);
+    for (Py_ssize_t index = 0; index < src->tmpl_len; index++) {
+        tmpl_push(dest, src->tmpl[index]);
+    }
+    dest->stack_version = src->stack_version;
+    dest->scope_version = src->stack_version - 1;
+    dest->open_p_count = src->open_p_count;
+    dest->refused_frameset_count = src->refused_frameset_count;
+    dest->afe_stack_hint = -1;
+    dest->frameset_ok = src->frameset_ok;
+    dest->drop_newline = src->drop_newline;
+    dest->foster = src->foster;
+    dest->quirks = src->quirks;
+    for (Py_ssize_t index = 0; index < count; index++) {
+        th_node **ref = (th_node **)((char *)refs + (size_t)index * stride);
+        if (*ref != NULL) {
+            *ref = (*ref)->left_stack & SHADOW_COPIED ? (*ref)->prev_sibling : &shadow->gone;
+        }
+    }
+    if (dest->failed) {     /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        th_tree_free(dest); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    th_tree_free(src);
+    shadow->tree = dest;
+    shadow->counted = NULL;
+    shadow->allocated = 0;
+    shadow_count_arena(shadow);
+    shadow->budget = 3 * shadow->allocated + SHADOW_SLACK;
+    return 0;
+}
+
+int th_shadow_compact(th_shadow *shadow, th_node **refs, Py_ssize_t count, size_t stride) {
+    if (shadow->tree->arena != shadow->counted) {
+        shadow_count_arena(shadow);
+    }
+    return shadow->allocated > shadow->budget ? shadow_compact(shadow, refs, count, stride) : 0;
+}
+
+/* Replay the input from the shadow's synced offset up to offset. With to_body, the replay stops after the token that
+   opens a body, parked there. Returns 1 when it stopped at a body, 0 when it reached offset, or -1 on allocation
+   failure. */
+static int shadow_catch_up(th_shadow *shadow, Py_ssize_t offset, th_node **refs, Py_ssize_t count, size_t stride,
+                           int to_body) {
+    th_tree *tree = shadow->tree;
+    th_tokenizer *replay = th_tok_new();
+    if (replay == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* the tree stopped after a tag and the consumer is at one, so the replay starts and ends in the data state */
+    th_tok_borrow_input(replay, tree->kind, tree->data, offset);
+    th_tok_seek(replay, shadow->synced, shadow->line, shadow->col);
+    th_tok_close(replay);
+    TH_WORK_STEPS_ADD(offset - shadow->synced);
+    shadow->dc.sm = replay;
+    th_token *token;
+    int failed = 0;
+    int stopped = 0;
+    while (th_tok_set_cdata(replay, shadow->tree->open_len > 0 && current_node(shadow->tree)->ns != TH_NS_HTML),
+           th_tok_next(replay, &token) == TH_STEP_TOKEN) {
+        shadow_take(shadow, token);
+        /* GCOVR_EXCL_BR_START: allocation failure cannot be forced from a test */
+        if (shadow->tree->failed || th_shadow_compact(shadow, refs, count, stride) < 0) {
+            failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+            break;      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        /* GCOVR_EXCL_BR_STOP */
+        if (to_body && shadow->body_open) {
+            th_shadow_park(shadow, token);
+            stopped = 1;
+            break;
+        }
+    }
+    failed |= th_tok_failed(replay); /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+    th_tok_free(replay);
+    shadow->dc.sm = shadow->sm;
+    if (!stopped) {
+        shadow->synced = offset;
+    }
+    return failed ? -1 : stopped; /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+}
+
+int th_shadow_catch_up(th_shadow *shadow, Py_ssize_t offset, th_node **refs, Py_ssize_t count, size_t stride) {
+    return shadow_catch_up(shadow, offset, refs, count, stride, 0);
+}
+
+int th_shadow_catch_body(th_shadow *shadow, Py_ssize_t offset, th_node **refs, Py_ssize_t count, size_t stride) {
+    return shadow_catch_up(shadow, offset, refs, count, stride, 1);
+}
+
+int th_shadow_step(th_shadow *shadow, th_token *token) {
+    th_tree *tree = shadow->tree;
+    enum th_kind kind = token->kind;
+    if (kind == TH_CHARREF) {
+        token->kind = TH_TEXT; /* the decoded reference, as a parse reads it inside its text run */
+    }
+    th_node *body = tree->open_len > 1 && tree->open[1]->atom == TH_TAG_BODY ? tree->open[1] : NULL;
+    uint32_t seq_before = tree->node_seq;
+    shadow_take(shadow, token);
+    shadow->built = tree->node_seq != seq_before;
+    shadow->discarded = body != NULL && body->parent == NULL;
+    token->kind = kind;
+    /* the tag the shadow started at put <html> on the stack, and nothing takes it off */
+    th_tok_set_cdata(shadow->sm, current_node(tree)->ns != TH_NS_HTML);
+    return tree->failed ? -1 : 0; /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+}
+
+int th_shadow_built(const th_shadow *shadow) {
+    return shadow->built;
+}
+
+int th_shadow_discarded(const th_shadow *shadow) {
+    return shadow->discarded;
+}
+
+int th_shadow_body(const th_shadow *shadow, Py_ssize_t *line, Py_ssize_t *col) {
+    *line = shadow->body_line;
+    *col = shadow->body_col;
+    return shadow->body_open;
+}
+
+int th_shadow_parkable(const th_shadow *shadow) {
+    switch (shadow->dc.mode) {
+    case M_TEXT:
+    case M_TEXT_REFUSED:
+    case M_IN_FRAMESET:
+    case M_AFTER_FRAMESET:
+    case M_AFTER_AFTER_FRAMESET:
+        return 0;
+    default:
+        /* the tokenizer is in its data state: a <plaintext> never ends what kept the tree from parking */
+        return shadow->tree->tmpl_len == 0;
+    }
+}
+
+void th_shadow_park(th_shadow *shadow, const th_token *token) {
+    int kind;
+    const void *data = th_tok_input_data(shadow->sm, &kind);
+    Py_ssize_t line = token->line;
+    Py_ssize_t col = token->col;
+    Py_ssize_t end = token->src_off + token->src_span;
+    for (Py_ssize_t index = token->src_off; index < end; index++) {
+        if (PyUnicode_READ(kind, data, index) == '\n') {
+            line++;
+            col = 0;
+        } else {
+            col++;
+        }
+    }
+    shadow->synced = end;
+    shadow->line = line;
+    shadow->col = col;
+}
+
+th_node *const *th_shadow_open(const th_shadow *shadow, Py_ssize_t *count) {
+    *count = shadow->tree->open_len;
+    return shadow->tree->open;
+}
+
+void th_shadow_free(th_shadow *shadow) {
+    if (shadow == NULL) {
+        return;
+    }
+    if (shadow->mirror) {
+        th_tok_free(shadow->sm);
+    }
+    th_tree_free(shadow->tree);
+    PyMem_Free(shadow);
+}
+
+th_shadow *th_shadow_mirror_new(void) {
+    th_tokenizer *sm = th_tok_new();
+    if (sm == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return NULL;  /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    th_shadow *mirror = shadow_new(sm, 1);
+    if (mirror == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        /* GCOVR_EXCL_START: allocation-failure path */
+        th_tok_free(sm); /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    /* GCOVR_EXCL_STOP */
+    return mirror;
+}
+
+int th_shadow_mirror_feed(th_shadow *mirror, const Py_UCS4 *data, Py_ssize_t length, th_node **refs, Py_ssize_t count,
+                          size_t stride) {
+    th_tok_feed(mirror->sm, PyUnicode_4BYTE_KIND, data, length);
+    mirror->tree->data = th_tok_input_data(mirror->sm, &mirror->tree->kind);
+    th_token *token;
+    while (th_tok_set_cdata(mirror->sm, th_shadow_foreign(mirror)), th_tok_next(mirror->sm, &token) == TH_STEP_TOKEN) {
+        shadow_take(mirror, token);
+        /* GCOVR_EXCL_BR_START: allocation failure cannot be forced from a test */
+        if (mirror->tree->failed || (count >= 0 && th_shadow_compact(mirror, refs, count, stride) < 0)) {
+            return -1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        /* GCOVR_EXCL_BR_STOP */
+    }
+    return th_tok_failed(mirror->sm) ? -1 : 0; /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced */
+}
+
+enum th_initial_state th_shadow_mirror_model(const th_shadow *mirror, const th_buf **end_tag) {
+    return th_tok_content_model(mirror->sm, end_tag);
+}
+
+int th_shadow_foreign(const th_shadow *shadow) {
+    return shadow->tree->open_len > 0 && shadow->tree->open[shadow->tree->open_len - 1]->ns != TH_NS_HTML;
 }

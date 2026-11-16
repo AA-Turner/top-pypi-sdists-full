@@ -28,8 +28,7 @@ class TagFilterButton(JSCSSMixin, MacroElement):
 
     """
 
-    _template = Template(
-        """
+    _template = Template("""
         {% macro header(this,kwargs) %}
             <style>
                 .easy-button-button {
@@ -47,8 +46,7 @@ class TagFilterButton(JSCSSMixin, MacroElement):
                 {{ this.options|tojavascript }}
             ).addTo({{ this._parent.get_name() }});
         {% endmacro %}
-        """
-    )
+        """)
 
     default_js = [
         (
@@ -82,7 +80,7 @@ class TagFilterButton(JSCSSMixin, MacroElement):
         clear_text="clear",
         filter_on_every_click=True,
         open_popup_on_hover=False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self._name = "TagFilterButton"
@@ -92,5 +90,5 @@ class TagFilterButton(JSCSSMixin, MacroElement):
             clear_text=clear_text,
             filter_on_every_click=filter_on_every_click,
             open_popup_on_hover=open_popup_on_hover,
-            **kwargs
+            **kwargs,
         )
